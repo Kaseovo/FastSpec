@@ -1,115 +1,269 @@
 # FastSpec - OpenAPI Editor
 
-🧩 FastSpec — define, validate, and document your FastAPI endpoints with type-safe OpenAPI specs.
+🧩 FastSpec — A full-stack web application to create, edit, validate, and manage your OpenAPI specifications with a modern visual editor.
 
-## Web Application
+## Stack
 
-FastSpec now includes a powerful web-based OpenAPI (Swagger) editor that lets you visually create, edit, and validate OpenAPI JSON definitions for your APIs.
+- **Backend**: Python + FastAPI
+- **Frontend**: Next.js + React + TypeScript
+- **Styling**: TailwindCSS
+- **Database**: SQLite (via SQLAlchemy)
+- **Validation**: openapi-spec-validator
+- **Deployment**: Docker + Docker Compose
 
-### Features
+## Features
 
-- **Dual-Mode Editor**: Switch between JSON editor and visual form-based editor
-- **Syntax Highlighting**: Clean JSON editor with real-time syntax validation
-- **OpenAPI Validation**: Built-in validator that checks your spec against OpenAPI 3.0 standards
-- **Live Preview**: See your API documentation rendered in real-time
-- **Template Library**: Quick-start templates for common API patterns (Basic, Pet Store, E-Commerce)
-- **Visual Endpoint Builder**: Create and edit endpoints using intuitive forms
-- **Import/Export**: Load and save OpenAPI JSON files
-- **Comprehensive Validation**: Detailed error and warning messages to help you fix issues
+### Backend (FastAPI)
+- **REST API** for CRUD operations on OpenAPI specifications
+- **Pydantic models** for request/response validation
+- **OpenAPI validation** using openapi-spec-validator
+- **Detailed error messages** for invalid specifications
+- **SQLite database** for persistent storage
+- **CORS enabled** for frontend integration
 
-### Getting Started
+### Frontend (Next.js + React + TypeScript)
+- **Dual-mode editor**: Switch between JSON editor and visual form-based editor
+- **Monaco Editor**: Powerful code editor with syntax highlighting
+- **Visual editor**: Intuitive forms to create and edit API information and endpoints
+- **Live preview**: Integrated Swagger UI for real-time API documentation preview
+- **Validation**: Frontend validation with detailed error messages
+- **Responsive design**: TailwindCSS for modern, mobile-friendly interface
+- **Spec management**: Save, load, update, and delete OpenAPI specifications
 
-1. **Open the Editor**
-   - Simply open `index.html` in a web browser
-   - No installation or build process required!
+## Getting Started
 
-2. **Choose Your Starting Point**
-   - Click "New" to start from scratch
-   - Click "Load Template" to use a pre-built template
-   - Click "Import JSON" to load an existing OpenAPI file
+### Prerequisites
 
-3. **Edit Your API**
+- Docker and Docker Compose (recommended)
+- OR Node.js 20+ and Python 3.11+ (for local development)
+
+### Option 1: Using Docker (Recommended)
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/DishWatcher/FastSpec.git
+   cd FastSpec
+   ```
+
+2. **Start the application**
+   ```bash
+   docker-compose up --build
+   ```
+
+3. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Documentation: http://localhost:8000/docs
+
+4. **Stop the application**
+   ```bash
+   docker-compose down
+   ```
+
+### Option 2: Local Development
+
+#### Backend Setup
+
+1. **Navigate to backend directory**
+   ```bash
+   cd backend
+   ```
+
+2. **Create a virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Run the backend**
+   ```bash
+   python main.py
+   ```
    
-   **JSON Editor Mode:**
-   - Edit the OpenAPI JSON directly in the left panel
-   - See live documentation preview in the right panel
-   - Changes are validated automatically
+   The backend will be available at http://localhost:8000
+
+#### Frontend Setup
+
+1. **Navigate to frontend directory** (in a new terminal)
+   ```bash
+   cd frontend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+
+3. **Create environment file**
+   ```bash
+   echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+   ```
+
+4. **Run the frontend**
+   ```bash
+   npm run dev
+   ```
    
-   **Visual Editor Mode:**
-   - Click "Visual Editor" to switch modes
-   - Fill in API information (title, version, description, base URL)
-   - Add endpoints using the "Add Endpoint" button
-   - Edit or delete existing endpoints
+   The frontend will be available at http://localhost:3000
 
-4. **Validate Your Spec**
-   - Click "Validate" to check for errors and warnings
-   - Fix any issues reported by the validator
-   - Green checkmark means your spec is valid!
+## Usage Guide
 
-5. **Export Your Work**
-   - Click "Export JSON" to download your OpenAPI specification
-   - Use it with Swagger UI, FastAPI, or any OpenAPI-compatible tool
+### Creating a New Specification
 
-### Usage Tips
+1. Click **"New"** to start with an empty specification
+2. Or click **"Load Template"** to start with a pre-built template
+3. Edit the API information (title, version, description, base URL)
+4. Add endpoints using the **"Add Endpoint"** button
+5. Click **"Save"** and enter a name to save the specification
 
-- **Path Parameters**: Use curly braces in paths, e.g., `/users/{id}`
-- **Tags**: Add comma-separated tags to organize endpoints
-- **Response Schemas**: Define JSON schemas for response bodies
-- **Validation**: Run validation frequently to catch issues early
-- **Templates**: Use templates as learning examples for OpenAPI structure
+### Editing Modes
 
-### OpenAPI 3.0 Support
+#### JSON Editor Mode
+- Edit the OpenAPI JSON directly in a Monaco code editor
+- See live Swagger UI preview on the right
+- Automatic syntax validation
 
-The editor supports OpenAPI 3.0.x specifications and validates:
+#### Visual Editor Mode
+- Fill in forms for API information
+- Add, edit, and delete endpoints visually
+- User-friendly interface for non-technical users
 
-- Required fields (`openapi`, `info`, `paths`)
-- Info object (title, version)
-- Path definitions and HTTP methods
-- Operation objects (responses, parameters, requestBody)
-- Response definitions
-- Parameter definitions
-- Content types and schemas
+### Validation
 
-### File Structure
+1. Click **"Validate"** to check your specification
+2. View detailed error messages and warnings
+3. Fix any issues reported by the validator
+4. Re-validate until all errors are resolved
+
+### Managing Specifications
+
+- **Saved Specs Sidebar**: View all saved specifications
+- **Load**: Click on a spec to load it into the editor
+- **Delete**: Click the delete button to remove a spec
+- **Update**: Load a spec, make changes, and click "Save" to update
+
+## API Endpoints
+
+### Specifications
+
+- `GET /api/specs` - List all specifications
+- `GET /api/specs/{id}` - Get a specific specification
+- `POST /api/specs` - Create a new specification
+- `PUT /api/specs/{id}` - Update a specification
+- `DELETE /api/specs/{id}` - Delete a specification
+
+### Validation
+
+- `POST /api/validate` - Validate an OpenAPI specification
+
+## Project Structure
 
 ```
 FastSpec/
-├── index.html        # Main HTML page
-├── styles.css        # Styling and layout
-├── app.js           # Application logic and UI handlers
-├── validator.js     # OpenAPI validation engine
-├── templates.js     # Pre-built OpenAPI templates
-└── README.md        # This file
+├── backend/
+│   ├── main.py              # FastAPI application
+│   ├── database.py          # Database models and setup
+│   ├── schemas.py           # Pydantic schemas
+│   ├── validator.py         # OpenAPI validation logic
+│   ├── requirements.txt     # Python dependencies
+│   └── Dockerfile           # Backend Docker configuration
+├── frontend/
+│   ├── app/
+│   │   ├── page.tsx         # Main application page
+│   │   ├── layout.tsx       # Root layout
+│   │   └── globals.css      # Global styles
+│   ├── components/
+│   │   ├── JsonEditor.tsx   # Monaco editor component
+│   │   ├── SwaggerPreview.tsx # Swagger UI preview
+│   │   └── VisualEditor.tsx # Visual form editor
+│   ├── lib/
+│   │   ├── api.ts           # API client
+│   │   └── templates.ts     # OpenAPI templates
+│   ├── package.json         # Node dependencies
+│   ├── Dockerfile           # Frontend Docker configuration
+│   └── next.config.ts       # Next.js configuration
+├── docker-compose.yml       # Docker Compose orchestration
+├── .gitignore              # Git ignore rules
+└── README.md               # This file
 ```
 
-### Browser Compatibility
+## Technology Details
 
-Works in all modern browsers:
-- Chrome/Edge (recommended)
-- Firefox
-- Safari
-- Opera
+### Backend Technologies
+- **FastAPI**: Modern, fast web framework for building APIs
+- **Pydantic**: Data validation using Python type annotations
+- **SQLAlchemy**: SQL toolkit and ORM
+- **openapi-spec-validator**: Comprehensive OpenAPI validation
+- **Uvicorn**: ASGI web server
 
-### Examples
+### Frontend Technologies
+- **Next.js 15**: React framework with App Router
+- **React 19**: UI library
+- **TypeScript**: Type-safe JavaScript
+- **TailwindCSS**: Utility-first CSS framework
+- **Monaco Editor**: VS Code's code editor
+- **Swagger UI React**: OpenAPI documentation renderer
+- **Axios**: HTTP client
 
-The app includes three starter templates:
+## Development
 
-1. **Basic API**: Simple REST API with user endpoints
-2. **Pet Store**: Classic Swagger Petstore example
-3. **E-Commerce**: Products and orders API
+### Running Tests
 
-### Contributing
+Backend:
+```bash
+cd backend
+pytest
+```
 
-Feel free to contribute by:
-- Adding more templates
-- Improving validation rules
-- Enhancing the UI
-- Fixing bugs
+Frontend:
+```bash
+cd frontend
+npm run test
+```
 
-### License
+### Building for Production
+
+Using Docker:
+```bash
+docker-compose up --build -d
+```
+
+Manual build:
+```bash
+# Backend
+cd backend
+pip install -r requirements.txt
+
+# Frontend
+cd frontend
+npm install --legacy-peer-deps
+npm run build
+npm start
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
 
 Open source and free to use!
 
----
+## Acknowledgments
 
-**Note**: This is a client-side application. All data is processed in your browser and nothing is sent to any server. Your API specifications remain private and secure.
+- OpenAPI Specification
+- FastAPI framework
+- Next.js team
+- All contributors and users
+
