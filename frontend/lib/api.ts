@@ -7,7 +7,7 @@ export interface OpenAPISpec {
   name: string;
   title: string;
   version: string;
-  spec_json: any;
+  spec_json: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -44,13 +44,13 @@ export const specApi = {
   },
 
   // Create a new spec
-  createSpec: async (name: string, spec_json: any): Promise<OpenAPISpec> => {
+  createSpec: async (name: string, spec_json: Record<string, unknown>): Promise<OpenAPISpec> => {
     const response = await api.post('/api/specs', { name, spec_json });
     return response.data;
   },
 
   // Update a spec
-  updateSpec: async (id: number, updates: { name?: string; spec_json?: any }): Promise<OpenAPISpec> => {
+  updateSpec: async (id: number, updates: { name?: string; spec_json?: Record<string, unknown> }): Promise<OpenAPISpec> => {
     const response = await api.put(`/api/specs/${id}`, updates);
     return response.data;
   },
@@ -61,8 +61,14 @@ export const specApi = {
   },
 
   // Validate a spec
-  validateSpec: async (spec_json: any): Promise<ValidationResponse> => {
+  validateSpec: async (spec_json: Record<string, unknown>): Promise<ValidationResponse> => {
     const response = await api.post('/api/validate', spec_json);
+    return response.data;
+  },
+
+  // Get diff between current and previous version
+  getDiff: async (id: number, format: 'json' | 'markdown' = 'json'): Promise<unknown> => {
+    const response = await api.get(`/api/specs/${id}/diff`, { params: { format } });
     return response.data;
   },
 };
