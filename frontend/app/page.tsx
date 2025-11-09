@@ -9,7 +9,7 @@ import { basicTemplate, emptyTemplate } from '@/lib/templates';
 
 export default function Home() {
   const [specs, setSpecs] = useState<OpenAPISpec[]>([]);
-  const [currentSpec, setCurrentSpec] = useState<any>(basicTemplate);
+  const [currentSpec, setCurrentSpec] = useState<Record<string, unknown>>(basicTemplate);
   const [currentSpecId, setCurrentSpecId] = useState<number | null>(null);
   const [editorMode, setEditorMode] = useState<'json' | 'visual'>('json');
   const [jsonValue, setJsonValue] = useState(JSON.stringify(basicTemplate, null, 2));
@@ -20,14 +20,14 @@ export default function Home() {
 
   useEffect(() => {
     loadSpecs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadSpecs = async () => {
     try {
       const data = await specApi.listSpecs();
       setSpecs(data);
-    } catch (error) {
-      console.error('Failed to load specs:', error);
+    } catch {
       showMessage('error', 'Failed to load specifications');
     }
   };
@@ -42,12 +42,12 @@ export default function Home() {
     try {
       const parsed = JSON.parse(value);
       setCurrentSpec(parsed);
-    } catch (error) {
+    } catch {
       // Invalid JSON, don't update spec
     }
   };
 
-  const handleVisualChange = (spec: any) => {
+  const handleVisualChange = (spec: Record<string, unknown>) => {
     setCurrentSpec(spec);
     setJsonValue(JSON.stringify(spec, null, 2));
   };
@@ -86,8 +86,17 @@ export default function Home() {
         showMessage('success', 'Specification created successfully');
       }
       await loadSpecs();
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.detail?.message || error.response?.data?.detail || 'Failed to save specification';
+    } catch (error: unknown) {
+      const errorResponse = error as { response?: { data?: { detail?: { message?: string } | string } } };
+      const detail = errorResponse?.response?.data?.detail;
+      let errorMsg = 'Failed to save specification';
+      
+      if (typeof detail === 'object' && detail?.message) {
+        errorMsg = detail.message;
+      } else if (typeof detail === 'string') {
+        errorMsg = detail;
+      }
+      
       showMessage('error', errorMsg);
     } finally {
       setLoading(false);
@@ -105,7 +114,7 @@ export default function Home() {
       } else {
         showMessage('error', 'Specification has validation errors');
       }
-    } catch (error) {
+    } catch {
       showMessage('error', 'Failed to validate specification');
     } finally {
       setLoading(false);
@@ -131,7 +140,7 @@ export default function Home() {
       if (currentSpecId === id) {
         handleNewSpec();
       }
-    } catch (error) {
+    } catch {
       showMessage('error', 'Failed to delete specification');
     }
   };
