@@ -13,16 +13,45 @@ Thumbs.db
 /tmp/
 *.tmp
 
-# Build artifacts (if any build process is added later)
+# Build artifacts
 dist/
 build/
 *.min.js
 *.min.css
+.next/
+out/
 
 # Logs
 *.log
 
-# Dependencies (if npm/package management is added later)
+# Dependencies
 node_modules/
 package-lock.json
 yarn.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.venv/
+venv/
+ENV/
+env/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+fastspec.db
+
+# Environment variables
+.env
+.env.local
+.env.production.local
+.env.development.local
+.env.test.local
+
