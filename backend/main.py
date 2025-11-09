@@ -13,6 +13,7 @@ from schemas import (
     ValidationError as ValidationErrorSchema
 )
 from validator import validate_openapi_spec
+from diff_utils import compare_specs, generate_markdown_report
 
 app = FastAPI(
     title="FastSpec API",
@@ -151,6 +152,9 @@ def update_spec(spec_id: int, spec_update: OpenAPISpecUpdate, db: Session = Depe
                 }
             )
         
+        # Store current spec as previous version before updating
+        db_spec.previous_spec_json = db_spec.spec_json
+        
         # Update spec_json and extract title/version
         db_spec.spec_json = json.dumps(spec_update.spec_json)
         db_spec.title = spec_update.spec_json.get("info", {}).get("title", db_spec.title)
@@ -206,6 +210,36 @@ def validate_spec(spec_json: dict):
         errors=[ValidationErrorSchema(field=e.field, message=e.message) for e in errors],
         warnings=warnings
     )
+
+
+@app.get("/api/specs/{spec_id}/diff")
+def get_spec_diff(spec_id: int, format: str = "json", db: Session = Depends(get_db)):
+    """
+    Get the diff between current and previous version of a specification
+    
+    Query params:
+    - format: 'json' (default) or 'markdown'
+    """
+    spec = db.query(OpenAPISpec).filter(OpenAPISpec.id == spec_id).first()
+    if not spec:
+        raise HTTPException(status_code=404, detail="Spec not found")
+    
+    if not spec.previous_spec_json:
+        return {
+            "has_changes": False,
+            "message": "No previous version available for comparison"
+        }
+    
+    current_spec = json.loads(spec.spec_json)
+    previous_spec = json.loads(spec.previous_spec_json)
+    
+    diff = compare_specs(current_spec, previous_spec)
+    
+    if format == "markdown":
+        markdown = generate_markdown_report(diff)
+        return {"markdown": markdown}
+    
+    return diff
 
 
 if __name__ == "__main__":

@@ -65,4 +65,10 @@ export const specApi = {
     const response = await api.post('/api/validate', spec_json);
     return response.data;
   },
+
+  // Get diff between current and previous version
+  getDiff: async (id: number, format: 'json' | 'markdown' = 'json'): Promise<unknown> => {
+    const response = await api.get(`/api/specs/${id}/diff`, { params: { format } });
+    return response.data;
+  },
 };

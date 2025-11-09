@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import JsonEditor from '@/components/JsonEditor';
 import SwaggerPreview from '@/components/SwaggerPreview';
 import VisualEditor from '@/components/VisualEditor';
+import DiffViewer from '@/components/DiffViewer';
 import { specApi, OpenAPISpec, ValidationResponse } from '@/lib/api';
 import { basicTemplate, emptyTemplate } from '@/lib/templates';
 
@@ -17,6 +18,8 @@ export default function Home() {
   const [showValidation, setShowValidation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [diffData, setDiffData] = useState<unknown | null>(null);
+  const [showDiff, setShowDiff] = useState(false);
 
   useEffect(() => {
     loadSpecs();
@@ -145,6 +148,19 @@ export default function Home() {
     }
   };
 
+  const handleViewDiff = async (id: number) => {
+    setLoading(true);
+    try {
+      const diff = await specApi.getDiff(id);
+      setDiffData(diff);
+      setShowDiff(true);
+    } catch {
+      showMessage('error', 'Failed to load version comparison');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -185,6 +201,15 @@ export default function Home() {
             >
               {loading ? 'Validating...' : 'Validate'}
             </button>
+            {currentSpecId && (
+              <button
+                onClick={() => handleViewDiff(currentSpecId)}
+                disabled={loading}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Loading...' : 'View Changes'}
+              </button>
+            )}
             <div className="flex-1"></div>
             <button
               onClick={() => setEditorMode(editorMode === 'json' ? 'visual' : 'json')}
@@ -312,6 +337,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Diff Viewer Modal */}
+      {showDiff && <DiffViewer diff={diffData as never} onClose={() => setShowDiff(false)} />}
     </div>
   );
 }

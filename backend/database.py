@@ -21,6 +21,7 @@ class OpenAPISpec(Base):
     title = Column(String, nullable=False)
     version = Column(String, nullable=False)
     spec_json = Column(Text, nullable=False)
+    previous_spec_json = Column(Text, nullable=True)  # Store previous version for comparison
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
