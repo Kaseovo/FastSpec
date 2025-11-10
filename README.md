@@ -2,6 +2,8 @@
 
 🧩 FastSpec — A full-stack web application to create, edit, validate, and manage your OpenAPI specifications with a modern visual editor.
 
+📚 **[Quick Start Guide](./QUICKSTART.md)** - Get running in 5 minutes!
+
 ## Stack
 
 - **Backend**: Python + FastAPI
