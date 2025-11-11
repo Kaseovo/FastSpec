@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50 w-full h-full">
     <!-- Header -->
     <header class="bg-white shadow-sm border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="px-4 sm:px-6 lg:px-8 py-4">
         <h1 class="text-3xl font-bold text-gray-900">🧩 FastSpec - OpenAPI Editor</h1>
         <p class="text-gray-600 mt-1">Create, edit, and validate your OpenAPI specifications</p>
       </div>
@@ -10,7 +10,7 @@
 
     <!-- Toolbar -->
     <div class="bg-white border-b border-gray-200 shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <div class="px-4 sm:px-6 lg:px-8 py-3">
         <div class="flex flex-wrap gap-2">
           <Button label="New" @click="handleNewSpec" severity="info" icon="pi pi-plus" />
           <Button label="Load Template" @click="handleLoadTemplate" icon="pi pi-file" />
@@ -36,18 +36,13 @@
             icon="pi pi-history"
           />
           <div class="flex-1"></div>
-          <Button
-            :label="editorMode === 'json' ? 'Visual Editor' : 'JSON Editor'"
-            @click="editorMode = editorMode === 'json' ? 'visual' : 'json'"
-            :icon="editorMode === 'json' ? 'pi pi-eye' : 'pi pi-code'"
-          />
         </div>
       </div>
     </div>
 
     <!-- Validation Results -->
     <div v-if="showValidation && validationResult" class="bg-white border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="px-4 sm:px-6 lg:px-8 py-4">
         <div class="flex justify-between items-start">
           <div>
             <h3 class="text-lg font-semibold mb-2">
@@ -84,7 +79,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="px-4 sm:px-6 lg:px-8 py-6">
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- Sidebar - Saved Specs -->
         <div class="lg:col-span-1">
@@ -158,26 +153,16 @@
         <div class="lg:col-span-3">
           <Card v-if="editorMode === 'json'" class="shadow-sm">
             <template #content>
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <div class="flex items-center justify-between mb-3">
-                    <h2 class="text-xl font-semibold text-gray-800">JSON Editor</h2>
-                    <Tag icon="pi pi-code" value="JSON" severity="info" />
-                  </div>
-                  <JsonEditor v-model="jsonValue" height="600px" />
+              <div class="space-y-6">
+                <h2 class="text-xl font-semibold text-gray-800">JSON Editor</h2>
+                <div class="mb-4">
+                  <Button
+                    :label="editorMode === 'json' ? 'Visual Editor' : 'JSON Editor'"
+                    @click="editorMode = editorMode === 'json' ? 'visual' : 'json'"
+                    :icon="editorMode === 'json' ? 'pi pi-eye' : 'pi pi-code'"
+                  />
                 </div>
-                <div>
-                  <div class="flex items-center justify-between mb-3">
-                    <h2 class="text-xl font-semibold text-gray-800">API Documentation</h2>
-                    <Tag icon="pi pi-book" value="Preview" severity="secondary" />
-                  </div>
-                  <div
-                    class="border border-gray-300 rounded-lg overflow-auto shadow-inner"
-                    style="height: 600px"
-                  >
-                    <SwaggerPreview :spec="currentSpec" />
-                  </div>
-                </div>
+                <JsonEditor v-model="jsonValue" height="600px" />
               </div>
             </template>
           </Card>
@@ -193,7 +178,7 @@
 
     <!-- Save Spec Dialog -->
     <Dialog
-      v-model:visible="showSaveDialog"
+      v-model="showSaveDialog"
       header="Save Specification"
       :modal="true"
       :style="{ width: '450px' }"
