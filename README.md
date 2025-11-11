@@ -7,8 +7,9 @@
 ## Stack
 
 - **Backend**: Python + FastAPI
-- **Frontend**: Next.js + React + TypeScript
-- **Styling**: TailwindCSS
+- **Frontend**: Vue.js 3 + TypeScript + Vite
+- **UI Library**: PrimeVue with PrimeIcons & PrimeFlex
+- **Styling**: TailwindCSS + PrimeVue Themes
 - **Database**: SQLite (via SQLAlchemy)
 - **Validation**: openapi-spec-validator
 - **Deployment**: Docker (optional, see `/docker` directory)
@@ -23,14 +24,16 @@
 - **SQLite database** for persistent storage
 - **CORS enabled** for frontend integration
 
-### Frontend (Next.js + React + TypeScript)
+### Frontend (Vue.js 3 + PrimeVue)
 - **Dual-mode editor**: Switch between JSON editor and visual form-based editor
 - **Monaco Editor**: Powerful code editor with syntax highlighting
 - **Visual editor**: Intuitive forms to create and edit API information and endpoints
 - **Live preview**: Integrated Swagger UI for real-time API documentation preview
 - **Validation**: Frontend validation with detailed error messages
-- **Responsive design**: TailwindCSS for modern, mobile-friendly interface
+- **Modern UI**: PrimeVue components with consistent design
+- **Responsive design**: Mobile-friendly interface
 - **Spec management**: Save, load, update, and delete OpenAPI specifications
+- **TypeScript**: Full type safety across the application
 
 ## Getting Started
 
@@ -95,12 +98,12 @@ Open a **new terminal** and keep the backend running.
 
 2. **Install dependencies**
    ```bash
-   npm install --legacy-peer-deps
+   npm install
    ```
 
 3. **Create environment file**
    ```bash
-   cp .env.local.example .env.local
+   cp .env.example .env.local
    # The default configuration points to http://localhost:8000
    ```
 
@@ -109,7 +112,7 @@ Open a **new terminal** and keep the backend running.
    npm run dev
    ```
    
-   ✅ Frontend will be available at **http://localhost:3000**
+   ✅ Frontend will be available at **http://localhost:5173** (Vite default port)
 
 #### 4. Verify the Setup
 
@@ -203,20 +206,27 @@ FastSpec/
 │   ├── requirements.txt     # Python dependencies
 │   └── .env.example         # Backend environment variables template
 ├── frontend/
-│   ├── app/
-│   │   ├── page.tsx         # Main application page
-│   │   ├── layout.tsx       # Root layout
-│   │   └── globals.css      # Global styles
-│   ├── components/
-│   │   ├── JsonEditor.tsx   # Monaco editor component
-│   │   ├── SwaggerPreview.tsx # Swagger UI preview
-│   │   └── VisualEditor.tsx # Visual form editor
-│   ├── lib/
-│   │   ├── api.ts           # API client
-│   │   └── templates.ts     # OpenAPI templates
+│   ├── src/
+│   │   ├── views/
+│   │   │   └── HomeView.vue  # Main application page
+│   │   ├── components/
+│   │   │   ├── JsonEditor.vue       # Monaco editor component
+│   │   │   ├── SwaggerPreview.vue   # Swagger UI preview
+│   │   │   ├── VisualEditor.vue     # Visual form editor
+│   │   │   ├── FieldEditor.vue      # Field editing component
+│   │   │   ├── FieldConstraints.vue # Field constraints editor
+│   │   │   ├── DiffViewer.vue       # Version comparison modal
+│   │   │   └── SchemaChanges.vue    # Schema change display
+│   │   ├── lib/
+│   │   │   ├── api.ts               # API client
+│   │   │   └── templates.ts         # OpenAPI templates
+│   │   ├── router/
+│   │   │   └── index.ts             # Vue Router configuration
+│   │   ├── App.vue                  # Root component
+│   │   └── main.ts                  # Application entry point
 │   ├── package.json         # Node dependencies
-│   ├── next.config.ts       # Next.js configuration
-│   └── .env.local.example   # Frontend environment variables template
+│   ├── vite.config.ts       # Vite configuration
+│   └── .env.example         # Frontend environment variables template
 ├── docker/
 │   ├── docker-compose.yml   # Docker Compose orchestration
 │   ├── docker-compose.dev.yml # Development Docker setup
@@ -236,9 +246,12 @@ FastSpec/
 - **Uvicorn**: ASGI web server
 
 ### Frontend Technologies
-- **Next.js 15**: React framework with App Router
-- **React 19**: UI library
+- **Vue.js 3**: Progressive JavaScript framework
+- **Vite**: Next-generation frontend build tool
 - **TypeScript**: Type-safe JavaScript
+- **PrimeVue**: Rich component library for Vue
+- **PrimeIcons**: Icon library for PrimeVue
+- **PrimeFlex**: CSS utility library
 - **TailwindCSS**: Utility-first CSS framework
 - **Monaco Editor**: VS Code's code editor
 - **Swagger UI React**: OpenAPI documentation renderer
@@ -274,9 +287,9 @@ python main.py
 Frontend:
 ```bash
 cd frontend
-npm install --legacy-peer-deps
+npm install
 npm run build
-npm start
+npm run preview
 ```
 
 #### Docker Build

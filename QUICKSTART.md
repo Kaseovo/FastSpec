@@ -35,20 +35,20 @@ Open a new terminal:
 cd FastSpec/frontend
 
 # Install dependencies
-npm install --legacy-peer-deps
+npm install
 
 # Create environment file
-cp .env.local.example .env.local
+cp .env.example .env.local
 
 # Run development server
 npm run dev
 ```
 
-✅ Frontend running at **http://localhost:3000**
+✅ Frontend running at **http://localhost:5173** (Vite default port)
 
 ## Verify Setup
 
-1. Open http://localhost:3000 in your browser
+1. Open http://localhost:5173 in your browser
 2. Click "New" to create a specification
 3. Fill in some details and click "Save"
 4. Your spec should be saved and appear in the sidebar
@@ -61,19 +61,19 @@ Visit http://localhost:8000/docs for interactive API documentation.
 
 ### Port Already in Use
 
-If port 8000 or 3000 is already in use:
+If port 8000 or 5173 is already in use:
 
 **Backend**: Edit `backend/main.py` and change the port in the last line
-**Frontend**: Run `npm run dev -- -p 3001` to use port 3001
+**Frontend**: Run `npm run dev -- --port 5174` to use port 5174
 
 ### Module Not Found
 
 **Backend**: Make sure virtual environment is activated and dependencies are installed
-**Frontend**: Delete `node_modules` and run `npm install --legacy-peer-deps` again
+**Frontend**: Delete `node_modules` and run `npm install` again
 
 ### CORS Errors
 
-Make sure backend is running on port 8000, or update `NEXT_PUBLIC_API_URL` in `frontend/.env.local`
+Make sure backend is running on port 8000, or update `VITE_API_URL` in `frontend/.env.local`
 
 ## Next Steps
 

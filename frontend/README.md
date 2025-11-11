@@ -1,36 +1,183 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FastSpec Frontend - Vue.js
 
-## Getting Started
+This is the frontend application for FastSpec, built with Vue.js 3, TypeScript, and PrimeVue.
 
-First, run the development server:
+## Tech Stack
+
+- **Vue.js 3**: Progressive JavaScript framework with Composition API
+- **TypeScript**: Type-safe development
+- **Vite**: Fast build tool and dev server
+- **PrimeVue**: Rich component library
+- **PrimeIcons**: Icon library
+- **PrimeFlex**: CSS utility library
+- **Monaco Editor**: Code editor for JSON editing
+- **Swagger UI**: OpenAPI documentation preview
+- **Axios**: HTTP client for API calls
+
+## Development
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+### Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will be available at `http://localhost:5173`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Type Check
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run type-check
+```
 
-## Learn More
+### Build for Production
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Preview Production Build
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run preview
+```
 
-## Deploy on Vercel
+### Lint Code
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run lint
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Format Code
+
+```bash
+npm run format
+```
+
+## Project Structure
+
+```
+src/
+├── components/          # Vue components
+│   ├── DiffViewer.vue
+│   ├── FieldConstraints.vue
+│   ├── FieldEditor.vue
+│   ├── JsonEditor.vue
+│   ├── SchemaChanges.vue
+│   ├── SwaggerPreview.vue
+│   └── VisualEditor.vue
+├── views/               # Page components
+│   └── HomeView.vue
+├── lib/                 # Shared utilities
+│   ├── api.ts          # API client
+│   └── templates.ts    # OpenAPI templates
+├── router/             # Vue Router configuration
+│   └── index.ts
+├── assets/             # Static assets
+├── App.vue             # Root component
+└── main.ts             # Application entry point
+```
+
+## Environment Variables
+
+Create a `.env.local` file in the frontend directory:
+
+```bash
+cp .env.example .env.local
+```
+
+Available variables:
+
+- `VITE_API_URL`: Backend API URL (default: `http://localhost:8000`)
+
+## Features
+
+### JSON Editor Mode
+- Monaco code editor with syntax highlighting
+- Real-time OpenAPI JSON editing
+- Live Swagger UI preview
+
+### Visual Editor Mode
+- Form-based API specification editing
+- Endpoint management
+- Field editor with type validation
+- Constraint configuration
+
+### Specification Management
+- List all saved specifications
+- Load, save, update, and delete specifications
+- Version comparison (diff viewer)
+
+### Validation
+- OpenAPI specification validation
+- Error and warning display
+- Detailed validation messages
+
+## Development Notes
+
+### Component Communication
+- Uses Vue 3 Composition API with `<script setup>` syntax
+- Props and emits for parent-child communication
+- Reactive state management with `ref` and `reactive`
+
+### Styling
+- PrimeVue components for UI elements
+- TailwindCSS utility classes for custom styling
+- Responsive design with flexbox and grid
+
+### TypeScript
+- Strict type checking enabled
+- Interface definitions for all data structures
+- Type-safe API client
+
+## Browser Support
+
+- Chrome/Edge (latest)
+- Firefox (latest)
+- Safari (latest)
+
+## Contributing
+
+When adding new features:
+
+1. Create components in `src/components/`
+2. Add views in `src/views/`
+3. Update router if needed
+4. Maintain TypeScript types
+5. Follow Vue 3 Composition API patterns
+6. Use PrimeVue components when possible
+
+## Troubleshooting
+
+### Build Errors
+
+If you encounter build errors:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+### Type Errors
+
+Run type checking separately:
+
+```bash
+npm run type-check
+```
+
+### Dev Server Issues
+
+Try clearing Vite cache:
+
+```bash
+rm -rf node_modules/.vite
+npm run dev
+```
