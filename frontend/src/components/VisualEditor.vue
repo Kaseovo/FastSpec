@@ -1,69 +1,91 @@
 <template>
   <div class="space-y-6">
     <!-- API Information -->
-    <Panel header="API Information" class="mb-4">
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            API Title <span class="text-red-500">*</span>
-          </label>
-          <InputText
-            :model-value="apiInfo.title"
-            @update:model-value="handleInfoChange('title', ($event as string) || '')"
-            placeholder="My API"
-            class="w-full"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Version <span class="text-red-500">*</span>
-          </label>
-          <InputText
-            :model-value="apiInfo.version"
-            @update:model-value="handleInfoChange('version', ($event as string) || '')"
-            placeholder="1.0.0"
-            class="w-full"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <Textarea
-            :model-value="apiInfo.description"
-            @update:model-value="handleInfoChange('description', ($event as string) || '')"
-            rows="3"
-            placeholder="API description"
-            class="w-full"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
-          <InputText
-            :model-value="apiInfo.server"
-            @update:model-value="handleInfoChange('server', ($event as string) || '')"
-            placeholder="https://api.example.com/v1"
-            class="w-full"
-          />
-        </div>
-      </div>
-    </Panel>
-
-    <!-- Endpoints -->
-    <Panel class="mb-4">
-      <template #header>
-        <div class="flex justify-between items-center w-full">
-          <h2 class="text-2xl font-bold text-gray-800">Endpoints</h2>
-          <Button label="+ Add Endpoint" @click="addEndpoint" />
+    <Card class="shadow-sm">
+      <template #title>
+        <div class="flex items-center gap-2">
+          <i class="pi pi-info-circle text-blue-500"></i>
+          <span>API Information</span>
         </div>
       </template>
+      <template #content>
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                API Title <span class="text-red-500">*</span>
+              </label>
+              <InputText
+                :model-value="apiInfo.title"
+                @update:model-value="handleInfoChange('title', ($event as string) || '')"
+                placeholder="My API"
+                class="w-full"
+              />
+            </div>
 
-      <p v-if="Object.keys(paths).length === 0" class="text-gray-500 py-4">
-        No endpoints yet. Click "Add Endpoint" to create one.
-      </p>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Version <span class="text-red-500">*</span>
+              </label>
+              <InputText
+                :model-value="apiInfo.version"
+                @update:model-value="handleInfoChange('version', ($event as string) || '')"
+                placeholder="1.0.0"
+                class="w-full"
+              />
+            </div>
+          </div>
 
-      <div v-else class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <Textarea
+              :model-value="apiInfo.description"
+              @update:model-value="handleInfoChange('description', ($event as string) || '')"
+              rows="3"
+              placeholder="API description"
+              class="w-full"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+            <InputText
+              :model-value="apiInfo.server"
+              @update:model-value="handleInfoChange('server', ($event as string) || '')"
+              placeholder="https://api.example.com/v1"
+              class="w-full"
+            />
+          </div>
+        </div>
+      </template>
+    </Card>
+
+    <!-- Endpoints -->
+    <Card class="shadow-sm">
+      <template #title>
+        <div class="flex justify-between items-center w-full">
+          <div class="flex items-center gap-2">
+            <i class="pi pi-sitemap text-green-500"></i>
+            <h2 class="text-2xl font-bold text-gray-800">Endpoints</h2>
+          </div>
+          <Button
+            label="Add Endpoint"
+            icon="pi pi-plus"
+            @click="addEndpoint"
+            severity="success"
+          />
+        </div>
+      </template>
+      <template #content>
+        <p
+          v-if="Object.keys(paths).length === 0"
+          class="text-gray-500 py-8 text-center"
+        >
+          <i class="pi pi-inbox text-4xl text-gray-300 block mb-2"></i>
+          No endpoints yet. Click "Add Endpoint" to create one.
+        </p>
+
+        <div v-else class="space-y-3">
         <div v-for="[path, methods] in Object.entries(paths)" :key="path">
           <div
             v-for="[method, operation] in Object.entries(methods as Record<string, unknown>)"
@@ -128,8 +150,9 @@
             </div>
           </div>
         </div>
-      </div>
-    </Panel>
+        </div>
+      </template>
+    </Card>
 
     <!-- Add Endpoint Dialog -->
     <Dialog
@@ -188,7 +211,7 @@
 import { ref, watch } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
-import Panel from 'primevue/panel'
+import Card from 'primevue/card'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'

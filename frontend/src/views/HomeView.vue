@@ -88,49 +88,99 @@
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- Sidebar - Saved Specs -->
         <div class="lg:col-span-1">
-          <Panel header="Saved Specs" class="h-full">
-            <p v-if="specs.length === 0" class="text-gray-500 text-sm">No saved specifications</p>
+          <Panel header="Saved Specs" class="h-full shadow-sm">
+            <template #icons>
+              <Button
+                icon="pi pi-refresh"
+                text
+                rounded
+                severity="secondary"
+                @click="loadSpecs"
+                :loading="loading"
+                v-tooltip.bottom="'Refresh list'"
+              />
+            </template>
+            <div v-if="loading && specs.length === 0" class="space-y-2">
+              <Skeleton height="4rem" class="mb-2" />
+              <Skeleton height="4rem" class="mb-2" />
+              <Skeleton height="4rem" />
+            </div>
+            <p v-else-if="specs.length === 0" class="text-gray-500 text-sm text-center py-4">
+              <i class="pi pi-inbox text-4xl text-gray-300 block mb-2"></i>
+              No saved specifications
+            </p>
             <div v-else class="space-y-2">
-              <div
+              <Card
                 v-for="spec in specs"
                 :key="spec.id"
                 :class="[
-                  'p-3 rounded-lg border cursor-pointer transition-colors',
-                  currentSpecId === spec.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300',
+                  'cursor-pointer transition-all hover:shadow-md',
+                  currentSpecId === spec.id ? 'ring-2 ring-blue-500' : '',
                 ]"
                 @click="handleLoadSpec(spec)"
               >
-                <div class="font-medium text-sm text-gray-900">{{ spec.name }}</div>
-                <div class="text-xs text-gray-500 mt-1">{{ spec.title }} v{{ spec.version }}</div>
-                <Button
-                  label="Delete"
-                  text
-                  size="small"
-                  severity="danger"
-                  class="mt-2"
-                  @click.stop="handleDeleteSpec(spec.id)"
-                />
-              </div>
+                <template #content>
+                  <div class="p-0">
+                    <div class="flex items-start justify-between">
+                      <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-sm text-gray-900 truncate">
+                          {{ spec.name }}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                          {{ spec.title }} <span class="text-gray-400">v{{ spec.version }}</span>
+                        </div>
+                      </div>
+                      <Tag
+                        v-if="currentSpecId === spec.id"
+                        value="Active"
+                        severity="success"
+                        class="ml-2"
+                      />
+                    </div>
+                    <div class="mt-3 flex gap-2">
+                      <Button
+                        icon="pi pi-trash"
+                        text
+                        size="small"
+                        severity="danger"
+                        @click.stop="handleDeleteSpec(spec.id)"
+                        v-tooltip.top="'Delete specification'"
+                      />
+                    </div>
+                  </div>
+                </template>
+              </Card>
             </div>
           </Panel>
         </div>
 
         <!-- Main Editor Area -->
         <div class="lg:col-span-3">
-          <div v-if="editorMode === 'json'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h2 class="text-xl font-semibold mb-3 text-gray-800">JSON Editor</h2>
-              <JsonEditor v-model="jsonValue" height="600px" />
-            </div>
-            <div>
-              <h2 class="text-xl font-semibold mb-3 text-gray-800">API Documentation Preview</h2>
-              <div class="border border-gray-300 rounded-lg overflow-auto" style="height: 600px">
-                <SwaggerPreview :spec="currentSpec" />
+          <Card v-if="editorMode === 'json'" class="shadow-sm">
+            <template #content>
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xl font-semibold text-gray-800">JSON Editor</h2>
+                    <Tag icon="pi pi-code" value="JSON" severity="info" />
+                  </div>
+                  <JsonEditor v-model="jsonValue" height="600px" />
+                </div>
+                <div>
+                  <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xl font-semibold text-gray-800">API Documentation</h2>
+                    <Tag icon="pi pi-book" value="Preview" severity="secondary" />
+                  </div>
+                  <div
+                    class="border border-gray-300 rounded-lg overflow-auto shadow-inner"
+                    style="height: 600px"
+                  >
+                    <SwaggerPreview :spec="currentSpec" />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </template>
+          </Card>
           <div v-else>
             <VisualEditor :spec="currentSpec" @update="handleVisualChange" />
           </div>
@@ -177,6 +227,9 @@ import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
 import Panel from 'primevue/panel'
+import Card from 'primevue/card'
+import Tag from 'primevue/tag'
+import Skeleton from 'primevue/skeleton'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import JsonEditor from '@/components/JsonEditor.vue'
