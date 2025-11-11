@@ -1,43 +1,55 @@
 <template>
   <div class="space-y-4">
-    <div class="flex justify-between items-center">
-      <h4 class="font-semibold text-gray-800">{{ title }}</h4>
+    <div class="flex justify-between items-center mb-4">
+      <h4 class="font-semibold text-gray-800 text-lg flex items-center gap-2">
+        <i class="pi pi-list text-blue-500"></i>
+        {{ title }}
+      </h4>
       <Button
-        :label="showAddField ? 'Cancel' : '+ Add Field'"
+        :label="showAddField ? 'Cancel' : 'Add Field'"
+        :icon="showAddField ? 'pi pi-times' : 'pi pi-plus'"
         size="small"
+        :severity="showAddField ? 'secondary' : 'success'"
         @click="showAddField = !showAddField"
       />
     </div>
 
-    <div v-if="showAddField" class="bg-blue-50 border border-blue-200 p-4 rounded-lg space-y-3">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Field Name <span class="text-red-500">*</span>
-        </label>
-        <InputText v-model="newField.name" placeholder="fieldName" class="w-full" />
-      </div>
+    <Card v-if="showAddField" class="border-2 border-blue-200 shadow-sm">
+      <template #content>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Field Name <span class="text-red-500">*</span>
+            </label>
+            <InputText v-model="newField.name" placeholder="fieldName" class="w-full" />
+          </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-        <Select v-model="newField.type" :options="fieldTypes" class="w-full" />
-      </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <Select v-model="newField.type" :options="fieldTypes" class="w-full" />
+          </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-        <InputText v-model="newField.description" placeholder="Field description" class="w-full" />
-      </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <InputText v-model="newField.description" placeholder="Field description" class="w-full" />
+          </div>
 
-      <div class="flex items-center">
-        <Checkbox v-model="newField.required" inputId="new-field-required" :binary="true" />
-        <label for="new-field-required" class="ml-2 text-sm text-gray-700"> Required field </label>
-      </div>
+          <div class="flex items-center">
+            <Checkbox v-model="newField.required" inputId="new-field-required" :binary="true" />
+            <label for="new-field-required" class="ml-2 text-sm text-gray-700"> Required field </label>
+          </div>
 
-      <Button label="Add Field" @click="handleAddField" class="w-full" />
+          <Button label="Add Field" icon="pi pi-check" @click="handleAddField" class="w-full" severity="success" />
+        </div>
+      </template>
+    </Card>
+
+    <div v-if="Object.keys(fields).length === 0 && !showAddField" class="text-center py-8">
+      <i class="pi pi-inbox text-4xl text-gray-300 block mb-2"></i>
+      <p class="text-gray-500 text-sm">
+        No fields defined. Click "Add Field" to create one.
+      </p>
     </div>
-
-    <p v-if="Object.keys(fields).length === 0" class="text-gray-500 text-sm py-4">
-      No fields defined. Click "Add Field" to create one.
-    </p>
 
     <div v-else class="space-y-2">
       <div
@@ -123,11 +135,14 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Checkbox from 'primevue/checkbox'
 import Tag from 'primevue/tag'
+import Card from 'primevue/card'
 import FieldConstraints from './FieldConstraints.vue'
 
 export interface FieldConstraints {
@@ -165,6 +180,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
+const toast = useToast()
+const confirm = useConfirm()
+
 const fieldTypes = ['string', 'number', 'integer', 'boolean', 'array', 'object']
 
 const expandedField = ref<string | null>(null)
@@ -179,11 +197,21 @@ const newField = ref<Field>({
 
 const handleAddField = () => {
   if (!newField.value.name) {
-    alert('Field name is required')
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Field name is required',
+      life: 3000,
+    })
     return
   }
   if (props.fields[newField.value.name]) {
-    alert('Field with this name already exists')
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Field with this name already exists',
+      life: 3000,
+    })
     return
   }
 
@@ -200,13 +228,32 @@ const handleAddField = () => {
     constraints: {},
   }
   showAddField.value = false
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: 'Field added successfully',
+    life: 3000,
+  })
 }
 
 const handleDeleteField = (fieldName: string) => {
-  if (!confirm(`Delete field "${fieldName}"?`)) return
-  const updatedFields = { ...props.fields }
-  delete updatedFields[fieldName]
-  emit('update', updatedFields)
+  confirm.require({
+    message: `Are you sure you want to delete field "${fieldName}"?`,
+    header: 'Confirm Deletion',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    accept: () => {
+      const updatedFields = { ...props.fields }
+      delete updatedFields[fieldName]
+      emit('update', updatedFields)
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Field deleted successfully',
+        life: 3000,
+      })
+    },
+  })
 }
 
 const handleUpdateField = (fieldName: string, updates: Partial<Field>) => {

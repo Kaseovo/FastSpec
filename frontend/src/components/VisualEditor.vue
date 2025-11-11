@@ -1,69 +1,91 @@
 <template>
   <div class="space-y-6">
     <!-- API Information -->
-    <Panel header="API Information" class="mb-4">
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            API Title <span class="text-red-500">*</span>
-          </label>
-          <InputText
-            :model-value="apiInfo.title"
-            @update:model-value="handleInfoChange('title', ($event as string) || '')"
-            placeholder="My API"
-            class="w-full"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Version <span class="text-red-500">*</span>
-          </label>
-          <InputText
-            :model-value="apiInfo.version"
-            @update:model-value="handleInfoChange('version', ($event as string) || '')"
-            placeholder="1.0.0"
-            class="w-full"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <Textarea
-            :model-value="apiInfo.description"
-            @update:model-value="handleInfoChange('description', ($event as string) || '')"
-            rows="3"
-            placeholder="API description"
-            class="w-full"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
-          <InputText
-            :model-value="apiInfo.server"
-            @update:model-value="handleInfoChange('server', ($event as string) || '')"
-            placeholder="https://api.example.com/v1"
-            class="w-full"
-          />
-        </div>
-      </div>
-    </Panel>
-
-    <!-- Endpoints -->
-    <Panel class="mb-4">
-      <template #header>
-        <div class="flex justify-between items-center w-full">
-          <h2 class="text-2xl font-bold text-gray-800">Endpoints</h2>
-          <Button label="+ Add Endpoint" @click="addEndpoint" />
+    <Card class="shadow-sm">
+      <template #title>
+        <div class="flex items-center gap-2">
+          <i class="pi pi-info-circle text-blue-500"></i>
+          <span>API Information</span>
         </div>
       </template>
+      <template #content>
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                API Title <span class="text-red-500">*</span>
+              </label>
+              <InputText
+                :model-value="apiInfo.title"
+                @update:model-value="handleInfoChange('title', ($event as string) || '')"
+                placeholder="My API"
+                class="w-full"
+              />
+            </div>
 
-      <p v-if="Object.keys(paths).length === 0" class="text-gray-500 py-4">
-        No endpoints yet. Click "Add Endpoint" to create one.
-      </p>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Version <span class="text-red-500">*</span>
+              </label>
+              <InputText
+                :model-value="apiInfo.version"
+                @update:model-value="handleInfoChange('version', ($event as string) || '')"
+                placeholder="1.0.0"
+                class="w-full"
+              />
+            </div>
+          </div>
 
-      <div v-else class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <Textarea
+              :model-value="apiInfo.description"
+              @update:model-value="handleInfoChange('description', ($event as string) || '')"
+              rows="3"
+              placeholder="API description"
+              class="w-full"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+            <InputText
+              :model-value="apiInfo.server"
+              @update:model-value="handleInfoChange('server', ($event as string) || '')"
+              placeholder="https://api.example.com/v1"
+              class="w-full"
+            />
+          </div>
+        </div>
+      </template>
+    </Card>
+
+    <!-- Endpoints -->
+    <Card class="shadow-sm">
+      <template #title>
+        <div class="flex justify-between items-center w-full">
+          <div class="flex items-center gap-2">
+            <i class="pi pi-sitemap text-green-500"></i>
+            <h2 class="text-2xl font-bold text-gray-800">Endpoints</h2>
+          </div>
+          <Button
+            label="Add Endpoint"
+            icon="pi pi-plus"
+            @click="addEndpoint"
+            severity="success"
+          />
+        </div>
+      </template>
+      <template #content>
+        <p
+          v-if="Object.keys(paths).length === 0"
+          class="text-gray-500 py-8 text-center"
+        >
+          <i class="pi pi-inbox text-4xl text-gray-300 block mb-2"></i>
+          No endpoints yet. Click "Add Endpoint" to create one.
+        </p>
+
+        <div v-else class="space-y-3">
         <div v-for="[path, methods] in Object.entries(paths)" :key="path">
           <div
             v-for="[method, operation] in Object.entries(methods as Record<string, unknown>)"
@@ -128,18 +150,74 @@
             </div>
           </div>
         </div>
+        </div>
+      </template>
+    </Card>
+
+    <!-- Add Endpoint Dialog -->
+    <Dialog
+      v-model:visible="showAddEndpointDialog"
+      header="Add New Endpoint"
+      :modal="true"
+      :style="{ width: '500px' }"
+    >
+      <div class="space-y-4">
+        <div>
+          <label for="endpoint-path" class="block text-sm font-medium text-gray-700 mb-2">
+            Endpoint Path <span class="text-red-500">*</span>
+          </label>
+          <InputText
+            id="endpoint-path"
+            v-model="newEndpoint.path"
+            placeholder="/users/{id}"
+            class="w-full"
+          />
+          <small class="text-gray-500">Must start with /</small>
+        </div>
+
+        <div>
+          <label for="endpoint-method" class="block text-sm font-medium text-gray-700 mb-2">
+            HTTP Method <span class="text-red-500">*</span>
+          </label>
+          <Select
+            id="endpoint-method"
+            v-model="newEndpoint.method"
+            :options="methodOptions"
+            class="w-full"
+          />
+        </div>
+
+        <div>
+          <label for="endpoint-summary" class="block text-sm font-medium text-gray-700 mb-2">
+            Summary
+          </label>
+          <InputText
+            id="endpoint-summary"
+            v-model="newEndpoint.summary"
+            placeholder="Brief description of the endpoint"
+            class="w-full"
+          />
+        </div>
       </div>
-    </Panel>
+      <template #footer>
+        <Button label="Cancel" text @click="showAddEndpointDialog = false" />
+        <Button label="Add" @click="confirmAddEndpoint" severity="success" icon="pi pi-plus" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import Panel from 'primevue/panel'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
+import Card from 'primevue/card'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
+import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
 import FieldEditor, { type Field } from './FieldEditor.vue'
 
 interface Props {
@@ -153,6 +231,9 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const toast = useToast()
+const confirm = useConfirm()
+
 const apiInfo = ref({
   title: '',
   version: '',
@@ -161,6 +242,16 @@ const apiInfo = ref({
 })
 
 const expandedEndpoint = ref<string | null>(null)
+
+// Add Endpoint Dialog
+const showAddEndpointDialog = ref(false)
+const newEndpoint = ref({
+  path: '',
+  method: 'get',
+  summary: '',
+})
+
+const methodOptions = ['get', 'post', 'put', 'delete', 'patch']
 
 // Initialize apiInfo from spec
 watch(
@@ -222,21 +313,36 @@ const getMethodSeverity = (method: string) => {
 }
 
 const addEndpoint = () => {
-  const path = prompt('Enter endpoint path (e.g., /users/{id}):')
-  if (!path) return
+  newEndpoint.value = {
+    path: '',
+    method: 'get',
+    summary: '',
+  }
+  showAddEndpointDialog.value = true
+}
+
+const confirmAddEndpoint = () => {
+  const { path, method, summary } = newEndpoint.value
+
+  if (!path) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Endpoint path is required',
+      life: 3000,
+    })
+    return
+  }
 
   if (!path.startsWith('/')) {
-    alert('Path must start with /')
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Path must start with /',
+      life: 3000,
+    })
     return
   }
-
-  const method = prompt('Enter HTTP method (get, post, put, delete):')?.toLowerCase()
-  if (!method || !['get', 'post', 'put', 'delete', 'patch'].includes(method)) {
-    alert('Invalid HTTP method')
-    return
-  }
-
-  const summary = prompt('Enter endpoint summary:') || `${method.toUpperCase()} ${path}`
 
   const updatedSpec = {
     ...props.spec,
@@ -245,7 +351,7 @@ const addEndpoint = () => {
       [path]: {
         ...((props.spec.paths as Record<string, Record<string, unknown>>)?.[path] || {}),
         [method]: {
-          summary,
+          summary: summary || `${method.toUpperCase()} ${path}`,
           responses: {
             '200': {
               description: 'Successful response',
@@ -256,19 +362,40 @@ const addEndpoint = () => {
     },
   }
   emit('update', updatedSpec)
+  showAddEndpointDialog.value = false
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: 'Endpoint added successfully',
+    life: 3000,
+  })
 }
 
 const deleteEndpoint = (path: string, method: string) => {
-  if (!confirm(`Delete ${method.toUpperCase()} ${path}?`)) return
+  confirm.require({
+    message: `Are you sure you want to delete ${method.toUpperCase()} ${path}?`,
+    header: 'Confirm Deletion',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    accept: () => {
+      const updatedPaths = {
+        ...((props.spec.paths as Record<string, Record<string, unknown>>) || {}),
+      }
+      delete updatedPaths[path]?.[method]
 
-  const updatedPaths = { ...((props.spec.paths as Record<string, Record<string, unknown>>) || {}) }
-  delete updatedPaths[path]?.[method]
+      if (Object.keys(updatedPaths[path] || {}).length === 0) {
+        delete updatedPaths[path]
+      }
 
-  if (Object.keys(updatedPaths[path] || {}).length === 0) {
-    delete updatedPaths[path]
-  }
-
-  emit('update', { ...props.spec, paths: updatedPaths })
+      emit('update', { ...props.spec, paths: updatedPaths })
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Endpoint deleted successfully',
+        life: 3000,
+      })
+    },
+  })
 }
 
 const updateEndpointRequestBody = (path: string, method: string, fields: Record<string, Field>) => {
