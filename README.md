@@ -2,6 +2,8 @@
 
 🧩 FastSpec — A full-stack web application to create, edit, validate, and manage your OpenAPI specifications with a modern visual editor.
 
+📚 **[Quick Start Guide](./QUICKSTART.md)** - Get running in 5 minutes!
+
 ## Stack
 
 - **Backend**: Python + FastAPI
@@ -9,7 +11,7 @@
 - **Styling**: TailwindCSS
 - **Database**: SQLite (via SQLAlchemy)
 - **Validation**: openapi-spec-validator
-- **Deployment**: Docker + Docker Compose
+- **Deployment**: Docker (optional, see `/docker` directory)
 
 ## Features
 
@@ -34,42 +36,29 @@
 
 ### Prerequisites
 
-- Docker and Docker Compose (recommended)
-- OR Node.js 20+ and Python 3.11+ (for local development)
+- **Node.js 20+** and **npm**
+- **Python 3.11+** and **pip**
+- **Optional**: Docker and Docker Compose (for production deployment)
 
-### Option 1: Using Docker (Recommended)
+### Local Development (Recommended)
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/DishWatcher/FastSpec.git
-   cd FastSpec
-   ```
+This is the primary development method for fast iteration and easy debugging.
 
-2. **Start the application**
-   ```bash
-   docker-compose up --build
-   ```
+#### 1. Clone the Repository
 
-3. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
+```bash
+git clone https://github.com/DishWatcher/FastSpec.git
+cd FastSpec
+```
 
-4. **Stop the application**
-   ```bash
-   docker-compose down
-   ```
-
-### Option 2: Local Development
-
-#### Backend Setup
+#### 2. Backend Setup
 
 1. **Navigate to backend directory**
    ```bash
    cd backend
    ```
 
-2. **Create a virtual environment**
+2. **Create and activate a virtual environment** (recommended)
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -80,16 +69,26 @@
    pip install -r requirements.txt
    ```
 
-4. **Run the backend**
+4. **Create environment file** (optional)
+   ```bash
+   cp .env.example .env
+   # Edit .env if you need custom configuration
+   ```
+
+5. **Run the backend**
    ```bash
    python main.py
    ```
    
-   The backend will be available at http://localhost:8000
+   ✅ Backend will be available at **http://localhost:8000**
+   
+   📚 API Documentation: **http://localhost:8000/docs**
 
-#### Frontend Setup
+#### 3. Frontend Setup
 
-1. **Navigate to frontend directory** (in a new terminal)
+Open a **new terminal** and keep the backend running.
+
+1. **Navigate to frontend directory**
    ```bash
    cd frontend
    ```
@@ -101,15 +100,46 @@
 
 3. **Create environment file**
    ```bash
-   echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+   cp .env.local.example .env.local
+   # The default configuration points to http://localhost:8000
    ```
 
-4. **Run the frontend**
+4. **Run the development server**
    ```bash
    npm run dev
    ```
    
-   The frontend will be available at http://localhost:3000
+   ✅ Frontend will be available at **http://localhost:3000**
+
+#### 4. Verify the Setup
+
+1. Open **http://localhost:3000** in your browser
+2. The application should load and connect to the backend
+3. Try creating a new OpenAPI specification to verify communication
+
+### Docker Deployment (Optional)
+
+Docker configuration files are available in the `/docker` directory for production deployment.
+
+1. **Navigate to docker directory**
+   ```bash
+   cd docker
+   ```
+
+2. **Start with Docker Compose**
+   ```bash
+   docker-compose -f docker-compose.yml up --build
+   ```
+
+3. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Documentation: http://localhost:8000/docs
+
+4. **Stop the application**
+   ```bash
+   docker-compose -f docker-compose.yml down
+   ```
 
 ## Usage Guide
 
@@ -171,7 +201,7 @@ FastSpec/
 │   ├── schemas.py           # Pydantic schemas
 │   ├── validator.py         # OpenAPI validation logic
 │   ├── requirements.txt     # Python dependencies
-│   └── Dockerfile           # Backend Docker configuration
+│   └── .env.example         # Backend environment variables template
 ├── frontend/
 │   ├── app/
 │   │   ├── page.tsx         # Main application page
@@ -185,9 +215,13 @@ FastSpec/
 │   │   ├── api.ts           # API client
 │   │   └── templates.ts     # OpenAPI templates
 │   ├── package.json         # Node dependencies
-│   ├── Dockerfile           # Frontend Docker configuration
-│   └── next.config.ts       # Next.js configuration
-├── docker-compose.yml       # Docker Compose orchestration
+│   ├── next.config.ts       # Next.js configuration
+│   └── .env.local.example   # Frontend environment variables template
+├── docker/
+│   ├── docker-compose.yml   # Docker Compose orchestration
+│   ├── docker-compose.dev.yml # Development Docker setup
+│   ├── backend.Dockerfile   # Backend Docker configuration
+│   └── frontend.Dockerfile  # Frontend Docker configuration
 ├── .gitignore              # Git ignore rules
 └── README.md               # This file
 ```
@@ -228,22 +262,28 @@ npm run test
 
 ### Building for Production
 
-Using Docker:
-```bash
-docker-compose up --build -d
-```
+#### Local Build
 
-Manual build:
+Backend:
 ```bash
-# Backend
 cd backend
 pip install -r requirements.txt
+python main.py
+```
 
-# Frontend
+Frontend:
+```bash
 cd frontend
 npm install --legacy-peer-deps
 npm run build
 npm start
+```
+
+#### Docker Build
+
+```bash
+cd docker
+docker-compose up --build -d
 ```
 
 ## Contributing

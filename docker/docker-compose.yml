@@ -1,13 +1,13 @@
 services:
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: ../backend
+      dockerfile: ../docker/backend.Dockerfile
     container_name: fastspec-backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ../backend:/app
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -16,8 +16,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: ../frontend
+      dockerfile: ../docker/frontend.Dockerfile
     container_name: fastspec-frontend
     ports:
       - "3000:3000"
