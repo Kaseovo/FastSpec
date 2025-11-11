@@ -64,10 +64,7 @@
       </p>
 
       <div v-else class="space-y-3">
-        <div
-          v-for="[path, methods] in Object.entries(paths)"
-          :key="path"
-        >
+        <div v-for="[path, methods] in Object.entries(paths)" :key="path">
           <div
             v-for="[method, operation] in Object.entries(methods as Record<string, unknown>)"
             :key="`${path}-${method}`"
@@ -76,32 +73,22 @@
             <!-- Endpoint Header -->
             <div class="flex items-center justify-between p-4">
               <div class="flex items-center gap-3 flex-1">
-                <Tag
-                  :value="method.toUpperCase()"
-                  :severity="getMethodSeverity(method)"
-                />
+                <Tag :value="method.toUpperCase()" :severity="getMethodSeverity(method)" />
                 <div class="flex-1">
                   <div class="font-medium text-gray-900">{{ path }}</div>
-                  <div
-                    v-if="(operation as any).summary"
-                    class="text-sm text-gray-500"
-                  >
+                  <div v-if="(operation as any).summary" class="text-sm text-gray-500">
                     {{ (operation as any).summary }}
                   </div>
                 </div>
               </div>
               <div class="flex items-center gap-2">
                 <Button
-                  :label="
-                    expandedEndpoint === `${path}-${method}` ? 'Collapse' : 'Expand'
-                  "
+                  :label="expandedEndpoint === `${path}-${method}` ? 'Collapse' : 'Expand'"
                   text
                   size="small"
                   @click="
                     expandedEndpoint =
-                      expandedEndpoint === `${path}-${method}`
-                        ? null
-                        : `${path}-${method}`
+                      expandedEndpoint === `${path}-${method}` ? null : `${path}-${method}`
                   "
                 />
                 <Button
@@ -170,7 +157,7 @@ const apiInfo = ref({
   title: '',
   version: '',
   description: '',
-  server: ''
+  server: '',
 })
 
 const expandedEndpoint = ref<string | null>(null)
@@ -179,21 +166,23 @@ const expandedEndpoint = ref<string | null>(null)
 watch(
   () => props.spec,
   (newSpec) => {
-    const info = newSpec?.info as { title?: string; version?: string; description?: string } | undefined
+    const info = newSpec?.info as
+      | { title?: string; version?: string; description?: string }
+      | undefined
     const servers = newSpec?.servers as { url?: string }[] | undefined
 
     apiInfo.value = {
       title: info?.title || '',
       version: info?.version || '',
       description: info?.description || '',
-      server: servers?.[0]?.url || ''
+      server: servers?.[0]?.url || '',
     }
   },
-  { immediate: true, deep: true }
+  { immediate: true, deep: true },
 )
 
 const paths = ref<Record<string, Record<string, unknown>>>(
-  (props.spec?.paths || {}) as Record<string, Record<string, unknown>>
+  (props.spec?.paths || {}) as Record<string, Record<string, unknown>>,
 )
 
 watch(
@@ -201,7 +190,7 @@ watch(
   (newSpec) => {
     paths.value = (newSpec?.paths || {}) as Record<string, Record<string, unknown>>
   },
-  { deep: true }
+  { deep: true },
 )
 
 const handleInfoChange = (field: string, value: string) => {
@@ -214,9 +203,9 @@ const handleInfoChange = (field: string, value: string) => {
       ...((props.spec.info as Record<string, unknown>) || {}),
       title: newInfo.title,
       version: newInfo.version,
-      description: newInfo.description
+      description: newInfo.description,
     },
-    servers: newInfo.server ? [{ url: newInfo.server }] : []
+    servers: newInfo.server ? [{ url: newInfo.server }] : [],
   }
   emit('update', updatedSpec)
 }
@@ -227,7 +216,7 @@ const getMethodSeverity = (method: string) => {
     post: 'success',
     put: 'warn',
     delete: 'danger',
-    patch: 'warn'
+    patch: 'warn',
   }
   return severityMap[method.toLowerCase()] || 'secondary'
 }
@@ -259,12 +248,12 @@ const addEndpoint = () => {
           summary,
           responses: {
             '200': {
-              description: 'Successful response'
-            }
-          }
-        }
-      }
-    }
+              description: 'Successful response',
+            },
+          },
+        },
+      },
+    },
   }
   emit('update', updatedSpec)
 }
@@ -282,11 +271,7 @@ const deleteEndpoint = (path: string, method: string) => {
   emit('update', { ...props.spec, paths: updatedPaths })
 }
 
-const updateEndpointRequestBody = (
-  path: string,
-  method: string,
-  fields: Record<string, Field>
-) => {
+const updateEndpointRequestBody = (path: string, method: string, fields: Record<string, Field>) => {
   const updatedPaths = { ...((props.spec.paths as Record<string, Record<string, unknown>>) || {}) }
   const endpoint = { ...((updatedPaths[path]?.[method] as Record<string, unknown>) || {}) }
 
@@ -295,7 +280,7 @@ const updateEndpointRequestBody = (
 
   Object.entries(fields).forEach(([fieldName, field]) => {
     const property: Record<string, unknown> = {
-      type: field.type
+      type: field.type,
     }
 
     if (field.description) {
@@ -328,15 +313,15 @@ const updateEndpointRequestBody = (
         schema: {
           type: 'object',
           properties,
-          ...(required.length > 0 ? { required } : {})
-        }
-      }
-    }
+          ...(required.length > 0 ? { required } : {}),
+        },
+      },
+    },
   }
 
   updatedPaths[path] = {
     ...updatedPaths[path],
-    [method]: endpoint
+    [method]: endpoint,
   }
 
   emit('update', { ...props.spec, paths: updatedPaths })
@@ -346,7 +331,7 @@ const updateEndpointResponse = (
   path: string,
   method: string,
   statusCode: string,
-  fields: Record<string, Field>
+  fields: Record<string, Field>,
 ) => {
   const updatedPaths = { ...((props.spec.paths as Record<string, Record<string, unknown>>) || {}) }
   const endpoint = { ...((updatedPaths[path]?.[method] as Record<string, unknown>) || {}) }
@@ -357,7 +342,7 @@ const updateEndpointResponse = (
 
   Object.entries(fields).forEach(([fieldName, field]) => {
     const property: Record<string, unknown> = {
-      type: field.type
+      type: field.type,
     }
 
     if (field.description) {
@@ -391,17 +376,17 @@ const updateEndpointResponse = (
         schema: {
           type: 'object',
           properties,
-          ...(required.length > 0 ? { required } : {})
-        }
-      }
-    }
+          ...(required.length > 0 ? { required } : {}),
+        },
+      },
+    },
   }
 
   endpoint.responses = responses
 
   updatedPaths[path] = {
     ...updatedPaths[path],
-    [method]: endpoint
+    [method]: endpoint,
   }
 
   emit('update', { ...props.spec, paths: updatedPaths })
@@ -428,7 +413,7 @@ const getRequestBodyFields = (path: string, method: string): Record<string, Fiel
       type: (prop.type as Field['type']) || 'string',
       required: required.includes(fieldName),
       description: prop.description as string | undefined,
-      constraints: {}
+      constraints: {},
     }
 
     ;['maxLength', 'minLength', 'pattern', 'maximum', 'minimum', 'maxItems', 'minItems'].forEach(
@@ -437,7 +422,7 @@ const getRequestBodyFields = (path: string, method: string): Record<string, Fiel
           field.constraints = field.constraints || {}
           ;(field.constraints as Record<string, unknown>)[constraint] = prop[constraint]
         }
-      }
+      },
     )
 
     if (field.type === 'array' && prop.items) {
@@ -453,7 +438,7 @@ const getRequestBodyFields = (path: string, method: string): Record<string, Fiel
 const getResponseFields = (
   path: string,
   method: string,
-  statusCode: string
+  statusCode: string,
 ): Record<string, Field> => {
   const endpoint = (props.spec.paths as Record<string, Record<string, unknown>>)?.[path]?.[
     method
@@ -476,7 +461,7 @@ const getResponseFields = (
       type: (prop.type as Field['type']) || 'string',
       required: required.includes(fieldName),
       description: prop.description as string | undefined,
-      constraints: {}
+      constraints: {},
     }
 
     ;['maxLength', 'minLength', 'pattern', 'maximum', 'minimum', 'maxItems', 'minItems'].forEach(
@@ -485,7 +470,7 @@ const getResponseFields = (
           field.constraints = field.constraints || {}
           ;(field.constraints as Record<string, unknown>)[constraint] = prop[constraint]
         }
-      }
+      },
     )
 
     if (field.type === 'array' && prop.items) {

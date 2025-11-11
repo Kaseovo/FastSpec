@@ -14,18 +14,8 @@
         <div class="flex flex-wrap gap-2">
           <Button label="New" @click="handleNewSpec" severity="info" />
           <Button label="Load Template" @click="handleLoadTemplate" />
-          <Button
-            label="Save"
-            @click="handleSave"
-            :loading="loading"
-            severity="success"
-          />
-          <Button
-            label="Validate"
-            @click="handleValidate"
-            :loading="loading"
-            severity="help"
-          />
+          <Button label="Save" @click="handleSave" :loading="loading" severity="success" />
+          <Button label="Validate" @click="handleValidate" :loading="loading" severity="help" />
           <Button
             v-if="currentSpecId"
             label="View Changes"
@@ -53,10 +43,7 @@
     </Message>
 
     <!-- Validation Results -->
-    <div
-      v-if="showValidation && validationResult"
-      class="bg-white border-b border-gray-200"
-    >
+    <div v-if="showValidation && validationResult" class="bg-white border-b border-gray-200">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div class="flex justify-between items-start">
           <div>
@@ -88,12 +75,7 @@
               </ul>
             </div>
           </div>
-          <Button
-            icon="pi pi-times"
-            text
-            rounded
-            @click="showValidation = false"
-          />
+          <Button icon="pi pi-times" text rounded @click="showValidation = false" />
         </div>
       </div>
     </div>
@@ -104,9 +86,7 @@
         <!-- Sidebar - Saved Specs -->
         <div class="lg:col-span-1">
           <Panel header="Saved Specs" class="h-full">
-            <p v-if="specs.length === 0" class="text-gray-500 text-sm">
-              No saved specifications
-            </p>
+            <p v-if="specs.length === 0" class="text-gray-500 text-sm">No saved specifications</p>
             <div v-else class="space-y-2">
               <div
                 v-for="spec in specs"
@@ -115,14 +95,12 @@
                   'p-3 rounded-lg border cursor-pointer transition-colors',
                   currentSpecId === spec.id
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-gray-200 hover:border-gray-300',
                 ]"
                 @click="handleLoadSpec(spec)"
               >
                 <div class="font-medium text-sm text-gray-900">{{ spec.name }}</div>
-                <div class="text-xs text-gray-500 mt-1">
-                  {{ spec.title }} v{{ spec.version }}
-                </div>
+                <div class="text-xs text-gray-500 mt-1">{{ spec.title }} v{{ spec.version }}</div>
                 <Button
                   label="Delete"
                   text
@@ -144,13 +122,8 @@
               <JsonEditor v-model="jsonValue" height="600px" />
             </div>
             <div>
-              <h2 class="text-xl font-semibold mb-3 text-gray-800">
-                API Documentation Preview
-              </h2>
-              <div
-                class="border border-gray-300 rounded-lg overflow-auto"
-                style="height: 600px"
-              >
+              <h2 class="text-xl font-semibold mb-3 text-gray-800">API Documentation Preview</h2>
+              <div class="border border-gray-300 rounded-lg overflow-auto" style="height: 600px">
                 <SwaggerPreview :spec="currentSpec" />
               </div>
             </div>
@@ -163,11 +136,7 @@
     </div>
 
     <!-- Diff Viewer Dialog -->
-    <DiffViewer
-      :diff="diffData"
-      :visible="showDiff"
-      @close="showDiff = false"
-    />
+    <DiffViewer :diff="diffData" :visible="showDiff" @close="showDiff = false" />
   </div>
 </template>
 
@@ -331,7 +300,7 @@ const handleDeleteSpec = async (id: number) => {
 const handleViewDiff = async (id: number) => {
   loading.value = true
   try {
-    const diff = await specApi.getDiff(id) as DiffData
+    const diff = (await specApi.getDiff(id)) as DiffData
     diffData.value = diff
     showDiff.value = true
   } catch {

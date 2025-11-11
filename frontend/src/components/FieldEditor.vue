@@ -14,47 +14,25 @@
         <label class="block text-sm font-medium text-gray-700 mb-1">
           Field Name <span class="text-red-500">*</span>
         </label>
-        <InputText
-          v-model="newField.name"
-          placeholder="fieldName"
-          class="w-full"
-        />
+        <InputText v-model="newField.name" placeholder="fieldName" class="w-full" />
       </div>
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-        <Select
-          v-model="newField.type"
-          :options="fieldTypes"
-          class="w-full"
-        />
+        <Select v-model="newField.type" :options="fieldTypes" class="w-full" />
       </div>
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-        <InputText
-          v-model="newField.description"
-          placeholder="Field description"
-          class="w-full"
-        />
+        <InputText v-model="newField.description" placeholder="Field description" class="w-full" />
       </div>
 
       <div class="flex items-center">
-        <Checkbox
-          v-model="newField.required"
-          inputId="new-field-required"
-          :binary="true"
-        />
-        <label for="new-field-required" class="ml-2 text-sm text-gray-700">
-          Required field
-        </label>
+        <Checkbox v-model="newField.required" inputId="new-field-required" :binary="true" />
+        <label for="new-field-required" class="ml-2 text-sm text-gray-700"> Required field </label>
       </div>
 
-      <Button
-        label="Add Field"
-        @click="handleAddField"
-        class="w-full"
-      />
+      <Button label="Add Field" @click="handleAddField" class="w-full" />
     </div>
 
     <p v-if="Object.keys(fields).length === 0" class="text-gray-500 text-sm py-4">
@@ -63,7 +41,7 @@
 
     <div v-else class="space-y-2">
       <div
-        v-for="([fieldName, field], index) in Object.entries(fields)"
+        v-for="[fieldName, field] in Object.entries(fields)"
         :key="fieldName"
         class="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
       >
@@ -182,7 +160,7 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: 'Fields'
+  title: 'Fields',
 })
 
 const emit = defineEmits<Emits>()
@@ -196,7 +174,7 @@ const newField = ref<Field>({
   type: 'string',
   required: false,
   description: '',
-  constraints: {}
+  constraints: {},
 })
 
 const handleAddField = () => {
@@ -211,7 +189,7 @@ const handleAddField = () => {
 
   const updatedFields = {
     ...props.fields,
-    [newField.value.name]: { ...newField.value }
+    [newField.value.name]: { ...newField.value },
   }
   emit('update', updatedFields)
   newField.value = {
@@ -219,7 +197,7 @@ const handleAddField = () => {
     type: 'string',
     required: false,
     description: '',
-    constraints: {}
+    constraints: {},
   }
   showAddField.value = false
 }
@@ -234,19 +212,15 @@ const handleDeleteField = (fieldName: string) => {
 const handleUpdateField = (fieldName: string, updates: Partial<Field>) => {
   const updatedFields: Record<string, Field> = {
     ...props.fields,
-    [fieldName]: { ...props.fields[fieldName], ...updates } as Field
+    [fieldName]: { ...props.fields[fieldName], ...updates } as Field,
   }
   emit('update', updatedFields)
 }
 
-const handleConstraintChange = (
-  fieldName: string,
-  constraint: string,
-  value: string | number
-) => {
+const handleConstraintChange = (fieldName: string, constraint: string, value: string | number) => {
   const field = props.fields[fieldName]
   if (!field) return
-  
+
   const constraints = { ...field.constraints }
 
   if (value === '' || value === null || value === undefined) {

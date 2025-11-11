@@ -46,7 +46,10 @@
             :key="idx"
             class="flex items-center gap-3"
           >
-            <Tag :value="endpoint.method.toUpperCase()" :severity="getMethodSeverity(endpoint.method)" />
+            <Tag
+              :value="endpoint.method.toUpperCase()"
+              :severity="getMethodSeverity(endpoint.method)"
+            />
             <span class="font-medium text-gray-900">{{ endpoint.path }}</span>
             <span v-if="endpoint.summary" class="text-gray-600 text-sm">
               - {{ endpoint.summary }}
@@ -67,7 +70,10 @@
             :key="idx"
             class="flex items-center gap-3"
           >
-            <Tag :value="endpoint.method.toUpperCase()" :severity="getMethodSeverity(endpoint.method)" />
+            <Tag
+              :value="endpoint.method.toUpperCase()"
+              :severity="getMethodSeverity(endpoint.method)"
+            />
             <span class="font-medium text-gray-900 line-through">{{ endpoint.path }}</span>
             <span v-if="endpoint.summary" class="text-gray-600 text-sm">
               - {{ endpoint.summary }}
@@ -89,7 +95,10 @@
             class="bg-white rounded-lg p-4 border border-yellow-300"
           >
             <div class="flex items-center gap-3 mb-3">
-              <Tag :value="endpoint.method.toUpperCase()" :severity="getMethodSeverity(endpoint.method)" />
+              <Tag
+                :value="endpoint.method.toUpperCase()"
+                :severity="getMethodSeverity(endpoint.method)"
+              />
               <span class="font-medium text-gray-900">{{ endpoint.path }}</span>
             </div>
 
@@ -182,7 +191,7 @@ watch(
   () => props.visible,
   (newValue) => {
     isVisible.value = newValue
-  }
+  },
 )
 
 watch(isVisible, (newValue) => {
@@ -197,7 +206,7 @@ const getMethodSeverity = (method: string) => {
     post: 'success',
     put: 'warn',
     delete: 'danger',
-    patch: 'warn'
+    patch: 'warn',
   }
   return severityMap[method.toLowerCase()] || undefined
 }

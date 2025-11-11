@@ -18,7 +18,7 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  height: '600px'
+  height: '600px',
 })
 
 const emit = defineEmits<Emits>()
@@ -36,7 +36,7 @@ onMounted(() => {
       fontSize: 14,
       lineNumbers: 'on',
       automaticLayout: true,
-      scrollBeyondLastLine: false
+      scrollBeyondLastLine: false,
     })
 
     editor.onDidChangeModelContent(() => {
@@ -53,6 +53,6 @@ watch(
     if (editor && editor.getValue() !== newValue) {
       editor.setValue(newValue)
     }
-  }
+  },
 )
 </script>

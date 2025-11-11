@@ -8,9 +8,7 @@
           <label class="block text-xs text-gray-600 mb-1">Min Length</label>
           <InputNumber
             :model-value="field.constraints?.minLength"
-            @update:model-value="
-              $emit('update', fieldName, 'minLength', $event || '')
-            "
+            @update:model-value="$emit('update', fieldName, 'minLength', $event || '')"
             :min="0"
             class="w-full"
             placeholder="0"
@@ -21,9 +19,7 @@
           <label class="block text-xs text-gray-600 mb-1">Max Length</label>
           <InputNumber
             :model-value="field.constraints?.maxLength"
-            @update:model-value="
-              $emit('update', fieldName, 'maxLength', $event || '')
-            "
+            @update:model-value="$emit('update', fieldName, 'maxLength', $event || '')"
             :min="0"
             class="w-full"
             placeholder="∞"
@@ -73,9 +69,7 @@
           <label class="block text-xs text-gray-600 mb-1">Min Items</label>
           <InputNumber
             :model-value="field.constraints?.minItems"
-            @update:model-value="
-              $emit('update', fieldName, 'minItems', $event || '')
-            "
+            @update:model-value="$emit('update', fieldName, 'minItems', $event || '')"
             :min="0"
             class="w-full"
             placeholder="0"
@@ -86,9 +80,7 @@
           <label class="block text-xs text-gray-600 mb-1">Max Items</label>
           <InputNumber
             :model-value="field.constraints?.maxItems"
-            @update:model-value="
-              $emit('update', fieldName, 'maxItems', $event || '')
-            "
+            @update:model-value="$emit('update', fieldName, 'maxItems', $event || '')"
             :min="0"
             class="w-full"
             placeholder="∞"

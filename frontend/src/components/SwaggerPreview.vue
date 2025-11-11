@@ -39,6 +39,6 @@ watch(
   () => {
     renderSwagger()
   },
-  { deep: true }
+  { deep: true },
 )
 </script>
