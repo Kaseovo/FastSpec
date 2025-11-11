@@ -12,35 +12,38 @@
     <div class="bg-white border-b border-gray-200 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div class="flex flex-wrap gap-2">
-          <Button label="New" @click="handleNewSpec" severity="info" />
-          <Button label="Load Template" @click="handleLoadTemplate" />
-          <Button label="Save" @click="handleSave" :loading="loading" severity="success" />
-          <Button label="Validate" @click="handleValidate" :loading="loading" severity="help" />
+          <Button label="New" @click="handleNewSpec" severity="info" icon="pi pi-plus" />
+          <Button label="Load Template" @click="handleLoadTemplate" icon="pi pi-file" />
+          <Button
+            label="Save"
+            @click="handleSave"
+            :loading="loading"
+            severity="success"
+            icon="pi pi-save"
+          />
+          <Button
+            label="Validate"
+            @click="handleValidate"
+            :loading="loading"
+            severity="help"
+            icon="pi pi-check-circle"
+          />
           <Button
             v-if="currentSpecId"
             label="View Changes"
             @click="handleViewDiff(currentSpecId)"
             :loading="loading"
+            icon="pi pi-history"
           />
           <div class="flex-1"></div>
           <Button
             :label="editorMode === 'json' ? 'Visual Editor' : 'JSON Editor'"
             @click="editorMode = editorMode === 'json' ? 'visual' : 'json'"
+            :icon="editorMode === 'json' ? 'pi pi-eye' : 'pi pi-code'"
           />
         </div>
       </div>
     </div>
-
-    <!-- Message Banner -->
-    <Message
-      v-if="message"
-      :severity="message.type === 'success' ? 'success' : 'error'"
-      :closable="true"
-      @close="message = null"
-      class="mx-auto max-w-7xl"
-    >
-      {{ message.text }}
-    </Message>
 
     <!-- Validation Results -->
     <div v-if="showValidation && validationResult" class="bg-white border-b border-gray-200">
@@ -137,14 +140,45 @@
 
     <!-- Diff Viewer Dialog -->
     <DiffViewer :diff="diffData" :visible="showDiff" @close="showDiff = false" />
+
+    <!-- Save Spec Dialog -->
+    <Dialog
+      v-model:visible="showSaveDialog"
+      header="Save Specification"
+      :modal="true"
+      :style="{ width: '450px' }"
+    >
+      <div class="space-y-4">
+        <div>
+          <label for="spec-name" class="block text-sm font-medium text-gray-700 mb-2">
+            Specification Name <span class="text-red-500">*</span>
+          </label>
+          <InputText
+            id="spec-name"
+            v-model="saveSpecName"
+            placeholder="Enter specification name"
+            class="w-full"
+            @keyup.enter="confirmSave"
+            autofocus
+          />
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Cancel" text @click="showSaveDialog = false" />
+        <Button label="Save" @click="confirmSave" severity="success" icon="pi pi-save" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
 import Panel from 'primevue/panel'
-import Message from 'primevue/message'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
 import JsonEditor from '@/components/JsonEditor.vue'
 import SwaggerPreview from '@/components/SwaggerPreview.vue'
 import VisualEditor from '@/components/VisualEditor.vue'
@@ -158,6 +192,8 @@ interface DiffData {
   [key: string]: unknown
 }
 
+const toast = useToast()
+const confirm = useConfirm()
 const specs = ref<OpenAPISpec[]>([])
 const currentSpec = ref<Record<string, unknown>>(basicTemplate)
 const currentSpecId = ref<number | null>(null)
@@ -166,9 +202,12 @@ const jsonValue = ref(JSON.stringify(basicTemplate, null, 2))
 const validationResult = ref<ValidationResponse | null>(null)
 const showValidation = ref(false)
 const loading = ref(false)
-const message = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 const diffData = ref<DiffData | null>(null)
 const showDiff = ref(false)
+
+// Dialog states
+const showSaveDialog = ref(false)
+const saveSpecName = ref('')
 
 onMounted(() => {
   loadSpecs()
@@ -179,13 +218,13 @@ const loadSpecs = async () => {
     const data = await specApi.listSpecs()
     specs.value = data
   } catch {
-    showMessage('error', 'Failed to load specifications')
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to load specifications',
+      life: 5000,
+    })
   }
-}
-
-const showMessage = (type: 'success' | 'error', text: string) => {
-  message.value = { type, text }
-  setTimeout(() => (message.value = null), 5000)
 }
 
 watch(jsonValue, (newValue) => {
@@ -203,37 +242,74 @@ const handleVisualChange = (spec: Record<string, unknown>) => {
 }
 
 const handleNewSpec = () => {
-  if (confirm('Create a new specification? Unsaved changes will be lost.')) {
-    currentSpec.value = emptyTemplate
-    jsonValue.value = JSON.stringify(emptyTemplate, null, 2)
-    currentSpecId.value = null
-    validationResult.value = null
-    showValidation.value = false
-  }
+  confirm.require({
+    message: 'Create a new specification? Unsaved changes will be lost.',
+    header: 'Confirm New Specification',
+    icon: 'pi pi-exclamation-triangle',
+    accept: () => {
+      currentSpec.value = emptyTemplate
+      jsonValue.value = JSON.stringify(emptyTemplate, null, 2)
+      currentSpecId.value = null
+      validationResult.value = null
+      showValidation.value = false
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'New specification created',
+        life: 3000,
+      })
+    },
+  })
 }
 
 const handleLoadTemplate = () => {
   currentSpec.value = basicTemplate
   jsonValue.value = JSON.stringify(basicTemplate, null, 2)
   currentSpecId.value = null
-  showMessage('success', 'Template loaded')
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: 'Template loaded',
+    life: 3000,
+  })
 }
 
-const handleSave = async () => {
-  loading.value = true
-  try {
-    const name = prompt('Enter a name for this specification:')
-    if (!name) {
-      loading.value = false
-      return
-    }
+const handleSave = () => {
+  saveSpecName.value = ''
+  showSaveDialog.value = true
+}
 
+const confirmSave = async () => {
+  if (!saveSpecName.value.trim()) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Please enter a name for the specification',
+      life: 3000,
+    })
+    return
+  }
+
+  loading.value = true
+  showSaveDialog.value = false
+
+  try {
     if (currentSpecId.value) {
       await specApi.updateSpec(currentSpecId.value, { spec_json: currentSpec.value })
-      showMessage('success', 'Specification updated successfully')
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Specification updated successfully',
+        life: 3000,
+      })
     } else {
-      await specApi.createSpec(name, currentSpec.value)
-      showMessage('success', 'Specification created successfully')
+      await specApi.createSpec(saveSpecName.value, currentSpec.value)
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Specification created successfully',
+        life: 3000,
+      })
     }
     await loadSpecs()
   } catch (error: unknown) {
@@ -249,7 +325,12 @@ const handleSave = async () => {
       errorMsg = detail
     }
 
-    showMessage('error', errorMsg)
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: errorMsg,
+      life: 5000,
+    })
   } finally {
     loading.value = false
   }
@@ -262,12 +343,27 @@ const handleValidate = async () => {
     validationResult.value = result
     showValidation.value = true
     if (result.valid) {
-      showMessage('success', 'Specification is valid!')
+      toast.add({
+        severity: 'success',
+        summary: 'Validation Successful',
+        detail: 'Specification is valid!',
+        life: 3000,
+      })
     } else {
-      showMessage('error', 'Specification has validation errors')
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Failed',
+        detail: 'Specification has validation errors',
+        life: 5000,
+      })
     }
   } catch {
-    showMessage('error', 'Failed to validate specification')
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to validate specification',
+      life: 5000,
+    })
   } finally {
     loading.value = false
   }
@@ -279,22 +375,47 @@ const handleLoadSpec = async (spec: OpenAPISpec) => {
   currentSpecId.value = spec.id
   validationResult.value = null
   showValidation.value = false
-  showMessage('success', `Loaded: ${spec.name}`)
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: `Loaded: ${spec.name}`,
+    life: 3000,
+  })
 }
 
-const handleDeleteSpec = async (id: number) => {
-  if (!confirm('Delete this specification?')) return
-
-  try {
-    await specApi.deleteSpec(id)
-    showMessage('success', 'Specification deleted')
-    await loadSpecs()
-    if (currentSpecId.value === id) {
-      handleNewSpec()
-    }
-  } catch {
-    showMessage('error', 'Failed to delete specification')
-  }
+const handleDeleteSpec = (id: number) => {
+  confirm.require({
+    message: 'Are you sure you want to delete this specification?',
+    header: 'Confirm Deletion',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      try {
+        await specApi.deleteSpec(id)
+        toast.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Specification deleted',
+          life: 3000,
+        })
+        await loadSpecs()
+        if (currentSpecId.value === id) {
+          currentSpec.value = emptyTemplate
+          jsonValue.value = JSON.stringify(emptyTemplate, null, 2)
+          currentSpecId.value = null
+          validationResult.value = null
+          showValidation.value = false
+        }
+      } catch {
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to delete specification',
+          life: 5000,
+        })
+      }
+    },
+  })
 }
 
 const handleViewDiff = async (id: number) => {
@@ -304,7 +425,12 @@ const handleViewDiff = async (id: number) => {
     diffData.value = diff
     showDiff.value = true
   } catch {
-    showMessage('error', 'Failed to load version comparison')
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to load version comparison',
+      life: 5000,
+    })
   } finally {
     loading.value = false
   }

@@ -130,16 +130,71 @@
         </div>
       </div>
     </Panel>
+
+    <!-- Add Endpoint Dialog -->
+    <Dialog
+      v-model:visible="showAddEndpointDialog"
+      header="Add New Endpoint"
+      :modal="true"
+      :style="{ width: '500px' }"
+    >
+      <div class="space-y-4">
+        <div>
+          <label for="endpoint-path" class="block text-sm font-medium text-gray-700 mb-2">
+            Endpoint Path <span class="text-red-500">*</span>
+          </label>
+          <InputText
+            id="endpoint-path"
+            v-model="newEndpoint.path"
+            placeholder="/users/{id}"
+            class="w-full"
+          />
+          <small class="text-gray-500">Must start with /</small>
+        </div>
+
+        <div>
+          <label for="endpoint-method" class="block text-sm font-medium text-gray-700 mb-2">
+            HTTP Method <span class="text-red-500">*</span>
+          </label>
+          <Select
+            id="endpoint-method"
+            v-model="newEndpoint.method"
+            :options="methodOptions"
+            class="w-full"
+          />
+        </div>
+
+        <div>
+          <label for="endpoint-summary" class="block text-sm font-medium text-gray-700 mb-2">
+            Summary
+          </label>
+          <InputText
+            id="endpoint-summary"
+            v-model="newEndpoint.summary"
+            placeholder="Brief description of the endpoint"
+            class="w-full"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Cancel" text @click="showAddEndpointDialog = false" />
+        <Button label="Add" @click="confirmAddEndpoint" severity="success" icon="pi pi-plus" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import Panel from 'primevue/panel'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
+import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
 import FieldEditor, { type Field } from './FieldEditor.vue'
 
 interface Props {
@@ -153,6 +208,9 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const toast = useToast()
+const confirm = useConfirm()
+
 const apiInfo = ref({
   title: '',
   version: '',
@@ -161,6 +219,16 @@ const apiInfo = ref({
 })
 
 const expandedEndpoint = ref<string | null>(null)
+
+// Add Endpoint Dialog
+const showAddEndpointDialog = ref(false)
+const newEndpoint = ref({
+  path: '',
+  method: 'get',
+  summary: '',
+})
+
+const methodOptions = ['get', 'post', 'put', 'delete', 'patch']
 
 // Initialize apiInfo from spec
 watch(
@@ -222,21 +290,36 @@ const getMethodSeverity = (method: string) => {
 }
 
 const addEndpoint = () => {
-  const path = prompt('Enter endpoint path (e.g., /users/{id}):')
-  if (!path) return
+  newEndpoint.value = {
+    path: '',
+    method: 'get',
+    summary: '',
+  }
+  showAddEndpointDialog.value = true
+}
+
+const confirmAddEndpoint = () => {
+  const { path, method, summary } = newEndpoint.value
+
+  if (!path) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Endpoint path is required',
+      life: 3000,
+    })
+    return
+  }
 
   if (!path.startsWith('/')) {
-    alert('Path must start with /')
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Path must start with /',
+      life: 3000,
+    })
     return
   }
-
-  const method = prompt('Enter HTTP method (get, post, put, delete):')?.toLowerCase()
-  if (!method || !['get', 'post', 'put', 'delete', 'patch'].includes(method)) {
-    alert('Invalid HTTP method')
-    return
-  }
-
-  const summary = prompt('Enter endpoint summary:') || `${method.toUpperCase()} ${path}`
 
   const updatedSpec = {
     ...props.spec,
@@ -245,7 +328,7 @@ const addEndpoint = () => {
       [path]: {
         ...((props.spec.paths as Record<string, Record<string, unknown>>)?.[path] || {}),
         [method]: {
-          summary,
+          summary: summary || `${method.toUpperCase()} ${path}`,
           responses: {
             '200': {
               description: 'Successful response',
@@ -256,19 +339,40 @@ const addEndpoint = () => {
     },
   }
   emit('update', updatedSpec)
+  showAddEndpointDialog.value = false
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: 'Endpoint added successfully',
+    life: 3000,
+  })
 }
 
 const deleteEndpoint = (path: string, method: string) => {
-  if (!confirm(`Delete ${method.toUpperCase()} ${path}?`)) return
+  confirm.require({
+    message: `Are you sure you want to delete ${method.toUpperCase()} ${path}?`,
+    header: 'Confirm Deletion',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    accept: () => {
+      const updatedPaths = {
+        ...((props.spec.paths as Record<string, Record<string, unknown>>) || {}),
+      }
+      delete updatedPaths[path]?.[method]
 
-  const updatedPaths = { ...((props.spec.paths as Record<string, Record<string, unknown>>) || {}) }
-  delete updatedPaths[path]?.[method]
+      if (Object.keys(updatedPaths[path] || {}).length === 0) {
+        delete updatedPaths[path]
+      }
 
-  if (Object.keys(updatedPaths[path] || {}).length === 0) {
-    delete updatedPaths[path]
-  }
-
-  emit('update', { ...props.spec, paths: updatedPaths })
+      emit('update', { ...props.spec, paths: updatedPaths })
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Endpoint deleted successfully',
+        life: 3000,
+      })
+    },
+  })
 }
 
 const updateEndpointRequestBody = (path: string, method: string, fields: Record<string, Field>) => {

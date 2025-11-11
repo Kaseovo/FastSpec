@@ -123,6 +123,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
@@ -165,6 +167,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
+const toast = useToast()
+const confirm = useConfirm()
+
 const fieldTypes = ['string', 'number', 'integer', 'boolean', 'array', 'object']
 
 const expandedField = ref<string | null>(null)
@@ -179,11 +184,21 @@ const newField = ref<Field>({
 
 const handleAddField = () => {
   if (!newField.value.name) {
-    alert('Field name is required')
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Field name is required',
+      life: 3000,
+    })
     return
   }
   if (props.fields[newField.value.name]) {
-    alert('Field with this name already exists')
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Field with this name already exists',
+      life: 3000,
+    })
     return
   }
 
@@ -200,13 +215,32 @@ const handleAddField = () => {
     constraints: {},
   }
   showAddField.value = false
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: 'Field added successfully',
+    life: 3000,
+  })
 }
 
 const handleDeleteField = (fieldName: string) => {
-  if (!confirm(`Delete field "${fieldName}"?`)) return
-  const updatedFields = { ...props.fields }
-  delete updatedFields[fieldName]
-  emit('update', updatedFields)
+  confirm.require({
+    message: `Are you sure you want to delete field "${fieldName}"?`,
+    header: 'Confirm Deletion',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    accept: () => {
+      const updatedFields = { ...props.fields }
+      delete updatedFields[fieldName]
+      emit('update', updatedFields)
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Field deleted successfully',
+        life: 3000,
+      })
+    },
+  })
 }
 
 const handleUpdateField = (fieldName: string, updates: Partial<Field>) => {
