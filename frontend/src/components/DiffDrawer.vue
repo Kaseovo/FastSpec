@@ -125,8 +125,8 @@
           <h3>✏️ Modified Endpoints ({{ diff.modified.length }})</h3>
           <div class="change-list">
             <div
-              v-for="item in diff.modified"
-              :key="item.path"
+              v-for="(item, index) in diff.modified"
+              :key="item.path + item.method"
               class="change-item modified"
             >
               <div class="endpoint-header">
@@ -134,6 +134,14 @@
                   item.method
                 }}</Tag>
                 <code class="path">{{ item.path }}</code>
+                <Button
+                  icon="pi pi-chevron-down"
+                  :class="{ 'rotate-180': expandedItems[index] }"
+                  text
+                  size="small"
+                  @click="toggleExpand(index)"
+                  class="expand-button"
+                />
               </div>
               <div v-if="item.changes?.length" class="endpoint-changes">
                 <div
@@ -143,6 +151,44 @@
                 >
                   <i class="pi pi-angle-right"></i>
                   <span>{{ change }}</span>
+                </div>
+              </div>
+
+              <!-- Expanded Details -->
+              <div v-if="expandedItems[index]" class="expanded-details">
+                <div
+                  v-for="(detail, field) in item.details"
+                  :key="field"
+                  class="detail-section"
+                >
+                  <h4 class="detail-title">{{ formatFieldName(field) }}</h4>
+                  <div
+                    v-if="
+                      typeof detail.old === 'string' &&
+                      typeof detail.new === 'string'
+                    "
+                    class="change-values"
+                  >
+                    <div class="old-value">
+                      <span class="value-label">Before:</span>
+                      <code>{{ detail.old || "(empty)" }}</code>
+                    </div>
+                    <i class="pi pi-arrow-right"></i>
+                    <div class="new-value">
+                      <span class="value-label">After:</span>
+                      <code>{{ detail.new || "(empty)" }}</code>
+                    </div>
+                  </div>
+                  <div v-else class="json-comparison">
+                    <div class="json-side">
+                      <span class="value-label">Before:</span>
+                      <pre><code>{{ JSON.stringify(detail.old, null, 2) }}</code></pre>
+                    </div>
+                    <div class="json-side">
+                      <span class="value-label">After:</span>
+                      <pre><code>{{ JSON.stringify(detail.new, null, 2) }}</code></pre>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -176,15 +222,17 @@
 </template>
 
 <script>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import Drawer from "primevue/drawer";
 import Tag from "primevue/tag";
+import Button from "primevue/button";
 
 export default {
   name: "DiffDrawer",
   components: {
     Drawer,
     Tag,
+    Button,
   },
   props: {
     visible: {
@@ -198,6 +246,19 @@ export default {
   },
   emits: ["update:visible"],
   setup(props) {
+    const expandedItems = ref({});
+
+    const toggleExpand = (index) => {
+      expandedItems.value[index] = !expandedItems.value[index];
+    };
+
+    const formatFieldName = (field) => {
+      return field
+        .replace(/([A-Z])/g, " $1")
+        .replace(/^./, (str) => str.toUpperCase())
+        .trim();
+    };
+
     const hasChanges = computed(() => {
       return (
         props.diff.infoAdded?.length > 0 ||
@@ -234,6 +295,9 @@ export default {
     };
 
     return {
+      expandedItems,
+      toggleExpand,
+      formatFieldName,
       hasChanges,
       summary,
       getMethodSeverity,
@@ -367,6 +431,16 @@ export default {
   font-family: "Monaco", "Courier New", monospace;
   font-size: 0.95rem;
   color: #1f2937;
+  flex: 1;
+}
+
+.expand-button {
+  transition: transform 0.2s;
+  margin-left: auto;
+}
+
+.expand-button.rotate-180 {
+  transform: rotate(180deg);
 }
 
 .endpoint-summary {
@@ -441,5 +515,55 @@ export default {
   border-radius: 4px;
   font-size: 0.875rem;
   word-break: break-all;
+}
+
+.expanded-details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.detail-section {
+  margin-bottom: 1.5rem;
+}
+
+.detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.detail-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.json-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.json-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.json-side pre {
+  margin: 0;
+  padding: 0.75rem;
+  background: #1f2937;
+  border-radius: 4px;
+  overflow-x: auto;
+  max-height: 300px;
+}
+
+.json-side code {
+  color: #10b981;
+  font-family: "Monaco", "Courier New", monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 </style>

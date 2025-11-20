@@ -114,32 +114,53 @@ export function compareSpecs(original, current) {
         } else if (
           JSON.stringify(originalMethod) !== JSON.stringify(currentMethod)
         ) {
-          // Method modified
+          // Method modified - collect detailed changes
           const changes = [];
+          const details = {};
 
           if (originalMethod?.summary !== currentMethod?.summary) {
             changes.push("Summary changed");
+            details.summary = {
+              old: originalMethod?.summary || "",
+              new: currentMethod?.summary || "",
+            };
           }
           if (originalMethod?.description !== currentMethod?.description) {
             changes.push("Description changed");
+            details.description = {
+              old: originalMethod?.description || "",
+              new: currentMethod?.description || "",
+            };
           }
           if (
             JSON.stringify(originalMethod?.parameters) !==
             JSON.stringify(currentMethod?.parameters)
           ) {
             changes.push("Parameters changed");
+            details.parameters = {
+              old: originalMethod?.parameters || [],
+              new: currentMethod?.parameters || [],
+            };
           }
           if (
             JSON.stringify(originalMethod?.requestBody) !==
             JSON.stringify(currentMethod?.requestBody)
           ) {
             changes.push("Request body changed");
+            details.requestBody = {
+              old: originalMethod?.requestBody || null,
+              new: currentMethod?.requestBody || null,
+            };
           }
           if (
             JSON.stringify(originalMethod?.responses) !==
             JSON.stringify(currentMethod?.responses)
           ) {
             changes.push("Responses changed");
+            details.responses = {
+              old: originalMethod?.responses || {},
+              new: currentMethod?.responses || {},
+            };
           }
 
           if (changes.length > 0) {
@@ -148,6 +169,7 @@ export function compareSpecs(original, current) {
               method: method.toUpperCase(),
               summary: currentMethod?.summary || "",
               changes,
+              details,
             });
           }
         }
