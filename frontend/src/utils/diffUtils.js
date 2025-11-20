@@ -132,6 +132,30 @@ export function compareSpecs(original, current) {
               new: currentMethod?.description || "",
             };
           }
+          if (originalMethod?.operationId !== currentMethod?.operationId) {
+            changes.push("Operation ID changed");
+            details.operationId = {
+              old: originalMethod?.operationId || "",
+              new: currentMethod?.operationId || "",
+            };
+          }
+          if (
+            JSON.stringify(originalMethod?.tags) !==
+            JSON.stringify(currentMethod?.tags)
+          ) {
+            changes.push("Tags changed");
+            details.tags = {
+              old: originalMethod?.tags || [],
+              new: currentMethod?.tags || [],
+            };
+          }
+          if (originalMethod?.deprecated !== currentMethod?.deprecated) {
+            changes.push("Deprecation status changed");
+            details.deprecated = {
+              old: originalMethod?.deprecated || false,
+              new: currentMethod?.deprecated || false,
+            };
+          }
           if (
             JSON.stringify(originalMethod?.parameters) !==
             JSON.stringify(currentMethod?.parameters)
@@ -157,9 +181,56 @@ export function compareSpecs(original, current) {
             JSON.stringify(currentMethod?.responses)
           ) {
             changes.push("Responses changed");
-            details.responses = {
-              old: originalMethod?.responses || {},
-              new: currentMethod?.responses || {},
+
+            // Detailed response comparison by status code
+            const oldResponses = originalMethod?.responses || {};
+            const newResponses = currentMethod?.responses || {};
+            const allStatusCodes = new Set([
+              ...Object.keys(oldResponses),
+              ...Object.keys(newResponses),
+            ]);
+
+            const responseChanges = {
+              added: [],
+              modified: [],
+              removed: [],
+            };
+
+            for (const statusCode of allStatusCodes) {
+              const oldResponse = oldResponses[statusCode];
+              const newResponse = newResponses[statusCode];
+
+              if (!oldResponse && newResponse) {
+                responseChanges.added.push({
+                  statusCode,
+                  response: newResponse,
+                });
+              } else if (oldResponse && !newResponse) {
+                responseChanges.removed.push({
+                  statusCode,
+                  response: oldResponse,
+                });
+              } else if (
+                JSON.stringify(oldResponse) !== JSON.stringify(newResponse)
+              ) {
+                responseChanges.modified.push({
+                  statusCode,
+                  old: oldResponse,
+                  new: newResponse,
+                });
+              }
+            }
+
+            details.responses = responseChanges;
+          }
+          if (
+            JSON.stringify(originalMethod?.security) !==
+            JSON.stringify(currentMethod?.security)
+          ) {
+            changes.push("Security requirements changed");
+            details.security = {
+              old: originalMethod?.security || [],
+              new: currentMethod?.security || [],
             };
           }
 

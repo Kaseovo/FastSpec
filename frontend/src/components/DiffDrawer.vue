@@ -162,6 +162,8 @@
                   class="detail-section"
                 >
                   <h4 class="detail-title">{{ formatFieldName(field) }}</h4>
+
+                  <!-- String fields (summary, description, operationId) -->
                   <div
                     v-if="
                       typeof detail.old === 'string' &&
@@ -179,6 +181,130 @@
                       <code>{{ detail.new || "(empty)" }}</code>
                     </div>
                   </div>
+
+                  <!-- Boolean fields (deprecated) -->
+                  <div
+                    v-else-if="
+                      typeof detail.old === 'boolean' &&
+                      typeof detail.new === 'boolean'
+                    "
+                    class="change-values"
+                  >
+                    <div class="old-value">
+                      <span class="value-label">Before:</span>
+                      <Tag :severity="detail.old ? 'danger' : 'success'">
+                        {{ detail.old ? "Deprecated" : "Active" }}
+                      </Tag>
+                    </div>
+                    <i class="pi pi-arrow-right"></i>
+                    <div class="new-value">
+                      <span class="value-label">After:</span>
+                      <Tag :severity="detail.new ? 'danger' : 'success'">
+                        {{ detail.new ? "Deprecated" : "Active" }}
+                      </Tag>
+                    </div>
+                  </div>
+
+                  <!-- Tags array -->
+                  <div v-else-if="field === 'tags'" class="tags-comparison">
+                    <div class="tags-side">
+                      <span class="value-label">Before:</span>
+                      <div class="tags-list">
+                        <Tag
+                          v-for="tag in detail.old"
+                          :key="tag"
+                          severity="secondary"
+                        >
+                          {{ tag }}
+                        </Tag>
+                        <span v-if="!detail.old?.length" class="empty-text"
+                          >(none)</span
+                        >
+                      </div>
+                    </div>
+                    <i class="pi pi-arrow-right"></i>
+                    <div class="tags-side">
+                      <span class="value-label">After:</span>
+                      <div class="tags-list">
+                        <Tag
+                          v-for="tag in detail.new"
+                          :key="tag"
+                          severity="secondary"
+                        >
+                          {{ tag }}
+                        </Tag>
+                        <span v-if="!detail.new?.length" class="empty-text"
+                          >(none)</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Responses with detailed status code comparison -->
+                  <div
+                    v-else-if="field === 'responses'"
+                    class="responses-detail"
+                  >
+                    <div
+                      v-if="detail.added?.length"
+                      class="response-group added"
+                    >
+                      <h5>➕ Added Responses</h5>
+                      <div
+                        v-for="resp in detail.added"
+                        :key="resp.statusCode"
+                        class="status-code-item"
+                      >
+                        <Tag severity="success">{{ resp.statusCode }}</Tag>
+                        <span class="response-description">
+                          {{ resp.response.description || "(no description)" }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      v-if="detail.modified?.length"
+                      class="response-group modified"
+                    >
+                      <h5>✏️ Modified Responses</h5>
+                      <div
+                        v-for="resp in detail.modified"
+                        :key="resp.statusCode"
+                        class="status-code-item"
+                      >
+                        <Tag severity="warn">{{ resp.statusCode }}</Tag>
+                        <div class="response-diff">
+                          <div class="response-side">
+                            <span class="value-label">Before:</span>
+                            <pre><code>{{ JSON.stringify(resp.old, null, 2) }}</code></pre>
+                          </div>
+                          <div class="response-side">
+                            <span class="value-label">After:</span>
+                            <pre><code>{{ JSON.stringify(resp.new, null, 2) }}</code></pre>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      v-if="detail.removed?.length"
+                      class="response-group removed"
+                    >
+                      <h5>➖ Removed Responses</h5>
+                      <div
+                        v-for="resp in detail.removed"
+                        :key="resp.statusCode"
+                        class="status-code-item"
+                      >
+                        <Tag severity="danger">{{ resp.statusCode }}</Tag>
+                        <span class="response-description">
+                          {{ resp.response.description || "(no description)" }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Other JSON fields -->
                   <div v-else class="json-comparison">
                     <div class="json-side">
                       <span class="value-label">Before:</span>
@@ -565,5 +691,117 @@ export default {
   font-family: "Monaco", "Courier New", monospace;
   font-size: 0.8rem;
   line-height: 1.5;
+}
+
+.tags-comparison {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.tags-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 2rem;
+  align-items: center;
+}
+
+.empty-text {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.875rem;
+}
+
+.responses-detail {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.response-group {
+  padding: 1rem;
+  border-radius: 6px;
+  border-left: 3px solid;
+}
+
+.response-group.added {
+  background: #f0fdf4;
+  border-left-color: #10b981;
+}
+
+.response-group.modified {
+  background: #fef3c7;
+  border-left-color: #f59e0b;
+}
+
+.response-group.removed {
+  background: #fee2e2;
+  border-left-color: #ef4444;
+}
+
+.response-group h5 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.status-code-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.status-code-item:last-child {
+  margin-bottom: 0;
+}
+
+.response-description {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-left: 0.5rem;
+}
+
+.response-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.response-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.response-side pre {
+  margin: 0;
+  padding: 0.5rem;
+  background: #1f2937;
+  border-radius: 4px;
+  overflow-x: auto;
+  max-height: 200px;
+  font-size: 0.75rem;
+}
+
+.response-side code {
+  color: #10b981;
+  font-family: "Monaco", "Courier New", monospace;
+  line-height: 1.4;
 }
 </style>
