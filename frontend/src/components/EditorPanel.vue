@@ -12,6 +12,8 @@
 <script>
 import { ref, onMounted, watch } from "vue";
 import * as monaco from "monaco-editor";
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 
 export default {
   name: "EditorPanel",
@@ -27,6 +29,16 @@ export default {
     let editor = null;
 
     onMounted(() => {
+      // Configure Monaco Editor worker
+      self.MonacoEnvironment = {
+        getWorker(_, label) {
+          if (label === "json") {
+            return new jsonWorker();
+          }
+          return new editorWorker();
+        },
+      };
+
       editor = monaco.editor.create(editorContainer.value, {
         value: props.modelValue,
         language: "json",

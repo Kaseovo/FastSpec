@@ -10,10 +10,14 @@
           <p>{{ error.message }}</p>
         </Message>
       </div>
-      <div v-else-if="loading" class="loading">
+      <div v-if="loading" class="loading">
         <ProgressSpinner />
       </div>
-      <div v-else ref="swaggerContainer" class="swagger-container"></div>
+      <div
+        v-show="!loading && !error"
+        ref="swaggerContainer"
+        class="swagger-container"
+      ></div>
     </div>
   </div>
 </template>
@@ -101,13 +105,16 @@ export default {
 
     const updatePreview = async () => {
       error.value = null;
+      loading.value = true;
 
       if (!props.spec) {
+        loading.value = false;
         return;
       }
 
       // Validate it's an OpenAPI spec
       if (!props.spec.openapi && !props.spec.swagger) {
+        loading.value = false;
         error.value = {
           title: "⚠️ Not an OpenAPI Specification",
           message:
@@ -117,6 +124,7 @@ export default {
       }
 
       if (!props.spec.info) {
+        loading.value = false;
         error.value = {
           title: "⚠️ Missing Required Field",
           message: 'The "info" object is required in OpenAPI specifications.',
@@ -129,12 +137,16 @@ export default {
         await nextTick();
 
         if (!swaggerContainer.value) {
+          loading.value = false;
           return;
         }
 
+        // Clear previous content
+        swaggerContainer.value.innerHTML = "";
+
         swaggerUI = window.SwaggerUIBundle({
           spec: props.spec,
-          dom_id: `#${swaggerContainer.value.id}`,
+          domNode: swaggerContainer.value,
           deepLinking: true,
           presets: [
             window.SwaggerUIBundle.presets.apis,
@@ -149,7 +161,10 @@ export default {
           showExtensions: true,
           showCommonExtensions: true,
         });
+
+        loading.value = false;
       } catch (err) {
+        loading.value = false;
         error.value = {
           title: "❌ Failed to load Swagger UI",
           message: err.message,
@@ -158,12 +173,7 @@ export default {
     };
 
     onMounted(async () => {
-      // Generate unique ID for the container
-      if (swaggerContainer.value) {
-        swaggerContainer.value.id = `swagger-ui-${Math.random()
-          .toString(36)
-          .substring(7)}`;
-      }
+      await nextTick();
       await updatePreview();
     });
 
