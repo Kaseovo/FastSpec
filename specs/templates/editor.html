@@ -101,6 +101,19 @@
         height: 100%;
         width: 100%;
         overflow-y: auto;
+        background: #fafafa;
+    }
+    
+    #swagger-preview .swagger-ui {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    #swagger-preview .swagger-ui .topbar {
+        display: none;
+    }
+    
+    #swagger-preview .swagger-ui .info {
+        margin: 20px 0;
     }
     
     .mode-switcher {
@@ -302,6 +315,101 @@
     
     const API_BASE = '/api';
     
+    // Load Swagger UI dynamically after Monaco to avoid loader conflicts
+    function loadSwaggerUI() {
+        return new Promise((resolve, reject) => {
+            // Check if already loaded
+            if (typeof SwaggerUIBundle !== 'undefined') {
+                resolve();
+                return;
+            }
+            
+            console.log('Loading Swagger UI scripts...');
+            
+            // Temporarily disable Monaco's AMD loader to prevent conflicts
+            const oldDefine = window.define;
+            window.define = undefined;
+            
+            // Load bundle script
+            const bundleScript = document.createElement('script');
+            bundleScript.src = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js';
+            bundleScript.crossOrigin = 'anonymous';
+            
+            // Load preset script
+            const presetScript = document.createElement('script');
+            presetScript.src = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js';
+            presetScript.crossOrigin = 'anonymous';
+            
+            let bundleLoaded = false;
+            let presetLoaded = false;
+            
+            const checkBothLoaded = () => {
+                if (bundleLoaded && presetLoaded) {
+                    // Restore Monaco's AMD loader
+                    window.define = oldDefine;
+                    console.log('✓ Swagger UI loaded successfully');
+                    resolve();
+                }
+            };
+            
+            bundleScript.onload = () => {
+                console.log('✓ Swagger UI Bundle loaded');
+                bundleLoaded = true;
+                checkBothLoaded();
+            };
+            
+            bundleScript.onerror = () => {
+                console.error('Failed to load Swagger UI Bundle from jsdelivr, trying unpkg...');
+                bundleScript.src = 'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js';
+            };
+            
+            presetScript.onload = () => {
+                console.log('✓ Swagger UI Preset loaded');
+                presetLoaded = true;
+                checkBothLoaded();
+            };
+            
+            presetScript.onerror = () => {
+                window.define = oldDefine;
+                console.error('Failed to load Swagger UI Preset');
+                reject(new Error('Failed to load Swagger UI'));
+            };
+            
+            document.body.appendChild(bundleScript);
+            document.body.appendChild(presetScript);
+            
+            // Timeout after 10 seconds
+            setTimeout(() => {
+                if (!bundleLoaded || !presetLoaded) {
+                    window.define = oldDefine;
+                    reject(new Error('Swagger UI loading timeout'));
+                }
+            }, 10000);
+        });
+    }
+    
+    // Wait for Swagger UI to load
+    function waitForSwaggerUI(callback) {
+        loadSwaggerUI()
+            .then(() => {
+                callback();
+            })
+            .catch((error) => {
+                console.error('Failed to load Swagger UI:', error);
+                document.getElementById('swagger-preview').innerHTML = 
+                    '<div style="padding: 20px; color: #dc2626; background: #fee2e2; border-radius: 6px; margin: 10px;">' +
+                    '<strong>❌ Failed to load Swagger UI</strong>' +
+                    '<p style="margin-top: 10px;">' + escapeHtml(error.message) + '</p>' +
+                    '<p style="margin-top: 10px;"><strong>Try:</strong></p>' +
+                    '<ul style="margin-top: 5px; margin-left: 20px;">' +
+                    '<li>Refresh the page (Cmd/Ctrl + R)</li>' +
+                    '<li>Check your internet connection</li>' +
+                    '<li>Check browser console for errors (F12)</li>' +
+                    '</ul>' +
+                    '</div>';
+            });
+    }
+    
     // Initialize Monaco Editor
     require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs' } });
     require(['vs/editor/editor.main'], function () {
@@ -317,26 +425,100 @@
             updatePreview();
         });
         
-        updatePreview();
+        // Wait for Swagger UI to be available before first update
+        waitForSwaggerUI(() => {
+            updatePreview();
+        });
     });
     
     // Initialize Swagger UI
     function updatePreview() {
+        const previewDiv = document.getElementById('swagger-preview');
+        
+        // Check if SwaggerUIBundle is available
+        if (typeof SwaggerUIBundle === 'undefined') {
+            previewDiv.innerHTML = `
+                <div style="padding: 20px; color: #6b7280; background: #f3f4f6; border-radius: 6px; margin: 10px;">
+                    <strong>⏳ Loading Swagger UI...</strong>
+                    <p style="margin-top: 10px;">Please wait...</p>
+                </div>
+            `;
+            return;
+        }
+        
+        console.log('updatePreview called, SwaggerUIBundle available:', typeof SwaggerUIBundle !== 'undefined');
+        
         try {
             const spec = JSON.parse(editor.getValue());
+            
+            console.log('Parsed spec:', spec);
+            console.log('OpenAPI version:', spec.openapi || spec.swagger);
+            
+            // Validate it's an OpenAPI spec
+            if (!spec.openapi && !spec.swagger) {
+                previewDiv.innerHTML = `
+                    <div style="padding: 20px; color: #f59e0b; background: #fef3c7; border-radius: 6px; margin: 10px;">
+                        <strong>⚠️ Not an OpenAPI Specification</strong>
+                        <p style="margin-top: 10px;">The JSON is valid, but it's missing the required <code>openapi</code> or <code>swagger</code> field.</p>
+                        <p style="margin-top: 5px; font-size: 13px;">OpenAPI 3.x specs should have: <code>"openapi": "3.0.0"</code></p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Check for basic required fields
+            if (!spec.info) {
+                previewDiv.innerHTML = `
+                    <div style="padding: 20px; color: #f59e0b; background: #fef3c7; border-radius: 6px; margin: 10px;">
+                        <strong>⚠️ Missing Required Field</strong>
+                        <p style="margin-top: 10px;">The <code>info</code> object is required in OpenAPI specifications.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            console.log('Initializing Swagger UI with spec...');
+            
+            // Render Swagger UI
             swaggerUI = SwaggerUIBundle({
                 spec: spec,
                 dom_id: '#swagger-preview',
+                deepLinking: true,
                 presets: [
                     SwaggerUIBundle.presets.apis,
-                    SwaggerUIBundle.SwaggerUIStandalonePreset
+                    SwaggerUIStandalonePreset
                 ],
-                layout: "BaseLayout"
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "BaseLayout",
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                docExpansion: 'list',
+                filter: true,
+                showExtensions: true,
+                showCommonExtensions: true
             });
+            
+            console.log('Swagger UI initialized:', swaggerUI);
         } catch (e) {
-            document.getElementById('swagger-preview').innerHTML = 
-                '<div style="padding: 20px; color: #dc2626;">Invalid JSON</div>';
+            console.error('Error in updatePreview:', e);
+            // JSON parsing error
+            previewDiv.innerHTML = `
+                <div style="padding: 20px; color: #dc2626; background: #fee2e2; border-radius: 6px; margin: 10px;">
+                    <strong>❌ Invalid JSON</strong>
+                    <p style="margin-top: 10px;">${escapeHtml(e.message)}</p>
+                    <p style="margin-top: 10px; font-size: 13px; color: #991b1b;">Please fix the JSON syntax errors in the editor.</p>
+                </div>
+            `;
         }
+    }
+    
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     // Load specs
