@@ -8,11 +8,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.4.0",
-    "primevue": "^3.52.0",
-    "primeicons": "^7.0.0",
+    "@primevue/themes": "^4.4.1",
     "axios": "^1.6.0",
-    "monaco-editor": "^0.45.0"
+    "monaco-editor": "^0.45.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.4.1",
+    "vue": "^3.4.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",

@@ -15,7 +15,6 @@
       <div class="editor-container">
         <SpecList @spec-selected="loadSpec" :selected-id="currentSpec?.id" />
         <EditorPanel v-model="specContent" @update:modelValue="updatePreview" />
-        <PreviewPanel :spec="parsedSpec" />
       </div>
     </div>
 
@@ -25,12 +24,23 @@
       :spec-name="currentSpec?.name || ''"
       @save="saveSpec"
     />
+
+    <Drawer
+      :visible="showPreviewDrawer"
+      @update:visible="showPreviewDrawer = $event"
+      position="right"
+      :style="{ width: '50vw' }"
+      header="Swagger Preview"
+    >
+      <PreviewPanel :spec="parsedSpec" />
+    </Drawer>
   </div>
 </template>
 
 <script>
 import { ref, computed, provide } from "vue";
 import Message from "primevue/message";
+import Drawer from "primevue/drawer";
 import Toolbar from "./components/Toolbar.vue";
 import SpecList from "./components/SpecList.vue";
 import EditorPanel from "./components/EditorPanel.vue";
@@ -42,6 +52,7 @@ export default {
   name: "App",
   components: {
     Message,
+    Drawer,
     Toolbar,
     SpecList,
     EditorPanel,
@@ -53,6 +64,7 @@ export default {
     const specContent = ref(JSON.stringify(getDefaultSpec(), null, 2));
     const parsedSpec = ref(getDefaultSpec());
     const showSaveDialog = ref(false);
+    const showPreviewDrawer = ref(false);
     const alert = ref({ show: false, message: "", type: "info" });
     const specListKey = ref(0);
 
@@ -141,6 +153,10 @@ export default {
       showAlert("Template loaded", "info");
     };
 
+    const togglePreview = () => {
+      showPreviewDrawer.value = !showPreviewDrawer.value;
+    };
+
     function getDefaultSpec() {
       return {
         openapi: "3.0.0",
@@ -159,6 +175,7 @@ export default {
     provide("openSaveDialog", openSaveDialog);
     provide("validateCurrentSpec", validateCurrentSpec);
     provide("loadTemplate", loadTemplate);
+    provide("togglePreview", togglePreview);
     provide("refreshSpecList", () => specListKey.value++);
 
     return {
@@ -166,6 +183,7 @@ export default {
       specContent,
       parsedSpec,
       showSaveDialog,
+      showPreviewDrawer,
       alert,
       showAlert,
       closeAlert,
@@ -218,7 +236,7 @@ body {
 
 .editor-container {
   display: grid;
-  grid-template-columns: 250px 1fr 1fr;
+  grid-template-columns: 250px 1fr;
   gap: 20px;
   height: calc(100vh - 250px);
   margin-top: 20px;

@@ -14,6 +14,12 @@
       severity="secondary"
       @click="loadTemplate"
     />
+    <Button
+      label="Preview"
+      icon="pi pi-eye"
+      severity="info"
+      @click="togglePreview"
+    />
   </div>
 </template>
 
@@ -31,12 +37,14 @@ export default {
     const openSaveDialog = inject("openSaveDialog");
     const validateCurrentSpec = inject("validateCurrentSpec");
     const loadTemplate = inject("loadTemplate");
+    const togglePreview = inject("togglePreview");
 
     return {
       newSpec,
       openSaveDialog,
       validateCurrentSpec,
       loadTemplate,
+      togglePreview,
     };
   },
 };
