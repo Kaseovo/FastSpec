@@ -4,83 +4,78 @@ Get FastSpec running locally in under 5 minutes!
 
 ## Prerequisites
 
-- **Node.js 20+** and **npm**
 - **Python 3.11+** and **pip**
 
 ## Quick Setup
 
-### 1. Clone & Setup Backend (Terminal 1)
+### Setup (Single Terminal)
 
 ```bash
 # Clone the repository
 git clone https://github.com/DishWatcher/FastSpec.git
-cd FastSpec/backend
+cd FastSpec
 
 # Create virtual environment (optional but recommended)
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Install dependencies and run
-pip install -r requirements.txt
-python main.py
-```
-
-✅ Backend running at **http://localhost:8000**
-
-### 2. Setup Frontend (Terminal 2)
-
-Open a new terminal:
-
-```bash
-cd FastSpec/frontend
-
 # Install dependencies
-npm install
+pip install -r requirements.txt
 
-# Create environment file
-cp .env.example .env.local
+# Run migrations
+python manage.py migrate
 
 # Run development server
-npm run dev
+python manage.py runserver
 ```
 
-✅ Frontend running at **http://localhost:5173** (Vite default port)
+✅ Application running at **http://localhost:8000**
 
 ## Verify Setup
 
-1. Open http://localhost:5173 in your browser
+1. Open http://localhost:8000 in your browser
 2. Click "New" to create a specification
 3. Fill in some details and click "Save"
 4. Your spec should be saved and appear in the sidebar
 
-## API Documentation
+## Admin Panel (Optional)
 
-Visit http://localhost:8000/docs for interactive API documentation.
+To access the Django admin panel:
+
+```bash
+python manage.py createsuperuser
+```
+
+Then visit http://localhost:8000/admin
 
 ## Troubleshooting
 
 ### Port Already in Use
 
-If port 8000 or 5173 is already in use:
+If port 8000 is already in use, run on a different port:
 
-**Backend**: Edit `backend/main.py` and change the port in the last line
-**Frontend**: Run `npm run dev -- --port 5174` to use port 5174
+```bash
+python manage.py runserver 8080
+```
 
 ### Module Not Found
 
-**Backend**: Make sure virtual environment is activated and dependencies are installed
-**Frontend**: Delete `node_modules` and run `npm install` again
+Make sure virtual environment is activated and dependencies are installed:
 
-### CORS Errors
-
-Make sure backend is running on port 8000, or update `VITE_API_URL` in `frontend/.env.local`
+```bash
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
+```
 
 ## Next Steps
 
 - Read the full [README.md](./README.md) for detailed documentation
-- Check out the API at http://localhost:8000/docs
-- Explore the code structure in the README
+- Explore the Django admin at http://localhost:8000/admin
+- Check out the REST API at http://localhost:8000/api/
 
----
+## Docker (Optional)
 
-Need Docker instead? See [docker/README.md](./docker/README.md)
+```bash
+docker build -t fastspec .
+docker run -p 8000:8000 fastspec
+```
