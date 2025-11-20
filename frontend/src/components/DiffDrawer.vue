@@ -211,9 +211,14 @@ export default {
 
     const summary = computed(() => {
       return {
-        added: (props.diff.infoAdded?.length || 0) + (props.diff.added?.length || 0),
-        modified: (props.diff.infoModified?.length || 0) + (props.diff.modified?.length || 0),
-        removed: (props.diff.infoRemoved?.length || 0) + (props.diff.removed?.length || 0),
+        added:
+          (props.diff.infoAdded?.length || 0) + (props.diff.added?.length || 0),
+        modified:
+          (props.diff.infoModified?.length || 0) +
+          (props.diff.modified?.length || 0),
+        removed:
+          (props.diff.infoRemoved?.length || 0) +
+          (props.diff.removed?.length || 0),
       };
     });
 

@@ -20,7 +20,7 @@ export function compareSpecs(original, current) {
   if (original.info || current.info) {
     const originalInfo = original.info || {};
     const currentInfo = current.info || {};
-    
+
     const infoKeys = new Set([
       ...Object.keys(originalInfo),
       ...Object.keys(currentInfo),
@@ -29,18 +29,22 @@ export function compareSpecs(original, current) {
     for (const key of infoKeys) {
       const oldVal = originalInfo[key];
       const newVal = currentInfo[key];
-      
+
       // Check if value exists and is not empty
-      const hasOld = oldVal !== undefined && oldVal !== null && oldVal !== '';
-      const hasNew = newVal !== undefined && newVal !== null && newVal !== '';
-      
+      const hasOld = oldVal !== undefined && oldVal !== null && oldVal !== "";
+      const hasNew = newVal !== undefined && newVal !== null && newVal !== "";
+
       if (!hasOld && hasNew) {
         // Added
         diff.infoAdded.push({ key, value: newVal });
       } else if (hasOld && !hasNew) {
         // Removed
         diff.infoRemoved.push({ key, value: oldVal });
-      } else if (hasOld && hasNew && JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      } else if (
+        hasOld &&
+        hasNew &&
+        JSON.stringify(oldVal) !== JSON.stringify(newVal)
+      ) {
         // Modified
         diff.infoModified.push({ key, old: oldVal, new: newVal });
       }
