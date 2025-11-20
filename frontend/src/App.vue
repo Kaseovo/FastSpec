@@ -40,6 +40,8 @@
       @update:visible="showDiffDrawer = $event"
       :diff="specDiff"
     />
+
+    <Toast />
   </div>
 </template>
 
@@ -47,6 +49,7 @@
 import { ref, computed, provide } from "vue";
 import Message from "primevue/message";
 import Drawer from "primevue/drawer";
+import Toast from "primevue/toast";
 import Toolbar from "./components/Toolbar.vue";
 import SpecList from "./components/SpecList.vue";
 import EditorPanel from "./components/EditorPanel.vue";
@@ -61,6 +64,7 @@ export default {
   components: {
     Message,
     Drawer,
+    Toast,
     Toolbar,
     SpecList,
     EditorPanel,

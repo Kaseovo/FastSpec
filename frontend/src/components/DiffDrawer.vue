@@ -4,8 +4,22 @@
     @update:visible="$emit('update:visible', $event)"
     position="right"
     :style="{ width: '60vw' }"
-    header="Changes Overview"
   >
+    <template #header>
+      <div class="drawer-header">
+        <h3>Changes Overview</h3>
+        <Button
+          v-if="hasChanges"
+          icon="pi pi-copy"
+          label="Copy as Markdown"
+          size="small"
+          severity="secondary"
+          @click="copyAsMarkdown"
+          :loading="copying"
+        />
+      </div>
+    </template>
+
     <div class="diff-container">
       <div v-if="!hasChanges" class="no-changes">
         <i
@@ -98,247 +112,373 @@
           </div>
         </div>
 
-        <!-- Added Paths -->
-        <div v-if="diff.added?.length" class="change-section">
-          <h3>➕ Added Endpoints ({{ diff.added.length }})</h3>
+        <!-- Added Schemas -->
+        <div v-if="diff.schemaAdded?.length" class="change-section">
+          <h3>➕ Added Schemas ({{ diff.schemaAdded.length }})</h3>
           <div class="change-list">
             <div
-              v-for="item in diff.added"
-              :key="item.path"
+              v-for="item in diff.schemaAdded"
+              :key="item.name"
               class="change-item added"
             >
-              <div class="endpoint-header">
-                <Tag :severity="getMethodSeverity(item.method)">{{
-                  item.method
-                }}</Tag>
-                <code class="path">{{ item.path }}</code>
+              <div class="schema-name-header">
+                <i class="pi pi-sitemap"></i>
+                <code class="schema-name">{{ item.name }}</code>
+                <Tag v-if="item.schema.type" severity="info" size="small">
+                  {{ item.schema.type }}
+                </Tag>
               </div>
-              <div v-if="item.summary" class="endpoint-summary">
-                {{ item.summary }}
-              </div>
+              <pre
+                class="schema-preview"
+              ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
             </div>
           </div>
         </div>
 
-        <!-- Modified Paths -->
-        <div v-if="diff.modified?.length" class="change-section">
-          <h3>✏️ Modified Endpoints ({{ diff.modified.length }})</h3>
+        <!-- Modified Schemas Section -->
+        <div
+          v-if="diff.schemaModified?.length"
+          class="change-section schema-section"
+        >
+          <h3>🔄 Modified Schemas ({{ diff.schemaModified.length }})</h3>
           <div class="change-list">
             <div
-              v-for="(item, index) in diff.modified"
-              :key="item.path + item.method"
-              class="change-item modified"
+              v-for="(item, index) in diff.schemaModified"
+              :key="`schema-${item.name}-${index}`"
+              class="change-item schema-modified"
             >
-              <div class="endpoint-header">
-                <Tag :severity="getMethodSeverity(item.method)">{{
-                  item.method
-                }}</Tag>
-                <code class="path">{{ item.path }}</code>
-                <Button
-                  icon="pi pi-chevron-down"
-                  :class="{ 'rotate-180': expandedItems[index] }"
-                  text
-                  size="small"
-                  @click="toggleExpand(index)"
-                  class="expand-button"
-                />
+              <div class="schema-name-header">
+                <i class="pi pi-sitemap"></i>
+                <code class="schema-name">{{ item.name }}</code>
               </div>
-              <div v-if="item.changes?.length" class="endpoint-changes">
-                <div
-                  v-for="(change, idx) in item.changes"
-                  :key="idx"
-                  class="field-change"
-                >
-                  <i class="pi pi-angle-right"></i>
-                  <span>{{ change }}</span>
+
+              <div v-if="item.typeChanged" class="type-change-inline">
+                <span class="change-label">Type:</span>
+                <code>{{ item.oldType }}</code>
+                <i class="pi pi-arrow-right"></i>
+                <code>{{ item.newType }}</code>
+              </div>
+
+              <div
+                v-if="item.propertiesAdded?.length"
+                class="properties-summary added"
+              >
+                <i class="pi pi-plus-circle"></i>
+                <span>{{ item.propertiesAdded.length }} properties added</span>
+                <div class="property-badges">
+                  <Tag
+                    v-for="prop in item.propertiesAdded"
+                    :key="prop.name"
+                    severity="success"
+                    size="small"
+                  >
+                    {{ prop.name }}
+                  </Tag>
                 </div>
               </div>
 
-              <!-- Expanded Details -->
-              <div v-if="expandedItems[index]" class="expanded-details">
-                <div
-                  v-for="(detail, field) in item.details"
-                  :key="field"
-                  class="detail-section"
+              <div
+                v-if="item.propertiesRemoved?.length"
+                class="properties-summary removed"
+              >
+                <i class="pi pi-minus-circle"></i>
+                <span
+                  >{{ item.propertiesRemoved.length }} properties removed</span
                 >
-                  <h4 class="detail-title">{{ formatFieldName(field) }}</h4>
-
-                  <!-- String fields (summary, description, operationId) -->
-                  <div
-                    v-if="
-                      typeof detail.old === 'string' &&
-                      typeof detail.new === 'string'
-                    "
-                    class="change-values"
+                <div class="property-badges">
+                  <Tag
+                    v-for="prop in item.propertiesRemoved"
+                    :key="prop.name"
+                    severity="danger"
+                    size="small"
                   >
-                    <div class="old-value">
-                      <span class="value-label">Before:</span>
-                      <code>{{ detail.old || "(empty)" }}</code>
-                    </div>
-                    <i class="pi pi-arrow-right"></i>
-                    <div class="new-value">
-                      <span class="value-label">After:</span>
-                      <code>{{ detail.new || "(empty)" }}</code>
-                    </div>
-                  </div>
+                    {{ prop.name }}
+                  </Tag>
+                </div>
+              </div>
 
-                  <!-- Boolean fields (deprecated) -->
-                  <div
-                    v-else-if="
-                      typeof detail.old === 'boolean' &&
-                      typeof detail.new === 'boolean'
-                    "
-                    class="change-values"
+              <div
+                v-if="item.propertiesModified?.length"
+                class="properties-summary modified"
+              >
+                <i class="pi pi-pencil"></i>
+                <span
+                  >{{ item.propertiesModified.length }} properties
+                  modified</span
+                >
+                <div class="property-badges">
+                  <Tag
+                    v-for="prop in item.propertiesModified"
+                    :key="prop.name"
+                    severity="warn"
+                    size="small"
                   >
-                    <div class="old-value">
-                      <span class="value-label">Before:</span>
-                      <Tag :severity="detail.old ? 'danger' : 'success'">
-                        {{ detail.old ? "Deprecated" : "Active" }}
-                      </Tag>
-                    </div>
-                    <i class="pi pi-arrow-right"></i>
-                    <div class="new-value">
-                      <span class="value-label">After:</span>
-                      <Tag :severity="detail.new ? 'danger' : 'success'">
-                        {{ detail.new ? "Deprecated" : "Active" }}
-                      </Tag>
-                    </div>
-                  </div>
+                    {{ prop.name }}
+                  </Tag>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                  <!-- Tags array -->
-                  <div v-else-if="field === 'tags'" class="tags-comparison">
-                    <div class="tags-side">
-                      <span class="value-label">Before:</span>
-                      <div class="tags-list">
-                        <Tag
-                          v-for="tag in detail.old"
-                          :key="tag"
-                          severity="secondary"
-                        >
-                          {{ tag }}
-                        </Tag>
-                        <span v-if="!detail.old?.length" class="empty-text"
-                          >(none)</span
-                        >
-                      </div>
-                    </div>
-                    <i class="pi pi-arrow-right"></i>
-                    <div class="tags-side">
-                      <span class="value-label">After:</span>
-                      <div class="tags-list">
-                        <Tag
-                          v-for="tag in detail.new"
-                          :key="tag"
-                          severity="secondary"
-                        >
-                          {{ tag }}
-                        </Tag>
-                        <span v-if="!detail.new?.length" class="empty-text"
-                          >(none)</span
-                        >
-                      </div>
-                    </div>
-                  </div>
+      <!-- Removed Schemas -->
+      <div v-if="diff.schemaRemoved?.length" class="change-section">
+        <h3>➖ Removed Schemas ({{ diff.schemaRemoved.length }})</h3>
+        <div class="change-list">
+          <div
+            v-for="item in diff.schemaRemoved"
+            :key="item.name"
+            class="change-item removed"
+          >
+            <div class="schema-name-header">
+              <i class="pi pi-sitemap"></i>
+              <code class="schema-name">{{ item.name }}</code>
+              <Tag v-if="item.schema.type" severity="danger" size="small">
+                {{ item.schema.type }}
+              </Tag>
+            </div>
+            <pre
+              class="schema-preview"
+            ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
+          </div>
+        </div>
+      </div>
 
-                  <!-- Responses with detailed status code comparison -->
-                  <div
-                    v-else-if="field === 'responses'"
-                    class="responses-detail"
-                  >
-                    <div
-                      v-if="detail.added?.length"
-                      class="response-group added"
-                    >
-                      <h5>➕ Added Responses</h5>
-                      <div
-                        v-for="resp in detail.added"
-                        :key="resp.statusCode"
-                        class="status-code-item"
+      <!-- Added Paths -->
+      <div v-if="diff.added?.length" class="change-section">
+        <h3>➕ Added Endpoints ({{ diff.added.length }})</h3>
+        <div class="change-list">
+          <div
+            v-for="item in diff.added"
+            :key="item.path"
+            class="change-item added"
+          >
+            <div class="endpoint-header">
+              <Tag :severity="getMethodSeverity(item.method)">{{
+                item.method
+              }}</Tag>
+              <code class="path">{{ item.path }}</code>
+            </div>
+            <div v-if="item.summary" class="endpoint-summary">
+              {{ item.summary }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modified Paths -->
+      <div v-if="diff.modified?.length" class="change-section">
+        <h3>✏️ Modified Endpoints ({{ diff.modified.length }})</h3>
+        <div class="change-list">
+          <div
+            v-for="(item, index) in diff.modified"
+            :key="item.path + item.method"
+            class="change-item modified"
+          >
+            <div class="endpoint-header">
+              <Tag :severity="getMethodSeverity(item.method)">{{
+                item.method
+              }}</Tag>
+              <code class="path">{{ item.path }}</code>
+              <Button
+                icon="pi pi-chevron-down"
+                :class="{ 'rotate-180': expandedItems[index] }"
+                text
+                size="small"
+                @click="toggleExpand(index)"
+                class="expand-button"
+              />
+            </div>
+            <div v-if="item.changes?.length" class="endpoint-changes">
+              <div
+                v-for="(change, idx) in item.changes"
+                :key="idx"
+                class="field-change"
+              >
+                <i class="pi pi-angle-right"></i>
+                <span>{{ change }}</span>
+              </div>
+            </div>
+
+            <!-- Expanded Details -->
+            <div v-if="expandedItems[index]" class="expanded-details">
+              <div
+                v-for="(detail, field) in item.details"
+                :key="field"
+                class="detail-section"
+              >
+                <h4 class="detail-title">{{ formatFieldName(field) }}</h4>
+
+                <!-- String fields (summary, description, operationId) -->
+                <div
+                  v-if="
+                    typeof detail.old === 'string' &&
+                    typeof detail.new === 'string'
+                  "
+                  class="change-values"
+                >
+                  <div class="old-value">
+                    <span class="value-label">Before:</span>
+                    <code>{{ detail.old || "(empty)" }}</code>
+                  </div>
+                  <i class="pi pi-arrow-right"></i>
+                  <div class="new-value">
+                    <span class="value-label">After:</span>
+                    <code>{{ detail.new || "(empty)" }}</code>
+                  </div>
+                </div>
+
+                <!-- Boolean fields (deprecated) -->
+                <div
+                  v-else-if="
+                    typeof detail.old === 'boolean' &&
+                    typeof detail.new === 'boolean'
+                  "
+                  class="change-values"
+                >
+                  <div class="old-value">
+                    <span class="value-label">Before:</span>
+                    <Tag :severity="detail.old ? 'danger' : 'success'">
+                      {{ detail.old ? "Deprecated" : "Active" }}
+                    </Tag>
+                  </div>
+                  <i class="pi pi-arrow-right"></i>
+                  <div class="new-value">
+                    <span class="value-label">After:</span>
+                    <Tag :severity="detail.new ? 'danger' : 'success'">
+                      {{ detail.new ? "Deprecated" : "Active" }}
+                    </Tag>
+                  </div>
+                </div>
+
+                <!-- Tags array -->
+                <div v-else-if="field === 'tags'" class="tags-comparison">
+                  <div class="tags-side">
+                    <span class="value-label">Before:</span>
+                    <div class="tags-list">
+                      <Tag
+                        v-for="tag in detail.old"
+                        :key="tag"
+                        severity="secondary"
                       >
-                        <Tag severity="success">{{ resp.statusCode }}</Tag>
-                        <span class="response-description">
-                          {{ resp.response.description || "(no description)" }}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div
-                      v-if="detail.modified?.length"
-                      class="response-group modified"
-                    >
-                      <h5>✏️ Modified Responses</h5>
-                      <div
-                        v-for="resp in detail.modified"
-                        :key="resp.statusCode"
-                        class="status-code-item"
+                        {{ tag }}
+                      </Tag>
+                      <span v-if="!detail.old?.length" class="empty-text"
+                        >(none)</span
                       >
-                        <Tag severity="warn">{{ resp.statusCode }}</Tag>
-                        <div class="response-diff">
-                          <div class="response-side">
-                            <span class="value-label">Before:</span>
-                            <pre><code>{{ JSON.stringify(resp.old, null, 2) }}</code></pre>
-                          </div>
-                          <div class="response-side">
-                            <span class="value-label">After:</span>
-                            <pre><code>{{ JSON.stringify(resp.new, null, 2) }}</code></pre>
-                          </div>
+                    </div>
+                  </div>
+                  <i class="pi pi-arrow-right"></i>
+                  <div class="tags-side">
+                    <span class="value-label">After:</span>
+                    <div class="tags-list">
+                      <Tag
+                        v-for="tag in detail.new"
+                        :key="tag"
+                        severity="secondary"
+                      >
+                        {{ tag }}
+                      </Tag>
+                      <span v-if="!detail.new?.length" class="empty-text"
+                        >(none)</span
+                      >
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Responses with detailed status code comparison -->
+                <div v-else-if="field === 'responses'" class="responses-detail">
+                  <div v-if="detail.added?.length" class="response-group added">
+                    <h5>➕ Added Responses</h5>
+                    <div
+                      v-for="resp in detail.added"
+                      :key="resp.statusCode"
+                      class="status-code-item"
+                    >
+                      <Tag severity="success">{{ resp.statusCode }}</Tag>
+                      <span class="response-description">
+                        {{ resp.response.description || "(no description)" }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="detail.modified?.length"
+                    class="response-group modified"
+                  >
+                    <h5>✏️ Modified Responses</h5>
+                    <div
+                      v-for="resp in detail.modified"
+                      :key="resp.statusCode"
+                      class="status-code-item"
+                    >
+                      <Tag severity="warn">{{ resp.statusCode }}</Tag>
+                      <div class="response-diff">
+                        <div class="response-side">
+                          <span class="value-label">Before:</span>
+                          <pre><code>{{ JSON.stringify(resp.old, null, 2) }}</code></pre>
+                        </div>
+                        <div class="response-side">
+                          <span class="value-label">After:</span>
+                          <pre><code>{{ JSON.stringify(resp.new, null, 2) }}</code></pre>
                         </div>
                       </div>
                     </div>
-
-                    <div
-                      v-if="detail.removed?.length"
-                      class="response-group removed"
-                    >
-                      <h5>➖ Removed Responses</h5>
-                      <div
-                        v-for="resp in detail.removed"
-                        :key="resp.statusCode"
-                        class="status-code-item"
-                      >
-                        <Tag severity="danger">{{ resp.statusCode }}</Tag>
-                        <span class="response-description">
-                          {{ resp.response.description || "(no description)" }}
-                        </span>
-                      </div>
-                    </div>
                   </div>
 
-                  <!-- Other JSON fields -->
-                  <div v-else class="json-comparison">
-                    <div class="json-side">
-                      <span class="value-label">Before:</span>
-                      <pre><code>{{ JSON.stringify(detail.old, null, 2) }}</code></pre>
+                  <div
+                    v-if="detail.removed?.length"
+                    class="response-group removed"
+                  >
+                    <h5>➖ Removed Responses</h5>
+                    <div
+                      v-for="resp in detail.removed"
+                      :key="resp.statusCode"
+                      class="status-code-item"
+                    >
+                      <Tag severity="danger">{{ resp.statusCode }}</Tag>
+                      <span class="response-description">
+                        {{ resp.response.description || "(no description)" }}
+                      </span>
                     </div>
-                    <div class="json-side">
-                      <span class="value-label">After:</span>
-                      <pre><code>{{ JSON.stringify(detail.new, null, 2) }}</code></pre>
-                    </div>
+                  </div>
+                </div>
+
+                <!-- Other JSON fields -->
+                <div v-else class="json-comparison">
+                  <div class="json-side">
+                    <span class="value-label">Before:</span>
+                    <pre><code>{{ JSON.stringify(detail.old, null, 2) }}</code></pre>
+                  </div>
+                  <div class="json-side">
+                    <span class="value-label">After:</span>
+                    <pre><code>{{ JSON.stringify(detail.new, null, 2) }}</code></pre>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Removed Paths -->
-        <div v-if="diff.removed?.length" class="change-section">
-          <h3>➖ Removed Endpoints ({{ diff.removed.length }})</h3>
-          <div class="change-list">
-            <div
-              v-for="item in diff.removed"
-              :key="item.path"
-              class="change-item removed"
-            >
-              <div class="endpoint-header">
-                <Tag :severity="getMethodSeverity(item.method)">{{
-                  item.method
-                }}</Tag>
-                <code class="path">{{ item.path }}</code>
-              </div>
-              <div v-if="item.summary" class="endpoint-summary">
-                {{ item.summary }}
-              </div>
+      <!-- Removed Paths -->
+      <div v-if="diff.removed?.length" class="change-section">
+        <h3>➖ Removed Endpoints ({{ diff.removed.length }})</h3>
+        <div class="change-list">
+          <div
+            v-for="item in diff.removed"
+            :key="item.path"
+            class="change-item removed"
+          >
+            <div class="endpoint-header">
+              <Tag :severity="getMethodSeverity(item.method)">{{
+                item.method
+              }}</Tag>
+              <code class="path">{{ item.path }}</code>
+            </div>
+            <div v-if="item.summary" class="endpoint-summary">
+              {{ item.summary }}
             </div>
           </div>
         </div>
@@ -352,6 +492,8 @@ import { computed, ref } from "vue";
 import Drawer from "primevue/drawer";
 import Tag from "primevue/tag";
 import Button from "primevue/button";
+import { useToast } from "primevue/usetoast";
+import { generateMarkdownReport } from "../utils/markdownGenerator";
 
 export default {
   name: "DiffDrawer",
@@ -373,6 +515,32 @@ export default {
   emits: ["update:visible"],
   setup(props) {
     const expandedItems = ref({});
+    const copying = ref(false);
+    const toast = useToast();
+
+    const copyAsMarkdown = async () => {
+      copying.value = true;
+      try {
+        const markdown = generateMarkdownReport(props.diff);
+        await navigator.clipboard.writeText(markdown);
+
+        toast.add({
+          severity: "success",
+          summary: "Copied!",
+          detail: "Changes copied as markdown to clipboard",
+          life: 3000,
+        });
+      } catch (error) {
+        toast.add({
+          severity: "error",
+          summary: "Copy Failed",
+          detail: "Failed to copy to clipboard",
+          life: 3000,
+        });
+      } finally {
+        copying.value = false;
+      }
+    };
 
     const toggleExpand = (index) => {
       expandedItems.value[index] = !expandedItems.value[index];
@@ -392,20 +560,27 @@ export default {
         props.diff.infoRemoved?.length > 0 ||
         props.diff.added?.length > 0 ||
         props.diff.modified?.length > 0 ||
-        props.diff.removed?.length > 0
+        props.diff.removed?.length > 0 ||
+        props.diff.schemaAdded?.length > 0 ||
+        props.diff.schemaModified?.length > 0 ||
+        props.diff.schemaRemoved?.length > 0
       );
     });
 
     const summary = computed(() => {
       return {
         added:
-          (props.diff.infoAdded?.length || 0) + (props.diff.added?.length || 0),
+          (props.diff.infoAdded?.length || 0) +
+          (props.diff.added?.length || 0) +
+          (props.diff.schemaAdded?.length || 0),
         modified:
           (props.diff.infoModified?.length || 0) +
-          (props.diff.modified?.length || 0),
+          (props.diff.modified?.length || 0) +
+          (props.diff.schemaModified?.length || 0),
         removed:
           (props.diff.infoRemoved?.length || 0) +
-          (props.diff.removed?.length || 0),
+          (props.diff.removed?.length || 0) +
+          (props.diff.schemaRemoved?.length || 0),
       };
     });
 
@@ -422,6 +597,8 @@ export default {
 
     return {
       expandedItems,
+      copying,
+      copyAsMarkdown,
       toggleExpand,
       formatFieldName,
       hasChanges,
@@ -433,6 +610,20 @@ export default {
 </script>
 
 <style scoped>
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.drawer-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1f2937;
+}
+
 .diff-container {
   padding: 1rem;
 }
@@ -803,5 +994,308 @@ export default {
   color: #10b981;
   font-family: "Monaco", "Courier New", monospace;
   line-height: 1.4;
+}
+
+.schema-changes {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+}
+
+.schema-changes.full-width {
+  grid-column: 1 / -1;
+  margin-bottom: 1rem;
+}
+
+.schema-changes-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: #1f2937;
+  font-size: 0.875rem;
+}
+
+.schema-changes-header i {
+  color: #3b82f6;
+}
+
+.type-change {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #dbeafe;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.type-change code {
+  padding: 0.25rem 0.5rem;
+  background: #1f2937;
+  color: #10b981;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+
+.properties-change {
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.properties-change.added {
+  background: #f0fdf4;
+  border-left: 3px solid #10b981;
+}
+
+.properties-change.removed {
+  background: #fee2e2;
+  border-left: 3px solid #ef4444;
+}
+
+.properties-change.modified {
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+}
+
+.properties-change:last-child {
+  margin-bottom: 0;
+}
+
+.change-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.property-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.property-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.property-item.modified {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.property-item code {
+  padding: 0.25rem 0.5rem;
+  background: #f3f4f6;
+  border-radius: 3px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.property-type {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.property-diff {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.property-diff pre {
+  flex: 1;
+  margin: 0;
+  padding: 0.5rem;
+  background: #1f2937;
+  border-radius: 3px;
+  overflow-x: auto;
+  font-size: 0.75rem;
+}
+
+.property-diff code {
+  color: #10b981;
+  font-family: "Monaco", "Courier New", monospace;
+  background: transparent;
+  padding: 0;
+}
+
+.property-diff i {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+/* Schema Section Styles */
+.schema-section {
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  border: 2px solid #667eea;
+}
+
+.schema-section h3 {
+  color: #667eea;
+}
+
+.change-item.schema-modified {
+  background: white;
+  border-left-color: #667eea;
+}
+
+.type-tag {
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+
+.schema-changes-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.schema-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #4b5563;
+  font-family: "Monaco", "Courier New", monospace;
+}
+
+.schema-meta i {
+  color: #667eea;
+}
+
+.type-change-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #dbeafe;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.type-change-inline .change-label {
+  display: inline;
+  margin: 0;
+  color: #1e40af;
+}
+
+.type-change-inline code {
+  padding: 0.25rem 0.5rem;
+  background: #1f2937;
+  color: #10b981;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+
+.type-change-inline i {
+  color: #60a5fa;
+}
+
+.properties-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+}
+
+.properties-summary.added {
+  background: #f0fdf4;
+  border-left: 3px solid #10b981;
+}
+
+.properties-summary.removed {
+  background: #fee2e2;
+  border-left: 3px solid #ef4444;
+}
+
+.properties-summary.modified {
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+}
+
+.properties-summary > span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.properties-summary i {
+  font-size: 1rem;
+}
+
+.properties-summary.added i {
+  color: #10b981;
+}
+
+.properties-summary.removed i {
+  color: #ef4444;
+}
+
+.properties-summary.modified i {
+  color: #f59e0b;
+}
+
+.property-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.schema-name-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.schema-name-header i {
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.schema-name {
+  font-family: "Monaco", "Courier New", monospace;
+  font-size: 1rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.schema-preview {
+  margin: 0;
+  padding: 0.75rem;
+  background: #1f2937;
+  border-radius: 4px;
+  overflow-x: auto;
+  max-height: 400px;
+}
+
+.schema-preview code {
+  color: #10b981;
+  font-family: "Monaco", "Courier New", monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 </style>

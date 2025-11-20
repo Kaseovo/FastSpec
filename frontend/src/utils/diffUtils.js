@@ -1,4 +1,99 @@
 /**
+ * Deep compare two schemas and return detailed differences
+ */
+function compareSchemas(oldSchema, newSchema) {
+  const changes = {
+    propertiesAdded: [],
+    propertiesRemoved: [],
+    propertiesModified: [],
+    typeChanged: false,
+    oldType: null,
+    newType: null,
+  };
+
+  if (!oldSchema && !newSchema) return null;
+  if (!oldSchema || !newSchema) return { typeChanged: true };
+
+  // Check if root type changed
+  if (oldSchema.type !== newSchema.type) {
+    changes.typeChanged = true;
+    changes.oldType = oldSchema.type;
+    changes.newType = newSchema.type;
+  }
+
+  // For object schemas, compare properties
+  if (oldSchema.type === "object" && newSchema.type === "object") {
+    const oldProps = oldSchema.properties || {};
+    const newProps = newSchema.properties || {};
+    const allKeys = new Set([
+      ...Object.keys(oldProps),
+      ...Object.keys(newProps),
+    ]);
+
+    for (const key of allKeys) {
+      const oldProp = oldProps[key];
+      const newProp = newProps[key];
+
+      if (!oldProp && newProp) {
+        changes.propertiesAdded.push({ name: key, schema: newProp });
+      } else if (oldProp && !newProp) {
+        changes.propertiesRemoved.push({ name: key, schema: oldProp });
+      } else if (JSON.stringify(oldProp) !== JSON.stringify(newProp)) {
+        changes.propertiesModified.push({
+          name: key,
+          old: oldProp,
+          new: newProp,
+        });
+      }
+    }
+  }
+
+  // For array schemas, compare items schema
+  if (oldSchema.type === "array" && newSchema.type === "array") {
+    const oldItems = oldSchema.items || {};
+    const newItems = newSchema.items || {};
+
+    if (oldItems.type === "object" && newItems.type === "object") {
+      const oldProps = oldItems.properties || {};
+      const newProps = newItems.properties || {};
+      const allKeys = new Set([
+        ...Object.keys(oldProps),
+        ...Object.keys(newProps),
+      ]);
+
+      for (const key of allKeys) {
+        const oldProp = oldProps[key];
+        const newProp = newProps[key];
+
+        if (!oldProp && newProp) {
+          changes.propertiesAdded.push({ name: key, schema: newProp });
+        } else if (oldProp && !newProp) {
+          changes.propertiesRemoved.push({ name: key, schema: oldProp });
+        } else if (JSON.stringify(oldProp) !== JSON.stringify(newProp)) {
+          changes.propertiesModified.push({
+            name: key,
+            old: oldProp,
+            new: newProp,
+          });
+        }
+      }
+    }
+  }
+
+  // Return null if no changes detected
+  if (
+    !changes.typeChanged &&
+    changes.propertiesAdded.length === 0 &&
+    changes.propertiesRemoved.length === 0 &&
+    changes.propertiesModified.length === 0
+  ) {
+    return null;
+  }
+
+  return changes;
+}
+
+/**
  * Compare two OpenAPI specifications and return differences
  */
 export function compareSpecs(original, current) {
@@ -9,6 +104,9 @@ export function compareSpecs(original, current) {
     added: [],
     modified: [],
     removed: [],
+    schemaAdded: [],
+    schemaModified: [],
+    schemaRemoved: [],
   };
 
   // Handle null/undefined cases
@@ -244,6 +342,43 @@ export function compareSpecs(original, current) {
             });
           }
         }
+      }
+    }
+  }
+
+  // Compare components.schemas section
+  const originalSchemas = original.components?.schemas || {};
+  const currentSchemas = current.components?.schemas || {};
+
+  const allSchemaNames = new Set([
+    ...Object.keys(originalSchemas),
+    ...Object.keys(currentSchemas),
+  ]);
+
+  for (const schemaName of allSchemaNames) {
+    const oldSchema = originalSchemas[schemaName];
+    const newSchema = currentSchemas[schemaName];
+
+    if (!oldSchema && newSchema) {
+      // Schema added
+      diff.schemaAdded.push({
+        name: schemaName,
+        schema: newSchema,
+      });
+    } else if (oldSchema && !newSchema) {
+      // Schema removed
+      diff.schemaRemoved.push({
+        name: schemaName,
+        schema: oldSchema,
+      });
+    } else if (JSON.stringify(oldSchema) !== JSON.stringify(newSchema)) {
+      // Schema modified - get detailed changes
+      const schemaChanges = compareSchemas(oldSchema, newSchema);
+      if (schemaChanges) {
+        diff.schemaModified.push({
+          name: schemaName,
+          ...schemaChanges,
+        });
       }
     }
   }
