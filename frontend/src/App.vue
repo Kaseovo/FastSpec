@@ -34,6 +34,12 @@
     >
       <PreviewPanel :spec="parsedSpec" />
     </Drawer>
+
+    <DiffDrawer
+      :visible="showDiffDrawer"
+      @update:visible="showDiffDrawer = $event"
+      :diff="specDiff"
+    />
   </div>
 </template>
 
@@ -46,7 +52,9 @@ import SpecList from "./components/SpecList.vue";
 import EditorPanel from "./components/EditorPanel.vue";
 import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
+import DiffDrawer from "./components/DiffDrawer.vue";
 import { validateSpec, createSpec, updateSpec } from "./api/specs";
+import { compareSpecs } from "./utils/diffUtils";
 
 export default {
   name: "App",
@@ -58,13 +66,17 @@ export default {
     EditorPanel,
     PreviewPanel,
     SaveDialog,
+    DiffDrawer,
   },
   setup() {
     const currentSpec = ref(null);
     const specContent = ref(JSON.stringify(getDefaultSpec(), null, 2));
     const parsedSpec = ref(getDefaultSpec());
+    const initialSpec = ref(getDefaultSpec()); // Track initial state for diff
     const showSaveDialog = ref(false);
     const showPreviewDrawer = ref(false);
+    const showDiffDrawer = ref(false);
+    const specDiff = ref({ info: null, added: [], modified: [], removed: [] });
     const alert = ref({ show: false, message: "", type: "info" });
     const specListKey = ref(0);
 
@@ -82,6 +94,8 @@ export default {
     const updatePreview = () => {
       try {
         parsedSpec.value = JSON.parse(specContent.value);
+        // Compute diff against initial state
+        specDiff.value = compareSpecs(initialSpec.value, parsedSpec.value);
       } catch (e) {
         // Invalid JSON - preview will handle error display
       }
@@ -90,12 +104,15 @@ export default {
     const loadSpec = (spec) => {
       currentSpec.value = spec;
       specContent.value = JSON.stringify(spec.spec_json, null, 2);
+      initialSpec.value = JSON.parse(JSON.stringify(spec.spec_json)); // Deep clone
       updatePreview();
     };
 
     const newSpec = () => {
       currentSpec.value = null;
-      specContent.value = JSON.stringify(getDefaultSpec(), null, 2);
+      const defaultSpec = getDefaultSpec();
+      specContent.value = JSON.stringify(defaultSpec, null, 2);
+      initialSpec.value = JSON.parse(JSON.stringify(defaultSpec)); // Deep clone
       updatePreview();
     };
 
@@ -157,6 +174,10 @@ export default {
       showPreviewDrawer.value = !showPreviewDrawer.value;
     };
 
+    const toggleDiff = () => {
+      showDiffDrawer.value = !showDiffDrawer.value;
+    };
+
     function getDefaultSpec() {
       return {
         openapi: "3.0.0",
@@ -176,6 +197,7 @@ export default {
     provide("validateCurrentSpec", validateCurrentSpec);
     provide("loadTemplate", loadTemplate);
     provide("togglePreview", togglePreview);
+    provide("toggleDiff", toggleDiff);
     provide("refreshSpecList", () => specListKey.value++);
 
     return {
@@ -184,6 +206,8 @@ export default {
       parsedSpec,
       showSaveDialog,
       showPreviewDrawer,
+      showDiffDrawer,
+      specDiff,
       alert,
       showAlert,
       closeAlert,

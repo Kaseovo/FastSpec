@@ -20,6 +20,12 @@
       severity="info"
       @click="togglePreview"
     />
+    <Button
+      label="Changes"
+      icon="pi pi-history"
+      severity="secondary"
+      @click="toggleDiff"
+    />
   </div>
 </template>
 
@@ -38,6 +44,7 @@ export default {
     const validateCurrentSpec = inject("validateCurrentSpec");
     const loadTemplate = inject("loadTemplate");
     const togglePreview = inject("togglePreview");
+    const toggleDiff = inject("toggleDiff");
 
     return {
       newSpec,
@@ -45,6 +52,7 @@ export default {
       validateCurrentSpec,
       loadTemplate,
       togglePreview,
+      toggleDiff,
     };
   },
 };
