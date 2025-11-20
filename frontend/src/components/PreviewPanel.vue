@@ -14,7 +14,8 @@
         <ProgressSpinner />
       </div>
       <div
-        v-show="!loading && !error"
+        v-if="!loading && !error"
+        :key="containerKey"
         ref="swaggerContainer"
         class="swagger-container"
       ></div>
@@ -23,7 +24,7 @@
 </template>
 
 <script>
-import { ref, watch, onMounted, nextTick } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
 
@@ -43,11 +44,12 @@ export default {
     const swaggerContainer = ref(null);
     const error = ref(null);
     const loading = ref(true);
+    const containerKey = ref(0);
     let swaggerUI = null;
+    let updateTimeout = null;
 
     const loadSwaggerUI = async () => {
       if (window.SwaggerUIBundle) {
-        loading.value = false;
         return true;
       }
 
@@ -72,7 +74,6 @@ export default {
 
         const checkBothLoaded = () => {
           if (bundleLoaded && presetLoaded) {
-            loading.value = false;
             resolve(true);
           }
         };
@@ -83,7 +84,6 @@ export default {
         };
 
         bundleScript.onerror = () => {
-          loading.value = false;
           reject(new Error("Failed to load Swagger UI Bundle"));
         };
 
@@ -93,7 +93,6 @@ export default {
         };
 
         presetScript.onerror = () => {
-          loading.value = false;
           reject(new Error("Failed to load Swagger UI Preset"));
         };
 
@@ -104,77 +103,93 @@ export default {
     };
 
     const updatePreview = async () => {
-      error.value = null;
-      loading.value = true;
-
-      if (!props.spec) {
-        loading.value = false;
-        return;
+      // Clear any pending updates
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
       }
 
-      // Validate it's an OpenAPI spec
-      if (!props.spec.openapi && !props.spec.swagger) {
-        loading.value = false;
-        error.value = {
-          title: "⚠️ Not an OpenAPI Specification",
-          message:
-            'The JSON is missing the required "openapi" or "swagger" field.',
-        };
-        return;
-      }
+      // Debounce the update
+      updateTimeout = setTimeout(async () => {
+        error.value = null;
 
-      if (!props.spec.info) {
-        loading.value = false;
-        error.value = {
-          title: "⚠️ Missing Required Field",
-          message: 'The "info" object is required in OpenAPI specifications.',
-        };
-        return;
-      }
-
-      try {
-        await loadSwaggerUI();
-        await nextTick();
-
-        if (!swaggerContainer.value) {
+        if (!props.spec) {
           loading.value = false;
           return;
         }
 
-        // Clear previous content
-        swaggerContainer.value.innerHTML = "";
+        // Validate it's an OpenAPI spec
+        if (!props.spec.openapi && !props.spec.swagger) {
+          loading.value = false;
+          error.value = {
+            title: "⚠️ Not an OpenAPI Specification",
+            message:
+              'The JSON is missing the required "openapi" or "swagger" field.',
+          };
+          return;
+        }
 
-        swaggerUI = window.SwaggerUIBundle({
-          spec: props.spec,
-          domNode: swaggerContainer.value,
-          deepLinking: true,
-          presets: [
-            window.SwaggerUIBundle.presets.apis,
-            window.SwaggerUIStandalonePreset,
-          ],
-          plugins: [window.SwaggerUIBundle.plugins.DownloadUrl],
-          layout: "BaseLayout",
-          defaultModelsExpandDepth: 1,
-          defaultModelExpandDepth: 1,
-          docExpansion: "list",
-          filter: true,
-          showExtensions: true,
-          showCommonExtensions: true,
-        });
+        if (!props.spec.info) {
+          loading.value = false;
+          error.value = {
+            title: "⚠️ Missing Required Field",
+            message: 'The "info" object is required in OpenAPI specifications.',
+          };
+          return;
+        }
 
-        loading.value = false;
-      } catch (err) {
-        loading.value = false;
-        error.value = {
-          title: "❌ Failed to load Swagger UI",
-          message: err.message,
-        };
-      }
+        try {
+          await loadSwaggerUI();
+
+          // Increment key to force new container creation
+          containerKey.value++;
+
+          // Set loading to false so the container is rendered
+          loading.value = false;
+
+          // Wait for the new container to be available in the DOM
+          await nextTick();
+
+          if (!swaggerContainer.value) {
+            return;
+          }
+
+          // Create new Swagger UI instance in the fresh container
+          swaggerUI = window.SwaggerUIBundle({
+            spec: props.spec,
+            domNode: swaggerContainer.value,
+            deepLinking: true,
+            presets: [
+              window.SwaggerUIBundle.presets.apis,
+              window.SwaggerUIStandalonePreset,
+            ],
+            plugins: [window.SwaggerUIBundle.plugins.DownloadUrl],
+            layout: "BaseLayout",
+            defaultModelsExpandDepth: 1,
+            defaultModelExpandDepth: 1,
+            docExpansion: "list",
+            filter: true,
+            showExtensions: true,
+            showCommonExtensions: true,
+          });
+        } catch (err) {
+          loading.value = false;
+          error.value = {
+            title: "❌ Failed to load Swagger UI",
+            message: err.message,
+          };
+        }
+      }, 500); // 500ms debounce
     };
 
     onMounted(async () => {
       await nextTick();
       await updatePreview();
+    });
+
+    onBeforeUnmount(() => {
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
+      }
     });
 
     watch(() => props.spec, updatePreview, { deep: true });
@@ -183,6 +198,7 @@ export default {
       swaggerContainer,
       error,
       loading,
+      containerKey,
     };
   },
 };
