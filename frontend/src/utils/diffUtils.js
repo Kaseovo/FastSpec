@@ -3,7 +3,9 @@
  */
 export function compareSpecs(original, current) {
   const diff = {
-    info: null,
+    infoAdded: [],
+    infoModified: [],
+    infoRemoved: [],
     added: [],
     modified: [],
     removed: [],
@@ -15,26 +17,33 @@ export function compareSpecs(original, current) {
   }
 
   // Compare info section
-  if (original.info && current.info) {
-    const infoChanges = {};
+  if (original.info || current.info) {
+    const originalInfo = original.info || {};
+    const currentInfo = current.info || {};
+    
     const infoKeys = new Set([
-      ...Object.keys(original.info || {}),
-      ...Object.keys(current.info || {}),
+      ...Object.keys(originalInfo),
+      ...Object.keys(currentInfo),
     ]);
 
     for (const key of infoKeys) {
-      const oldVal = original.info[key];
-      const newVal = current.info[key];
-      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
-        infoChanges[key] = {
-          old: oldVal,
-          new: newVal,
-        };
+      const oldVal = originalInfo[key];
+      const newVal = currentInfo[key];
+      
+      // Check if value exists and is not empty
+      const hasOld = oldVal !== undefined && oldVal !== null && oldVal !== '';
+      const hasNew = newVal !== undefined && newVal !== null && newVal !== '';
+      
+      if (!hasOld && hasNew) {
+        // Added
+        diff.infoAdded.push({ key, value: newVal });
+      } else if (hasOld && !hasNew) {
+        // Removed
+        diff.infoRemoved.push({ key, value: oldVal });
+      } else if (hasOld && hasNew && JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        // Modified
+        diff.infoModified.push({ key, old: oldVal, new: newVal });
       }
-    }
-
-    if (Object.keys(infoChanges).length > 0) {
-      diff.info = infoChanges;
     }
   }
 

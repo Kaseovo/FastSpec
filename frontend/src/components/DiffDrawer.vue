@@ -39,26 +39,60 @@
           </div>
         </div>
 
-        <!-- Info Changes -->
-        <div v-if="diff.info" class="change-section">
-          <h3>ℹ️ API Information</h3>
+        <!-- Added Info Fields -->
+        <div v-if="diff.infoAdded?.length" class="change-section">
+          <h3>➕ Added Information ({{ diff.infoAdded.length }})</h3>
           <div class="change-list">
             <div
-              v-for="(change, key) in diff.info"
-              :key="key"
-              class="change-item"
+              v-for="item in diff.infoAdded"
+              :key="item.key"
+              class="change-item added"
             >
-              <Tag severity="info">{{ key }}</Tag>
+              <Tag severity="success">{{ item.key }}</Tag>
+              <div class="single-value">
+                <code>{{ item.value }}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modified Info Fields -->
+        <div v-if="diff.infoModified?.length" class="change-section">
+          <h3>✏️ Modified Information ({{ diff.infoModified.length }})</h3>
+          <div class="change-list">
+            <div
+              v-for="item in diff.infoModified"
+              :key="item.key"
+              class="change-item modified"
+            >
+              <Tag severity="warn">{{ item.key }}</Tag>
               <div class="change-values">
                 <div class="old-value">
                   <span class="value-label">Before:</span>
-                  <code>{{ change.old || "(none)" }}</code>
+                  <code>{{ item.old }}</code>
                 </div>
                 <i class="pi pi-arrow-right"></i>
                 <div class="new-value">
                   <span class="value-label">After:</span>
-                  <code>{{ change.new || "(none)" }}</code>
+                  <code>{{ item.new }}</code>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Removed Info Fields -->
+        <div v-if="diff.infoRemoved?.length" class="change-section">
+          <h3>➖ Removed Information ({{ diff.infoRemoved.length }})</h3>
+          <div class="change-list">
+            <div
+              v-for="item in diff.infoRemoved"
+              :key="item.key"
+              class="change-item removed"
+            >
+              <Tag severity="danger">{{ item.key }}</Tag>
+              <div class="single-value">
+                <code>{{ item.value }}</code>
               </div>
             </div>
           </div>
@@ -166,18 +200,20 @@ export default {
   setup(props) {
     const hasChanges = computed(() => {
       return (
+        props.diff.infoAdded?.length > 0 ||
+        props.diff.infoModified?.length > 0 ||
+        props.diff.infoRemoved?.length > 0 ||
         props.diff.added?.length > 0 ||
         props.diff.modified?.length > 0 ||
-        props.diff.removed?.length > 0 ||
-        (props.diff.info && Object.keys(props.diff.info).length > 0)
+        props.diff.removed?.length > 0
       );
     });
 
     const summary = computed(() => {
       return {
-        added: props.diff.added?.length || 0,
-        modified: props.diff.modified?.length || 0,
-        removed: props.diff.removed?.length || 0,
+        added: (props.diff.infoAdded?.length || 0) + (props.diff.added?.length || 0),
+        modified: (props.diff.infoModified?.length || 0) + (props.diff.modified?.length || 0),
+        removed: (props.diff.infoRemoved?.length || 0) + (props.diff.removed?.length || 0),
       };
     });
 
@@ -387,5 +423,18 @@ export default {
 .change-values > i {
   color: #9ca3af;
   flex-shrink: 0;
+}
+
+.single-value {
+  margin-top: 0.5rem;
+}
+
+.single-value code {
+  display: block;
+  padding: 0.5rem;
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  word-break: break-all;
 }
 </style>
