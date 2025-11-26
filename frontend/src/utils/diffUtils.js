@@ -163,13 +163,22 @@ export function compareSpecs(original, current) {
     const currentPath = currentPaths[path];
 
     if (!originalPath && currentPath) {
-      // Added path
+      // Added path - capture all details
       for (const method of Object.keys(currentPath)) {
         if (method === "parameters" || method === "servers") continue;
+        const endpoint = currentPath[method];
         diff.added.push({
           path,
           method: method.toUpperCase(),
-          summary: currentPath[method]?.summary || "",
+          summary: endpoint?.summary || "",
+          description: endpoint?.description || "",
+          tags: endpoint?.tags || [],
+          operationId: endpoint?.operationId || "",
+          deprecated: endpoint?.deprecated || false,
+          parameters: endpoint?.parameters || [],
+          requestBody: endpoint?.requestBody || null,
+          responses: endpoint?.responses || {},
+          security: endpoint?.security || [],
         });
       }
     } else if (originalPath && !currentPath) {
@@ -180,6 +189,7 @@ export function compareSpecs(original, current) {
           path,
           method: method.toUpperCase(),
           summary: originalPath[method]?.summary || "",
+          description: originalPath[method]?.description || "",
         });
       }
     } else if (originalPath && currentPath) {
@@ -196,11 +206,19 @@ export function compareSpecs(original, current) {
         const currentMethod = currentPath[method];
 
         if (!originalMethod && currentMethod) {
-          // Method added to existing path
+          // Method added to existing path - capture all details
           diff.added.push({
             path,
             method: method.toUpperCase(),
             summary: currentMethod?.summary || "",
+            description: currentMethod?.description || "",
+            tags: currentMethod?.tags || [],
+            operationId: currentMethod?.operationId || "",
+            deprecated: currentMethod?.deprecated || false,
+            parameters: currentMethod?.parameters || [],
+            requestBody: currentMethod?.requestBody || null,
+            responses: currentMethod?.responses || {},
+            security: currentMethod?.security || [],
           });
         } else if (originalMethod && !currentMethod) {
           // Method removed from existing path
@@ -208,6 +226,7 @@ export function compareSpecs(original, current) {
             path,
             method: method.toUpperCase(),
             summary: originalMethod?.summary || "",
+            description: originalMethod?.description || "",
           });
         } else if (
           JSON.stringify(originalMethod) !== JSON.stringify(currentMethod)

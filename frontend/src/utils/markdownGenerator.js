@@ -136,11 +136,90 @@ export function generateMarkdownReport(diff) {
   if (diff.added?.length) {
     markdown += "## ➕ Added Endpoints\n\n";
     diff.added.forEach((item) => {
-      markdown += `### \`${item.method}\` ${item.path}\n`;
+      markdown += `### \`${item.method.toUpperCase()}\` ${item.path}\n\n`;
+
       if (item.summary) {
-        markdown += `${item.summary}\n`;
+        markdown += `**Summary:** ${item.summary}\n\n`;
       }
-      markdown += "\n";
+
+      if (item.description) {
+        markdown += `**Description:** ${item.description}\n\n`;
+      }
+
+      if (item.operationId) {
+        markdown += `**Operation ID:** \`${item.operationId}\`\n\n`;
+      }
+
+      if (item.deprecated) {
+        markdown += `⚠️ **Status:** DEPRECATED\n\n`;
+      }
+
+      if (item.tags?.length) {
+        markdown += `**Tags:** ${item.tags
+          .map((t) => `\`${t}\``)
+          .join(", ")}\n\n`;
+      }
+
+      // Parameters
+      if (item.parameters?.length) {
+        markdown += "**Parameters:**\n\n";
+        markdown += "| Name | Location | Type | Required | Description |\n";
+        markdown += "|------|----------|------|----------|-------------|\n";
+        item.parameters.forEach((param) => {
+          const paramName = `\`${param.name}\``;
+          const paramIn = `\`${param.in}\``;
+          const paramType = param.schema?.type
+            ? `\`${param.schema.type}\``
+            : "N/A";
+          const paramRequired = param.required ? "✅" : "❌";
+          const paramDesc = param.description || "-";
+          markdown += `| ${paramName} | ${paramIn} | ${paramType} | ${paramRequired} | ${paramDesc} |\n`;
+        });
+        markdown += "\n";
+      }
+
+      // Request Body
+      if (item.requestBody) {
+        markdown += "**Request Body:**\n\n";
+        if (item.requestBody.required) {
+          markdown += "✅ **Required**\n\n";
+        }
+        if (item.requestBody.description) {
+          markdown += `${item.requestBody.description}\n\n`;
+        }
+        markdown +=
+          "```json\n" + JSON.stringify(item.requestBody, null, 2) + "\n```\n\n";
+      }
+
+      // Responses
+      if (item.responses && Object.keys(item.responses).length > 0) {
+        markdown += "**Responses:**\n\n";
+        for (const [statusCode, response] of Object.entries(item.responses)) {
+          markdown += `- **${statusCode}**: ${
+            response.description || "(no description)"
+          }\n`;
+          if (response.content) {
+            const jsonLines = JSON.stringify(response.content, null, 2).split(
+              "\n"
+            );
+            markdown += "  ```json\n";
+            jsonLines.forEach((line) => {
+              markdown += `  ${line}\n`;
+            });
+            markdown += "  ```\n";
+          }
+        }
+        markdown += "\n";
+      }
+
+      // Security
+      if (item.security?.length) {
+        markdown += "**Security:**\n\n";
+        markdown +=
+          "```json\n" + JSON.stringify(item.security, null, 2) + "\n```\n\n";
+      }
+
+      markdown += "---\n\n";
     });
   }
 

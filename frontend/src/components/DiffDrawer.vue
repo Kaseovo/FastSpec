@@ -227,7 +227,7 @@
         <h3>➖ Removed Schemas ({{ diff.schemaRemoved.length }})</h3>
         <div class="change-list">
           <div
-            v-for="item in diff.schemaRemoved"
+            v-for="(item, index) in diff.schemaRemoved"
             :key="item.name"
             class="change-item removed"
           >
@@ -237,10 +237,21 @@
               <Tag v-if="item.schema.type" severity="danger" size="small">
                 {{ item.schema.type }}
               </Tag>
+              <Button
+                icon="pi pi-chevron-down"
+                :class="{ 'rotate-180': expandedRemovedSchemas[index] }"
+                text
+                size="small"
+                @click="toggleRemovedSchema(index)"
+                class="expand-button"
+                severity="secondary"
+              />
             </div>
-            <pre
-              class="schema-preview"
-            ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
+            <div v-if="expandedRemovedSchemas[index]" class="expanded-details">
+              <pre
+                class="schema-preview"
+              ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
+            </div>
           </div>
         </div>
       </div>
@@ -259,14 +270,95 @@
                 item.method
               }}</Tag>
               <code class="path">{{ item.path }}</code>
+              <Tag v-if="item.deprecated" severity="danger" size="small">
+                Deprecated
+              </Tag>
             </div>
             <div v-if="item.summary" class="endpoint-summary">
-              {{ item.summary }}
+              <strong>Summary:</strong> {{ item.summary }}
+            </div>
+            <div v-if="item.description" class="endpoint-description">
+              <strong>Description:</strong> {{ item.description }}
+            </div>
+            <div v-if="item.operationId" class="endpoint-operation-id">
+              <strong>Operation ID:</strong> <code>{{ item.operationId }}</code>
+            </div>
+            <div v-if="item.tags?.length" class="endpoint-tags">
+              <span class="tags-label">Tags:</span>
+              <Tag
+                v-for="tag in item.tags"
+                :key="tag"
+                severity="secondary"
+                size="small"
+              >
+                {{ tag }}
+              </Tag>
+            </div>
+            <div v-if="item.parameters?.length" class="endpoint-details">
+              <strong>Parameters ({{ item.parameters.length }}):</strong>
+              <div class="parameter-list">
+                <div
+                  v-for="param in item.parameters"
+                  :key="param.name"
+                  class="parameter-item"
+                >
+                  <code>{{ param.name }}</code>
+                  <Tag
+                    :severity="param.required ? 'warn' : 'secondary'"
+                    size="small"
+                  >
+                    {{ param.in }}
+                  </Tag>
+                  <Tag v-if="param.required" severity="danger" size="small"
+                    >required</Tag
+                  >
+                  <span v-if="param.schema?.type" class="param-type"
+                    >({{ param.schema.type }})</span
+                  >
+                </div>
+              </div>
+            </div>
+            <div v-if="item.requestBody" class="endpoint-details">
+              <strong>Request Body:</strong>
+              <Tag
+                v-if="item.requestBody.required"
+                severity="danger"
+                size="small"
+                >required</Tag
+              >
+              <pre
+                class="json-preview"
+              ><code>{{ JSON.stringify(item.requestBody, null, 2) }}</code></pre>
+            </div>
+            <div
+              v-if="item.responses && Object.keys(item.responses).length"
+              class="endpoint-details"
+            >
+              <strong>Responses:</strong>
+              <div class="response-list">
+                <div
+                  v-for="(response, statusCode) in item.responses"
+                  :key="statusCode"
+                  class="response-item"
+                >
+                  <Tag :severity="getStatusSeverity(statusCode)" size="small">{{
+                    statusCode
+                  }}</Tag>
+                  <span v-if="response.description">{{
+                    response.description
+                  }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="item.security?.length" class="endpoint-details">
+              <strong>Security:</strong>
+              <pre
+                class="json-preview"
+              ><code>{{ JSON.stringify(item.security, null, 2) }}</code></pre>
             </div>
           </div>
         </div>
       </div>
-
       <!-- Modified Paths -->
       <div v-if="diff.modified?.length" class="change-section">
         <h3>✏️ Modified Endpoints ({{ diff.modified.length }})</h3>
@@ -467,7 +559,7 @@
         <h3>➖ Removed Endpoints ({{ diff.removed.length }})</h3>
         <div class="change-list">
           <div
-            v-for="item in diff.removed"
+            v-for="(item, index) in diff.removed"
             :key="item.path"
             class="change-item removed"
           >
@@ -476,9 +568,26 @@
                 item.method
               }}</Tag>
               <code class="path">{{ item.path }}</code>
+              <Button
+                icon="pi pi-chevron-down"
+                :class="{ 'rotate-180': expandedRemovedEndpoints[index] }"
+                text
+                size="small"
+                @click="toggleRemovedEndpoint(index)"
+                class="expand-button"
+                severity="secondary"
+              />
             </div>
-            <div v-if="item.summary" class="endpoint-summary">
-              {{ item.summary }}
+            <div
+              v-if="expandedRemovedEndpoints[index]"
+              class="expanded-details"
+            >
+              <div v-if="item.summary" class="endpoint-summary">
+                <strong>Summary:</strong> {{ item.summary }}
+              </div>
+              <div v-if="item.description" class="endpoint-description">
+                <strong>Description:</strong> {{ item.description }}
+              </div>
             </div>
           </div>
         </div>
@@ -515,6 +624,8 @@ export default {
   emits: ["update:visible"],
   setup(props) {
     const expandedItems = ref({});
+    const expandedRemovedSchemas = ref({});
+    const expandedRemovedEndpoints = ref({});
     const copying = ref(false);
     const toast = useToast();
 
@@ -544,6 +655,16 @@ export default {
 
     const toggleExpand = (index) => {
       expandedItems.value[index] = !expandedItems.value[index];
+    };
+
+    const toggleRemovedSchema = (index) => {
+      expandedRemovedSchemas.value[index] =
+        !expandedRemovedSchemas.value[index];
+    };
+
+    const toggleRemovedEndpoint = (index) => {
+      expandedRemovedEndpoints.value[index] =
+        !expandedRemovedEndpoints.value[index];
     };
 
     const formatFieldName = (field) => {
@@ -595,15 +716,29 @@ export default {
       return severities[method?.toUpperCase()] || "secondary";
     };
 
+    const getStatusSeverity = (statusCode) => {
+      const code = parseInt(statusCode);
+      if (code >= 200 && code < 300) return "success";
+      if (code >= 300 && code < 400) return "info";
+      if (code >= 400 && code < 500) return "warn";
+      if (code >= 500) return "danger";
+      return "secondary";
+    };
+
     return {
       expandedItems,
+      expandedRemovedSchemas,
+      expandedRemovedEndpoints,
       copying,
       copyAsMarkdown,
       toggleExpand,
+      toggleRemovedSchema,
+      toggleRemovedEndpoint,
       formatFieldName,
       hasChanges,
       summary,
       getMethodSeverity,
+      getStatusSeverity,
     };
   },
 };
@@ -764,6 +899,102 @@ export default {
   color: #6b7280;
   font-size: 0.875rem;
   margin-top: 0.5rem;
+}
+
+.endpoint-description {
+  color: #4b5563;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  line-height: 1.5;
+}
+
+.endpoint-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.tags-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.endpoint-operation-id {
+  color: #4b5563;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.endpoint-operation-id code {
+  background: #f3f4f6;
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+
+.endpoint-details {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  border-left: 3px solid #10b981;
+}
+
+.endpoint-details strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.parameter-list,
+.response-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.parameter-item,
+.response-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 3px;
+  font-size: 0.875rem;
+}
+
+.parameter-item code {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.param-type {
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.json-preview {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #1f2937;
+  border-radius: 4px;
+  overflow-x: auto;
+  max-height: 300px;
+}
+
+.json-preview code {
+  color: #10b981;
+  font-family: "Monaco", "Courier New", monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .endpoint-changes {
