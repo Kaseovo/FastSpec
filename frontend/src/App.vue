@@ -12,9 +12,37 @@
         {{ alert.message }}
       </Message>
 
+      <div class="view-mode-toggle">
+        <SelectButton
+          v-model="viewMode"
+          :options="viewModeOptions"
+          optionLabel="label"
+          optionValue="value"
+        />
+      </div>
+
       <div class="editor-container">
         <SpecList @spec-selected="loadSpec" :selected-id="currentSpec?.id" />
-        <EditorPanel v-model="specContent" @update:modelValue="updatePreview" />
+        <FormEditor
+          v-if="viewMode === 'form'"
+          :model-value="parsedSpec"
+          @update:modelValue="updateFromForm"
+        />
+        <EditorPanel
+          v-else-if="viewMode === 'code'"
+          v-model="specContent"
+          @update:modelValue="updatePreview"
+        />
+        <div v-else class="split-view">
+          <FormEditor
+            :model-value="parsedSpec"
+            @update:modelValue="updateFromForm"
+          />
+          <EditorPanel
+            v-model="specContent"
+            @update:modelValue="updatePreview"
+          />
+        </div>
       </div>
     </div>
 
@@ -50,9 +78,11 @@ import { ref, computed, provide } from "vue";
 import Message from "primevue/message";
 import Drawer from "primevue/drawer";
 import Toast from "primevue/toast";
+import SelectButton from "primevue/selectbutton";
 import Toolbar from "./components/Toolbar.vue";
 import SpecList from "./components/SpecList.vue";
 import EditorPanel from "./components/EditorPanel.vue";
+import FormEditor from "./components/FormEditor.vue";
 import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
 import DiffDrawer from "./components/DiffDrawer.vue";
@@ -65,9 +95,11 @@ export default {
     Message,
     Drawer,
     Toast,
+    SelectButton,
     Toolbar,
     SpecList,
     EditorPanel,
+    FormEditor,
     PreviewPanel,
     SaveDialog,
     DiffDrawer,
@@ -83,6 +115,12 @@ export default {
     const specDiff = ref({ info: null, added: [], modified: [], removed: [] });
     const alert = ref({ show: false, message: "", type: "info" });
     const specListKey = ref(0);
+    const viewMode = ref("split"); // 'form', 'code', or 'split'
+    const viewModeOptions = [
+      { label: "Form", value: "form", icon: "pi pi-list" },
+      { label: "Code", value: "code", icon: "pi pi-code" },
+      { label: "Split", value: "split", icon: "pi pi-window-maximize" },
+    ];
 
     const showAlert = (message, type = "info") => {
       alert.value = { show: true, message, type };
@@ -103,6 +141,12 @@ export default {
       } catch (e) {
         // Invalid JSON - preview will handle error display
       }
+    };
+
+    const updateFromForm = (formSpec) => {
+      parsedSpec.value = formSpec;
+      specContent.value = JSON.stringify(formSpec, null, 2);
+      specDiff.value = compareSpecs(initialSpec.value, parsedSpec.value);
     };
 
     const loadSpec = (spec) => {
@@ -213,9 +257,12 @@ export default {
       showDiffDrawer,
       specDiff,
       alert,
+      viewMode,
+      viewModeOptions,
       showAlert,
       closeAlert,
       updatePreview,
+      updateFromForm,
       loadSpec,
       saveSpec,
     };
@@ -262,18 +309,34 @@ body {
   margin: 0 auto;
 }
 
+.view-mode-toggle {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
 .editor-container {
   display: grid;
   grid-template-columns: 250px 1fr;
   gap: 20px;
-  height: calc(100vh - 250px);
-  margin-top: 20px;
+  height: calc(100vh - 300px);
+}
+
+.split-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  height: 100%;
 }
 
 @media (max-width: 1200px) {
   .editor-container {
     grid-template-columns: 1fr;
     height: auto;
+  }
+
+  .split-view {
+    grid-template-columns: 1fr;
   }
 }
 </style>
