@@ -188,17 +188,30 @@
                   v-for="(pathItem, index) in pathsList"
                   :key="index"
                   :value="index.toString()"
+                  draggable="true"
+                  @dragstart="handlePathDragStart($event, pathItem.path, index)"
+                  @dragover="handleDragOver($event)"
+                  @drop="handlePathDrop($event, index)"
+                  @dragend="handleDragEnd"
+                  :class="{ 'dragging-path': draggedPath === pathItem.path }"
                 >
                   <AccordionHeader>
                     <div class="path-header">
+                      <div class="drag-handle" title="Drag to reorder">
+                        <i class="pi pi-bars"></i>
+                      </div>
                       <span class="path-url">{{ pathItem.path }}</span>
                       <div class="path-methods">
-                        <Tag
+                        <span
                           v-for="method in pathItem.methods"
                           :key="method"
-                          :value="method.toUpperCase()"
-                          :severity="getMethodSeverity(method)"
-                        />
+                          :class="[
+                            'method-badge',
+                            'method-' + method.toLowerCase(),
+                          ]"
+                        >
+                          {{ method.toUpperCase() }}
+                        </span>
                       </div>
                       <Button
                         icon="pi pi-trash"
@@ -213,16 +226,38 @@
                   <AccordionContent>
                     <div class="path-methods-editor">
                       <div class="method-tabs">
-                        <Button
-                          v-for="method in pathItem.methods"
+                        <button
+                          v-for="(method, methodIndex) in pathItem.methods"
                           :key="method"
-                          :label="method.toUpperCase()"
-                          :severity="
-                            selectedMethod === method ? 'primary' : 'secondary'
+                          :class="[
+                            'method-tab-button',
+                            'method-' + method.toLowerCase(),
+                            {
+                              active:
+                                selectedPath === pathItem.path &&
+                                selectedMethod === method,
+                            },
+                            { 'dragging-method': draggedMethod === method },
+                          ]"
+                          draggable="true"
+                          @dragstart="
+                            handleMethodDragStart(
+                              $event,
+                              pathItem.path,
+                              method,
+                              methodIndex
+                            )
                           "
-                          size="small"
+                          @dragover="handleDragOver($event)"
+                          @drop="
+                            handleMethodDrop($event, pathItem.path, methodIndex)
+                          "
+                          @dragend="handleDragEnd"
                           @click="selectPathMethod(pathItem.path, method)"
-                        />
+                        >
+                          <i class="pi pi-bars drag-icon"></i>
+                          {{ method.toUpperCase() }}
+                        </button>
                         <Button
                           label="Add Method"
                           icon="pi pi-plus"
@@ -937,11 +972,34 @@
                               </div>
 
                               <div
-                                v-for="(prop, propName) in schema.data
-                                  .properties"
+                                v-for="(prop, propName, propIndex) in schema
+                                  .data.properties"
                                 :key="propName"
                                 class="property-item"
+                                draggable="true"
+                                @dragstart="
+                                  handleDragStart(
+                                    $event,
+                                    schema.name,
+                                    propName,
+                                    propIndex
+                                  )
+                                "
+                                @dragover="handleDragOver($event)"
+                                @drop="
+                                  handleDrop($event, schema.name, propIndex)
+                                "
+                                @dragend="handleDragEnd"
+                                :class="{
+                                  dragging: draggedProperty === propName,
+                                }"
                               >
+                                <div
+                                  class="drag-handle"
+                                  title="Drag to reorder"
+                                >
+                                  <i class="pi pi-bars"></i>
+                                </div>
                                 <div class="property-content">
                                   <div class="form-row">
                                     <div class="form-field">
@@ -1131,7 +1189,7 @@
     <Dialog
       v-model:visible="showAddPathDialog"
       header="Add New Path"
-      :style="{ width: '450px' }"
+      :style="{ width: '500px' }"
       modal
     >
       <div class="dialog-content">
@@ -1145,14 +1203,25 @@
           />
         </div>
         <div class="form-field">
-          <label for="new-method">Method *</label>
-          <Select
-            id="new-method"
-            v-model="newMethod"
-            :options="httpMethods"
-            placeholder="Select method"
-            class="w-full"
-          />
+          <label for="new-method">HTTP Method *</label>
+          <div class="method-selector-grid">
+            <button
+              v-for="method in httpMethods"
+              :key="method"
+              :class="[
+                'method-selector-button',
+                'method-' + method.toLowerCase(),
+                { selected: newMethod === method },
+              ]"
+              @click="newMethod = method"
+              type="button"
+            >
+              <span class="method-name">{{ method.toUpperCase() }}</span>
+              <span class="method-description">{{
+                getMethodDescription(method)
+              }}</span>
+            </button>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -1169,19 +1238,30 @@
     <Dialog
       v-model:visible="showAddMethodDialogVisible"
       header="Add Method to Path"
-      :style="{ width: '400px' }"
+      :style="{ width: '500px' }"
       modal
     >
       <div class="dialog-content">
         <div class="form-field">
-          <label for="add-method">Method *</label>
-          <Select
-            id="add-method"
-            v-model="methodToAdd"
-            :options="availableMethodsForPath"
-            placeholder="Select method"
-            class="w-full"
-          />
+          <label for="add-method">Select HTTP Method *</label>
+          <div class="method-selector-grid">
+            <button
+              v-for="method in availableMethodsForPath"
+              :key="method"
+              :class="[
+                'method-selector-button',
+                'method-' + method.toLowerCase(),
+                { selected: methodToAdd === method },
+              ]"
+              @click="methodToAdd = method"
+              type="button"
+            >
+              <span class="method-name">{{ method.toUpperCase() }}</span>
+              <span class="method-description">{{
+                getMethodDescription(method)
+              }}</span>
+            </button>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -1303,6 +1383,14 @@ export default {
     const requestBodyContentType = ref("application/json");
     const requestBodySchemaType = ref("reference");
     const requestBodySchemaRef = ref("");
+    const draggedProperty = ref(null);
+    const draggedPropertyIndex = ref(null);
+    const draggedSchemaName = ref(null);
+    const draggedPath = ref(null);
+    const draggedPathIndex = ref(null);
+    const draggedMethod = ref(null);
+    const draggedMethodIndex = ref(null);
+    const draggedMethodPath = ref(null);
 
     const httpMethods = [
       "get",
@@ -1501,6 +1589,19 @@ export default {
         head: "secondary",
       };
       return severityMap[method.toLowerCase()] || "secondary";
+    };
+
+    const getMethodDescription = (method) => {
+      const descriptions = {
+        get: "Retrieve data",
+        post: "Create new resource",
+        put: "Update entire resource",
+        patch: "Partial update",
+        delete: "Remove resource",
+        options: "Describe options",
+        head: "Get headers only",
+      };
+      return descriptions[method.toLowerCase()] || "";
     };
 
     const getStatusSeverity = (statusCode) => {
@@ -1766,6 +1867,117 @@ export default {
       }
     };
 
+    // Drag and drop handlers
+    const handleDragStart = (event, schemaName, propName, index) => {
+      draggedProperty.value = propName;
+      draggedPropertyIndex.value = index;
+      draggedSchemaName.value = schemaName;
+      event.target.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/html", event.target.innerHTML);
+    };
+
+    const handleDragOver = (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    };
+
+    const handleDrop = (event, schemaName, dropIndex) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (draggedSchemaName.value !== schemaName) return;
+      if (draggedPropertyIndex.value === dropIndex) return;
+
+      const schema = formData.value.components.schemas[schemaName];
+      const properties = schema.properties;
+
+      // Convert properties object to array to reorder
+      const propsArray = Object.entries(properties);
+      const [movedItem] = propsArray.splice(draggedPropertyIndex.value, 1);
+      propsArray.splice(dropIndex, 0, movedItem);
+
+      // Rebuild properties object with new order
+      schema.properties = Object.fromEntries(propsArray);
+    };
+
+    const handleDragEnd = (event) => {
+      event.target.classList.remove("dragging");
+      event.target.classList.remove("dragging-method");
+      draggedProperty.value = null;
+      draggedPropertyIndex.value = null;
+      draggedSchemaName.value = null;
+      draggedPath.value = null;
+      draggedPathIndex.value = null;
+      draggedMethod.value = null;
+      draggedMethodIndex.value = null;
+      draggedMethodPath.value = null;
+    };
+
+    // Path drag and drop handlers
+    const handlePathDragStart = (event, path, index) => {
+      draggedPath.value = path;
+      draggedPathIndex.value = index;
+      event.target.classList.add("dragging-path");
+      event.dataTransfer.effectAllowed = "move";
+    };
+
+    const handlePathDrop = (event, dropIndex) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (draggedPathIndex.value === dropIndex) return;
+
+      // Convert paths object to array to reorder
+      const pathsArray = Object.entries(formData.value.paths);
+      const [movedItem] = pathsArray.splice(draggedPathIndex.value, 1);
+      pathsArray.splice(dropIndex, 0, movedItem);
+
+      // Rebuild paths object with new order
+      formData.value.paths = Object.fromEntries(pathsArray);
+    };
+
+    // Method drag and drop handlers
+    const handleMethodDragStart = (event, path, method, index) => {
+      draggedMethod.value = method;
+      draggedMethodIndex.value = index;
+      draggedMethodPath.value = path;
+      event.target.classList.add("dragging-method");
+      event.dataTransfer.effectAllowed = "move";
+      event.stopPropagation();
+    };
+
+    const handleMethodDrop = (event, path, dropIndex) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (draggedMethodPath.value !== path) return;
+      if (draggedMethodIndex.value === dropIndex) return;
+
+      const pathData = formData.value.paths[path];
+
+      // Get the HTTP methods in order
+      const methodsArray = Object.keys(pathData);
+
+      // Get the method data before reordering
+      const methodDataMap = {};
+      methodsArray.forEach((method) => {
+        methodDataMap[method] = pathData[method];
+      });
+
+      // Reorder methods
+      const [movedMethod] = methodsArray.splice(draggedMethodIndex.value, 1);
+      methodsArray.splice(dropIndex, 0, movedMethod);
+
+      // Rebuild path object with new method order
+      const newPathData = {};
+      methodsArray.forEach((method) => {
+        newPathData[method] = methodDataMap[method];
+      });
+
+      formData.value.paths[path] = newPathData;
+    };
+
     return {
       formData,
       hasChanges,
@@ -1784,6 +1996,9 @@ export default {
       requestBodyContentType,
       requestBodySchemaType,
       requestBodySchemaRef,
+      draggedProperty,
+      draggedPath,
+      draggedMethod,
       httpMethods,
       pathsList,
       schemasList,
@@ -1802,6 +2017,7 @@ export default {
       removeSchema,
       updateSchema,
       getMethodSeverity,
+      getMethodDescription,
       getStatusSeverity,
       addParameter,
       removeParameter,
@@ -1821,6 +2037,14 @@ export default {
       removeSchemaProperty,
       renameSchemaProperty,
       toggleSchemaPropertyRequired,
+      handleDragStart,
+      handleDragOver,
+      handleDrop,
+      handleDragEnd,
+      handlePathDragStart,
+      handlePathDrop,
+      handleMethodDragStart,
+      handleMethodDrop,
     };
   },
 };
@@ -1944,6 +2168,25 @@ export default {
   align-items: center;
   gap: 12px;
   width: 100%;
+  cursor: move;
+}
+
+.path-header .drag-handle {
+  color: #9ca3af;
+  cursor: grab;
+}
+
+.path-header .drag-handle:hover {
+  color: #3b82f6;
+}
+
+:deep(.dragging-path) {
+  opacity: 0.5;
+  background: #eff6ff;
+}
+
+:deep(.dragging-path .p-accordionpanel-header) {
+  border-color: #3b82f6;
 }
 
 .path-url,
@@ -1951,12 +2194,61 @@ export default {
   font-family: "Monaco", "Courier New", monospace;
   font-weight: 600;
   color: #1f2937;
+  flex-shrink: 0;
 }
 
 .path-methods {
   display: flex;
   gap: 6px;
   margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.method-badge {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 2px solid transparent;
+}
+
+.method-badge.method-get {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+
+.method-badge.method-post {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+.method-badge.method-put {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.method-badge.method-patch {
+  background: #fed7aa;
+  color: #9a3412;
+  border-color: #fdba74;
+}
+
+.method-badge.method-delete {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.method-badge.method-options,
+.method-badge.method-head {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
 }
 
 .path-methods-editor {
@@ -1970,6 +2262,118 @@ export default {
   gap: 8px;
   margin-bottom: 20px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.method-tab-button {
+  padding: 8px 16px;
+  border: 2px solid;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: move;
+  transition: all 0.2s ease;
+  background: white;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.method-tab-button .drag-icon {
+  font-size: 10px;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.method-tab-button:hover .drag-icon {
+  opacity: 0.8;
+}
+
+.method-tab-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.method-tab-button.dragging-method {
+  opacity: 0.5;
+  transform: scale(0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.method-tab-button.method-get {
+  color: #1e40af;
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.method-tab-button.method-get.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.method-tab-button.method-post {
+  color: #065f46;
+  border-color: #6ee7b7;
+  background: #f0fdfa;
+}
+
+.method-tab-button.method-post.active {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.method-tab-button.method-put {
+  color: #92400e;
+  border-color: #fcd34d;
+  background: #fefce8;
+}
+
+.method-tab-button.method-put.active {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.method-tab-button.method-patch {
+  color: #9a3412;
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.method-tab-button.method-patch.active {
+  background: #f97316;
+  color: white;
+  border-color: #f97316;
+}
+
+.method-tab-button.method-delete {
+  color: #991b1b;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.method-tab-button.method-delete.active {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.method-tab-button.method-options,
+.method-tab-button.method-head {
+  color: #374151;
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.method-tab-button.method-options.active,
+.method-tab-button.method-head.active {
+  background: #6b7280;
+  color: white;
+  border-color: #6b7280;
 }
 
 .method-editor {
@@ -2003,6 +2407,37 @@ export default {
   border-radius: 6px;
   margin-bottom: 12px;
   align-items: flex-start;
+  transition: all 0.2s ease;
+  cursor: move;
+}
+
+.property-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.property-item.dragging {
+  opacity: 0.5;
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  color: #9ca3af;
+  cursor: grab;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle:hover {
+  color: #3b82f6;
 }
 
 .param-content,
@@ -2056,6 +2491,148 @@ export default {
 
 .dialog-content {
   padding: 20px 0;
+}
+
+.method-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.method-selector-button {
+  padding: 16px;
+  border: 2px solid;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  text-align: left;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.method-selector-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.method-selector-button.selected {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.method-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.method-description {
+  font-size: 11px;
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.method-selector-button.method-get {
+  color: #1e40af;
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.method-selector-button.method-get.selected {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.method-selector-button.method-get.selected .method-description {
+  opacity: 0.9;
+}
+
+.method-selector-button.method-post {
+  color: #065f46;
+  border-color: #6ee7b7;
+  background: #f0fdfa;
+}
+
+.method-selector-button.method-post.selected {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.method-selector-button.method-post.selected .method-description {
+  opacity: 0.9;
+}
+
+.method-selector-button.method-put {
+  color: #92400e;
+  border-color: #fcd34d;
+  background: #fefce8;
+}
+
+.method-selector-button.method-put.selected {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.method-selector-button.method-put.selected .method-description {
+  opacity: 0.9;
+}
+
+.method-selector-button.method-patch {
+  color: #9a3412;
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.method-selector-button.method-patch.selected {
+  background: #f97316;
+  color: white;
+  border-color: #f97316;
+}
+
+.method-selector-button.method-patch.selected .method-description {
+  opacity: 0.9;
+}
+
+.method-selector-button.method-delete {
+  color: #991b1b;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.method-selector-button.method-delete.selected {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.method-selector-button.method-delete.selected .method-description {
+  opacity: 0.9;
+}
+
+.method-selector-button.method-options,
+.method-selector-button.method-head {
+  color: #374151;
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.method-selector-button.method-options.selected,
+.method-selector-button.method-head.selected {
+  background: #6b7280;
+  color: white;
+  border-color: #6b7280;
+}
+
+.method-selector-button.method-options.selected .method-description,
+.method-selector-button.method-head.selected .method-description {
+  opacity: 0.9;
 }
 
 .w-full {
