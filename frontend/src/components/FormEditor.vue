@@ -2867,7 +2867,8 @@ export default {
 }
 
 .json-textarea.monaco-style {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro",
+    monospace;
   font-size: 13px;
   line-height: 1.6;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
