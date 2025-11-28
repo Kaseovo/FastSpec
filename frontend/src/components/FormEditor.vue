@@ -257,6 +257,16 @@
                         >
                           <i class="pi pi-bars drag-icon"></i>
                           {{ method.toUpperCase() }}
+                          <Button
+                            icon="pi pi-times"
+                            severity="danger"
+                            text
+                            rounded
+                            size="small"
+                            class="method-delete-btn"
+                            @click.stop="removeMethod(pathItem.path, method)"
+                            v-tooltip.top="'Remove method'"
+                          />
                         </button>
                         <Button
                           label="Add Method"
@@ -1163,15 +1173,51 @@
                         </TabPanel>
                         <TabPanel value="1">
                           <div class="schema-json-editor">
-                            <label>Schema JSON</label>
-                            <Textarea
-                              :value="JSON.stringify(schema.data, null, 2)"
-                              @input="
-                                updateSchema(schema.name, $event.target.value)
-                              "
-                              rows="15"
-                              class="json-textarea"
-                            />
+                            <div class="json-editor-header">
+                              <label>Schema JSON</label>
+                              <div class="json-editor-actions">
+                                <Button
+                                  label="Format"
+                                  icon="pi pi-align-left"
+                                  size="small"
+                                  text
+                                  @click="
+                                    updateSchema(
+                                      schema.name,
+                                      JSON.stringify(
+                                        JSON.parse(
+                                          JSON.stringify(schema.data, null, 2)
+                                        ),
+                                        null,
+                                        2
+                                      )
+                                    )
+                                  "
+                                />
+                                <Button
+                                  label="Copy"
+                                  icon="pi pi-copy"
+                                  size="small"
+                                  text
+                                  @click="
+                                    navigator.clipboard.writeText(
+                                      JSON.stringify(schema.data, null, 2)
+                                    )
+                                  "
+                                />
+                              </div>
+                            </div>
+                            <div class="json-editor-wrapper">
+                              <Textarea
+                                :value="JSON.stringify(schema.data, null, 2)"
+                                @input="
+                                  updateSchema(schema.name, $event.target.value)
+                                "
+                                rows="20"
+                                class="json-textarea monaco-style"
+                                spellcheck="false"
+                              />
+                            </div>
                           </div>
                         </TabPanel>
                       </TabPanels>
@@ -1519,6 +1565,29 @@ export default {
       if (selectedPath.value === path) {
         selectedPath.value = "";
         selectedMethod.value = "";
+      }
+    };
+
+    const removeMethod = (path, method) => {
+      if (!formData.value.paths[path]) return;
+
+      // Delete the method from the path
+      delete formData.value.paths[path][method];
+
+      // If this was the selected method, clear the selection
+      if (selectedPath.value === path && selectedMethod.value === method) {
+        selectedMethod.value = "";
+      }
+
+      // If no methods left for this path, remove the path entirely
+      const remainingMethods = Object.keys(formData.value.paths[path]).filter(
+        (key) =>
+          !["summary", "description", "servers", "parameters"].includes(key)
+      );
+
+      if (remainingMethods.length === 0) {
+        delete formData.value.paths[path];
+        selectedPath.value = "";
       }
     };
 
@@ -2010,6 +2079,7 @@ export default {
       removeServer,
       addPath,
       removePath,
+      removeMethod,
       showAddMethodDialog,
       addMethodToPath,
       selectPathMethod,
@@ -2509,6 +2579,20 @@ export default {
   opacity: 0.8;
 }
 
+.method-delete-btn {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  margin-left: auto;
+}
+
+.method-tab-button:hover .method-delete-btn {
+  opacity: 1;
+}
+
+.method-delete-btn:hover {
+  transform: scale(1.1);
+}
+
 .method-tab-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
@@ -2745,10 +2829,68 @@ export default {
 }
 
 .schema-json-editor {
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.json-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 12px;
-  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.json-editor-header label {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #334155;
+  margin: 0;
+}
+
+.json-editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.json-editor-wrapper {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  width: 100%;
+}
+
+.json-textarea.monaco-style {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #e2e8f0;
+  padding: 20px;
+  border: none;
+  border-radius: 10px;
+  resize: vertical;
+  min-height: 400px;
+  width: 100%;
+  box-sizing: border-box;
+  tab-size: 2;
+  -moz-tab-size: 2;
+}
+
+.json-textarea.monaco-style:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.json-textarea.monaco-style::selection {
+  background: rgba(102, 126, 234, 0.4);
 }
 
 .json-textarea {

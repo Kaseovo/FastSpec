@@ -159,6 +159,69 @@
                 <code>{{ item.newType }}</code>
               </div>
 
+              <div v-if="item.requiredChanged" class="required-change">
+                <i class="pi pi-exclamation-triangle"></i>
+                <span class="change-label">Required fields changed</span>
+                <div class="required-badges">
+                  <div v-if="item.requiredAdded?.length" class="required-group">
+                    <span class="required-label added">Added:</span>
+                    <Tag
+                      v-for="field in item.requiredAdded"
+                      :key="field"
+                      severity="danger"
+                      size="small"
+                    >
+                      {{ field }}
+                    </Tag>
+                  </div>
+                  <div
+                    v-if="item.requiredRemoved?.length"
+                    class="required-group"
+                  >
+                    <span class="required-label removed">Removed:</span>
+                    <Tag
+                      v-for="field in item.requiredRemoved"
+                      :key="field"
+                      severity="success"
+                      size="small"
+                    >
+                      {{ field }}
+                    </Tag>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="item.enumChanged" class="validation-change">
+                <i class="pi pi-list"></i>
+                <span>Enum values changed</span>
+              </div>
+
+              <div v-if="item.formatChanged" class="validation-change">
+                <i class="pi pi-palette"></i>
+                <span>Format changed</span>
+              </div>
+
+              <div
+                v-if="item.validationChanged?.length"
+                class="validation-changes"
+              >
+                <i class="pi pi-shield"></i>
+                <span class="change-label">Validation rules changed:</span>
+                <div class="validation-list">
+                  <div
+                    v-for="(validation, idx) in item.validationChanged"
+                    :key="idx"
+                    class="validation-item"
+                  >
+                    <code>{{ validation.field }}</code>
+                    <span class="validation-arrow">:</span>
+                    <code class="old-val">{{ validation.old ?? "none" }}</code>
+                    <i class="pi pi-arrow-right"></i>
+                    <code class="new-val">{{ validation.new ?? "none" }}</code>
+                  </div>
+                </div>
+              </div>
+
               <div
                 v-if="item.propertiesAdded?.length"
                 class="properties-summary added"
@@ -444,6 +507,153 @@
                   </div>
                 </div>
 
+                <!-- Parameters with detailed breakdown -->
+                <div
+                  v-else-if="field === 'parameters'"
+                  class="parameters-detail"
+                >
+                  <div v-if="detail.added?.length" class="param-group added">
+                    <h5>➕ Added Parameters ({{ detail.added.length }})</h5>
+                    <div
+                      v-for="param in detail.added"
+                      :key="param.name + param.in"
+                      class="param-detail-item"
+                    >
+                      <div class="param-header">
+                        <code class="param-name">{{ param.name }}</code>
+                        <Tag severity="info" size="small">{{ param.in }}</Tag>
+                        <Tag
+                          v-if="param.required"
+                          severity="danger"
+                          size="small"
+                          >required</Tag
+                        >
+                      </div>
+                      <div v-if="param.description" class="param-description">
+                        {{ param.description }}
+                      </div>
+                      <div v-if="param.schema" class="param-schema">
+                        <span class="schema-label">Type:</span>
+                        <code>{{ param.schema.type || "any" }}</code>
+                        <span v-if="param.schema.format" class="schema-format">
+                          ({{ param.schema.format }})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="detail.modified?.length"
+                    class="param-group modified"
+                  >
+                    <h5>
+                      ✏️ Modified Parameters ({{ detail.modified.length }})
+                    </h5>
+                    <div
+                      v-for="param in detail.modified"
+                      :key="param.name + param.in"
+                      class="param-detail-item"
+                    >
+                      <div class="param-header">
+                        <code class="param-name">{{ param.name }}</code>
+                        <Tag severity="warn" size="small">{{ param.in }}</Tag>
+                      </div>
+                      <div class="param-diff-grid">
+                        <div class="param-diff-side">
+                          <span class="value-label">Before:</span>
+                          <div class="param-info">
+                            <div
+                              v-if="param.old.description"
+                              class="param-description"
+                            >
+                              {{ param.old.description }}
+                            </div>
+                            <div class="param-meta">
+                              <Tag
+                                v-if="param.old.required"
+                                severity="danger"
+                                size="small"
+                                >required</Tag
+                              >
+                              <Tag v-else severity="secondary" size="small"
+                                >optional</Tag
+                              >
+                              <span v-if="param.old.schema">
+                                {{ param.old.schema.type || "any" }}
+                                <span v-if="param.old.schema.format"
+                                  >({{ param.old.schema.format }})</span
+                                >
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <i class="pi pi-arrow-right"></i>
+                        <div class="param-diff-side">
+                          <span class="value-label">After:</span>
+                          <div class="param-info">
+                            <div
+                              v-if="param.new.description"
+                              class="param-description"
+                            >
+                              {{ param.new.description }}
+                            </div>
+                            <div class="param-meta">
+                              <Tag
+                                v-if="param.new.required"
+                                severity="danger"
+                                size="small"
+                                >required</Tag
+                              >
+                              <Tag v-else severity="secondary" size="small"
+                                >optional</Tag
+                              >
+                              <span v-if="param.new.schema">
+                                {{ param.new.schema.type || "any" }}
+                                <span v-if="param.new.schema.format"
+                                  >({{ param.new.schema.format }})</span
+                                >
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="detail.removed?.length"
+                    class="param-group removed"
+                  >
+                    <h5>➖ Removed Parameters ({{ detail.removed.length }})</h5>
+                    <div
+                      v-for="param in detail.removed"
+                      :key="param.name + param.in"
+                      class="param-detail-item"
+                    >
+                      <div class="param-header">
+                        <code class="param-name">{{ param.name }}</code>
+                        <Tag severity="info" size="small">{{ param.in }}</Tag>
+                        <Tag
+                          v-if="param.required"
+                          severity="danger"
+                          size="small"
+                          >required</Tag
+                        >
+                      </div>
+                      <div v-if="param.description" class="param-description">
+                        {{ param.description }}
+                      </div>
+                      <div v-if="param.schema" class="param-schema">
+                        <span class="schema-label">Type:</span>
+                        <code>{{ param.schema.type || "any" }}</code>
+                        <span v-if="param.schema.format" class="schema-format">
+                          ({{ param.schema.format }})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Tags array -->
                 <div v-else-if="field === 'tags'" class="tags-comparison">
                   <div class="tags-side">
@@ -633,7 +843,28 @@ export default {
       copying.value = true;
       try {
         const markdown = generateMarkdownReport(props.diff);
-        await navigator.clipboard.writeText(markdown);
+
+        // Try modern clipboard API first
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(markdown);
+        } else {
+          // Fallback for older browsers or non-secure context
+          const textArea = document.createElement("textarea");
+          textArea.value = markdown;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-999999px";
+          textArea.style.top = "-999999px";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand("copy");
+            textArea.remove();
+          } catch (err) {
+            textArea.remove();
+            throw new Error("Copy command failed");
+          }
+        }
 
         toast.add({
           severity: "success",
@@ -642,10 +873,11 @@ export default {
           life: 3000,
         });
       } catch (error) {
+        console.error("Copy failed:", error);
         toast.add({
           severity: "error",
           summary: "Copy Failed",
-          detail: "Failed to copy to clipboard",
+          detail: error.message || "Failed to copy to clipboard",
           life: 3000,
         });
       } finally {
@@ -755,12 +987,19 @@ export default {
 
 .drawer-header h3 {
   margin: 0;
-  font-size: 1.25rem;
-  color: #1f2937;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
 }
 
 .diff-container {
-  padding: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(to bottom, #fafbfc, #ffffff);
+  min-height: 100%;
 }
 
 .no-changes {
@@ -768,19 +1007,33 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem 2rem;
+  padding: 6rem 2rem;
   text-align: center;
-  gap: 1rem;
+  gap: 1.5rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  border: 2px dashed #e2e8f0;
+  margin: 2rem 0;
+}
+
+.no-changes i {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .no-changes h3 {
-  color: #1f2937;
+  color: #1e293b;
   margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .no-changes p {
-  color: #6b7280;
+  color: #64748b;
   margin: 0;
+  font-size: 1rem;
 }
 
 .changes-content {
@@ -791,58 +1044,109 @@ export default {
 
 .summary-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  padding: 1.5rem;
+  border-radius: 16px;
+  padding: 2rem;
   color: white;
+  box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3),
+    0 8px 16px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
 }
 
 .summary-card h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1.2rem;
+  margin: 0 0 1.5rem 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: 1.25rem;
+  position: relative;
+  z-index: 1;
 }
 
 .summary-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
+  gap: 0.75rem;
+  padding: 1.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.summary-item:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .summary-item i {
-  font-size: 1.5rem;
+  font-size: 2rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .summary-item .count {
-  font-size: 2rem;
-  font-weight: bold;
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .summary-item .label {
   font-size: 0.875rem;
-  opacity: 0.9;
+  opacity: 0.95;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .change-section {
   background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f1f5f9;
+  transition: all 0.3s ease;
+}
+
+.change-section:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-color: #e2e8f0;
 }
 
 .change-section h3 {
-  margin: 0 0 1rem 0;
-  color: #1f2937;
-  font-size: 1.1rem;
+  margin: 0 0 1.5rem 0;
+  color: #1e293b;
+  font-size: 1.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: -0.01em;
 }
 
 .change-list {
@@ -852,43 +1156,75 @@ export default {
 }
 
 .change-item {
-  padding: 1rem;
-  border-radius: 6px;
+  padding: 1.25rem;
+  border-radius: 12px;
   border-left: 4px solid #e5e7eb;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.change-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .change-item.added {
-  background: #f0fdf4;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
   border-left-color: #10b981;
+  border-left-width: 5px;
+}
+
+.change-item.added:hover {
+  background: linear-gradient(135deg, #dcfce7 0%, #d1fae5 100%);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
 }
 
 .change-item.modified {
-  background: #fef3c7;
+  background: linear-gradient(135deg, #fef3c7 0%, #fef08a 100%);
   border-left-color: #f59e0b;
+  border-left-width: 5px;
+}
+
+.change-item.modified:hover {
+  background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15);
 }
 
 .change-item.removed {
-  background: #fee2e2;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
   border-left-color: #ef4444;
+  border-left-width: 5px;
+}
+
+.change-item.removed:hover {
+  background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
 }
 
 .endpoint-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .endpoint-header .path {
   font-family: "Monaco", "Courier New", monospace;
-  font-size: 0.95rem;
-  color: #1f2937;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
   flex: 1;
+  letter-spacing: -0.01em;
 }
 
 .expand-button {
-  transition: transform 0.2s;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   margin-left: auto;
+  border-radius: 8px;
+}
+
+.expand-button:hover {
+  background: rgba(102, 126, 234, 0.1);
 }
 
 .expand-button.rotate-180 {
@@ -982,19 +1318,22 @@ export default {
 }
 
 .json-preview {
-  margin-top: 0.5rem;
-  padding: 0.75rem;
-  background: #1f2937;
-  border-radius: 4px;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 10px;
   overflow-x: auto;
   max-height: 300px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .json-preview code {
-  color: #10b981;
+  color: #34d399;
   font-family: "Monaco", "Courier New", monospace;
-  font-size: 0.8rem;
-  line-height: 1.5;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.3);
 }
 
 .endpoint-changes {
@@ -1371,12 +1710,30 @@ export default {
 
 /* Schema Section Styles */
 .schema-section {
-  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.08) 0%,
+    rgba(118, 75, 162, 0.08) 100%
+  );
   border: 2px solid #667eea;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+}
+
+.schema-section:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.12) 0%,
+    rgba(118, 75, 162, 0.12) 100%
+  );
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
 }
 
 .schema-section h3 {
-  color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
 }
 
 .change-item.schema-modified {
@@ -1443,24 +1800,32 @@ export default {
 .properties-summary {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border-radius: 4px;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.properties-summary:hover {
+  transform: translateX(2px);
 }
 
 .properties-summary.added {
-  background: #f0fdf4;
-  border-left: 3px solid #10b981;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border-left: 4px solid #10b981;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
 }
 
 .properties-summary.removed {
-  background: #fee2e2;
-  border-left: 3px solid #ef4444;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-left: 4px solid #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
 }
 
 .properties-summary.modified {
-  background: #fef3c7;
-  border-left: 3px solid #f59e0b;
+  background: linear-gradient(135deg, #fef3c7 0%, #fef08a 100%);
+  border-left: 4px solid #f59e0b;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
 }
 
 .properties-summary > span {
@@ -1516,17 +1881,305 @@ export default {
 
 .schema-preview {
   margin: 0;
-  padding: 0.75rem;
-  background: #1f2937;
-  border-radius: 4px;
+  padding: 1rem;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 10px;
   overflow-x: auto;
   max-height: 400px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .schema-preview code {
-  color: #10b981;
+  color: #34d399;
   font-family: "Monaco", "Courier New", monospace;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.3);
+}
+
+/* Parameter Details */
+.parameters-detail {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.param-group {
+  padding: 1rem;
+  border-radius: 10px;
+  border-left: 4px solid;
+  transition: all 0.2s ease;
+}
+
+.param-group:hover {
+  transform: translateX(2px);
+}
+
+.param-group.added {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border-left-color: #10b981;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+}
+
+.param-group.modified {
+  background: linear-gradient(135deg, #fef3c7 0%, #fef08a 100%);
+  border-left-color: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+}
+
+.param-group.removed {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-left-color: #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+}
+
+.param-group h5 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.param-detail-item {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.875rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.param-detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.param-detail-item:hover {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.param-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.param-name {
+  font-family: "Monaco", "Courier New", monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  padding: 0.25rem 0.5rem;
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.param-description {
+  color: #64748b;
+  font-size: 0.875rem;
   line-height: 1.5;
+  margin-top: 0.5rem;
+}
+
+.param-schema {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.schema-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.param-schema code {
+  background: #1e293b;
+  color: #34d399;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.schema-format {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.param-diff-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: start;
+  margin-top: 0.75rem;
+}
+
+.param-diff-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.param-info {
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.75rem;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.param-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  color: #475569;
+  font-family: "Monaco", "Courier New", monospace;
+}
+
+/* Schema Validation Changes */
+.required-change {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fef08a 100%);
+  border-radius: 10px;
+  border-left: 4px solid #f59e0b;
+  margin-bottom: 0.75rem;
+}
+
+.required-change > i {
+  color: #f59e0b;
+  font-size: 1.1rem;
+}
+
+.required-change .change-label {
+  font-weight: 700;
+  color: #92400e;
+  font-size: 0.9rem;
+}
+
+.required-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.required-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.required-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.required-label.added {
+  color: #dc2626;
+}
+
+.required-label.removed {
+  color: #059669;
+}
+
+.validation-change {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-radius: 8px;
+  border-left: 3px solid #3b82f6;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.validation-change i {
+  color: #3b82f6;
+  font-size: 1rem;
+}
+
+.validation-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-radius: 10px;
+  border-left: 4px solid #3b82f6;
+  margin-bottom: 0.75rem;
+}
+
+.validation-changes > i {
+  color: #3b82f6;
+  font-size: 1.1rem;
+}
+
+.validation-changes .change-label {
+  font-weight: 700;
+  color: #1e40af;
+  font-size: 0.9rem;
+}
+
+.validation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.validation-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.validation-item code {
+  background: #1e293b;
+  color: #34d399;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: "Monaco", "Courier New", monospace;
+}
+
+.validation-arrow {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.old-val {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
+.new-val {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+.validation-item i {
+  color: #60a5fa;
+  font-size: 0.875rem;
 }
 </style>

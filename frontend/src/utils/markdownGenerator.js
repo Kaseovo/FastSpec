@@ -1,38 +1,40 @@
 /**
  * Generate markdown report from diff data
+ * @param {Object} diff - The diff object containing changes
  */
 export function generateMarkdownReport(diff) {
-  let markdown = "# API Changes Overview\n\n";
+  let markdown = "# API Changes Report\n\n";
+  markdown += `> Generated on ${new Date().toLocaleString()}\n\n`;
 
-  // Summary section
-  const totalAdded =
-    (diff.infoAdded?.length || 0) +
-    (diff.added?.length || 0) +
-    (diff.schemaAdded?.length || 0);
-  const totalModified =
-    (diff.infoModified?.length || 0) +
-    (diff.modified?.length || 0) +
-    (diff.schemaModified?.length || 0);
-  const totalRemoved =
-    (diff.infoRemoved?.length || 0) +
-    (diff.removed?.length || 0) +
-    (diff.schemaRemoved?.length || 0);
-
-  markdown += "## 📊 Summary\n\n";
-  markdown += `- ✅ **Added**: ${totalAdded}\n`;
-  markdown += `- ✏️ **Modified**: ${totalModified}\n`;
-  if (
-    diff.schemaAdded?.length ||
-    diff.schemaModified?.length ||
-    diff.schemaRemoved?.length
-  ) {
-    markdown += `  - 🔄 **Component Schemas**: ${
-      diff.schemaAdded?.length || 0
-    } added, ${diff.schemaModified?.length || 0} modified, ${
-      diff.schemaRemoved?.length || 0
-    } removed\n`;
+  // Detect breaking changes
+  const breakingChanges = [];
+  if (diff.removed?.length) {
+    breakingChanges.push(`${diff.removed.length} endpoint(s) removed`);
   }
-  markdown += `- ❌ **Removed**: ${totalRemoved}\n\n`;
+  if (diff.schemaRemoved?.length) {
+    breakingChanges.push(`${diff.schemaRemoved.length} schema(s) removed`);
+  }
+
+  // Check for required field additions in schemas
+  const requiredFieldsAdded =
+    diff.schemaModified?.filter((s) => s.requiredAdded?.length > 0).length || 0;
+  if (requiredFieldsAdded > 0) {
+    breakingChanges.push(
+      `${requiredFieldsAdded} schema(s) with new required fields`
+    );
+  }
+
+  if (breakingChanges.length > 0) {
+    markdown += "## ⚠️ BREAKING CHANGES\n\n";
+    markdown +=
+      "**Action Required:** The following changes may break existing API clients:\n\n";
+    breakingChanges.forEach((change) => {
+      markdown += `- 🚨 ${change}\n`;
+    });
+    markdown += "\n";
+  }
+
+  markdown += "---\n\n";
 
   // Info changes
   if (diff.infoAdded?.length) {
@@ -68,8 +70,11 @@ export function generateMarkdownReport(diff) {
       if (item.schema.type) {
         markdown += `**Type:** \`${item.schema.type}\`\n\n`;
       }
+
+      markdown += "<details>\n<summary>View OpenAPI Schema</summary>\n\n";
       markdown +=
-        "```json\n" + JSON.stringify(item.schema, null, 2) + "\n```\n\n";
+        "```json\n" + JSON.stringify(item.schema, null, 2) + "\n```\n";
+      markdown += "</details>\n\n";
     });
   }
 
@@ -79,8 +84,70 @@ export function generateMarkdownReport(diff) {
     diff.schemaModified.forEach((item) => {
       markdown += `### \`${item.name}\`\n\n`;
 
+      // Action items
+      const actions = [];
+      if (item.typeChanged) actions.push("Update type handling in client code");
+      if (item.requiredAdded?.length)
+        actions.push(
+          `Add ${item.requiredAdded.length} required field(s) to requests`
+        );
+      if (item.requiredRemoved?.length)
+        actions.push(
+          `${item.requiredRemoved.length} field(s) are now optional`
+        );
+      if (item.propertiesAdded?.length)
+        actions.push(
+          `Handle ${item.propertiesAdded.length} new property/properties`
+        );
+      if (item.propertiesRemoved?.length)
+        actions.push(
+          `Remove references to ${item.propertiesRemoved.length} deleted property/properties`
+        );
+
+      if (actions.length > 0) {
+        markdown += "**Action Required:**\n";
+        actions.forEach((action) => {
+          markdown += `- [ ] ${action}\n`;
+        });
+        markdown += "\n";
+      }
+
       if (item.typeChanged) {
-        markdown += `**Type Changed:** \`${item.oldType}\` → \`${item.newType}\`\n\n`;
+        markdown += `⚠️ **Type Changed:** \`${item.oldType}\` → \`${item.newType}\`\n\n`;
+      }
+
+      if (item.requiredChanged) {
+        markdown += "**Required Fields Changed:**\n";
+        if (item.requiredAdded?.length) {
+          markdown += "- 🚨 **Now Required:** ";
+          markdown += item.requiredAdded.map((f) => `\`${f}\``).join(", ");
+          markdown += " (Breaking change)\n";
+        }
+        if (item.requiredRemoved?.length) {
+          markdown += "- ✅ **Now Optional:** ";
+          markdown += item.requiredRemoved.map((f) => `\`${f}\``).join(", ");
+          markdown += "\n";
+        }
+        markdown += "\n";
+      }
+
+      if (item.enumChanged) {
+        markdown += "⚠️ **Enum Values Changed** - Review allowed values\n\n";
+      }
+
+      if (item.formatChanged) {
+        markdown += "⚠️ **Format Changed** - Update validation logic\n\n";
+      }
+
+      if (item.validationChanged?.length) {
+        markdown += "**Validation Rules Changed:**\n";
+        item.validationChanged.forEach((validation) => {
+          markdown += `- \`${validation.field}\`: `;
+          markdown += `\`${validation.old ?? "none"}\` → \`${
+            validation.new ?? "none"
+          }\`\n`;
+        });
+        markdown += "\n";
       }
 
       if (item.propertiesAdded?.length) {
@@ -163,17 +230,38 @@ export function generateMarkdownReport(diff) {
       // Parameters
       if (item.parameters?.length) {
         markdown += "**Parameters:**\n\n";
-        markdown += "| Name | Location | Type | Required | Description |\n";
-        markdown += "|------|----------|------|----------|-------------|\n";
+        markdown +=
+          "| Name | Location | Type | Required | Validation | Description |\n";
+        markdown +=
+          "|------|----------|------|----------|------------|-------------|\n";
         item.parameters.forEach((param) => {
           const paramName = `\`${param.name}\``;
-          const paramIn = `\`${param.in}\``;
-          const paramType = param.schema?.type
-            ? `\`${param.schema.type}\``
-            : "N/A";
-          const paramRequired = param.required ? "✅" : "❌";
+          const paramIn = param.in;
+          const paramType = param.schema?.type || "any";
+          const paramFormat = param.schema?.format
+            ? ` (${param.schema.format})`
+            : "";
+          const paramRequired = param.required ? "**Yes**" : "No";
+
+          // Collect validation rules
+          const validations = [];
+          if (param.schema?.minimum !== undefined)
+            validations.push(`min: ${param.schema.minimum}`);
+          if (param.schema?.maximum !== undefined)
+            validations.push(`max: ${param.schema.maximum}`);
+          if (param.schema?.minLength !== undefined)
+            validations.push(`minLen: ${param.schema.minLength}`);
+          if (param.schema?.maxLength !== undefined)
+            validations.push(`maxLen: ${param.schema.maxLength}`);
+          if (param.schema?.pattern)
+            validations.push(`pattern: ${param.schema.pattern}`);
+          if (param.schema?.enum)
+            validations.push(`enum: [${param.schema.enum.join(", ")}]`);
+          const validation =
+            validations.length > 0 ? validations.join("<br>") : "-";
+
           const paramDesc = param.description || "-";
-          markdown += `| ${paramName} | ${paramIn} | ${paramType} | ${paramRequired} | ${paramDesc} |\n`;
+          markdown += `| ${paramName} | ${paramIn} | \`${paramType}${paramFormat}\` | ${paramRequired} | ${validation} | ${paramDesc} |\n`;
         });
         markdown += "\n";
       }
@@ -236,7 +324,7 @@ export function generateMarkdownReport(diff) {
 
       // Detailed changes
       if (item.details) {
-        markdown += "<details>\n<summary>View detailed changes</summary>\n\n";
+        markdown += "### 📝 Detailed Changes\n\n";
 
         for (const [field, detail] of Object.entries(item.details)) {
           const fieldName = field
@@ -245,7 +333,68 @@ export function generateMarkdownReport(diff) {
             .trim();
           markdown += `#### ${fieldName}\n\n`;
 
-          if (
+          if (field === "parameters") {
+            // Enhanced parameter change display
+            if (detail.added?.length) {
+              markdown += "**✅ Added Parameters:**\n\n";
+              detail.added.forEach((param) => {
+                markdown += `- \`${param.name}\` (${param.in})\n`;
+                markdown += `  - **Type:** \`${param.schema?.type || "any"}\`${
+                  param.schema?.format ? ` (${param.schema.format})` : ""
+                }\n`;
+                if (param.required) markdown += "  - **Required:** Yes ⚠️\n";
+                if (param.description)
+                  markdown += `  - **Description:** ${param.description}\n`;
+                markdown += "\n";
+              });
+            }
+
+            if (detail.modified?.length) {
+              markdown += "**📝 Modified Parameters:**\n\n";
+              detail.modified.forEach((param) => {
+                markdown += `- \`${param.name}\` (${param.in})\n`;
+                markdown += "  - **Before:**\n";
+                if (param.old.description)
+                  markdown += `    - Description: ${param.old.description}\n`;
+                markdown += `    - Required: ${
+                  param.old.required ? "Yes" : "No"
+                }\n`;
+                if (param.old.schema)
+                  markdown += `    - Type: \`${
+                    param.old.schema.type || "any"
+                  }\`${
+                    param.old.schema.format
+                      ? ` (${param.old.schema.format})`
+                      : ""
+                  }\n`;
+                markdown += "  - **After:**\n";
+                if (param.new.description)
+                  markdown += `    - Description: ${param.new.description}\n`;
+                markdown += `    - Required: ${
+                  param.new.required ? "Yes ⚠️" : "No"
+                }\n`;
+                if (param.new.schema)
+                  markdown += `    - Type: \`${
+                    param.new.schema.type || "any"
+                  }\`${
+                    param.new.schema.format
+                      ? ` (${param.new.schema.format})`
+                      : ""
+                  }\n`;
+                markdown += "\n";
+              });
+            }
+
+            if (detail.removed?.length) {
+              markdown += "**❌ Removed Parameters:**\n\n";
+              detail.removed.forEach((param) => {
+                markdown += `- \`${param.name}\` (${param.in})\n`;
+                if (param.required) markdown += "  - Was required ⚠️\n";
+                if (param.description) markdown += `  - ${param.description}\n`;
+                markdown += "\n";
+              });
+            }
+          } else if (
             typeof detail.old === "string" &&
             typeof detail.new === "string"
           ) {
@@ -318,19 +467,26 @@ export function generateMarkdownReport(diff) {
           }
         }
 
-        markdown += "</details>\n\n";
+        markdown += "---\n\n";
       }
     });
   }
 
   // Removed endpoints
   if (diff.removed?.length) {
-    markdown += "## ➖ Removed Endpoints\n\n";
+    markdown += "## ❌ Removed Endpoints\n\n";
+    markdown +=
+      "**⚠️ Breaking Change:** These endpoints have been removed. Update client code to remove calls.\n\n";
     diff.removed.forEach((item) => {
       markdown += `### \`${item.method}\` ${item.path}\n`;
       if (item.summary) {
-        markdown += `${item.summary}\n`;
+        markdown += `**Was:** ${item.summary}\n`;
       }
+      if (item.description) {
+        markdown += `${item.description}\n`;
+      }
+      markdown +=
+        "\n**Action:** Remove all client code that calls this endpoint.\n";
       markdown += "\n";
     });
   }

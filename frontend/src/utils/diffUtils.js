@@ -9,10 +9,58 @@ function compareSchemas(oldSchema, newSchema) {
     typeChanged: false,
     oldType: null,
     newType: null,
+    requiredChanged: false,
+    requiredAdded: [],
+    requiredRemoved: [],
+    enumChanged: false,
+    formatChanged: false,
+    validationChanged: [],
   };
 
   if (!oldSchema && !newSchema) return null;
   if (!oldSchema || !newSchema) return { typeChanged: true };
+
+  // Check for required field changes
+  const oldRequired = oldSchema.required || [];
+  const newRequired = newSchema.required || [];
+  if (JSON.stringify(oldRequired) !== JSON.stringify(newRequired)) {
+    changes.requiredChanged = true;
+    changes.requiredAdded = newRequired.filter((r) => !oldRequired.includes(r));
+    changes.requiredRemoved = oldRequired.filter(
+      (r) => !newRequired.includes(r)
+    );
+  }
+
+  // Check for enum changes
+  if (JSON.stringify(oldSchema.enum) !== JSON.stringify(newSchema.enum)) {
+    changes.enumChanged = true;
+  }
+
+  // Check for format changes
+  if (oldSchema.format !== newSchema.format) {
+    changes.formatChanged = true;
+  }
+
+  // Check for validation rule changes
+  const validationFields = [
+    "minimum",
+    "maximum",
+    "minLength",
+    "maxLength",
+    "minItems",
+    "maxItems",
+    "pattern",
+    "uniqueItems",
+  ];
+  for (const field of validationFields) {
+    if (oldSchema[field] !== newSchema[field]) {
+      changes.validationChanged.push({
+        field,
+        old: oldSchema[field],
+        new: newSchema[field],
+      });
+    }
+  }
 
   // Check if root type changed
   if (oldSchema.type !== newSchema.type) {
@@ -83,9 +131,13 @@ function compareSchemas(oldSchema, newSchema) {
   // Return null if no changes detected
   if (
     !changes.typeChanged &&
+    !changes.requiredChanged &&
+    !changes.enumChanged &&
+    !changes.formatChanged &&
     changes.propertiesAdded.length === 0 &&
     changes.propertiesRemoved.length === 0 &&
-    changes.propertiesModified.length === 0
+    changes.propertiesModified.length === 0 &&
+    changes.validationChanged.length === 0
   ) {
     return null;
   }
@@ -277,11 +329,57 @@ export function compareSpecs(original, current) {
             JSON.stringify(originalMethod?.parameters) !==
             JSON.stringify(currentMethod?.parameters)
           ) {
-            changes.push("Parameters changed");
-            details.parameters = {
-              old: originalMethod?.parameters || [],
-              new: currentMethod?.parameters || [],
+            const oldParams = originalMethod?.parameters || [];
+            const newParams = currentMethod?.parameters || [];
+
+            const paramChanges = {
+              added: [],
+              removed: [],
+              modified: [],
             };
+
+            // Create maps for easier comparison
+            const oldParamMap = new Map(
+              oldParams.map((p) => [p.name + p.in, p])
+            );
+            const newParamMap = new Map(
+              newParams.map((p) => [p.name + p.in, p])
+            );
+
+            // Find added and modified parameters
+            for (const [key, newParam] of newParamMap) {
+              const oldParam = oldParamMap.get(key);
+              if (!oldParam) {
+                paramChanges.added.push(newParam);
+              } else if (
+                JSON.stringify(oldParam) !== JSON.stringify(newParam)
+              ) {
+                paramChanges.modified.push({
+                  name: newParam.name,
+                  in: newParam.in,
+                  old: oldParam,
+                  new: newParam,
+                });
+              }
+            }
+
+            // Find removed parameters
+            for (const [key, oldParam] of oldParamMap) {
+              if (!newParamMap.has(key)) {
+                paramChanges.removed.push(oldParam);
+              }
+            }
+
+            if (
+              paramChanges.added.length > 0 ||
+              paramChanges.removed.length > 0 ||
+              paramChanges.modified.length > 0
+            ) {
+              changes.push(
+                `Parameters: ${paramChanges.added.length} added, ${paramChanges.modified.length} modified, ${paramChanges.removed.length} removed`
+              );
+              details.parameters = paramChanges;
+            }
           }
           if (
             JSON.stringify(originalMethod?.requestBody) !==
