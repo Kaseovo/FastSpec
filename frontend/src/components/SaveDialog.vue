@@ -75,6 +75,7 @@ export default {
     const save = () => {
       if (name.value.trim()) {
         emit("save", name.value.trim());
+        close();
       }
     };
 

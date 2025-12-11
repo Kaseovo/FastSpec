@@ -1,13 +1,13 @@
 <template>
-  <div class="login-page">
+  <div :class="inline ? 'login-inline' : 'login-page'">
     <div class="login-container">
-      <div class="login-header">
+      <div v-if="!inline" class="login-header">
         <h1>🧩 FastSpec</h1>
         <p>Create, edit, and validate OpenAPI specifications</p>
       </div>
 
       <div class="login-card">
-        <h2>Sign in to continue</h2>
+        <h2>{{ inline ? "Sign in to save" : "Sign in to continue" }}</h2>
         <p class="subtitle">Choose your preferred authentication method</p>
 
         <div class="login-buttons">
@@ -52,7 +52,7 @@
         </div>
       </div>
 
-      <div class="features">
+      <div v-if="!inline" class="features">
         <div class="feature-item">
           <i class="pi pi-check-circle"></i>
           <span>Real-time validation</span>
@@ -75,7 +75,14 @@ import { loginWithGoogle, loginWithGitHub } from "../api/auth";
 
 export default {
   name: "LoginPage",
-  setup() {
+  props: {
+    inline: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ["close"],
+  setup(props, { emit }) {
     const handleGoogleLogin = () => {
       loginWithGoogle();
     };
@@ -99,6 +106,19 @@ export default {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.login-inline {
+  padding: 0;
+}
+
+.login-inline .login-container {
+  max-width: 100%;
+}
+
+.login-inline .login-card {
+  box-shadow: none;
   padding: 20px;
 }
 

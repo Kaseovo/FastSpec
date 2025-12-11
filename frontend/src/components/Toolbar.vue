@@ -1,26 +1,33 @@
 <template>
   <div>
     <div class="toolbar">
-      <Button label="New" icon="pi pi-plus" @click="showNewDialog = true" />
-      <Button label="Save" icon="pi pi-save" @click="openSaveDialog" />
-      <Button
-        label="Validate"
-        icon="pi pi-check-circle"
-        severity="secondary"
-        @click="validateCurrentSpec"
-      />
-      <Button
-        label="Preview"
-        icon="pi pi-eye"
-        severity="info"
-        @click="togglePreview"
-      />
-      <Button
-        label="Changes"
-        icon="pi pi-history"
-        severity="secondary"
-        @click="toggleDiff"
-      />
+      <div class="toolbar-left">
+        <Button label="New" icon="pi pi-plus" @click="showNewDialog = true" />
+        <Button label="Save" icon="pi pi-save" @click="openSaveDialog" />
+        <Button
+          label="Validate"
+          icon="pi pi-check-circle"
+          severity="secondary"
+          @click="validateCurrentSpec"
+        />
+        <Button
+          label="Preview"
+          icon="pi pi-eye"
+          severity="info"
+          @click="togglePreview"
+        />
+        <Button
+          label="Changes"
+          icon="pi pi-history"
+          severity="secondary"
+          @click="toggleDiff"
+        />
+      </div>
+
+      <!-- User Profile Section -->
+      <div v-if="isAuthenticated" class="toolbar-right">
+        <UserProfile />
+      </div>
     </div>
 
     <!-- New Spec Dialog -->
@@ -50,14 +57,18 @@
 import { inject, ref } from "vue";
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
+import UserProfile from "./UserProfile.vue";
+import { useAuth } from "../stores/auth";
 
 export default {
   name: "Toolbar",
   components: {
     Button,
     Dialog,
+    UserProfile,
   },
   setup() {
+    const { isAuthenticated } = useAuth();
     const showNewDialog = ref(false);
     const newSpec = inject("newSpec");
     const openSaveDialog = inject("openSaveDialog");
@@ -77,6 +88,7 @@ export default {
     };
 
     return {
+      isAuthenticated,
       showNewDialog,
       openSaveDialog,
       validateCurrentSpec,
@@ -92,9 +104,22 @@ export default {
 <style scoped>
 .toolbar {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 10px;
   margin-bottom: 20px;
   flex-wrap: wrap;
+}
+
+.toolbar-left {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
 }
 
 .new-spec-options {

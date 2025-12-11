@@ -1,95 +1,119 @@
 <template>
   <div id="app">
-    <!-- Show login page if not authenticated -->
-    <LoginPage v-if="!isAuthenticated" />
+    <div class="header">
+      <h1>🧩 FastSpec</h1>
+      <p>Create, edit, and validate OpenAPI specifications</p>
+    </div>
 
-    <!-- Show main app if authenticated -->
-    <div v-else>
-      <div class="header">
-        <div class="header-content">
-          <div class="header-left">
-            <h1>🧩 FastSpec</h1>
-            <p>Create, edit, and validate OpenAPI specifications</p>
-          </div>
-          <div class="header-right">
-            <UserProfile />
-          </div>
-        </div>
-      </div>
+    <div class="main-content">
+      <Toolbar />
 
-      <div class="main-content">
-        <Toolbar />
-
-        <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
-          {{ alert.message }}
-        </Message>
-
-        <div class="view-mode-toggle">
-          <SelectButton
-            v-model="viewMode"
-            :options="viewModeOptions"
-            optionLabel="label"
-            optionValue="value"
+      <!-- Login prompt banner for unauthenticated users -->
+      <Message
+        v-if="!isAuthenticated"
+        severity="info"
+        :closable="false"
+        class="auth-banner"
+      >
+        <div class="auth-banner-content">
+          <span
+            >You're browsing in guest mode. Sign in to save and manage your
+            specifications.</span
+          >
+          <Button
+            label="Sign In"
+            icon="pi pi-sign-in"
+            size="small"
+            @click="showLoginDialog = true"
           />
         </div>
+      </Message>
 
-        <div class="editor-container">
-          <SpecList @spec-selected="loadSpec" :selected-id="currentSpec?.id" />
+      <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
+        {{ alert.message }}
+      </Message>
+
+      <div class="view-mode-toggle">
+        <SelectButton
+          v-model="viewMode"
+          :options="viewModeOptions"
+          optionLabel="label"
+          optionValue="value"
+        />
+      </div>
+
+      <div class="editor-container">
+        <SpecList
+          v-if="isAuthenticated"
+          @spec-selected="loadSpec"
+          :selected-id="currentSpec?.id"
+        />
+        <FormEditor
+          v-if="viewMode === 'form'"
+          :model-value="parsedSpec"
+          @update:modelValue="updateFromForm"
+        />
+        <EditorPanel
+          v-else-if="viewMode === 'code'"
+          v-model="specContent"
+          @update:modelValue="updatePreview"
+        />
+        <div v-else class="split-view">
           <FormEditor
-            v-if="viewMode === 'form'"
             :model-value="parsedSpec"
             @update:modelValue="updateFromForm"
           />
           <EditorPanel
-            v-else-if="viewMode === 'code'"
             v-model="specContent"
             @update:modelValue="updatePreview"
           />
-          <div v-else class="split-view">
-            <FormEditor
-              :model-value="parsedSpec"
-              @update:modelValue="updateFromForm"
-            />
-            <EditorPanel
-              v-model="specContent"
-              @update:modelValue="updatePreview"
-            />
-          </div>
         </div>
       </div>
-
-      <SaveDialog
-        :visible="showSaveDialog"
-        @update:visible="showSaveDialog = $event"
-        :spec-name="currentSpec?.name || ''"
-        @save="saveSpec"
-      />
-
-      <Drawer
-        :visible="showPreviewDrawer"
-        @update:visible="showPreviewDrawer = $event"
-        position="right"
-        :style="{ width: '50vw' }"
-        header="Swagger Preview"
-      >
-        <PreviewPanel :spec="parsedSpec" />
-      </Drawer>
-
-      <DiffDrawer
-        :visible="showDiffDrawer"
-        @update:visible="showDiffDrawer = $event"
-        :diff="specDiff"
-      />
-
-      <Toast />
     </div>
+
+    <SaveDialog
+      :visible="showSaveDialog"
+      @update:visible="showSaveDialog = $event"
+      :spec-name="currentSpec?.name || ''"
+      @save="saveSpec"
+    />
+
+    <Drawer
+      :visible="showPreviewDrawer"
+      @update:visible="showPreviewDrawer = $event"
+      position="right"
+      :style="{ width: '50vw' }"
+      header="Swagger Preview"
+    >
+      <PreviewPanel :spec="parsedSpec" />
+    </Drawer>
+
+    <DiffDrawer
+      :visible="showDiffDrawer"
+      @update:visible="showDiffDrawer = $event"
+      :diff="specDiff"
+    />
+
+    <!-- Login Dialog -->
+    <Dialog
+      v-model:visible="showLoginDialog"
+      header="Sign In to FastSpec"
+      :modal="true"
+      :style="{ width: '450px' }"
+    >
+      <LoginPage :inline="true" @close="showLoginDialog = false" />
+    </Dialog>
+
+    <Toast />
   </div>
 </template>
 
 <script>
 import { ref, computed, provide, onMounted } from "vue";
 import Message from "primevue/message";
+import Button from "primevue/button";
 import Drawer from "primevue/drawer";
+import Dialog from "primevue/dialog";
 import Toast from "primevue/toast";
 import SelectButton from "primevue/selectbutton";
 import Toolbar from "./components/Toolbar.vue";
@@ -100,7 +124,6 @@ import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
 import DiffDrawer from "./components/DiffDrawer.vue";
 import LoginPage from "./components/LoginPage.vue";
-import UserProfile from "./components/UserProfile.vue";
 import { validateSpec, createSpec, updateSpec } from "./api/specs";
 import { compareSpecs } from "./utils/diffUtils";
 import { useAuth } from "./stores/auth";
@@ -109,7 +132,9 @@ export default {
   name: "App",
   components: {
     Message,
+    Button,
     Drawer,
+    Dialog,
     Toast,
     SelectButton,
     Toolbar,
@@ -120,21 +145,30 @@ export default {
     SaveDialog,
     DiffDrawer,
     LoginPage,
-    UserProfile,
   },
   setup() {
+    // Initialize authentication
     const { isAuthenticated, initAuth } = useAuth();
+
+    // Initialize auth from localStorage on mount
+    onMounted(() => {
+      initAuth();
+    });
+
     const currentSpec = ref(null);
     const specContent = ref(JSON.stringify(getDefaultSpec(), null, 2));
     const parsedSpec = ref(getDefaultSpec());
     const initialSpec = ref(getDefaultSpec()); // Track initial state for diff
     const showSaveDialog = ref(false);
+    const showLoginDialog = ref(false);
     const showPreviewDrawer = ref(false);
     const showDiffDrawer = ref(false);
     const specDiff = ref({ info: null, added: [], modified: [], removed: [] });
     const alert = ref({ show: false, message: "", type: "info" });
     const specListKey = ref(0);
     const viewMode = ref("split"); // 'form', 'code', or 'split'
+    const hasUnsavedChanges = ref(false);
+    const autoSaveTimer = ref(null);
     const viewModeOptions = [
       { label: "Form", value: "form", icon: "pi pi-list" },
       { label: "Code", value: "code", icon: "pi pi-code" },
@@ -157,6 +191,8 @@ export default {
         parsedSpec.value = JSON.parse(specContent.value);
         // Compute diff against initial state
         specDiff.value = compareSpecs(initialSpec.value, parsedSpec.value);
+        checkForChanges();
+        scheduleAutoSave();
       } catch (e) {
         // Invalid JSON - preview will handle error display
       }
@@ -166,39 +202,99 @@ export default {
       parsedSpec.value = formSpec;
       specContent.value = JSON.stringify(formSpec, null, 2);
       specDiff.value = compareSpecs(initialSpec.value, parsedSpec.value);
+      checkForChanges();
+      scheduleAutoSave();
+    };
+
+    const checkForChanges = () => {
+      const diff = specDiff.value;
+      hasUnsavedChanges.value = !!(
+        diff.infoAdded?.length ||
+        diff.infoModified?.length ||
+        diff.infoRemoved?.length ||
+        diff.added?.length ||
+        diff.modified?.length ||
+        diff.removed?.length ||
+        diff.schemaAdded?.length ||
+        diff.schemaModified?.length ||
+        diff.schemaRemoved?.length
+      );
+    };
+
+    const scheduleAutoSave = () => {
+      // Clear existing timer
+      if (autoSaveTimer.value) {
+        clearTimeout(autoSaveTimer.value);
+      }
+
+      // Only auto-save if user is authenticated and has a current spec
+      if (
+        !isAuthenticated.value ||
+        !currentSpec.value ||
+        !hasUnsavedChanges.value
+      ) {
+        return;
+      }
+
+      // Schedule auto-save after 3 seconds of inactivity
+      autoSaveTimer.value = setTimeout(async () => {
+        try {
+          const spec_json = JSON.parse(specContent.value);
+          const updated = await updateSpec(currentSpec.value.id, {
+            name: currentSpec.value.name,
+            spec_json,
+          });
+          currentSpec.value = updated;
+          initialSpec.value = JSON.parse(JSON.stringify(spec_json));
+          hasUnsavedChanges.value = false;
+          showAlert("Auto-saved ✓", "success");
+        } catch (error) {
+          // Silent fail for auto-save
+          console.error("Auto-save failed:", error);
+        }
+      }, 3000);
     };
 
     const loadSpec = (spec) => {
+      // Clear auto-save timer when loading a new spec
+      if (autoSaveTimer.value) {
+        clearTimeout(autoSaveTimer.value);
+      }
       currentSpec.value = spec;
       specContent.value = JSON.stringify(spec.spec_json, null, 2);
       initialSpec.value = JSON.parse(JSON.stringify(spec.spec_json)); // Deep clone
+      hasUnsavedChanges.value = false;
       updatePreview();
     };
 
-    const newSpec = async () => {
-      try {
-        const defaultSpec = getDefaultSpec();
-        // Create spec immediately with auto-generated name
-        const created = await createSpec({
-          name: "Untitled Spec",
-          spec_json: defaultSpec,
-        });
-        currentSpec.value = created;
-        specContent.value = JSON.stringify(defaultSpec, null, 2);
-        initialSpec.value = JSON.parse(JSON.stringify(defaultSpec)); // Deep clone
-        specListKey.value++; // Refresh the spec list
-        updatePreview();
-        showAlert("New spec created!", "success");
-      } catch (error) {
-        showAlert(error.response?.data?.detail || error.message, "error");
+    const newSpec = () => {
+      // Clear auto-save timer when creating a new spec
+      if (autoSaveTimer.value) {
+        clearTimeout(autoSaveTimer.value);
       }
+      currentSpec.value = null;
+      const defaultSpec = getDefaultSpec();
+      specContent.value = JSON.stringify(defaultSpec, null, 2);
+      initialSpec.value = JSON.parse(JSON.stringify(defaultSpec)); // Deep clone
+      hasUnsavedChanges.value = false;
+      updatePreview();
     };
 
     const openSaveDialog = () => {
+      // Check authentication before saving
+      if (!isAuthenticated.value) {
+        showAlert("Please sign in to save your specifications", "warn");
+        showLoginDialog.value = true;
+        return;
+      }
       showSaveDialog.value = true;
     };
 
     const saveSpec = async (name) => {
+      if (!isAuthenticated.value) {
+        showAlert("Authentication required to save specifications", "error");
+        return;
+      }
       try {
         const spec_json = JSON.parse(specContent.value);
 
@@ -209,16 +305,21 @@ export default {
             spec_json,
           });
           currentSpec.value = updated;
+          initialSpec.value = JSON.parse(JSON.stringify(spec_json)); // Update baseline
+          hasUnsavedChanges.value = false;
           showAlert("Spec updated successfully!", "success");
         } else {
           // Create new
           const created = await createSpec({ name, spec_json });
           currentSpec.value = created;
+          initialSpec.value = JSON.parse(JSON.stringify(spec_json)); // Update baseline
+          hasUnsavedChanges.value = false;
           showAlert("Spec created successfully!", "success");
         }
 
         showSaveDialog.value = false;
         specListKey.value++;
+        specDiff.value = { info: null, added: [], modified: [], removed: [] };
       } catch (error) {
         showAlert(error.response?.data?.detail || error.message, "error");
       }
@@ -243,53 +344,86 @@ export default {
       }
     };
 
-    const loadTemplate = async () => {
-      try {
-        const templateSpec = {
-          openapi: "3.0.0",
-          info: {
-            title: "Sample API",
-            version: "1.0.0",
-            description: "A sample API with common endpoints",
-            contact: {
-              name: "API Support",
-              email: "support@example.com",
-            },
+    const loadTemplate = () => {
+      currentSpec.value = null;
+      const templateSpec = {
+        openapi: "3.0.0",
+        info: {
+          title: "Sample API",
+          version: "1.0.0",
+          description: "A sample API with common endpoints",
+          contact: {
+            name: "API Support",
+            email: "support@example.com",
           },
-          servers: [
-            {
-              url: "https://api.example.com/v1",
-              description: "Production server",
-            },
-          ],
-          paths: {
-            "/users": {
-              get: {
-                summary: "List users",
-                description: "Get a list of all users",
-                tags: ["Users"],
-                responses: {
-                  200: {
-                    description: "Successful response",
-                    content: {
-                      "application/json": {
-                        schema: {
-                          type: "array",
-                          items: {
-                            $ref: "#/components/schemas/User",
-                          },
+        },
+        servers: [
+          {
+            url: "https://api.example.com/v1",
+            description: "Production server",
+          },
+        ],
+        paths: {
+          "/users": {
+            get: {
+              summary: "List users",
+              description: "Get a list of all users",
+              tags: ["Users"],
+              responses: {
+                200: {
+                  description: "Successful response",
+                  content: {
+                    "application/json": {
+                      schema: {
+                        type: "array",
+                        items: {
+                          $ref: "#/components/schemas/User",
                         },
                       },
                     },
                   },
                 },
               },
-              post: {
-                summary: "Create user",
-                description: "Create a new user",
-                tags: ["Users"],
-                requestBody: {
+            },
+            post: {
+              summary: "Create user",
+              description: "Create a new user",
+              tags: ["Users"],
+              requestBody: {
+                required: true,
+                content: {
+                  "application/json": {
+                    schema: {
+                      $ref: "#/components/schemas/User",
+                    },
+                  },
+                },
+              },
+              responses: {
+                201: {
+                  description: "User created",
+                },
+              },
+            },
+          },
+          "/users/{id}": {
+            get: {
+              summary: "Get user",
+              description: "Get a specific user by ID",
+              tags: ["Users"],
+              parameters: [
+                {
+                  name: "id",
+                  in: "path",
                   required: true,
+                  schema: {
+                    type: "integer",
+                  },
+                },
+              ],
+              responses: {
+                200: {
+                  description: "Successful response",
                   content: {
                     "application/json": {
                       schema: {
@@ -298,89 +432,46 @@ export default {
                     },
                   },
                 },
-                responses: {
-                  201: {
-                    description: "User created",
-                  },
-                },
-              },
-            },
-            "/users/{id}": {
-              get: {
-                summary: "Get user",
-                description: "Get a specific user by ID",
-                tags: ["Users"],
-                parameters: [
-                  {
-                    name: "id",
-                    in: "path",
-                    required: true,
-                    schema: {
-                      type: "integer",
-                    },
-                  },
-                ],
-                responses: {
-                  200: {
-                    description: "Successful response",
-                    content: {
-                      "application/json": {
-                        schema: {
-                          $ref: "#/components/schemas/User",
-                        },
-                      },
-                    },
-                  },
-                  404: {
-                    description: "User not found",
-                  },
+                404: {
+                  description: "User not found",
                 },
               },
             },
           },
-          components: {
-            schemas: {
-              User: {
-                type: "object",
-                required: ["id", "email"],
-                properties: {
-                  id: {
-                    type: "integer",
-                    description: "User ID",
-                  },
-                  email: {
-                    type: "string",
-                    format: "email",
-                    description: "User email address",
-                  },
-                  name: {
-                    type: "string",
-                    description: "User full name",
-                  },
-                  createdAt: {
-                    type: "string",
-                    format: "date-time",
-                    description: "Account creation timestamp",
-                  },
+        },
+        components: {
+          schemas: {
+            User: {
+              type: "object",
+              required: ["id", "email"],
+              properties: {
+                id: {
+                  type: "integer",
+                  description: "User ID",
+                },
+                email: {
+                  type: "string",
+                  format: "email",
+                  description: "User email address",
+                },
+                name: {
+                  type: "string",
+                  description: "User full name",
+                },
+                createdAt: {
+                  type: "string",
+                  format: "date-time",
+                  description: "Account creation timestamp",
                 },
               },
             },
           },
-        };
-        // Create spec immediately with descriptive name
-        const created = await createSpec({
-          name: "Sample API - Users",
-          spec_json: templateSpec,
-        });
-        currentSpec.value = created;
-        specContent.value = JSON.stringify(templateSpec, null, 2);
-        initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
-        specListKey.value++; // Refresh the spec list
-        updatePreview();
-        showAlert("Template loaded and saved!", "success");
-      } catch (error) {
-        showAlert(error.response?.data?.detail || error.message, "error");
-      }
+        },
+      };
+      specContent.value = JSON.stringify(templateSpec, null, 2);
+      initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
+      updatePreview();
+      showAlert("Template loaded with sample endpoints", "success");
     };
 
     const togglePreview = () => {
@@ -404,11 +495,6 @@ export default {
       };
     }
 
-    // Initialize authentication on mount
-    onMounted(() => {
-      initAuth();
-    });
-
     // Provide methods to child components
     provide("newSpec", newSpec);
     provide("openSaveDialog", openSaveDialog);
@@ -424,6 +510,7 @@ export default {
       specContent,
       parsedSpec,
       showSaveDialog,
+      showLoginDialog,
       showPreviewDrawer,
       showDiffDrawer,
       specDiff,
@@ -486,11 +573,27 @@ body {
   margin: 20px 0;
 }
 
+.auth-banner {
+  margin-bottom: 20px;
+}
+
+.auth-banner-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
 .editor-container {
   display: grid;
   grid-template-columns: 250px 1fr;
   gap: 20px;
   height: calc(100vh - 300px);
+}
+
+/* Hide spec list when not authenticated */
+.editor-container:not(:has(.spec-list)) {
+  grid-template-columns: 1fr;
 }
 
 .split-view {
@@ -508,16 +611,6 @@ body {
 
   .split-view {
     grid-template-columns: 1fr;
-  }
-
-  .header-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-
-  .header h1 {
-    font-size: 2rem;
   }
 }
 </style>
