@@ -8,7 +8,7 @@ from typing import List
 import json
 
 from ..database import get_db
-from ..models import OpenAPISpec
+from ..models import OpenAPISpec, User
 from ..schemas import (
     OpenAPISpecCreate,
     OpenAPISpecUpdate,
@@ -18,6 +18,7 @@ from ..schemas import (
     MarkdownDiffResponse,
     ValidationError as ValidationErrorSchema,
 )
+from ..auth.dependencies import get_current_user
 from validator import validate_openapi_spec
 from diff_utils import compare_specs, generate_markdown_report
 
@@ -26,9 +27,16 @@ router = APIRouter()
 
 
 @router.get("/specs", response_model=List[OpenAPISpecResponse])
-async def list_specs(db: Session = Depends(get_db)):
-    """List all OpenAPI specifications"""
-    specs = db.query(OpenAPISpec).order_by(OpenAPISpec.created_at.desc()).all()
+async def list_specs(
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """List all OpenAPI specifications for the current user"""
+    specs = (
+        db.query(OpenAPISpec)
+        .filter(OpenAPISpec.user_id == current_user.id)
+        .order_by(OpenAPISpec.created_at.desc())
+        .all()
+    )
 
     # Convert spec_json from string to dict
     result = []
@@ -39,6 +47,7 @@ async def list_specs(db: Session = Depends(get_db)):
             "title": spec.title,
             "version": spec.version,
             "spec_json": json.loads(spec.spec_json),
+            "user_id": spec.user_id,
             "created_at": spec.created_at,
             "updated_at": spec.updated_at,
         }
@@ -48,9 +57,17 @@ async def list_specs(db: Session = Depends(get_db)):
 
 
 @router.get("/specs/{spec_id}", response_model=OpenAPISpecResponse)
-async def get_spec(spec_id: int, db: Session = Depends(get_db)):
+async def get_spec(
+    spec_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Get a specific OpenAPI specification by ID"""
-    spec = db.query(OpenAPISpec).filter(OpenAPISpec.id == spec_id).first()
+    spec = (
+        db.query(OpenAPISpec)
+        .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
+        .first()
+    )
 
     if not spec:
         raise HTTPException(
@@ -64,6 +81,7 @@ async def get_spec(spec_id: int, db: Session = Depends(get_db)):
         "title": spec.title,
         "version": spec.version,
         "spec_json": json.loads(spec.spec_json),
+        "user_id": spec.user_id,
         "created_at": spec.created_at,
         "updated_at": spec.updated_at,
     }
@@ -72,7 +90,11 @@ async def get_spec(spec_id: int, db: Session = Depends(get_db)):
 @router.post(
     "/specs", response_model=OpenAPISpecResponse, status_code=status.HTTP_201_CREATED
 )
-async def create_spec(spec_data: OpenAPISpecCreate, db: Session = Depends(get_db)):
+async def create_spec(
+    spec_data: OpenAPISpecCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Create a new OpenAPI specification"""
     spec_json = spec_data.spec_json
 
@@ -88,8 +110,14 @@ async def create_spec(spec_data: OpenAPISpecCreate, db: Session = Depends(get_db
             },
         )
 
-    # Check if name already exists
-    existing = db.query(OpenAPISpec).filter(OpenAPISpec.name == spec_data.name).first()
+    # Check if name already exists for this user
+    existing = (
+        db.query(OpenAPISpec)
+        .filter(
+            OpenAPISpec.name == spec_data.name, OpenAPISpec.user_id == current_user.id
+        )
+        .first()
+    )
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -100,12 +128,13 @@ async def create_spec(spec_data: OpenAPISpecCreate, db: Session = Depends(get_db
     title = spec_json.get("info", {}).get("title", "Untitled")
     version = spec_json.get("info", {}).get("version", "1.0.0")
 
-    # Create new spec
+    # Create new spec with user ownership
     new_spec = OpenAPISpec(
         name=spec_data.name,
         title=title,
         version=version,
         spec_json=json.dumps(spec_json),
+        user_id=current_user.id,
     )
 
     db.add(new_spec)
@@ -118,6 +147,7 @@ async def create_spec(spec_data: OpenAPISpecCreate, db: Session = Depends(get_db
         "title": new_spec.title,
         "version": new_spec.version,
         "spec_json": spec_json,
+        "user_id": new_spec.user_id,
         "created_at": new_spec.created_at,
         "updated_at": new_spec.updated_at,
     }
@@ -125,10 +155,17 @@ async def create_spec(spec_data: OpenAPISpecCreate, db: Session = Depends(get_db
 
 @router.put("/specs/{spec_id}", response_model=OpenAPISpecResponse)
 async def update_spec(
-    spec_id: int, spec_data: OpenAPISpecUpdate, db: Session = Depends(get_db)
+    spec_id: int,
+    spec_data: OpenAPISpecUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Update an existing OpenAPI specification"""
-    spec = db.query(OpenAPISpec).filter(OpenAPISpec.id == spec_id).first()
+    spec = (
+        db.query(OpenAPISpec)
+        .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
+        .first()
+    )
 
     if not spec:
         raise HTTPException(
@@ -163,10 +200,14 @@ async def update_spec(
     # Update name if provided
     if spec_data.name is not None:
         new_name = spec_data.name
-        # Check if new name already exists
+        # Check if new name already exists for this user
         existing = (
             db.query(OpenAPISpec)
-            .filter(OpenAPISpec.name == new_name, OpenAPISpec.id != spec_id)
+            .filter(
+                OpenAPISpec.name == new_name,
+                OpenAPISpec.id != spec_id,
+                OpenAPISpec.user_id == current_user.id,
+            )
             .first()
         )
         if existing:
@@ -185,15 +226,24 @@ async def update_spec(
         "title": spec.title,
         "version": spec.version,
         "spec_json": json.loads(spec.spec_json),
+        "user_id": spec.user_id,
         "created_at": spec.created_at,
         "updated_at": spec.updated_at,
     }
 
 
 @router.delete("/specs/{spec_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_spec(spec_id: int, db: Session = Depends(get_db)):
+async def delete_spec(
+    spec_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Delete an OpenAPI specification"""
-    spec = db.query(OpenAPISpec).filter(OpenAPISpec.id == spec_id).first()
+    spec = (
+        db.query(OpenAPISpec)
+        .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
+        .first()
+    )
 
     if not spec:
         raise HTTPException(
@@ -235,6 +285,7 @@ async def validate_spec(spec_json: dict):
 async def get_spec_diff(
     spec_id: int,
     format: str = Query("json", regex="^(json|markdown)$"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -243,7 +294,11 @@ async def get_spec_diff(
     Query params:
     - format: 'json' (default) or 'markdown'
     """
-    spec = db.query(OpenAPISpec).filter(OpenAPISpec.id == spec_id).first()
+    spec = (
+        db.query(OpenAPISpec)
+        .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
+        .first()
+    )
 
     if not spec:
         raise HTTPException(

@@ -22,6 +22,42 @@ class ValidationResponse(BaseModel):
     warnings: List[str] = []
 
 
+# Authentication Schemas
+class UserBase(BaseModel):
+    """Base schema for user"""
+
+    email: str
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class UserResponse(UserBase):
+    """Schema for user response"""
+
+    id: int
+    provider: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class Token(BaseModel):
+    """Schema for JWT token response"""
+
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+class TokenData(BaseModel):
+    """Schema for JWT token data"""
+
+    user_id: Optional[int] = None
+    email: Optional[str] = None
+
+
+# OpenAPI Spec Schemas
 class OpenAPISpecBase(BaseModel):
     """Base schema for OpenAPI spec"""
 
@@ -64,6 +100,7 @@ class OpenAPISpecResponse(BaseModel):
     title: str
     version: str
     spec_json: Dict[str, Any]
+    user_id: int
     created_at: datetime
     updated_at: datetime
 

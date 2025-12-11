@@ -1,17 +1,20 @@
 # FastSpec
 
-A modern full-stack application for creating, editing, validating, and managing OpenAPI 3.0 specifications.
+A modern full-stack application for creating, editing, validating, and managing OpenAPI 3.0 specifications with OAuth2 authentication.
 
 ## Architecture
 
 - **Backend**: FastAPI with SQLAlchemy ORM
 - **Frontend**: Vue.js 3 + PrimeVue UI components
+- **Authentication**: OAuth2 (Google & GitHub) with JWT tokens
 - **Editor**: Monaco Editor (VS Code editor)
 - **Preview**: Swagger UI integration
 - **Database**: SQLite (default)
 
 ## Features
 
+- 🔐 **Authentication** - OAuth2 login with Google and GitHub
+- 👤 **Private Specs** - Each user's specifications are private
 - 📝 **JSON Editor** - Monaco Editor with syntax highlighting
 - 👁️ **Live Preview** - Real-time Swagger UI rendering
 - ✅ **Validation** - OpenAPI 3.0 spec validation
@@ -28,6 +31,8 @@ A modern full-stack application for creating, editing, validating, and managing 
 
 ### Development Setup
 
+> **⚠️ Authentication Required**: FastSpec now requires OAuth2 authentication. See [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) for quick setup.
+
 1. **Clone the repository:**
 
    ```bash
@@ -35,7 +40,15 @@ A modern full-stack application for creating, editing, validating, and managing 
    cd FastSpec
    ```
 
-2. **Start both servers:**
+2. **Set up authentication** (Required - 5 minutes):
+
+   Follow the [Authentication Setup Guide](AUTHENTICATION_SETUP.md) to:
+
+   - Get OAuth credentials from Google and GitHub
+   - Configure environment variables
+   - Run database migration
+
+3. **Start both servers:**
 
    ```bash
    chmod +x start-dev.sh
@@ -50,10 +63,16 @@ A modern full-stack application for creating, editing, validating, and managing 
    - Start FastAPI backend on port 8000
    - Start Vue.js frontend on port 3000
 
-3. **Access the application:**
+4. **Access the application:**
+
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
+
+5. **Sign in:**
+   - Click "Continue with Google" or "Continue with GitHub"
+   - Complete OAuth flow
+   - Start creating specs!
 
 ### Alternative: Start Servers Separately
 
@@ -138,9 +157,18 @@ Legacy Django files (can be removed):
 
 ## API Endpoints
 
-### Specifications
+### Authentication
 
-- `GET /api/specs` - List all specifications
+- `GET /auth/google` - Initiate Google OAuth flow
+- `GET /auth/google/callback` - Handle Google OAuth callback
+- `GET /auth/github` - Initiate GitHub OAuth flow
+- `GET /auth/github/callback` - Handle GitHub OAuth callback
+- `GET /auth/me` - Get current user information (requires JWT)
+- `POST /auth/logout` - Logout
+
+### Specifications (All require authentication)
+
+- `GET /api/specs` - List user's specifications
 - `GET /api/specs/{id}` - Get specific specification
 - `POST /api/specs` - Create new specification
 - `PUT /api/specs/{id}` - Update specification
@@ -148,8 +176,8 @@ Legacy Django files (can be removed):
 
 ### Validation & Diff
 
-- `POST /api/validate` - Validate OpenAPI spec
-- `GET /api/specs/{id}/diff?format=json|markdown` - Get version diff
+- `POST /api/validate` - Validate OpenAPI spec (requires auth)
+- `GET /api/specs/{id}/diff?format=json|markdown` - Get version diff (requires auth)
 
 ### Documentation
 
@@ -158,13 +186,31 @@ Legacy Django files (can be removed):
 
 ## Environment Variables
 
-Create a `.env` file (see `.env.example`):
+Create a `.env` file (see `.env.example` or [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md)):
 
 ```env
+# JWT Configuration
+JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_MINUTES=43200
+
+# OAuth2 - Google
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/auth/callback
+
+# OAuth2 - GitHub
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_REDIRECT_URI=http://localhost:3000/auth/callback
+
+# Application
 DATABASE_URL=sqlite:///./fastspec.db
-BACKEND_PORT=8000
-FRONTEND_PORT=3000
+FRONTEND_URL=http://localhost:3000
+CORS_ORIGINS=http://localhost:3000
 ```
+
+**Required for authentication** - See setup guide for obtaining OAuth credentials.
 
 ## Production Deployment
 
@@ -277,6 +323,12 @@ This project was migrated from Django to FastAPI + Vue.js. The old Django code i
 
 These can be safely removed once migration is confirmed working.
 
+## Authentication Documentation
+
+- **Quick Start**: [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) - 5-minute setup guide
+- **Full Documentation**: [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) - Complete authentication guide
+- **Security**: See authentication docs for production best practices
+
 ## License
 
 See LICENSE file for details.
@@ -284,3 +336,10 @@ See LICENSE file for details.
 ## Contributing
 
 Pull requests welcome! Please ensure code follows project conventions.
+
+## Need Help?
+
+1. Check [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) for quick setup
+2. Review [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for detailed info
+3. Check API documentation at http://localhost:8000/docs
+4. Open an issue on GitHub

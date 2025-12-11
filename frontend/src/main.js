@@ -5,11 +5,22 @@ import ToastService from "primevue/toastservice";
 import Tooltip from "primevue/tooltip";
 import Aura from "@primevue/themes/aura";
 import App from "./App.vue";
+import OAuthCallback from "./components/OAuthCallback.vue";
 
 // PrimeIcons
 import "primeicons/primeicons.css";
 
-const app = createApp(App);
+// Check if this is an OAuth callback
+const urlParams = new URLSearchParams(window.location.search);
+const isCallback = urlParams.has("token") || urlParams.has("error");
+
+// Use callback component if this is a callback, otherwise use main app
+const rootComponent =
+  window.location.pathname === "/auth/callback" || isCallback
+    ? OAuthCallback
+    : App;
+
+const app = createApp(rootComponent);
 app.use(PrimeVue, {
   theme: {
     preset: Aura,

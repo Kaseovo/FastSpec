@@ -1,80 +1,93 @@
 <template>
   <div id="app">
-    <div class="header">
-      <h1>🧩 FastSpec</h1>
-      <p>Create, edit, and validate OpenAPI specifications</p>
-    </div>
+    <!-- Show login page if not authenticated -->
+    <LoginPage v-if="!isAuthenticated" />
 
-    <div class="main-content">
-      <Toolbar />
-
-      <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
-        {{ alert.message }}
-      </Message>
-
-      <div class="view-mode-toggle">
-        <SelectButton
-          v-model="viewMode"
-          :options="viewModeOptions"
-          optionLabel="label"
-          optionValue="value"
-        />
+    <!-- Show main app if authenticated -->
+    <div v-else>
+      <div class="header">
+        <div class="header-content">
+          <div class="header-left">
+            <h1>🧩 FastSpec</h1>
+            <p>Create, edit, and validate OpenAPI specifications</p>
+          </div>
+          <div class="header-right">
+            <UserProfile />
+          </div>
+        </div>
       </div>
 
-      <div class="editor-container">
-        <SpecList @spec-selected="loadSpec" :selected-id="currentSpec?.id" />
-        <FormEditor
-          v-if="viewMode === 'form'"
-          :model-value="parsedSpec"
-          @update:modelValue="updateFromForm"
-        />
-        <EditorPanel
-          v-else-if="viewMode === 'code'"
-          v-model="specContent"
-          @update:modelValue="updatePreview"
-        />
-        <div v-else class="split-view">
+      <div class="main-content">
+        <Toolbar />
+
+        <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
+          {{ alert.message }}
+        </Message>
+
+        <div class="view-mode-toggle">
+          <SelectButton
+            v-model="viewMode"
+            :options="viewModeOptions"
+            optionLabel="label"
+            optionValue="value"
+          />
+        </div>
+
+        <div class="editor-container">
+          <SpecList @spec-selected="loadSpec" :selected-id="currentSpec?.id" />
           <FormEditor
+            v-if="viewMode === 'form'"
             :model-value="parsedSpec"
             @update:modelValue="updateFromForm"
           />
           <EditorPanel
+            v-else-if="viewMode === 'code'"
             v-model="specContent"
             @update:modelValue="updatePreview"
           />
+          <div v-else class="split-view">
+            <FormEditor
+              :model-value="parsedSpec"
+              @update:modelValue="updateFromForm"
+            />
+            <EditorPanel
+              v-model="specContent"
+              @update:modelValue="updatePreview"
+            />
+          </div>
         </div>
       </div>
+
+      <SaveDialog
+        :visible="showSaveDialog"
+        @update:visible="showSaveDialog = $event"
+        :spec-name="currentSpec?.name || ''"
+        @save="saveSpec"
+      />
+
+      <Drawer
+        :visible="showPreviewDrawer"
+        @update:visible="showPreviewDrawer = $event"
+        position="right"
+        :style="{ width: '50vw' }"
+        header="Swagger Preview"
+      >
+        <PreviewPanel :spec="parsedSpec" />
+      </Drawer>
+
+      <DiffDrawer
+        :visible="showDiffDrawer"
+        @update:visible="showDiffDrawer = $event"
+        :diff="specDiff"
+      />
+
+      <Toast />
     </div>
-
-    <SaveDialog
-      :visible="showSaveDialog"
-      @update:visible="showSaveDialog = $event"
-      :spec-name="currentSpec?.name || ''"
-      @save="saveSpec"
-    />
-
-    <Drawer
-      :visible="showPreviewDrawer"
-      @update:visible="showPreviewDrawer = $event"
-      position="right"
-      :style="{ width: '50vw' }"
-      header="Swagger Preview"
-    >
-      <PreviewPanel :spec="parsedSpec" />
-    </Drawer>
-
-    <DiffDrawer
-      :visible="showDiffDrawer"
-      @update:visible="showDiffDrawer = $event"
-      :diff="specDiff"
-    />
-
-    <Toast />
   </div>
 </template>
 
 <script>
-import { ref, computed, provide } from "vue";
+import { ref, computed, provide, onMounted } from "vue";
 import Message from "primevue/message";
 import Drawer from "primevue/drawer";
 import Toast from "primevue/toast";
@@ -86,8 +99,11 @@ import FormEditor from "./components/FormEditor.vue";
 import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
 import DiffDrawer from "./components/DiffDrawer.vue";
+import LoginPage from "./components/LoginPage.vue";
+import UserProfile from "./components/UserProfile.vue";
 import { validateSpec, createSpec, updateSpec } from "./api/specs";
 import { compareSpecs } from "./utils/diffUtils";
+import { useAuth } from "./stores/auth";
 
 export default {
   name: "App",
@@ -103,8 +119,11 @@ export default {
     PreviewPanel,
     SaveDialog,
     DiffDrawer,
+    LoginPage,
+    UserProfile,
   },
   setup() {
+    const { isAuthenticated, initAuth } = useAuth();
     const currentSpec = ref(null);
     const specContent = ref(JSON.stringify(getDefaultSpec(), null, 2));
     const parsedSpec = ref(getDefaultSpec());
@@ -156,12 +175,23 @@ export default {
       updatePreview();
     };
 
-    const newSpec = () => {
-      currentSpec.value = null;
-      const defaultSpec = getDefaultSpec();
-      specContent.value = JSON.stringify(defaultSpec, null, 2);
-      initialSpec.value = JSON.parse(JSON.stringify(defaultSpec)); // Deep clone
-      updatePreview();
+    const newSpec = async () => {
+      try {
+        const defaultSpec = getDefaultSpec();
+        // Create spec immediately with auto-generated name
+        const created = await createSpec({
+          name: "Untitled Spec",
+          spec_json: defaultSpec,
+        });
+        currentSpec.value = created;
+        specContent.value = JSON.stringify(defaultSpec, null, 2);
+        initialSpec.value = JSON.parse(JSON.stringify(defaultSpec)); // Deep clone
+        specListKey.value++; // Refresh the spec list
+        updatePreview();
+        showAlert("New spec created!", "success");
+      } catch (error) {
+        showAlert(error.response?.data?.detail || error.message, "error");
+      }
     };
 
     const openSaveDialog = () => {
@@ -213,9 +243,144 @@ export default {
       }
     };
 
-    const loadTemplate = () => {
-      newSpec();
-      showAlert("Template loaded", "info");
+    const loadTemplate = async () => {
+      try {
+        const templateSpec = {
+          openapi: "3.0.0",
+          info: {
+            title: "Sample API",
+            version: "1.0.0",
+            description: "A sample API with common endpoints",
+            contact: {
+              name: "API Support",
+              email: "support@example.com",
+            },
+          },
+          servers: [
+            {
+              url: "https://api.example.com/v1",
+              description: "Production server",
+            },
+          ],
+          paths: {
+            "/users": {
+              get: {
+                summary: "List users",
+                description: "Get a list of all users",
+                tags: ["Users"],
+                responses: {
+                  200: {
+                    description: "Successful response",
+                    content: {
+                      "application/json": {
+                        schema: {
+                          type: "array",
+                          items: {
+                            $ref: "#/components/schemas/User",
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              post: {
+                summary: "Create user",
+                description: "Create a new user",
+                tags: ["Users"],
+                requestBody: {
+                  required: true,
+                  content: {
+                    "application/json": {
+                      schema: {
+                        $ref: "#/components/schemas/User",
+                      },
+                    },
+                  },
+                },
+                responses: {
+                  201: {
+                    description: "User created",
+                  },
+                },
+              },
+            },
+            "/users/{id}": {
+              get: {
+                summary: "Get user",
+                description: "Get a specific user by ID",
+                tags: ["Users"],
+                parameters: [
+                  {
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: {
+                      type: "integer",
+                    },
+                  },
+                ],
+                responses: {
+                  200: {
+                    description: "Successful response",
+                    content: {
+                      "application/json": {
+                        schema: {
+                          $ref: "#/components/schemas/User",
+                        },
+                      },
+                    },
+                  },
+                  404: {
+                    description: "User not found",
+                  },
+                },
+              },
+            },
+          },
+          components: {
+            schemas: {
+              User: {
+                type: "object",
+                required: ["id", "email"],
+                properties: {
+                  id: {
+                    type: "integer",
+                    description: "User ID",
+                  },
+                  email: {
+                    type: "string",
+                    format: "email",
+                    description: "User email address",
+                  },
+                  name: {
+                    type: "string",
+                    description: "User full name",
+                  },
+                  createdAt: {
+                    type: "string",
+                    format: "date-time",
+                    description: "Account creation timestamp",
+                  },
+                },
+              },
+            },
+          },
+        };
+        // Create spec immediately with descriptive name
+        const created = await createSpec({
+          name: "Sample API - Users",
+          spec_json: templateSpec,
+        });
+        currentSpec.value = created;
+        specContent.value = JSON.stringify(templateSpec, null, 2);
+        initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
+        specListKey.value++; // Refresh the spec list
+        updatePreview();
+        showAlert("Template loaded and saved!", "success");
+      } catch (error) {
+        showAlert(error.response?.data?.detail || error.message, "error");
+      }
     };
 
     const togglePreview = () => {
@@ -239,6 +404,11 @@ export default {
       };
     }
 
+    // Initialize authentication on mount
+    onMounted(() => {
+      initAuth();
+    });
+
     // Provide methods to child components
     provide("newSpec", newSpec);
     provide("openSaveDialog", openSaveDialog);
@@ -249,6 +419,7 @@ export default {
     provide("refreshSpecList", () => specListKey.value++);
 
     return {
+      isAuthenticated,
       currentSpec,
       specContent,
       parsedSpec,
@@ -337,6 +508,16 @@ body {
 
   .split-view {
     grid-template-columns: 1fr;
+  }
+
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .header h1 {
+    font-size: 2rem;
   }
 }
 </style>
