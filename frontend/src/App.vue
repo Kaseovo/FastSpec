@@ -502,7 +502,9 @@ export default {
     provide("loadTemplate", loadTemplate);
     provide("togglePreview", togglePreview);
     provide("toggleDiff", toggleDiff);
-    provide("refreshSpecList", () => specListKey.value++);
+    // Provide the spec list key ref so children can watch it.
+    // Parent increments specListKey.value after save to trigger a refresh in SpecList.
+    provide("refreshSpecList", specListKey);
 
     return {
       isAuthenticated,

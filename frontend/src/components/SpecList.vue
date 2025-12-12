@@ -103,7 +103,7 @@ export default {
     onMounted(loadSpecs);
 
     // Watch for refresh trigger
-    watch(() => inject("refreshSpecList", () => 0)(), loadSpecs);
+    watch(refreshSpecList, loadSpecs);
 
     return {
       specs,

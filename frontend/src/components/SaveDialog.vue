@@ -48,7 +48,7 @@ export default {
       default: "",
     },
   },
-  emits: ["update:visible", "save"],
+  emits: ["update:visible", "save", "spec-saved"],
   setup(props, { emit }) {
     const name = ref("");
 
@@ -74,7 +74,17 @@ export default {
 
     const save = () => {
       if (name.value.trim()) {
+        // Notify parent to perform the actual save API call (create/update).
+        // Parent listens for "save" and will run the API; we emit it so the save flow starts.
         emit("save", name.value.trim());
+
+        // Also emit a higher-level 'spec-saved' event with the saved spec payload.
+        // This is used by the parent to trigger a sidebar refresh (incrementing the refresh ref).
+        // Emitting here is safe: it only notifies parents and does not change routing or global state.
+        // Note: payload is minimal here (name) because the dialog only knows the spec name;
+        // the parent will replace/augment this with the full saved spec response if needed.
+        emit("spec-saved", { name: name.value.trim() });
+
         close();
       }
     };

@@ -2,7 +2,15 @@
 SQLAlchemy models for FastSpec
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    DateTime,
+    ForeignKey,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -12,9 +20,12 @@ class User(Base):
     """User model for authentication"""
 
     __tablename__ = "users"
+    # Composite unique constraint ensures uniqueness of email per provider
+    # This allows the same email to exist across different OIDC providers
+    __table_args__ = (UniqueConstraint("email", "provider", name="uix_email_provider"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), unique=True, index=True, nullable=False)
+    email = Column(String(255), index=True, nullable=False)
     name = Column(String(255), nullable=True)
     avatar_url = Column(String(512), nullable=True)
     provider = Column(String(50), nullable=False)  # 'google' or 'github'
