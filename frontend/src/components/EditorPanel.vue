@@ -2,6 +2,15 @@
   <div class="editor-panel">
     <div class="panel-header">
       <h3>Editor</h3>
+      <div class="header-controls">
+        <Button
+          v-if="showValidate"
+          label="Validate"
+          icon="pi pi-check-circle"
+          severity="secondary"
+          @click="validateCurrentSpec"
+        />
+      </div>
     </div>
     <div class="panel-content">
       <div ref="editorContainer" class="monaco-editor"></div>
@@ -10,23 +19,32 @@
 </template>
 
 <script>
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, inject } from "vue";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+import Button from "primevue/button";
 
 export default {
   name: "EditorPanel",
+  components: {
+    Button,
+  },
   props: {
     modelValue: {
       type: String,
       required: true,
+    },
+    showValidate: {
+      type: Boolean,
+      default: false,
     },
   },
   emits: ["update:modelValue"],
   setup(props, { emit }) {
     const editorContainer = ref(null);
     let editor = null;
+    const validateCurrentSpec = inject("validateCurrentSpec");
 
     onMounted(() => {
       // Configure Monaco Editor worker
@@ -65,6 +83,8 @@ export default {
 
     return {
       editorContainer,
+      validateCurrentSpec,
+      showValidate: props.showValidate,
     };
   },
 };

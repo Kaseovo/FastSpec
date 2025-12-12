@@ -4,24 +4,6 @@
       <div class="toolbar-left">
         <Button label="New" icon="pi pi-plus" @click="showNewDialog = true" />
         <Button label="Save" icon="pi pi-save" @click="openSaveDialog" />
-        <Button
-          label="Validate"
-          icon="pi pi-check-circle"
-          severity="secondary"
-          @click="validateCurrentSpec"
-        />
-        <Button
-          label="Preview"
-          icon="pi pi-eye"
-          severity="info"
-          @click="togglePreview"
-        />
-        <Button
-          label="Changes"
-          icon="pi pi-history"
-          severity="secondary"
-          @click="toggleDiff"
-        />
       </div>
 
       <!-- User Profile Section -->
@@ -32,7 +14,8 @@
 
     <!-- New Spec Dialog -->
     <Dialog
-      v-model:visible="showNewDialog"
+      :visible="showNewDialog"
+      @update:visible="(val) => (showNewDialog = val)"
       header="Create New Specification"
       :modal="true"
       :style="{ width: '500px' }"
@@ -72,10 +55,10 @@ export default {
     const showNewDialog = ref(false);
     const newSpec = inject("newSpec");
     const openSaveDialog = inject("openSaveDialog");
-    const validateCurrentSpec = inject("validateCurrentSpec");
     const loadTemplate = inject("loadTemplate");
     const togglePreview = inject("togglePreview");
     const toggleDiff = inject("toggleDiff");
+    const viewMode = inject("viewMode", ref("split"));
 
     const createBlank = () => {
       newSpec();
@@ -91,9 +74,9 @@ export default {
       isAuthenticated,
       showNewDialog,
       openSaveDialog,
-      validateCurrentSpec,
       togglePreview,
       toggleDiff,
+      viewMode,
       createBlank,
       createFromTemplate,
     };

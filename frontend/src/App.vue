@@ -48,26 +48,32 @@
           @spec-selected="loadSpec"
           :selected-id="currentSpec?.id"
         />
-        <FormEditor
-          v-if="viewMode === 'form'"
-          :model-value="parsedSpec"
-          @update:modelValue="updateFromForm"
-        />
-        <EditorPanel
-          v-else-if="viewMode === 'code'"
-          v-model="specContent"
-          @update:modelValue="updatePreview"
-        />
-        <div v-else class="split-view">
+        <template v-if="viewMode === 'form'">
           <FormEditor
             :model-value="parsedSpec"
             @update:modelValue="updateFromForm"
           />
+        </template>
+
+        <template v-else-if="viewMode === 'code'">
           <EditorPanel
             v-model="specContent"
+            :show-validate="true"
             @update:modelValue="updatePreview"
           />
-        </div>
+        </template>
+
+        <template v-else-if="viewMode === 'changes'">
+          <!-- Full-width Changes view: render DiffDrawer inline exactly as drawer content -->
+          <DiffDrawer :inline="true" :diff="specDiff" />
+        </template>
+
+        <template v-else-if="viewMode === 'preview'">
+          <!-- Full-width Preview view: render PreviewPanel as drawer did -->
+          <div class="preview-full">
+            <PreviewPanel :spec="parsedSpec" />
+          </div>
+        </template>
       </div>
     </div>
 
@@ -78,25 +84,10 @@
       @save="saveSpec"
     />
 
-    <Drawer
-      :visible="showPreviewDrawer"
-      @update:visible="showPreviewDrawer = $event"
-      position="right"
-      :style="{ width: '50vw' }"
-      header="Swagger Preview"
-    >
-      <PreviewPanel :spec="parsedSpec" />
-    </Drawer>
-
-    <DiffDrawer
-      :visible="showDiffDrawer"
-      @update:visible="showDiffDrawer = $event"
-      :diff="specDiff"
-    />
-
     <!-- Login Dialog -->
     <Dialog
-      v-model:visible="showLoginDialog"
+      :visible="showLoginDialog"
+      @update:visible="(val) => (showLoginDialog = val)"
       header="Sign In to FastSpec"
       :modal="true"
       :style="{ width: '450px' }"
@@ -161,8 +152,6 @@ export default {
     const initialSpec = ref(getDefaultSpec()); // Track initial state for diff
     const showSaveDialog = ref(false);
     const showLoginDialog = ref(false);
-    const showPreviewDrawer = ref(false);
-    const showDiffDrawer = ref(false);
     const specDiff = ref({ info: null, added: [], modified: [], removed: [] });
     const alert = ref({ show: false, message: "", type: "info" });
     const specListKey = ref(0);
@@ -172,7 +161,8 @@ export default {
     const viewModeOptions = [
       { label: "Form", value: "form", icon: "pi pi-list" },
       { label: "Code", value: "code", icon: "pi pi-code" },
-      { label: "Split", value: "split", icon: "pi pi-window-maximize" },
+      { label: "Changes", value: "changes", icon: "pi pi-history" },
+      { label: "Preview", value: "preview", icon: "pi pi-eye" },
     ];
 
     const showAlert = (message, type = "info") => {
@@ -475,11 +465,11 @@ export default {
     };
 
     const togglePreview = () => {
-      showPreviewDrawer.value = !showPreviewDrawer.value;
+      viewMode.value = viewMode.value === "preview" ? "code" : "preview";
     };
 
     const toggleDiff = () => {
-      showDiffDrawer.value = !showDiffDrawer.value;
+      viewMode.value = viewMode.value === "changes" ? "code" : "changes";
     };
 
     function getDefaultSpec() {
@@ -502,6 +492,7 @@ export default {
     provide("loadTemplate", loadTemplate);
     provide("togglePreview", togglePreview);
     provide("toggleDiff", toggleDiff);
+    provide("viewMode", viewMode);
     // Provide the spec list key ref so children can watch it.
     // Parent increments specListKey.value after save to trigger a refresh in SpecList.
     provide("refreshSpecList", specListKey);
@@ -513,8 +504,6 @@ export default {
       parsedSpec,
       showSaveDialog,
       showLoginDialog,
-      showPreviewDrawer,
-      showDiffDrawer,
       specDiff,
       alert,
       viewMode,
@@ -598,11 +587,29 @@ body {
   grid-template-columns: 1fr;
 }
 
-.split-view {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.right-split-column {
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  height: 100%;
+  min-width: 320px;
+}
+
+.preview-section {
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+  overflow: auto;
+  max-height: calc(100vh - 420px);
+}
+
+.diff-inline-wrapper {
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+  overflow: auto;
+  max-height: calc(100vh - 420px);
 }
 
 @media (max-width: 1200px) {

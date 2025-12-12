@@ -824,11 +824,15 @@ export default {
   props: {
     visible: {
       type: Boolean,
-      required: true,
+      default: false,
     },
     diff: {
       type: Object,
       required: true,
+    },
+    inline: {
+      type: Boolean,
+      default: false,
     },
   },
   emits: ["update:visible"],
