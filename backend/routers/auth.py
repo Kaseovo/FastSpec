@@ -26,7 +26,7 @@ async def login_google(request: Request):
     Redirects user to Google consent page
     """
     redirect_uri = os.getenv(
-        "GOOGLE_REDIRECT_URI", f"{FRONTEND_URL}/auth/google/callback"
+        "GOOGLE_REDIRECT_URI", f"http://localhost:8000/auth/google/callback"
     )
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
@@ -77,11 +77,11 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         access_token = create_access_token(user.id, user.email)
 
         # Redirect to frontend with token
-        redirect_url = f"{FRONTEND_URL}/auth/callback?token={access_token}"
+        redirect_url = f"{FRONTEND_URL}/?token={access_token}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
-        error_url = f"{FRONTEND_URL}/auth/callback?error={str(e)}"
+        error_url = f"{FRONTEND_URL}/?error={str(e)}"
         return RedirectResponse(url=error_url)
 
 
@@ -143,11 +143,11 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
         access_token = create_access_token(user.id, user.email)
 
         # Redirect to frontend with token
-        redirect_url = f"{FRONTEND_URL}/auth/callback?token={access_token}"
+        redirect_url = f"{FRONTEND_URL}/?token={access_token}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
-        error_url = f"{FRONTEND_URL}/auth/callback?error={str(e)}"
+        error_url = f"{FRONTEND_URL}/?error={str(e)}"
         return RedirectResponse(url=error_url)
 
 

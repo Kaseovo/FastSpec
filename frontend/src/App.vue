@@ -39,7 +39,23 @@
           :options="viewModeOptions"
           optionLabel="label"
           optionValue="value"
-        />
+          optionDisabled="disabled"
+          dataKey="value"
+        >
+          <template #option="slotProps">
+            <span
+              v-tooltip="
+                slotProps.option.value === 'changes' && !isAuthenticated
+                  ? 'Changes are only available for authenticated users'
+                  : null
+              "
+              class="flex align-items-center gap-2"
+            >
+              <i :class="slotProps.option.icon" />
+              {{ slotProps.option.label }}
+            </span>
+          </template>
+        </SelectButton>
       </div>
 
       <div class="editor-container">
@@ -161,7 +177,12 @@ export default {
     const viewModeOptions = [
       { label: "Form", value: "form", icon: "pi pi-list" },
       { label: "Code", value: "code", icon: "pi pi-code" },
-      { label: "Changes", value: "changes", icon: "pi pi-history" },
+      {
+        label: "Changes",
+        value: "changes",
+        icon: "pi pi-history",
+        disabled: true,
+      },
       { label: "Preview", value: "preview", icon: "pi pi-eye" },
     ];
 

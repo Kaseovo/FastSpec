@@ -5,20 +5,20 @@
 
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+const API_BASE = "/auth"; // Backend API base URL TODO: Move to config
 
 /**
  * Redirect to Google OAuth login
  */
 export const loginWithGoogle = () => {
-  window.location.href = `${API_BASE}/auth/google`;
+  window.location.href = `${API_BASE}/google`;
 };
 
 /**
  * Redirect to GitHub OAuth login
  */
 export const loginWithGitHub = () => {
-  window.location.href = `${API_BASE}/auth/github`;
+  window.location.href = `${API_BASE}/github`;
 };
 
 /**
@@ -27,7 +27,7 @@ export const loginWithGitHub = () => {
  * @returns {Promise<Object>} User data
  */
 export const getCurrentUser = async (token) => {
-  const response = await axios.get(`${API_BASE}/auth/me`, {
+  const response = await axios.get(`${API_BASE}/me`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -40,6 +40,6 @@ export const getCurrentUser = async (token) => {
  * @returns {Promise<Object>} Logout response
  */
 export const logout = async () => {
-  const response = await axios.post(`${API_BASE}/auth/logout`);
+  const response = await axios.post(`${API_BASE}/logout`);
   return response.data;
 };

@@ -16,11 +16,74 @@
           severity="secondary"
           @click="copyAsMarkdown"
           :loading="copying"
+          aria-label="Copy changes as markdown"
         />
       </div>
     </template>
 
-    <div class="diff-container">
+    <div
+      ref="diffContainer"
+      class="diff-container"
+      :class="{ 'inline-scroll': inline }"
+      role="region"
+      aria-label="Changes content"
+    >
+      <!-- Sticky header only when inline -->
+      <div v-if="inline" class="diff-header-sticky" aria-hidden="false">
+        <div class="drawer-header" style="padding: 0">
+          <h3>Changes Overview</h3>
+          <Button
+            v-if="hasChanges"
+            icon="pi pi-copy"
+            label="Copy as Markdown"
+            size="small"
+            severity="secondary"
+            @click="copyAsMarkdown"
+            :loading="copying"
+            aria-label="Copy changes as markdown"
+          />
+        </div>
+
+        <div class="toc-and-search">
+          <div
+            class="toc-badges"
+            role="navigation"
+            aria-label="Changes table of contents"
+          >
+            <button
+              class="toc-badge added"
+              @click="scrollToSection('added')"
+              :aria-label="'Jump to added (' + summary.added + ')'"
+            >
+              ➕ Added ({{ summary.added }})
+            </button>
+            <button
+              class="toc-badge modified"
+              @click="scrollToSection('modified')"
+              :aria-label="'Jump to modified (' + summary.modified + ')'"
+            >
+              ✏️ Modified ({{ summary.modified }})
+            </button>
+            <button
+              class="toc-badge removed"
+              @click="scrollToSection('removed')"
+              :aria-label="'Jump to removed (' + summary.removed + ')'"
+            >
+              ➖ Removed ({{ summary.removed }})
+            </button>
+          </div>
+
+          <div class="search-bar">
+            <input
+              v-model="search"
+              type="text"
+              placeholder="Filter changes (path, schema, info, summary, description)..."
+              aria-label="Filter changes"
+            />
+          </div>
+        </div>
+      </div>
+
       <div v-if="!hasChanges" class="no-changes">
         <i
           class="pi pi-check-circle"
@@ -31,772 +94,585 @@
       </div>
 
       <div v-else class="changes-content">
-        <!-- Summary -->
-        <div class="summary-card">
-          <h3>📊 Summary</h3>
-          <div class="summary-grid">
-            <div class="summary-item added">
-              <i class="pi pi-plus-circle"></i>
-              <span class="count">{{ summary.added }}</span>
-              <span class="label">Added</span>
-            </div>
-            <div class="summary-item modified">
-              <i class="pi pi-pencil"></i>
-              <span class="count">{{ summary.modified }}</span>
-              <span class="label">Modified</span>
-            </div>
-            <div class="summary-item removed">
-              <i class="pi pi-minus-circle"></i>
-              <span class="count">{{ summary.removed }}</span>
-              <span class="label">Removed</span>
-            </div>
+        <!-- Summary (collapsible) -->
+        <div class="change-section">
+          <div class="section-header">
+            <h3 id="summary-section">📊 Summary</h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.summary }"
+              text
+              size="small"
+              @click="toggleSection('summary')"
+              aria-label="Toggle summary"
+            />
           </div>
-        </div>
 
-        <!-- Added Info Fields -->
-        <div v-if="diff.infoAdded?.length" class="change-section">
-          <h3>➕ Added Information ({{ diff.infoAdded.length }})</h3>
-          <div class="change-list">
-            <div
-              v-for="item in diff.infoAdded"
-              :key="item.key"
-              class="change-item added"
-            >
-              <Tag severity="success">{{ item.key }}</Tag>
-              <div class="single-value">
-                <code>{{ item.value }}</code>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modified Info Fields -->
-        <div v-if="diff.infoModified?.length" class="change-section">
-          <h3>✏️ Modified Information ({{ diff.infoModified.length }})</h3>
-          <div class="change-list">
-            <div
-              v-for="item in diff.infoModified"
-              :key="item.key"
-              class="change-item modified"
-            >
-              <Tag severity="warn">{{ item.key }}</Tag>
-              <div class="change-values">
-                <div class="old-value">
-                  <span class="value-label">Before:</span>
-                  <code>{{ item.old }}</code>
+          <div
+            class="collapsible"
+            :style="{ maxHeight: expandedSections.summary ? '1200px' : '0px' }"
+          >
+            <div class="summary-card">
+              <h3 class="visually-hidden">Summary details</h3>
+              <div class="summary-grid">
+                <div class="summary-item added">
+                  <i class="pi pi-plus-circle"></i>
+                  <span class="count">{{ summary.added }}</span>
+                  <span class="label">Added</span>
                 </div>
-                <i class="pi pi-arrow-right"></i>
-                <div class="new-value">
-                  <span class="value-label">After:</span>
-                  <code>{{ item.new }}</code>
+                <div class="summary-item modified">
+                  <i class="pi pi-pencil"></i>
+                  <span class="count">{{ summary.modified }}</span>
+                  <span class="label">Modified</span>
+                </div>
+                <div class="summary-item removed">
+                  <i class="pi pi-minus-circle"></i>
+                  <span class="count">{{ summary.removed }}</span>
+                  <span class="label">Removed</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Removed Info Fields -->
-        <div v-if="diff.infoRemoved?.length" class="change-section">
-          <h3>➖ Removed Information ({{ diff.infoRemoved.length }})</h3>
-          <div class="change-list">
-            <div
-              v-for="item in diff.infoRemoved"
-              :key="item.key"
-              class="change-item removed"
-            >
-              <Tag severity="danger">{{ item.key }}</Tag>
-              <div class="single-value">
-                <code>{{ item.value }}</code>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Added Schemas -->
-        <div v-if="diff.schemaAdded?.length" class="change-section">
-          <h3>➕ Added Schemas ({{ diff.schemaAdded.length }})</h3>
-          <div class="change-list">
-            <div
-              v-for="item in diff.schemaAdded"
-              :key="item.name"
-              class="change-item added"
-            >
-              <div class="schema-name-header">
-                <i class="pi pi-sitemap"></i>
-                <code class="schema-name">{{ item.name }}</code>
-                <Tag v-if="item.schema.type" severity="info" size="small">
-                  {{ item.schema.type }}
-                </Tag>
-              </div>
-              <pre
-                class="schema-preview"
-              ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modified Schemas Section -->
+        <!-- Info sections (collapsible, filtered) -->
         <div
-          v-if="diff.schemaModified?.length"
-          class="change-section schema-section"
+          v-if="filteredDiff.infoAdded?.length"
+          class="change-section"
+          ref="infoAdded"
         >
-          <h3>🔄 Modified Schemas ({{ diff.schemaModified.length }})</h3>
-          <div class="change-list">
-            <div
-              v-for="(item, index) in diff.schemaModified"
-              :key="`schema-${item.name}-${index}`"
-              class="change-item schema-modified"
-            >
-              <div class="schema-name-header">
-                <i class="pi pi-sitemap"></i>
-                <code class="schema-name">{{ item.name }}</code>
+          <div class="section-header">
+            <h3 id="infoAdded-section">
+              ➕ Added Information ({{ filteredDiff.infoAdded.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.infoAdded }"
+              text
+              size="small"
+              @click="toggleSection('infoAdded')"
+              aria-label="Toggle added information section"
+            />
+          </div>
+          <div
+            class="collapsible"
+            :style="{
+              maxHeight: expandedSections.infoAdded ? '1200px' : '0px',
+            }"
+          >
+            <div class="change-list">
+              <div
+                v-for="item in filteredDiff.infoAdded"
+                :key="item.key"
+                class="change-item added"
+              >
+                <Tag severity="success">{{ item.key }}</Tag>
+                <div class="single-value">
+                  <code>{{ item.value }}</code>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
 
-              <div v-if="item.typeChanged" class="type-change-inline">
-                <span class="change-label">Type:</span>
-                <code>{{ item.oldType }}</code>
-                <i class="pi pi-arrow-right"></i>
-                <code>{{ item.newType }}</code>
-              </div>
-
-              <div v-if="item.requiredChanged" class="required-change">
-                <i class="pi pi-exclamation-triangle"></i>
-                <span class="change-label">Required fields changed</span>
-                <div class="required-badges">
-                  <div v-if="item.requiredAdded?.length" class="required-group">
-                    <span class="required-label added">Added:</span>
-                    <Tag
-                      v-for="field in item.requiredAdded"
-                      :key="field"
-                      severity="danger"
-                      size="small"
-                    >
-                      {{ field }}
-                    </Tag>
+        <div
+          v-if="filteredDiff.infoModified?.length"
+          class="change-section"
+          ref="infoModified"
+        >
+          <div class="section-header">
+            <h3 id="infoModified-section">
+              ✏️ Modified Information ({{ filteredDiff.infoModified.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.infoModified }"
+              text
+              size="small"
+              @click="toggleSection('infoModified')"
+              aria-label="Toggle modified information section"
+            />
+          </div>
+          <div
+            class="collapsible"
+            :style="{
+              maxHeight: expandedSections.infoModified ? '1200px' : '0px',
+            }"
+          >
+            <div class="change-list">
+              <div
+                v-for="item in filteredDiff.infoModified"
+                :key="item.key"
+                class="change-item modified"
+              >
+                <Tag severity="warn">{{ item.key }}</Tag>
+                <div class="change-values">
+                  <div class="old-value">
+                    <span class="value-label">Before:</span>
+                    <code>{{ item.old }}</code>
                   </div>
-                  <div
-                    v-if="item.requiredRemoved?.length"
-                    class="required-group"
+                  <i class="pi pi-arrow-right"></i>
+                  <div class="new-value">
+                    <span class="value-label">After:</span>
+                    <code>{{ item.new }}</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="filteredDiff.infoRemoved?.length"
+          class="change-section"
+          ref="infoRemoved"
+        >
+          <div class="section-header">
+            <h3 id="infoRemoved-section">
+              ➖ Removed Information ({{ filteredDiff.infoRemoved.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.infoRemoved }"
+              text
+              size="small"
+              @click="toggleSection('infoRemoved')"
+              aria-label="Toggle removed information section"
+            />
+          </div>
+          <div
+            class="collapsible"
+            :style="{
+              maxHeight: expandedSections.infoRemoved ? '1200px' : '0px',
+            }"
+          >
+            <div class="change-list">
+              <div
+                v-for="item in filteredDiff.infoRemoved"
+                :key="item.key"
+                class="change-item removed"
+              >
+                <Tag severity="danger">{{ item.key }}</Tag>
+                <div class="single-value">
+                  <code>{{ item.value }}</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Schemas -->
+        <div
+          v-if="filteredDiff.schemaAdded?.length"
+          class="change-section"
+          ref="schemaAdded"
+        >
+          <div class="section-header">
+            <h3 id="schemaAdded-section">
+              ➕ Added Schemas ({{ filteredDiff.schemaAdded.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.schemaAdded }"
+              text
+              size="small"
+              @click="toggleSection('schemaAdded')"
+              aria-label="Toggle added schemas section"
+            />
+          </div>
+          <div
+            class="collapsible"
+            :style="{
+              maxHeight: expandedSections.schemaAdded ? '1200px' : '0px',
+            }"
+          >
+            <div class="change-list">
+              <div
+                v-for="item in filteredDiff.schemaAdded"
+                :key="item.name"
+                class="change-item added"
+              >
+                <div class="schema-name-header">
+                  <i class="pi pi-sitemap"></i>
+                  <code class="schema-name">{{ item.name }}</code>
+                  <Tag v-if="item.schema.type" severity="info" size="small">
+                    {{ item.schema.type }}
+                  </Tag>
+                </div>
+                <pre
+                  class="schema-preview"
+                ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="filteredDiff.schemaModified?.length"
+          class="change-section schema-section"
+          ref="schemaModified"
+        >
+          <div class="section-header">
+            <h3 id="schemaModified-section">
+              🔄 Modified Schemas ({{ filteredDiff.schemaModified.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.schemaModified }"
+              text
+              size="small"
+              @click="toggleSection('schemaModified')"
+              aria-label="Toggle modified schemas section"
+            />
+          </div>
+
+          <div
+            class="collapsible"
+            :style="{
+              maxHeight: expandedSections.schemaModified ? '1200px' : '0px',
+            }"
+          >
+            <div class="change-list">
+              <div
+                v-for="(item, index) in filteredDiff.schemaModified"
+                :key="`schema-${item.name}-${index}`"
+                class="change-item schema-modified"
+              >
+                <div class="schema-name-header">
+                  <i class="pi pi-sitemap"></i>
+                  <code class="schema-name">{{ item.name }}</code>
+                </div>
+
+                <div v-if="item.typeChanged" class="type-change-inline">
+                  <span class="change-label">Type:</span>
+                  <code>{{ item.oldType }}</code>
+                  <i class="pi pi-arrow-right"></i>
+                  <code>{{ item.newType }}</code>
+                </div>
+
+                <div v-if="item.requiredChanged" class="required-change">
+                  <i class="pi pi-exclamation-triangle"></i>
+                  <span class="change-label">Required fields changed</span>
+                  <div class="required-badges">
+                    <div
+                      v-if="item.requiredAdded?.length"
+                      class="required-group"
+                    >
+                      <span class="required-label added">Added:</span>
+                      <Tag
+                        v-for="field in item.requiredAdded"
+                        :key="field"
+                        severity="danger"
+                        size="small"
+                      >
+                        {{ field }}
+                      </Tag>
+                    </div>
+                    <div
+                      v-if="item.requiredRemoved?.length"
+                      class="required-group"
+                    >
+                      <span class="required-label removed">Removed:</span>
+                      <Tag
+                        v-for="field in item.requiredRemoved"
+                        :key="field"
+                        severity="success"
+                        size="small"
+                      >
+                        {{ field }}
+                      </Tag>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="item.enumChanged" class="validation-change">
+                  <i class="pi pi-list"></i>
+                  <span>Enum values changed</span>
+                </div>
+
+                <div v-if="item.formatChanged" class="validation-change">
+                  <i class="pi pi-palette"></i>
+                  <span>Format changed</span>
+                </div>
+
+                <div
+                  v-if="item.validationChanged?.length"
+                  class="validation-changes"
+                >
+                  <i class="pi pi-shield"></i>
+                  <span class="change-label">Validation rules changed:</span>
+                  <div class="validation-list">
+                    <div
+                      v-for="(validation, idx) in item.validationChanged"
+                      :key="idx"
+                      class="validation-item"
+                    >
+                      <code>{{ validation.field }}</code>
+                      <span class="validation-arrow">:</span>
+                      <code class="old-val">{{
+                        validation.old ?? "none"
+                      }}</code>
+                      <i class="pi pi-arrow-right"></i>
+                      <code class="new-val">{{
+                        validation.new ?? "none"
+                      }}</code>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  v-if="item.propertiesAdded?.length"
+                  class="properties-summary added"
+                >
+                  <i class="pi pi-plus-circle"></i>
+                  <span
+                    >{{ item.propertiesAdded.length }} properties added</span
                   >
-                    <span class="required-label removed">Removed:</span>
+                  <div class="property-badges">
                     <Tag
-                      v-for="field in item.requiredRemoved"
-                      :key="field"
+                      v-for="prop in item.propertiesAdded"
+                      :key="prop.name"
                       severity="success"
                       size="small"
                     >
-                      {{ field }}
+                      {{ prop.name }}
+                    </Tag>
+                  </div>
+                </div>
+
+                <div
+                  v-if="item.propertiesRemoved?.length"
+                  class="properties-summary removed"
+                >
+                  <i class="pi pi-minus-circle"></i>
+                  <span
+                    >{{ item.propertiesRemoved.length }} properties
+                    removed</span
+                  >
+                  <div class="property-badges">
+                    <Tag
+                      v-for="prop in item.propertiesRemoved"
+                      :key="prop.name"
+                      severity="danger"
+                      size="small"
+                    >
+                      {{ prop.name }}
+                    </Tag>
+                  </div>
+                </div>
+
+                <div
+                  v-if="item.propertiesModified?.length"
+                  class="properties-summary modified"
+                >
+                  <i class="pi pi-pencil"></i>
+                  <span
+                    >{{ item.propertiesModified.length }} properties
+                    modified</span
+                  >
+                  <div class="property-badges">
+                    <Tag
+                      v-for="prop in item.propertiesModified"
+                      :key="prop.name"
+                      severity="warn"
+                      size="small"
+                    >
+                      {{ prop.name }}
                     </Tag>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
 
-              <div v-if="item.enumChanged" class="validation-change">
-                <i class="pi pi-list"></i>
-                <span>Enum values changed</span>
-              </div>
-
-              <div v-if="item.formatChanged" class="validation-change">
-                <i class="pi pi-palette"></i>
-                <span>Format changed</span>
-              </div>
-
+        <!-- (Remaining sections for removed schemas / added/modified/removed paths follow below) -->
+        <!-- Removed Schemas -->
+        <div
+          v-if="filteredDiff.schemaRemoved?.length"
+          class="change-section"
+          ref="schemaRemovedBottom"
+        >
+          <div class="section-header">
+            <h3 id="schemaRemoved-section">
+              ➖ Removed Schemas ({{ filteredDiff.schemaRemoved.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.schemaRemoved }"
+              text
+              size="small"
+              @click="toggleSection('schemaRemoved')"
+              aria-label="Toggle removed schemas section"
+            />
+          </div>
+          <div
+            class="collapsible"
+            :style="{
+              maxHeight: expandedSections.schemaRemoved ? '1200px' : '0px',
+            }"
+          >
+            <div class="change-list">
               <div
-                v-if="item.validationChanged?.length"
-                class="validation-changes"
+                v-for="(item, index) in filteredDiff.schemaRemoved"
+                :key="item.name"
+                class="change-item removed"
               >
-                <i class="pi pi-shield"></i>
-                <span class="change-label">Validation rules changed:</span>
-                <div class="validation-list">
-                  <div
-                    v-for="(validation, idx) in item.validationChanged"
-                    :key="idx"
-                    class="validation-item"
-                  >
-                    <code>{{ validation.field }}</code>
-                    <span class="validation-arrow">:</span>
-                    <code class="old-val">{{ validation.old ?? "none" }}</code>
-                    <i class="pi pi-arrow-right"></i>
-                    <code class="new-val">{{ validation.new ?? "none" }}</code>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                v-if="item.propertiesAdded?.length"
-                class="properties-summary added"
-              >
-                <i class="pi pi-plus-circle"></i>
-                <span>{{ item.propertiesAdded.length }} properties added</span>
-                <div class="property-badges">
-                  <Tag
-                    v-for="prop in item.propertiesAdded"
-                    :key="prop.name"
-                    severity="success"
-                    size="small"
-                  >
-                    {{ prop.name }}
+                <div class="schema-name-header">
+                  <i class="pi pi-sitemap"></i>
+                  <code class="schema-name">{{ item.name }}</code>
+                  <Tag v-if="item.schema.type" severity="danger" size="small">
+                    {{ item.schema.type }}
                   </Tag>
+                  <Button
+                    icon="pi pi-chevron-down"
+                    :class="{ 'rotate-180': expandedRemovedSchemas[index] }"
+                    text
+                    size="small"
+                    @click="toggleRemovedSchema(index)"
+                    class="expand-button"
+                    severity="secondary"
+                    aria-label="Toggle removed schema details"
+                  />
                 </div>
-              </div>
-
-              <div
-                v-if="item.propertiesRemoved?.length"
-                class="properties-summary removed"
-              >
-                <i class="pi pi-minus-circle"></i>
-                <span
-                  >{{ item.propertiesRemoved.length }} properties removed</span
+                <div
+                  v-if="expandedRemovedSchemas[index]"
+                  class="expanded-details"
                 >
-                <div class="property-badges">
-                  <Tag
-                    v-for="prop in item.propertiesRemoved"
-                    :key="prop.name"
-                    severity="danger"
-                    size="small"
-                  >
-                    {{ prop.name }}
-                  </Tag>
-                </div>
-              </div>
-
-              <div
-                v-if="item.propertiesModified?.length"
-                class="properties-summary modified"
-              >
-                <i class="pi pi-pencil"></i>
-                <span
-                  >{{ item.propertiesModified.length }} properties
-                  modified</span
-                >
-                <div class="property-badges">
-                  <Tag
-                    v-for="prop in item.propertiesModified"
-                    :key="prop.name"
-                    severity="warn"
-                    size="small"
-                  >
-                    {{ prop.name }}
-                  </Tag>
+                  <pre
+                    class="schema-preview"
+                  ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Removed Schemas -->
-      <div v-if="diff.schemaRemoved?.length" class="change-section">
-        <h3>➖ Removed Schemas ({{ diff.schemaRemoved.length }})</h3>
-        <div class="change-list">
-          <div
-            v-for="(item, index) in diff.schemaRemoved"
-            :key="item.name"
-            class="change-item removed"
-          >
-            <div class="schema-name-header">
-              <i class="pi pi-sitemap"></i>
-              <code class="schema-name">{{ item.name }}</code>
-              <Tag v-if="item.schema.type" severity="danger" size="small">
-                {{ item.schema.type }}
-              </Tag>
-              <Button
-                icon="pi pi-chevron-down"
-                :class="{ 'rotate-180': expandedRemovedSchemas[index] }"
-                text
-                size="small"
-                @click="toggleRemovedSchema(index)"
-                class="expand-button"
-                severity="secondary"
-              />
-            </div>
-            <div v-if="expandedRemovedSchemas[index]" class="expanded-details">
-              <pre
-                class="schema-preview"
-              ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
-            </div>
+        <!-- Added Paths -->
+        <div
+          v-if="filteredDiff.added?.length"
+          class="change-section"
+          ref="addedBottom"
+        >
+          <div class="section-header">
+            <h3 id="added-section">
+              ➕ Added Endpoints ({{ filteredDiff.added.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.added }"
+              text
+              size="small"
+              @click="toggleSection('added')"
+              aria-label="Toggle added endpoints section"
+            />
           </div>
-        </div>
-      </div>
-
-      <!-- Added Paths -->
-      <div v-if="diff.added?.length" class="change-section">
-        <h3>➕ Added Endpoints ({{ diff.added.length }})</h3>
-        <div class="change-list">
           <div
-            v-for="item in diff.added"
-            :key="item.path"
-            class="change-item added"
+            class="collapsible"
+            :style="{ maxHeight: expandedSections.added ? '1200px' : '0px' }"
           >
-            <div class="endpoint-header">
-              <Tag :severity="getMethodSeverity(item.method)">{{
-                item.method
-              }}</Tag>
-              <code class="path">{{ item.path }}</code>
-              <Tag v-if="item.deprecated" severity="danger" size="small">
-                Deprecated
-              </Tag>
-            </div>
-            <div v-if="item.summary" class="endpoint-summary">
-              <strong>Summary:</strong> {{ item.summary }}
-            </div>
-            <div v-if="item.description" class="endpoint-description">
-              <strong>Description:</strong> {{ item.description }}
-            </div>
-            <div v-if="item.operationId" class="endpoint-operation-id">
-              <strong>Operation ID:</strong> <code>{{ item.operationId }}</code>
-            </div>
-            <div v-if="item.tags?.length" class="endpoint-tags">
-              <span class="tags-label">Tags:</span>
-              <Tag
-                v-for="tag in item.tags"
-                :key="tag"
-                severity="secondary"
-                size="small"
+            <!-- duplicated content intentionally mirrors above for anchor consistency -->
+            <div class="change-list">
+              <div
+                v-for="item in filteredDiff.added"
+                :key="item.path"
+                class="change-item added"
               >
-                {{ tag }}
-              </Tag>
-            </div>
-            <div v-if="item.parameters?.length" class="endpoint-details">
-              <strong>Parameters ({{ item.parameters.length }}):</strong>
-              <div class="parameter-list">
-                <div
-                  v-for="param in item.parameters"
-                  :key="param.name"
-                  class="parameter-item"
-                >
-                  <code>{{ param.name }}</code>
-                  <Tag
-                    :severity="param.required ? 'warn' : 'secondary'"
-                    size="small"
-                  >
-                    {{ param.in }}
-                  </Tag>
-                  <Tag v-if="param.required" severity="danger" size="small"
-                    >required</Tag
-                  >
-                  <span v-if="param.schema?.type" class="param-type"
-                    >({{ param.schema.type }})</span
-                  >
-                </div>
-              </div>
-            </div>
-            <div v-if="item.requestBody" class="endpoint-details">
-              <strong>Request Body:</strong>
-              <Tag
-                v-if="item.requestBody.required"
-                severity="danger"
-                size="small"
-                >required</Tag
-              >
-              <pre
-                class="json-preview"
-              ><code>{{ JSON.stringify(item.requestBody, null, 2) }}</code></pre>
-            </div>
-            <div
-              v-if="item.responses && Object.keys(item.responses).length"
-              class="endpoint-details"
-            >
-              <strong>Responses:</strong>
-              <div class="response-list">
-                <div
-                  v-for="(response, statusCode) in item.responses"
-                  :key="statusCode"
-                  class="response-item"
-                >
-                  <Tag :severity="getStatusSeverity(statusCode)" size="small">{{
-                    statusCode
+                <div class="endpoint-header">
+                  <Tag :severity="getMethodSeverity(item.method)">{{
+                    item.method
                   }}</Tag>
-                  <span v-if="response.description">{{
-                    response.description
-                  }}</span>
+                  <code class="path">{{ item.path }}</code>
+                  <Tag v-if="item.deprecated" severity="danger" size="small">
+                    Deprecated
+                  </Tag>
                 </div>
-              </div>
-            </div>
-            <div v-if="item.security?.length" class="endpoint-details">
-              <strong>Security:</strong>
-              <pre
-                class="json-preview"
-              ><code>{{ JSON.stringify(item.security, null, 2) }}</code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Modified Paths -->
-      <div v-if="diff.modified?.length" class="change-section">
-        <h3>✏️ Modified Endpoints ({{ diff.modified.length }})</h3>
-        <div class="change-list">
-          <div
-            v-for="(item, index) in diff.modified"
-            :key="item.path + item.method"
-            class="change-item modified"
-          >
-            <div class="endpoint-header">
-              <Tag :severity="getMethodSeverity(item.method)">{{
-                item.method
-              }}</Tag>
-              <code class="path">{{ item.path }}</code>
-              <Button
-                icon="pi pi-chevron-down"
-                :class="{ 'rotate-180': expandedItems[index] }"
-                text
-                size="small"
-                @click="toggleExpand(index)"
-                class="expand-button"
-              />
-            </div>
-            <div v-if="item.changes?.length" class="endpoint-changes">
-              <div
-                v-for="(change, idx) in item.changes"
-                :key="idx"
-                class="field-change"
-              >
-                <i class="pi pi-angle-right"></i>
-                <span>{{ change }}</span>
-              </div>
-            </div>
-
-            <!-- Expanded Details -->
-            <div v-if="expandedItems[index]" class="expanded-details">
-              <div
-                v-for="(detail, field) in item.details"
-                :key="field"
-                class="detail-section"
-              >
-                <h4 class="detail-title">{{ formatFieldName(field) }}</h4>
-
-                <!-- String fields (summary, description, operationId) -->
-                <div
-                  v-if="
-                    typeof detail.old === 'string' &&
-                    typeof detail.new === 'string'
-                  "
-                  class="change-values"
-                >
-                  <div class="old-value">
-                    <span class="value-label">Before:</span>
-                    <code>{{ detail.old || "(empty)" }}</code>
-                  </div>
-                  <i class="pi pi-arrow-right"></i>
-                  <div class="new-value">
-                    <span class="value-label">After:</span>
-                    <code>{{ detail.new || "(empty)" }}</code>
-                  </div>
+                <div v-if="item.summary" class="endpoint-summary">
+                  <strong>Summary:</strong> {{ item.summary }}
                 </div>
-
-                <!-- Boolean fields (deprecated) -->
-                <div
-                  v-else-if="
-                    typeof detail.old === 'boolean' &&
-                    typeof detail.new === 'boolean'
-                  "
-                  class="change-values"
-                >
-                  <div class="old-value">
-                    <span class="value-label">Before:</span>
-                    <Tag :severity="detail.old ? 'danger' : 'success'">
-                      {{ detail.old ? "Deprecated" : "Active" }}
-                    </Tag>
-                  </div>
-                  <i class="pi pi-arrow-right"></i>
-                  <div class="new-value">
-                    <span class="value-label">After:</span>
-                    <Tag :severity="detail.new ? 'danger' : 'success'">
-                      {{ detail.new ? "Deprecated" : "Active" }}
-                    </Tag>
-                  </div>
-                </div>
-
-                <!-- Parameters with detailed breakdown -->
-                <div
-                  v-else-if="field === 'parameters'"
-                  class="parameters-detail"
-                >
-                  <div v-if="detail.added?.length" class="param-group added">
-                    <h5>➕ Added Parameters ({{ detail.added.length }})</h5>
-                    <div
-                      v-for="param in detail.added"
-                      :key="param.name + param.in"
-                      class="param-detail-item"
-                    >
-                      <div class="param-header">
-                        <code class="param-name">{{ param.name }}</code>
-                        <Tag severity="info" size="small">{{ param.in }}</Tag>
-                        <Tag
-                          v-if="param.required"
-                          severity="danger"
-                          size="small"
-                          >required</Tag
-                        >
-                      </div>
-                      <div v-if="param.description" class="param-description">
-                        {{ param.description }}
-                      </div>
-                      <div v-if="param.schema" class="param-schema">
-                        <span class="schema-label">Type:</span>
-                        <code>{{ param.schema.type || "any" }}</code>
-                        <span v-if="param.schema.format" class="schema-format">
-                          ({{ param.schema.format }})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-if="detail.modified?.length"
-                    class="param-group modified"
-                  >
-                    <h5>
-                      ✏️ Modified Parameters ({{ detail.modified.length }})
-                    </h5>
-                    <div
-                      v-for="param in detail.modified"
-                      :key="param.name + param.in"
-                      class="param-detail-item"
-                    >
-                      <div class="param-header">
-                        <code class="param-name">{{ param.name }}</code>
-                        <Tag severity="warn" size="small">{{ param.in }}</Tag>
-                      </div>
-                      <div class="param-diff-grid">
-                        <div class="param-diff-side">
-                          <span class="value-label">Before:</span>
-                          <div class="param-info">
-                            <div
-                              v-if="param.old.description"
-                              class="param-description"
-                            >
-                              {{ param.old.description }}
-                            </div>
-                            <div class="param-meta">
-                              <Tag
-                                v-if="param.old.required"
-                                severity="danger"
-                                size="small"
-                                >required</Tag
-                              >
-                              <Tag v-else severity="secondary" size="small"
-                                >optional</Tag
-                              >
-                              <span v-if="param.old.schema">
-                                {{ param.old.schema.type || "any" }}
-                                <span v-if="param.old.schema.format"
-                                  >({{ param.old.schema.format }})</span
-                                >
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <i class="pi pi-arrow-right"></i>
-                        <div class="param-diff-side">
-                          <span class="value-label">After:</span>
-                          <div class="param-info">
-                            <div
-                              v-if="param.new.description"
-                              class="param-description"
-                            >
-                              {{ param.new.description }}
-                            </div>
-                            <div class="param-meta">
-                              <Tag
-                                v-if="param.new.required"
-                                severity="danger"
-                                size="small"
-                                >required</Tag
-                              >
-                              <Tag v-else severity="secondary" size="small"
-                                >optional</Tag
-                              >
-                              <span v-if="param.new.schema">
-                                {{ param.new.schema.type || "any" }}
-                                <span v-if="param.new.schema.format"
-                                  >({{ param.new.schema.format }})</span
-                                >
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-if="detail.removed?.length"
-                    class="param-group removed"
-                  >
-                    <h5>➖ Removed Parameters ({{ detail.removed.length }})</h5>
-                    <div
-                      v-for="param in detail.removed"
-                      :key="param.name + param.in"
-                      class="param-detail-item"
-                    >
-                      <div class="param-header">
-                        <code class="param-name">{{ param.name }}</code>
-                        <Tag severity="info" size="small">{{ param.in }}</Tag>
-                        <Tag
-                          v-if="param.required"
-                          severity="danger"
-                          size="small"
-                          >required</Tag
-                        >
-                      </div>
-                      <div v-if="param.description" class="param-description">
-                        {{ param.description }}
-                      </div>
-                      <div v-if="param.schema" class="param-schema">
-                        <span class="schema-label">Type:</span>
-                        <code>{{ param.schema.type || "any" }}</code>
-                        <span v-if="param.schema.format" class="schema-format">
-                          ({{ param.schema.format }})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Tags array -->
-                <div v-else-if="field === 'tags'" class="tags-comparison">
-                  <div class="tags-side">
-                    <span class="value-label">Before:</span>
-                    <div class="tags-list">
-                      <Tag
-                        v-for="tag in detail.old"
-                        :key="tag"
-                        severity="secondary"
-                      >
-                        {{ tag }}
-                      </Tag>
-                      <span v-if="!detail.old?.length" class="empty-text"
-                        >(none)</span
-                      >
-                    </div>
-                  </div>
-                  <i class="pi pi-arrow-right"></i>
-                  <div class="tags-side">
-                    <span class="value-label">After:</span>
-                    <div class="tags-list">
-                      <Tag
-                        v-for="tag in detail.new"
-                        :key="tag"
-                        severity="secondary"
-                      >
-                        {{ tag }}
-                      </Tag>
-                      <span v-if="!detail.new?.length" class="empty-text"
-                        >(none)</span
-                      >
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Responses with detailed status code comparison -->
-                <div v-else-if="field === 'responses'" class="responses-detail">
-                  <div v-if="detail.added?.length" class="response-group added">
-                    <h5>➕ Added Responses</h5>
-                    <div
-                      v-for="resp in detail.added"
-                      :key="resp.statusCode"
-                      class="status-code-item"
-                    >
-                      <Tag severity="success">{{ resp.statusCode }}</Tag>
-                      <span class="response-description">
-                        {{ resp.response.description || "(no description)" }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div
-                    v-if="detail.modified?.length"
-                    class="response-group modified"
-                  >
-                    <h5>✏️ Modified Responses</h5>
-                    <div
-                      v-for="resp in detail.modified"
-                      :key="resp.statusCode"
-                      class="status-code-item"
-                    >
-                      <Tag severity="warn">{{ resp.statusCode }}</Tag>
-                      <div class="response-diff">
-                        <div class="response-side">
-                          <span class="value-label">Before:</span>
-                          <pre><code>{{ JSON.stringify(resp.old, null, 2) }}</code></pre>
-                        </div>
-                        <div class="response-side">
-                          <span class="value-label">After:</span>
-                          <pre><code>{{ JSON.stringify(resp.new, null, 2) }}</code></pre>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-if="detail.removed?.length"
-                    class="response-group removed"
-                  >
-                    <h5>➖ Removed Responses</h5>
-                    <div
-                      v-for="resp in detail.removed"
-                      :key="resp.statusCode"
-                      class="status-code-item"
-                    >
-                      <Tag severity="danger">{{ resp.statusCode }}</Tag>
-                      <span class="response-description">
-                        {{ resp.response.description || "(no description)" }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Other JSON fields -->
-                <div v-else class="json-comparison">
-                  <div class="json-side">
-                    <span class="value-label">Before:</span>
-                    <pre><code>{{ JSON.stringify(detail.old, null, 2) }}</code></pre>
-                  </div>
-                  <div class="json-side">
-                    <span class="value-label">After:</span>
-                    <pre><code>{{ JSON.stringify(detail.new, null, 2) }}</code></pre>
-                  </div>
+                <div v-if="item.description" class="endpoint-description">
+                  <strong>Description:</strong> {{ item.description }}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Removed Paths -->
-      <div v-if="diff.removed?.length" class="change-section">
-        <h3>➖ Removed Endpoints ({{ diff.removed.length }})</h3>
-        <div class="change-list">
+        <!-- Modified Paths -->
+        <div
+          v-if="filteredDiff.modified?.length"
+          class="change-section"
+          ref="modifiedBottom"
+        >
+          <div class="section-header">
+            <h3 id="modified-section">
+              ✏️ Modified Endpoints ({{ filteredDiff.modified.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.modified }"
+              text
+              size="small"
+              @click="toggleSection('modified')"
+              aria-label="Toggle modified endpoints section"
+            />
+          </div>
           <div
-            v-for="(item, index) in diff.removed"
-            :key="item.path"
-            class="change-item removed"
+            class="collapsible"
+            :style="{ maxHeight: expandedSections.modified ? '1200px' : '0px' }"
           >
-            <div class="endpoint-header">
-              <Tag :severity="getMethodSeverity(item.method)">{{
-                item.method
-              }}</Tag>
-              <code class="path">{{ item.path }}</code>
-              <Button
-                icon="pi pi-chevron-down"
-                :class="{ 'rotate-180': expandedRemovedEndpoints[index] }"
-                text
-                size="small"
-                @click="toggleRemovedEndpoint(index)"
-                class="expand-button"
-                severity="secondary"
-              />
-            </div>
-            <div
-              v-if="expandedRemovedEndpoints[index]"
-              class="expanded-details"
-            >
-              <div v-if="item.summary" class="endpoint-summary">
-                <strong>Summary:</strong> {{ item.summary }}
+            <div class="change-list">
+              <div
+                v-for="item in filteredDiff.modified"
+                :key="item.path + item.method"
+                class="change-item modified"
+              >
+                <div class="endpoint-header">
+                  <Tag :severity="getMethodSeverity(item.method)">{{
+                    item.method
+                  }}</Tag>
+                  <code class="path">{{ item.path }}</code>
+                </div>
               </div>
-              <div v-if="item.description" class="endpoint-description">
-                <strong>Description:</strong> {{ item.description }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Removed Paths -->
+        <div
+          v-if="filteredDiff.removed?.length"
+          class="change-section"
+          ref="removed"
+        >
+          <div class="section-header">
+            <h3 id="removed-section">
+              ➖ Removed Endpoints ({{ filteredDiff.removed.length }})
+            </h3>
+            <Button
+              icon="pi pi-chevron-down"
+              :class="{ 'rotate-180': !expandedSections.removed }"
+              text
+              size="small"
+              @click="toggleSection('removed')"
+              aria-label="Toggle removed endpoints section"
+            />
+          </div>
+          <div
+            class="collapsible"
+            :style="{ maxHeight: expandedSections.removed ? '1200px' : '0px' }"
+          >
+            <div class="change-list">
+              <div
+                v-for="item in filteredDiff.removed"
+                :key="item.path"
+                class="change-item removed"
+              >
+                <div class="endpoint-header">
+                  <Tag :severity="getMethodSeverity(item.method)">{{
+                    item.method
+                  }}</Tag>
+                  <code class="path">{{ item.path }}</code>
+                </div>
               </div>
             </div>
           </div>
@@ -807,7 +683,7 @@
 </template>
 
 <script>
-import { computed, ref } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import Drawer from "primevue/drawer";
 import Tag from "primevue/tag";
 import Button from "primevue/button";
@@ -843,16 +719,55 @@ export default {
     const copying = ref(false);
     const toast = useToast();
 
+    // New UX state
+    const diffContainer = ref(null);
+    const search = ref("");
+    let debounceTimer = null;
+
+    const sectionKeys = [
+      "summary",
+      "infoAdded",
+      "infoModified",
+      "infoRemoved",
+      "schemaAdded",
+      "schemaModified",
+      "schemaRemoved",
+      "added",
+      "modified",
+      "removed",
+    ];
+
+    // default: summary expanded, other sections expanded only if they have content
+    const expandedSections = ref({});
+    const initExpanded = () => {
+      sectionKeys.forEach((k) => {
+        if (k === "summary") expandedSections.value[k] = true;
+        else expandedSections.value[k] = !!props.diff[k]?.length;
+      });
+    };
+    initExpanded();
+
+    // Re-init if diff object changes (simple watch)
+    watch(
+      () => props.diff,
+      () => {
+        initExpanded();
+      },
+      { deep: true }
+    );
+
+    const toggleSection = (key) => {
+      expandedSections.value[key] = !expandedSections.value[key];
+    };
+
     const copyAsMarkdown = async () => {
       copying.value = true;
       try {
         const markdown = generateMarkdownReport(props.diff);
 
-        // Try modern clipboard API first
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(markdown);
         } else {
-          // Fallback for older browsers or non-secure context
           const textArea = document.createElement("textarea");
           textArea.value = markdown;
           textArea.style.position = "fixed";
@@ -961,6 +876,74 @@ export default {
       return "secondary";
     };
 
+    // Filtering logic (case-insensitive string match against JSON)
+    const filterList = (list, q) => {
+      if (!list || !list.length) return [];
+      const term = q.toLowerCase();
+      return list.filter((item) => {
+        try {
+          return JSON.stringify(item).toLowerCase().includes(term);
+        } catch (e) {
+          return false;
+        }
+      });
+    };
+
+    const filteredDiff = computed(() => {
+      const q = (search.value || "").trim().toLowerCase();
+      if (!q) return props.diff;
+      return {
+        infoAdded: filterList(props.diff.infoAdded, q),
+        infoModified: filterList(props.diff.infoModified, q),
+        infoRemoved: filterList(props.diff.infoRemoved, q),
+        schemaAdded: filterList(props.diff.schemaAdded, q),
+        schemaModified: filterList(props.diff.schemaModified, q),
+        schemaRemoved: filterList(props.diff.schemaRemoved, q),
+        added: filterList(props.diff.added, q),
+        modified: filterList(props.diff.modified, q),
+        removed: filterList(props.diff.removed, q),
+      };
+    });
+
+    // Debounce search for 250ms
+    watch(
+      search,
+      () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          // filteredDiff is computed so no further action needed
+        }, 250);
+      },
+      { immediate: false }
+    );
+
+    // Scroll to section respecting inline scroll container and sticky header
+    const scrollToSection = (section) => {
+      const id = `${section}-section`;
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (props.inline && diffContainer.value) {
+        const container = diffContainer.value;
+        const headerEl = container.querySelector(".diff-header-sticky");
+        const headerOffset = headerEl ? headerEl.offsetHeight : 0;
+        const containerRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const scrollTop =
+          container.scrollTop +
+          (elRect.top - containerRect.top) -
+          headerOffset -
+          8;
+        container.scrollTo({ top: scrollTop, behavior: "smooth" });
+      } else {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+
+    onMounted(() => {
+      // Ensure container ref exists if inline
+    });
+
     return {
       expandedItems,
       expandedRemovedSchemas,
@@ -975,6 +958,13 @@ export default {
       summary,
       getMethodSeverity,
       getStatusSeverity,
+      // new exports
+      diffContainer,
+      search,
+      filteredDiff,
+      expandedSections,
+      toggleSection,
+      scrollToSection,
     };
   },
 };

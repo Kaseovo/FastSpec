@@ -18,6 +18,7 @@ oauth.register(
         "scope": "openid email profile",
         "prompt": "select_account",
     },
+    check_state=False,  # Disable state check for development
 )
 
 # GitHub OAuth Configuration
@@ -31,6 +32,7 @@ oauth.register(
     authorize_params=None,
     api_base_url="https://api.github.com/",
     client_kwargs={"scope": "user:email"},
+    check_state=False,  # Disable state check for development
 )
 
 
