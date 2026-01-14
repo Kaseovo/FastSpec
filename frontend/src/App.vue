@@ -174,17 +174,17 @@ export default {
     const viewMode = ref("split"); // 'form', 'code', or 'split'
     const hasUnsavedChanges = ref(false);
     const autoSaveTimer = ref(null);
-    const viewModeOptions = [
+    const viewModeOptions = computed(() => [
       { label: "Form", value: "form", icon: "pi pi-list" },
       { label: "Code", value: "code", icon: "pi pi-code" },
       {
         label: "Changes",
         value: "changes",
         icon: "pi pi-history",
-        disabled: true,
+        disabled: !isAuthenticated.value,
       },
       { label: "Preview", value: "preview", icon: "pi pi-eye" },
-    ];
+    ]);
 
     const showAlert = (message, type = "info") => {
       alert.value = { show: true, message, type };
@@ -342,6 +342,8 @@ export default {
         const result = await validateSpec(spec_json);
 
         if (result.valid) {
+          // Format the JSON and update the editor
+          specContent.value = JSON.stringify(spec_json, null, 2);
           showAlert("✓ Specification is valid!", "success");
         } else {
           let message = "✗ Validation errors:\n";
