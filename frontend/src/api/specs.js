@@ -71,3 +71,9 @@ export const fetchDiff = async (id, format = "json") => {
   });
   return response.data;
 };
+
+// Fetch the public OpenAPI file served from the frontend (Vite public folder)
+export const fetchOpenApi = async () => {
+  const response = await axios.get("/openapi.json");
+  return response.data;
+};

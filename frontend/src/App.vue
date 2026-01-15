@@ -80,8 +80,156 @@
         </template>
 
         <template v-else-if="viewMode === 'changes'">
-          <!-- Full-width Changes view: render DiffDrawer inline exactly as drawer content -->
-          <DiffDrawer :inline="true" :diff="specDiff" />
+          <!-- Inline Changes section integrated into the page -->
+          <div class="diff-inline-wrapper">
+            <div class="drawer-header">
+              <h3>Changes Overview</h3>
+              <Button
+                v-if="hasChanges"
+                icon="pi pi-copy"
+                label="Copy as Markdown"
+                size="small"
+                severity="secondary"
+                @click="copyAsMarkdown"
+                :loading="copying"
+                aria-label="Copy changes as markdown"
+              />
+            </div>
+
+            <div class="toc-and-search">
+              <div
+                class="toc-badges"
+                role="navigation"
+                aria-label="Changes table of contents"
+              >
+                <button class="toc-badge added">
+                  ➕ Added ({{ summary.added }})
+                </button>
+                <button class="toc-badge modified">
+                  ✏️ Modified ({{ summary.modified }})
+                </button>
+                <button class="toc-badge removed">
+                  ➖ Removed ({{ summary.removed }})
+                </button>
+              </div>
+
+              <div class="search-bar">
+                <input
+                  v-model="diffSearch"
+                  type="text"
+                  placeholder="Filter changes (path, schema, info...)"
+                  aria-label="Filter changes"
+                />
+              </div>
+            </div>
+
+            <div v-if="!hasChanges" class="no-changes">
+              <i
+                class="pi pi-check-circle"
+                style="font-size: 3rem; color: #10b981"
+              ></i>
+              <h3>No Changes</h3>
+              <p>The specification hasn't been modified.</p>
+            </div>
+
+            <div v-else class="changes-content">
+              <div class="change-section">
+                <div class="section-header">
+                  <h3 id="summary-section">📊 Summary</h3>
+                  <Button
+                    icon="pi pi-chevron-down"
+                    :class="{ 'rotate-180': !expandedSections.summary }"
+                    text
+                    size="small"
+                    @click="toggleSection('summary')"
+                    aria-label="Toggle summary"
+                  />
+                </div>
+
+                <div
+                  class="collapsible"
+                  :style="{
+                    maxHeight: expandedSections.summary ? '1200px' : '0px',
+                  }"
+                >
+                  <div class="summary-card">
+                    <div class="summary-grid">
+                      <div class="summary-item added">
+                        <i class="pi pi-plus-circle"></i>
+                        <span class="count">{{ summary.added }}</span>
+                        <span class="label">Added</span>
+                      </div>
+                      <div class="summary-item modified">
+                        <i class="pi pi-pencil"></i>
+                        <span class="count">{{ summary.modified }}</span>
+                        <span class="label">Modified</span>
+                      </div>
+                      <div class="summary-item removed">
+                        <i class="pi pi-minus-circle"></i>
+                        <span class="count">{{ summary.removed }}</span>
+                        <span class="label">Removed</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- For brevity the detailed lists are handled in the dedicated component file; the inline view focuses on summary and search.
+                   The detailed rendering can be extended here later if desired. -->
+
+              <div class="change-section" style="margin-top: 1rem">
+                <div class="section-header">
+                  <h3>OpenAPI File Changes (frontend/public/openapi.json)</h3>
+                  <div style="display: flex; gap: 8px; align-items: center">
+                    <Button
+                      icon="pi pi-refresh"
+                      text
+                      size="small"
+                      @click="fetchOpenApiFile"
+                      aria-label="Refresh openapi.json"
+                    />
+                    <Button
+                      v-if="openapiFileHasChanges"
+                      icon="pi pi-copy"
+                      label="Copy File Diff"
+                      size="small"
+                      severity="secondary"
+                      @click="copyOpenapiFileDiff"
+                      :loading="copyingFile"
+                    />
+                  </div>
+                </div>
+
+                <div class="collapsible" :style="{ maxHeight: '1200px' }">
+                  <div
+                    v-if="!openapiFileHasChanges"
+                    class="no-changes"
+                    style="padding: 1.5rem"
+                  >
+                    <h4 style="margin: 0">
+                      No changes detected in openapi.json
+                    </h4>
+                    <p style="margin: 0.5rem 0 0 0">
+                      Fetched content matches the previous snapshot.
+                    </p>
+                  </div>
+
+                  <div v-else class="change-list">
+                    <pre
+                      style="
+                        background: #0f172a;
+                        color: #d1fae5;
+                        padding: 12px;
+                        border-radius: 8px;
+                        overflow: auto;
+                        max-height: 400px;
+                      "
+                    ><code>{{ formattedOpenapiFileDiff }}</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </template>
 
         <template v-else-if="viewMode === 'preview'">
@@ -116,7 +264,7 @@
 </template>
 
 <script>
-import { ref, computed, provide, onMounted } from "vue";
+import { ref, computed, provide, onMounted, watch } from "vue";
 import Message from "primevue/message";
 import Button from "primevue/button";
 import Drawer from "primevue/drawer";
@@ -133,7 +281,10 @@ import DiffDrawer from "./components/DiffDrawer.vue";
 import LoginPage from "./components/LoginPage.vue";
 import { validateSpec, createSpec, updateSpec } from "./api/specs";
 import { compareSpecs } from "./utils/diffUtils";
+import { generateMarkdownReport } from "./utils/markdownGenerator";
 import { useAuth } from "./stores/auth";
+import { fetchOpenApi } from "./api/specs";
+import Tag from "primevue/tag";
 
 export default {
   name: "App",
@@ -143,6 +294,7 @@ export default {
     Drawer,
     Dialog,
     Toast,
+    Tag,
     SelectButton,
     Toolbar,
     SpecList,
@@ -186,12 +338,192 @@ export default {
       { label: "Preview", value: "preview", icon: "pi pi-eye" },
     ]);
 
+    // Inline diff UI state
+    const copying = ref(false);
+    const diffSearch = ref("");
+
+    const sectionKeys = [
+      "summary",
+      "infoAdded",
+      "infoModified",
+      "infoRemoved",
+      "schemaAdded",
+      "schemaModified",
+      "schemaRemoved",
+      "added",
+      "modified",
+      "removed",
+    ];
+
+    const expandedSections = ref({});
+    const initExpanded = () => {
+      sectionKeys.forEach((k) => {
+        if (k === "summary") expandedSections.value[k] = true;
+        else expandedSections.value[k] = !!specDiff.value[k]?.length;
+      });
+    };
+    initExpanded();
+
+    watch(
+      () => specDiff.value,
+      () => {
+        initExpanded();
+      },
+      { deep: true }
+    );
+
     const showAlert = (message, type = "info") => {
       alert.value = { show: true, message, type };
       setTimeout(() => {
         alert.value.show = false;
       }, 5000);
     };
+
+    const toggleSection = (key) => {
+      expandedSections.value[key] = !expandedSections.value[key];
+    };
+
+    const hasChanges = computed(() => {
+      const d = specDiff.value || {};
+      return (
+        (d.infoAdded?.length || 0) +
+          (d.infoModified?.length || 0) +
+          (d.infoRemoved?.length || 0) +
+          (d.added?.length || 0) +
+          (d.modified?.length || 0) +
+          (d.removed?.length || 0) +
+          (d.schemaAdded?.length || 0) +
+          (d.schemaModified?.length || 0) +
+          (d.schemaRemoved?.length || 0) >
+        0
+      );
+    });
+
+    const summary = computed(() => {
+      const d = specDiff.value || {};
+      return {
+        added:
+          (d.infoAdded?.length || 0) +
+          (d.added?.length || 0) +
+          (d.schemaAdded?.length || 0),
+        modified:
+          (d.infoModified?.length || 0) +
+          (d.modified?.length || 0) +
+          (d.schemaModified?.length || 0),
+        removed:
+          (d.infoRemoved?.length || 0) +
+          (d.removed?.length || 0) +
+          (d.schemaRemoved?.length || 0),
+      };
+    });
+
+    const copyAsMarkdown = async () => {
+      copying.value = true;
+      try {
+        const markdown = generateMarkdownReport(specDiff.value);
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(markdown);
+        } else {
+          const textArea = document.createElement("textarea");
+          textArea.value = markdown;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-999999px";
+          textArea.style.top = "-999999px";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand("copy");
+          } finally {
+            textArea.remove();
+          }
+        }
+        showAlert("Changes copied as markdown to clipboard", "success");
+      } catch (error) {
+        console.error("Copy failed:", error);
+        showAlert("Failed to copy changes", "error");
+      } finally {
+        copying.value = false;
+      }
+    };
+
+    // OpenAPI file helpers
+    const copyingFile = ref(false);
+    const openapiFileRaw = ref("");
+    const openapiBaseline = ref(null);
+    const openapiFileDiff = ref({});
+
+    const fetchOpenApiFile = async () => {
+      try {
+        const data = await fetchOpenApi();
+        openapiFileRaw.value = JSON.stringify(data, null, 2);
+        if (!openapiBaseline.value) {
+          openapiBaseline.value = JSON.parse(JSON.stringify(data));
+        }
+        openapiFileDiff.value = compareSpecs(openapiBaseline.value || {}, data);
+      } catch (err) {
+        console.error("Failed fetching openapi.json", err);
+        showAlert("Failed to fetch openapi.json", "error");
+      }
+    };
+
+    const openapiFileHasChanges = computed(() => {
+      const d = openapiFileDiff.value || {};
+      return (
+        (d.infoAdded?.length || 0) +
+          (d.infoModified?.length || 0) +
+          (d.infoRemoved?.length || 0) +
+          (d.added?.length || 0) +
+          (d.modified?.length || 0) +
+          (d.removed?.length || 0) +
+          (d.schemaAdded?.length || 0) +
+          (d.schemaModified?.length || 0) +
+          (d.schemaRemoved?.length || 0) >
+        0
+      );
+    });
+
+    const formattedOpenapiFileDiff = computed(() => {
+      try {
+        return generateMarkdownReport(openapiFileDiff.value || {});
+      } catch (e) {
+        return JSON.stringify(openapiFileDiff.value || {}, null, 2);
+      }
+    });
+
+    const copyOpenapiFileDiff = async () => {
+      copyingFile.value = true;
+      try {
+        const md = formattedOpenapiFileDiff.value;
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(md);
+        } else {
+          const t = document.createElement("textarea");
+          t.value = md;
+          t.style.position = "fixed";
+          t.style.left = "-999999px";
+          t.style.top = "-999999px";
+          document.body.appendChild(t);
+          t.focus();
+          t.select();
+          try {
+            document.execCommand("copy");
+          } finally {
+            t.remove();
+          }
+        }
+        showAlert("OpenAPI file diff copied", "success");
+      } catch (err) {
+        console.error(err);
+        showAlert("Failed to copy file diff", "error");
+      } finally {
+        copyingFile.value = false;
+      }
+    };
+
+    onMounted(() => {
+      fetchOpenApiFile();
+    });
 
     const closeAlert = () => {
       alert.value.show = false;
@@ -537,6 +869,21 @@ export default {
       updateFromForm,
       loadSpec,
       saveSpec,
+      // Inline changes UI helpers
+      copying,
+      copyAsMarkdown,
+      summary,
+      hasChanges,
+      expandedSections,
+      toggleSection,
+      diffSearch,
+      // OpenAPI file helpers
+      fetchOpenApiFile,
+      openapiFileRaw,
+      openapiFileDiff,
+      openapiFileHasChanges,
+      formattedOpenapiFileDiff,
+      copyOpenapiFileDiff,
     };
   },
 };

@@ -201,6 +201,15 @@ export function compareSpecs(original, current) {
     }
   }
 
+  // Check OpenAPI root version (e.g. 3.0.0 -> 3.1.0)
+  if (original.openapi !== current.openapi) {
+    diff.infoModified.push({
+      key: "openapi",
+      old: original.openapi || "",
+      new: current.openapi || "",
+    });
+  }
+
   // Compare paths
   const originalPaths = original.paths || {};
   const currentPaths = current.paths || {};
