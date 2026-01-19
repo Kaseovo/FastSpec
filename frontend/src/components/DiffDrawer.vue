@@ -1,6 +1,5 @@
 <template>
   <div>
-    <!-- Inline mode panel -->
     <div v-if="inline" class="diff-panel">
       <div class="drawer-header">
         <h3>Changes Overview</h3>
@@ -35,7 +34,7 @@
                 <Tag severity="success">Added</Tag>
                 <div class="pill-count">{{ summary.added }}</div>
                 <div class="pill-sub">
-                  {{ diff.added?.length || 0 }} endpoints
+                  {{ (diff.added || []).length }} endpoints
                 </div>
               </button>
 
@@ -47,7 +46,7 @@
                 <Tag severity="warn">Modified</Tag>
                 <div class="pill-count">{{ summary.modified }}</div>
                 <div class="pill-sub">
-                  {{ diff.modified?.length || 0 }} endpoints
+                  {{ (diff.modified || []).length }} endpoints
                 </div>
               </button>
 
@@ -59,7 +58,7 @@
                 <Tag severity="danger">Removed</Tag>
                 <div class="pill-count">{{ summary.removed }}</div>
                 <div class="pill-sub">
-                  {{ diff.removed?.length || 0 }} endpoints
+                  {{ (diff.removed || []).length }} endpoints
                 </div>
               </button>
 
@@ -81,19 +80,26 @@
           </div>
 
           <div v-else class="cards-area">
-            <div v-if="groupedList.length === 0" class="no-results">
-              No items match the filter.
-            </div>
-
-            <div class="cards-grid">
-              <div
-                v-for="(item, idx) in groupedList"
-                :key="cardKey(item, idx)"
-                class="endpoint-card"
-              >
-                <!-- Left column varies by item kind -->
-                <div class="card-left">
-                  <template v-if="item.__kind === 'endpoint'">
+            <!-- Endpoints -->
+            <div v-if="endpoints.length" class="section-group">
+              <div class="section-header">
+                <h4>Endpoints ({{ endpoints.length }})</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('endpoints')"
+                />
+              </div>
+              <div v-show="expandedSections.endpoints" class="cards-grid">
+                <div v-if="endpoints.length === 0" class="no-items">
+                  No endpoints
+                </div>
+                <div
+                  v-for="(item, idx) in endpoints"
+                  :key="cardKey(item, idx)"
+                  class="endpoint-card"
+                >
+                  <div class="card-left">
                     <Tag
                       :severity="getMethodSeverity(item.method)"
                       class="method-tag"
@@ -103,41 +109,9 @@
                     <div v-if="item.summary" class="short">
                       {{ item.summary }}
                     </div>
-                  </template>
+                  </div>
 
-                  <template v-else-if="item.__kind === 'schema'">
-                    <div class="schema-header">
-                      <i class="pi pi-sitemap" aria-hidden="true"></i>
-                      <code class="schema-name">{{ item.name }}</code>
-                    </div>
-                    <div class="short">Schema</div>
-                  </template>
-
-                  <template v-else>
-                    <Tag severity="info">{{ item.key }}</Tag>
-                    <div class="short">{{ item.value }}</div>
-                  </template>
-                </div>
-
-                <!-- Inline details: expanded for added/removed; preview for modified -->
-                <div class="card-details">
-                  <template v-if="item.__kind === 'schema'">
-                    <div class="mini-section">
-                      <div class="mini-label">Schema preview</div>
-                      <pre
-                        class="mini-json"
-                      ><code>{{ prettyJSON(item.schema || item.schemaPreview || item.type) }}</code></pre>
-                    </div>
-                  </template>
-
-                  <template v-else-if="item.__kind === 'info'">
-                    <div class="mini-section">
-                      <div class="mini-label">Info</div>
-                      <div class="mini-desc">{{ item.value }}</div>
-                    </div>
-                  </template>
-
-                  <template v-else>
+                  <div class="card-details">
                     <template
                       v-if="
                         item.changeType === 'added' ||
@@ -187,25 +161,120 @@
                         No field-level summary available
                       </div>
                     </template>
-                  </template>
-                </div>
-
-                <div class="card-right">
-                  <div class="change-hints">
-                    <span v-if="item.changeCount" class="hint"
-                      >{{ item.changeCount }} changes</span
-                    >
-                    <span v-if="item.deprecated" class="hint deprecated"
-                      >Deprecated</span
-                    >
                   </div>
-                  <div class="card-actions">
-                    <Button
-                      icon="pi pi-eye"
-                      class="p-button-text"
-                      @click="openDetails(item)"
-                      aria-label="Open details"
-                    />
+
+                  <div class="card-right">
+                    <div class="change-hints">
+                      <span v-if="item.changeCount" class="hint"
+                        >{{ item.changeCount }} changes</span
+                      >
+                      <span v-if="item.deprecated" class="hint deprecated"
+                        >Deprecated</span
+                      >
+                    </div>
+                    <div class="card-actions">
+                      <Button
+                        icon="pi pi-eye"
+                        class="p-button-text"
+                        @click="openDetails(item)"
+                        aria-label="Open details"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Schemas / Components -->
+            <div v-if="schemas.length" class="section-group">
+              <div class="section-header">
+                <h4>Components / Schemas ({{ schemas.length }})</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('schemas')"
+                />
+              </div>
+              <div v-show="expandedSections.schemas" class="cards-grid">
+                <div v-if="schemas.length === 0" class="no-items">
+                  No components/schemas
+                </div>
+                <div
+                  v-for="(item, idx) in schemas"
+                  :key="cardKey(item, idx)"
+                  class="endpoint-card"
+                >
+                  <div class="card-left">
+                    <div class="schema-header">
+                      <i class="pi pi-sitemap"></i>
+                      <code class="schema-name">{{ item.name }}</code>
+                    </div>
+                    <div class="short">Component/schema</div>
+                  </div>
+                  <div class="card-details">
+                    <div class="mini-section">
+                      <div class="mini-label">Schema preview</div>
+                      <pre
+                        class="mini-json"
+                      ><code>{{ prettyJSON(item.schema) }}</code></pre>
+                    </div>
+                  </div>
+                  <div class="card-right">
+                    <div class="change-hints">
+                      <span class="hint">{{ item.changeCount }} changes</span>
+                    </div>
+                    <div class="card-actions">
+                      <Button
+                        icon="pi pi-eye"
+                        class="p-button-text"
+                        @click="openDetails(item)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Info -->
+            <div v-if="infos.length" class="section-group">
+              <div class="section-header">
+                <h4>Info ({{ infos.length }})</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('info')"
+                />
+              </div>
+              <div v-show="expandedSections.info" class="cards-grid">
+                <div v-if="infos.length === 0" class="no-items">
+                  No info items
+                </div>
+                <div
+                  v-for="(item, idx) in infos"
+                  :key="cardKey(item, idx)"
+                  class="endpoint-card"
+                >
+                  <div class="card-left">
+                    <Tag severity="info">{{ item.key }}</Tag>
+                    <div class="short">{{ item.value }}</div>
+                  </div>
+                  <div class="card-details">
+                    <div class="mini-section">
+                      <div class="mini-label">Value</div>
+                      <div class="mini-desc">{{ item.value }}</div>
+                    </div>
+                  </div>
+                  <div class="card-right">
+                    <div class="change-hints">
+                      <span class="hint">1 change</span>
+                    </div>
+                    <div class="card-actions">
+                      <Button
+                        icon="pi pi-eye"
+                        class="p-button-text"
+                        @click="openDetails(item)"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -257,7 +326,7 @@
                 <Tag severity="success">Added</Tag>
                 <div class="pill-count">{{ summary.added }}</div>
                 <div class="pill-sub">
-                  {{ diff.added?.length || 0 }} endpoints
+                  {{ (diff.added || []).length }} endpoints
                 </div>
               </button>
 
@@ -269,7 +338,7 @@
                 <Tag severity="warn">Modified</Tag>
                 <div class="pill-count">{{ summary.modified }}</div>
                 <div class="pill-sub">
-                  {{ diff.modified?.length || 0 }} endpoints
+                  {{ (diff.modified || []).length }} endpoints
                 </div>
               </button>
 
@@ -281,7 +350,7 @@
                 <Tag severity="danger">Removed</Tag>
                 <div class="pill-count">{{ summary.removed }}</div>
                 <div class="pill-sub">
-                  {{ diff.removed?.length || 0 }} endpoints
+                  {{ (diff.removed || []).length }} endpoints
                 </div>
               </button>
 
@@ -303,19 +372,26 @@
           </div>
 
           <div v-else class="cards-area">
-            <div v-if="groupedList.length === 0" class="no-results">
-              No items match the filter.
-            </div>
-
-            <div class="cards-grid">
-              <div
-                v-for="(item, idx) in groupedList"
-                :key="cardKey(item, idx)"
-                class="endpoint-card"
-              >
-                <!-- Left column varies by item kind -->
-                <div class="card-left">
-                  <template v-if="item.__kind === 'endpoint'">
+            <!-- Endpoints -->
+            <div v-if="endpoints.length" class="section-group">
+              <div class="section-header">
+                <h4>Endpoints ({{ endpoints.length }})</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('endpoints')"
+                />
+              </div>
+              <div v-show="expandedSections.endpoints" class="cards-grid">
+                <div v-if="endpoints.length === 0" class="no-items">
+                  No endpoints
+                </div>
+                <div
+                  v-for="(item, idx) in endpoints"
+                  :key="cardKey(item, idx)"
+                  class="endpoint-card"
+                >
+                  <div class="card-left">
                     <Tag
                       :severity="getMethodSeverity(item.method)"
                       class="method-tag"
@@ -325,41 +401,9 @@
                     <div v-if="item.summary" class="short">
                       {{ item.summary }}
                     </div>
-                  </template>
+                  </div>
 
-                  <template v-else-if="item.__kind === 'schema'">
-                    <div class="schema-header">
-                      <i class="pi pi-sitemap" aria-hidden="true"></i>
-                      <code class="schema-name">{{ item.name }}</code>
-                    </div>
-                    <div class="short">Schema</div>
-                  </template>
-
-                  <template v-else>
-                    <Tag severity="info">{{ item.key }}</Tag>
-                    <div class="short">{{ item.value }}</div>
-                  </template>
-                </div>
-
-                <!-- Inline details: expanded for added/removed; preview for modified -->
-                <div class="card-details">
-                  <template v-if="item.__kind === 'schema'">
-                    <div class="mini-section">
-                      <div class="mini-label">Schema preview</div>
-                      <pre
-                        class="mini-json"
-                      ><code>{{ prettyJSON(item.schema || item.schemaPreview || item.type) }}</code></pre>
-                    </div>
-                  </template>
-
-                  <template v-else-if="item.__kind === 'info'">
-                    <div class="mini-section">
-                      <div class="mini-label">Info</div>
-                      <div class="mini-desc">{{ item.value }}</div>
-                    </div>
-                  </template>
-
-                  <template v-else>
+                  <div class="card-details">
                     <template
                       v-if="
                         item.changeType === 'added' ||
@@ -409,25 +453,120 @@
                         No field-level summary available
                       </div>
                     </template>
-                  </template>
-                </div>
-
-                <div class="card-right">
-                  <div class="change-hints">
-                    <span v-if="item.changeCount" class="hint"
-                      >{{ item.changeCount }} changes</span
-                    >
-                    <span v-if="item.deprecated" class="hint deprecated"
-                      >Deprecated</span
-                    >
                   </div>
-                  <div class="card-actions">
-                    <Button
-                      icon="pi pi-eye"
-                      class="p-button-text"
-                      @click="openDetails(item)"
-                      aria-label="Open details"
-                    />
+
+                  <div class="card-right">
+                    <div class="change-hints">
+                      <span v-if="item.changeCount" class="hint"
+                        >{{ item.changeCount }} changes</span
+                      >
+                      <span v-if="item.deprecated" class="hint deprecated"
+                        >Deprecated</span
+                      >
+                    </div>
+                    <div class="card-actions">
+                      <Button
+                        icon="pi pi-eye"
+                        class="p-button-text"
+                        @click="openDetails(item)"
+                        aria-label="Open details"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Schemas / Components -->
+            <div v-if="schemas.length" class="section-group">
+              <div class="section-header">
+                <h4>Components / Schemas ({{ schemas.length }})</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('schemas')"
+                />
+              </div>
+              <div v-show="expandedSections.schemas" class="cards-grid">
+                <div v-if="schemas.length === 0" class="no-items">
+                  No components/schemas
+                </div>
+                <div
+                  v-for="(item, idx) in schemas"
+                  :key="cardKey(item, idx)"
+                  class="endpoint-card"
+                >
+                  <div class="card-left">
+                    <div class="schema-header">
+                      <i class="pi pi-sitemap"></i>
+                      <code class="schema-name">{{ item.name }}</code>
+                    </div>
+                    <div class="short">Component/schema</div>
+                  </div>
+                  <div class="card-details">
+                    <div class="mini-section">
+                      <div class="mini-label">Schema preview</div>
+                      <pre
+                        class="mini-json"
+                      ><code>{{ prettyJSON(item.schema) }}</code></pre>
+                    </div>
+                  </div>
+                  <div class="card-right">
+                    <div class="change-hints">
+                      <span class="hint">{{ item.changeCount }} changes</span>
+                    </div>
+                    <div class="card-actions">
+                      <Button
+                        icon="pi pi-eye"
+                        class="p-button-text"
+                        @click="openDetails(item)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Info -->
+            <div v-if="infos.length" class="section-group">
+              <div class="section-header">
+                <h4>Info ({{ infos.length }})</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('info')"
+                />
+              </div>
+              <div v-show="expandedSections.info" class="cards-grid">
+                <div v-if="infos.length === 0" class="no-items">
+                  No info items
+                </div>
+                <div
+                  v-for="(item, idx) in infos"
+                  :key="cardKey(item, idx)"
+                  class="endpoint-card"
+                >
+                  <div class="card-left">
+                    <Tag severity="info">{{ item.key }}</Tag>
+                    <div class="short">{{ item.value }}</div>
+                  </div>
+                  <div class="card-details">
+                    <div class="mini-section">
+                      <div class="mini-label">Value</div>
+                      <div class="mini-desc">{{ item.value }}</div>
+                    </div>
+                  </div>
+                  <div class="card-right">
+                    <div class="change-hints">
+                      <span class="hint">1 change</span>
+                    </div>
+                    <div class="card-actions">
+                      <Button
+                        icon="pi pi-eye"
+                        class="p-button-text"
+                        @click="openDetails(item)"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -512,351 +651,254 @@
 <script>
 import { ref, computed, watch } from "vue";
 import Drawer from "primevue/drawer";
-import Tag from "primevue/tag";
-import Button from "primevue/button";
 import Dialog from "primevue/dialog";
+import Button from "primevue/button";
+import Tag from "primevue/tag";
 import ScrollPanel from "primevue/scrollpanel";
-import { useToast } from "primevue/usetoast";
 import { generateMarkdownReport } from "../utils/markdownGenerator";
 
 export default {
   name: "DiffDrawer",
-  components: { Drawer, Tag, Button, Dialog, ScrollPanel },
+  components: {
+    Drawer,
+    Dialog,
+    Button,
+    Tag,
+    ScrollPanel,
+  },
   props: {
-    visible: { type: Boolean, default: false },
-    diff: { type: Object, required: true },
-    inline: { type: Boolean, default: false },
+    diff: {
+      type: Object,
+      default: () => ({ info: null, added: [], modified: [], removed: [] }),
+    },
+    inline: {
+      type: Boolean,
+      default: false,
+    },
+    visible: {
+      type: Boolean,
+      default: false,
+    },
   },
   emits: ["update:visible"],
-  setup(props) {
-    const toast = useToast();
-    const diffContainer = ref(null);
+  setup(props, { emit }) {
+    const filter = ref("added");
     const search = ref("");
     const copying = ref(false);
-    const filter = ref("modified");
-
     const detailOpen = ref(false);
     const selectedItem = ref(null);
+    const expandedSections = ref({
+      endpoints: true,
+      schemas: true,
+      info: true,
+    });
+
+    watch(
+      () => props.diff,
+      () => {
+        // no-op for now; placeholder if we need to react to incoming diffs
+      },
+      { deep: true }
+    );
+
+    const summary = computed(() => {
+      const d = props.diff || {};
+      return {
+        added:
+          (d.infoAdded?.length || 0) +
+          (d.added?.length || 0) +
+          (d.schemaAdded?.length || 0),
+        modified:
+          (d.infoModified?.length || 0) +
+          (d.modified?.length || 0) +
+          (d.schemaModified?.length || 0),
+        removed:
+          (d.infoRemoved?.length || 0) +
+          (d.removed?.length || 0) +
+          (d.schemaRemoved?.length || 0),
+      };
+    });
 
     const hasChanges = computed(() => {
+      const d = props.diff || {};
       return (
-        props.diff &&
-        (props.diff.infoAdded?.length ||
-          props.diff.infoModified?.length ||
-          props.diff.infoRemoved?.length ||
-          props.diff.added?.length ||
-          props.diff.modified?.length ||
-          props.diff.removed?.length ||
-          props.diff.schemaAdded?.length ||
-          props.diff.schemaModified?.length ||
-          props.diff.schemaRemoved?.length)
+        (d.infoAdded?.length || 0) +
+          (d.infoModified?.length || 0) +
+          (d.infoRemoved?.length || 0) +
+          (d.added?.length || 0) +
+          (d.modified?.length || 0) +
+          (d.removed?.length || 0) +
+          (d.schemaAdded?.length || 0) +
+          (d.schemaModified?.length || 0) +
+          (d.schemaRemoved?.length || 0) >
+        0
       );
     });
 
-    const summary = computed(() => ({
-      added:
-        (props.diff.infoAdded?.length || 0) +
-        (props.diff.added?.length || 0) +
-        (props.diff.schemaAdded?.length || 0),
-      modified:
-        (props.diff.infoModified?.length || 0) +
-        (props.diff.modified?.length || 0) +
-        (props.diff.schemaModified?.length || 0),
-      removed:
-        (props.diff.infoRemoved?.length || 0) +
-        (props.diff.removed?.length || 0) +
-        (props.diff.schemaRemoved?.length || 0),
-    }));
+    const endpointsAll = computed(() => {
+      const d = props.diff || {};
+      const list = [];
+      (d.added || []).forEach((it) =>
+        list.push({ ...it, changeType: "added" })
+      );
+      (d.modified || []).forEach((it) =>
+        list.push({ ...it, changeType: "modified" })
+      );
+      (d.removed || []).forEach((it) =>
+        list.push({ ...it, changeType: "removed" })
+      );
+      return list;
+    });
 
-    const getMethodSeverity = (method) => {
-      const severities = {
-        GET: "info",
-        POST: "success",
-        PUT: "warn",
-        PATCH: "warn",
-        DELETE: "danger",
-      };
-      return severities[method?.toUpperCase()] || "secondary";
-    };
+    const endpoints = computed(() => {
+      const q = search.value.trim().toLowerCase();
+      return endpointsAll.value.filter((it) => {
+        if (filter.value && it.changeType !== filter.value) return false;
+        if (!q) return true;
+        return (
+          (it.path || "").toLowerCase().includes(q) ||
+          (it.method || "").toLowerCase().includes(q) ||
+          (it.summary || "").toLowerCase().includes(q)
+        );
+      });
+    });
 
-    const formatFieldName = (field) => {
-      if (!field) return "";
-      return field
-        .replace(/([A-Z])/g, " $1")
-        .replace(/^./, (s) => s.toUpperCase())
-        .trim();
-    };
+    const schemas = computed(() => props.diff?.schemaAdded || []);
+    const infos = computed(() => {
+      const d = props.diff || {};
+      return [
+        ...(d.infoAdded || []).map((i) => ({ key: i.key, value: i.value })),
+        ...(d.infoModified || []).map((i) => ({ key: i.key, value: i.new })),
+        ...(d.infoRemoved || []).map((i) => ({ key: i.key, value: i.value })),
+      ];
+    });
 
-    const prettyJSON = (obj) => {
+    function getMethodSeverity(method) {
+      const m = (method || "").toUpperCase();
+      if (m === "GET") return "success";
+      if (m === "POST") return "info";
+      if (m === "PUT" || m === "PATCH") return "warn";
+      if (m === "DELETE") return "danger";
+      return "info";
+    }
+
+    function prettyJSON(obj) {
       try {
         return JSON.stringify(obj, null, 2);
       } catch (e) {
         return String(obj);
       }
-    };
+    }
 
-    const truncate = (s, n) => {
-      if (s == null) return s;
-      return s.length > n ? s.slice(0, n - 1) + "…" : s;
-    };
+    function truncate(str, n = 80) {
+      if (!str) return "";
+      return str.length > n ? str.slice(0, n - 1) + "…" : str;
+    }
 
-    const filterList = (list, q) => {
-      if (!list || !list.length) return [];
-      if (!q) return list;
-      const term = q.toLowerCase();
-      return list.filter((item) => {
-        try {
-          return JSON.stringify(item).toLowerCase().includes(term);
-        } catch (e) {
-          return false;
-        }
-      });
-    };
+    function formatFieldName(f) {
+      if (!f) return "";
+      return String(f).replace(/\./g, " → ");
+    }
 
-    const mapEndpoints = (list, type) =>
-      (list || []).map((it) => ({
-        ...it,
-        __kind: "endpoint",
-        changeType: type,
-        changeCount: estimateChangeCount(it),
-        diffDetails: computeDetails(it),
-      }));
-    const mapSchemas = (list, type) =>
-      (list || []).map((it) => ({
-        ...it,
-        __kind: "schema",
-        changeType: type,
-        changeCount: it.schema ? 1 : 0,
-        schema: it.schema,
-        name: it.name || it.title,
-      }));
-    const mapInfos = (list, type) =>
-      (list || []).map((it) => ({
-        ...it,
-        __kind: "info",
-        changeType: type,
-        changeCount: 1,
-        key: it.key,
-        value: it.value,
-      }));
+    function cardKey(item, idx) {
+      return `${item.path || ""}-${item.method || ""}-${idx}`;
+    }
 
-    // helper to compute compact details per item
-    const computeDetails = (item) => {
-      if (!item) return null;
-      const details = { fields: [] };
-      if (item.fieldDiffs && Array.isArray(item.fieldDiffs)) {
-        details.fields = item.fieldDiffs.map((f) => ({
-          field: f.field,
-          old: f.old,
-          new: f.new,
-        }));
-      } else if (item.changes && Array.isArray(item.changes)) {
-        details.fields = item.changes.map((c) => ({
-          field: c.key || c.field || "unknown",
-          old: c.old,
-          new: c.new,
-        }));
-      }
-      return details;
-    };
-
-    const estimateChangeCount = (item) => {
-      let c = 0;
-      if (item.deprecated) c += 1;
-      if (item.fieldDiffs) c += item.fieldDiffs.length;
-      if (item.changes)
-        c += Array.isArray(item.changes) ? item.changes.length : 0;
-      return c;
-    };
-
-    // Produce a flat list including endpoints, schemas and info depending on filter
-    const groupedList = computed(() => {
-      const q = (search.value || "").trim().toLowerCase();
-      if (filter.value === "added") {
-        const endpoints = q
-          ? filterList(props.diff.added, q)
-          : props.diff.added || [];
-        const schemas = q
-          ? filterList(props.diff.schemaAdded, q)
-          : props.diff.schemaAdded || [];
-        const infos = q
-          ? filterList(props.diff.infoAdded, q)
-          : props.diff.infoAdded || [];
-        return [
-          ...mapEndpoints(endpoints, "added"),
-          ...mapSchemas(schemas, "added"),
-          ...mapInfos(infos, "added"),
-        ];
-      }
-      if (filter.value === "removed") {
-        const endpoints = q
-          ? filterList(props.diff.removed, q)
-          : props.diff.removed || [];
-        const schemas = q
-          ? filterList(props.diff.schemaRemoved, q)
-          : props.diff.schemaRemoved || [];
-        const infos = q
-          ? filterList(props.diff.infoRemoved, q)
-          : props.diff.infoRemoved || [];
-        return [
-          ...mapEndpoints(endpoints, "removed"),
-          ...mapSchemas(schemas, "removed"),
-          ...mapInfos(infos, "removed"),
-        ];
-      }
-      // modified
-      const endpoints = q
-        ? filterList(props.diff.modified, q)
-        : props.diff.modified || [];
-      const schemas = q
-        ? filterList(props.diff.schemaModified, q)
-        : props.diff.schemaModified || [];
-      const infos = q
-        ? filterList(props.diff.infoModified, q)
-        : props.diff.infoModified || [];
-      return [
-        ...mapEndpoints(endpoints, "modified"),
-        ...mapSchemas(schemas, "modified"),
-        ...mapInfos(infos, "modified"),
-      ];
-    });
-
-    const openDetails = (item) => {
-      selectedItem.value = {
-        ...item,
-        diffDetails: item.diffDetails || computeDetails(item),
-        raw: item,
-      };
+    function openDetails(item) {
+      selectedItem.value = item;
       detailOpen.value = true;
-    };
+    }
 
-    const setDetailOpen = (v) => {
-      detailOpen.value = v;
-    };
+    function setDetailOpen(val) {
+      detailOpen.value = val;
+      if (!val) selectedItem.value = null;
+    }
 
-    const copyAsMarkdown = async () => {
+    function toggleSection(key) {
+      expandedSections.value[key] = !expandedSections.value[key];
+    }
+
+    async function copyAsMarkdown() {
       copying.value = true;
       try {
-        const markdown = generateMarkdownReport(props.diff);
+        const md = generateMarkdownReport(props.diff || {});
         if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(markdown);
+          await navigator.clipboard.writeText(md);
         } else {
-          const ta = document.createElement("textarea");
-          ta.value = markdown;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          ta.remove();
+          const t = document.createElement("textarea");
+          t.value = md;
+          t.style.position = "fixed";
+          t.style.left = "-9999px";
+          document.body.appendChild(t);
+          t.select();
+          try {
+            document.execCommand("copy");
+          } finally {
+            t.remove();
+          }
         }
-        toast.add({
-          severity: "success",
-          summary: "Copied",
-          detail: "Changes copied as markdown",
-          life: 2500,
-        });
-      } catch (err) {
-        toast.add({
-          severity: "error",
-          summary: "Copy failed",
-          detail: err.message || String(err),
-          life: 3000,
-        });
+      } catch (e) {
+        console.error(e);
       } finally {
         copying.value = false;
       }
-    };
+    }
 
-    const copyItemMarkdown = async () => {
+    async function copyItemMarkdown() {
       if (!selectedItem.value) return;
-      try {
-        const md =
-          `### ${
-            selectedItem.value.method ||
-            selectedItem.value.name ||
-            selectedItem.value.key ||
-            ""
-          } ${selectedItem.value.path || ""}\n\n` +
-          (selectedItem.value.short || selectedItem.value.summary || "") +
-          "\n\n" +
-          (selectedItem.value.diffDetails?.fields
-            ?.map((f) => `- **${f.field}**: ${f.old ?? "—"} → ${f.new ?? "—"}`)
-            .join("\n") || "No field-level details");
+      const md = "```json\n" + prettyJSON(selectedItem.value) + "\n```";
+      if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(md);
-        toast.add({
-          severity: "success",
-          summary: "Copied",
-          detail: "Item markdown copied",
-          life: 2000,
-        });
-      } catch (e) {
-        toast.add({
-          severity: "error",
-          summary: "Copy failed",
-          detail: String(e),
-          life: 3000,
-        });
+      } else {
+        const t = document.createElement("textarea");
+        t.value = md;
+        document.body.appendChild(t);
+        t.select();
+        try {
+          document.execCommand("copy");
+        } finally {
+          t.remove();
+        }
       }
-    };
+    }
 
-    const exportItemJSON = async () => {
+    function exportItemJSON() {
       if (!selectedItem.value) return;
-      try {
-        const compact = {
-          path: selectedItem.value.path,
-          method: selectedItem.value.method,
-          kind: selectedItem.value.__kind,
-          changeType: selectedItem.value.changeType || "modified",
-          fieldsChanged: selectedItem.value.diffDetails?.fields || [],
-        };
-        const json = JSON.stringify(compact, null, 2);
-        await navigator.clipboard.writeText(json);
-        toast.add({
-          severity: "success",
-          summary: "Exported",
-          detail: "Compact JSON copied to clipboard",
-          life: 2500,
-        });
-      } catch (e) {
-        toast.add({
-          severity: "error",
-          summary: "Export failed",
-          detail: String(e),
-          life: 3000,
-        });
-      }
-    };
-
-    const cardKey = (item, idx) =>
-      `${item.__kind || "item"}::${
-        item.path || item.name || item.key || idx
-      }::${item.method || ""}::${idx}`;
-
-    watch(
-      () => props.diff,
-      () => {},
-      { deep: true }
-    );
+      const data = JSON.stringify(selectedItem.value, null, 2);
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "item.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
 
     return {
-      diffContainer,
-      search,
-      copyAsMarkdown,
-      copying,
-      hasChanges,
-      summary,
       filter,
-      groupedList,
+      search,
+      copying,
+      summary,
+      hasChanges,
+      endpoints,
+      schemas,
+      infos,
+      expandedSections,
+      toggleSection,
       getMethodSeverity,
+      prettyJSON,
+      truncate,
+      formatFieldName,
+      cardKey,
       openDetails,
       detailOpen,
       selectedItem,
-      formatFieldName,
-      prettyJSON,
+      setDetailOpen,
       copyItemMarkdown,
       exportItemJSON,
-      cardKey,
-      setDetailOpen,
-      truncate,
+      copyAsMarkdown,
     };
   },
 };
