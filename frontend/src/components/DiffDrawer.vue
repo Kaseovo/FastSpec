@@ -58,402 +58,432 @@
           </div>
 
           <div v-else class="changes-content">
-            <Accordion multiple>
-              <AccordionTab>
-                <template #header>
-                  <div style="display: flex; align-items: center; gap: 0.5rem">
-                    <span>📊 Summary</span>
-                  </div>
-                </template>
-
-                <div class="summary-grid">
-                  <div class="summary-item added">
-                    <Tag severity="success">Added</Tag>
-                    <div class="count">{{ summary.added }}</div>
-                  </div>
-                  <div class="summary-item modified">
-                    <Tag severity="warn">Modified</Tag>
-                    <div class="count">{{ summary.modified }}</div>
-                  </div>
-                  <div class="summary-item removed">
-                    <Tag severity="danger">Removed</Tag>
-                    <div class="count">{{ summary.removed }}</div>
-                  </div>
+            <!-- Summary always visible and clickable -->
+            <div
+              id="summary-section"
+              class="summary-grid summary-card"
+              role="group"
+              aria-label="Summary"
+            >
+              <div
+                class="summary-item added"
+                role="button"
+                tabindex="0"
+                @click="scrollToSection('added')"
+                @keydown.enter="scrollToSection('added')"
+              >
+                <Tag severity="success">Added</Tag>
+                <div class="count">{{ summary.added }}</div>
+                <div class="sub-count">
+                  {{ diff.added?.length || 0 }} endpoints ·
+                  {{ diff.schemaAdded?.length || 0 }} schemas ·
+                  {{ diff.infoAdded?.length || 0 }} info
                 </div>
-              </AccordionTab>
-
-              <AccordionTab v-if="filteredDiff.infoAdded?.length">
-                <template #header>
-                  <div>
-                    ➕ Added Information ({{ filteredDiff.infoAdded.length }})
-                  </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="item in filteredDiff.infoAdded"
-                    :key="item.key"
-                    class="change-item added"
-                  >
-                    <Tag severity="success">{{ item.key }}</Tag>
-                    <div class="single-value">
-                      <code>{{ item.value }}</code>
-                    </div>
-                  </div>
+              </div>
+              <div
+                class="summary-item modified"
+                role="button"
+                tabindex="0"
+                @click="scrollToSection('modified')"
+                @keydown.enter="scrollToSection('modified')"
+              >
+                <Tag severity="warn">Modified</Tag>
+                <div class="count">{{ summary.modified }}</div>
+                <div class="sub-count">
+                  {{ diff.modified?.length || 0 }} endpoints ·
+                  {{ diff.schemaModified?.length || 0 }} schemas ·
+                  {{ diff.infoModified?.length || 0 }} info
                 </div>
-              </AccordionTab>
-
-              <AccordionTab v-if="filteredDiff.infoModified?.length">
-                <template #header>
-                  <div>
-                    ✏️ Modified Information ({{
-                      filteredDiff.infoModified.length
-                    }})
-                  </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="item in filteredDiff.infoModified"
-                    :key="item.key"
-                    class="change-item modified"
-                  >
-                    <Tag severity="warning">{{ item.key }}</Tag>
-                    <div class="change-values">
-                      <div class="old-value">
-                        <span class="value-label">Before:</span
-                        ><code>{{ item.old }}</code>
-                      </div>
-                      <i class="pi pi-arrow-right"></i>
-                      <div class="new-value">
-                        <span class="value-label">After:</span
-                        ><code>{{ item.new }}</code>
-                      </div>
-                    </div>
-                  </div>
+              </div>
+              <div
+                class="summary-item removed"
+                role="button"
+                tabindex="0"
+                @click="scrollToSection('removed')"
+                @keydown.enter="scrollToSection('removed')"
+              >
+                <Tag severity="danger">Removed</Tag>
+                <div class="count">{{ summary.removed }}</div>
+                <div class="sub-count">
+                  {{ diff.removed?.length || 0 }} endpoints ·
+                  {{ diff.schemaRemoved?.length || 0 }} schemas ·
+                  {{ diff.infoRemoved?.length || 0 }} info
                 </div>
-              </AccordionTab>
+              </div>
+            </div>
 
-              <AccordionTab v-if="filteredDiff.infoRemoved?.length">
-                <template #header>
-                  <div>
-                    ➖ Removed Information ({{
-                      filteredDiff.infoRemoved.length
-                    }})
-                  </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="item in filteredDiff.infoRemoved"
-                    :key="item.key"
-                    class="change-item removed"
-                  >
-                    <Tag severity="danger">{{ item.key }}</Tag>
-                    <div class="single-value">
-                      <code>{{ item.value }}</code>
-                    </div>
-                  </div>
-                </div>
-              </AccordionTab>
-
-              <AccordionTab v-if="filteredDiff.schemaAdded?.length">
-                <template #header>
-                  <div>
-                    ➕ Added Schemas ({{ filteredDiff.schemaAdded.length }})
-                  </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="item in filteredDiff.schemaAdded"
-                    :key="item.name"
-                    class="change-item added"
-                  >
-                    <div class="schema-name-header">
-                      <i class="pi pi-sitemap"></i
-                      ><code class="schema-name">{{ item.name }}</code
-                      ><Tag v-if="item.schema.type" severity="info">{{
-                        item.schema.type
-                      }}</Tag>
-                    </div>
-                    <pre
-                      class="schema-preview"
-                    ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
-                  </div>
-                </div>
-              </AccordionTab>
-
-              <AccordionTab v-if="filteredDiff.schemaModified?.length">
-                <template #header>
-                  <div>
-                    🔄 Modified Schemas ({{
-                      filteredDiff.schemaModified.length
-                    }})
-                  </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="(item, index) in filteredDiff.schemaModified"
-                    :key="`schema-${item.name}-${index}`"
-                    class="change-item schema-modified"
-                  >
-                    <div class="schema-name-header">
-                      <i class="pi pi-sitemap"></i
-                      ><code class="schema-name">{{ item.name }}</code>
-                    </div>
-
-                    <div v-if="item.typeChanged" class="type-change-inline">
-                      <span class="change-label">Type:</span
-                      ><code>{{ item.oldType }}</code
-                      ><i class="pi pi-arrow-right"></i
-                      ><code>{{ item.newType }}</code>
-                    </div>
-
-                    <div v-if="item.requiredChanged" class="required-change">
-                      <i class="pi pi-exclamation-triangle"></i
-                      ><span class="change-label">Required fields changed</span>
-                      <div class="required-badges">
-                        <div
-                          v-if="item.requiredAdded?.length"
-                          class="required-group"
-                        >
-                          <span class="required-label added">Added:</span
-                          ><Tag
-                            v-for="field in item.requiredAdded"
-                            :key="field"
-                            severity="danger"
-                            size="small"
-                            >{{ field }}</Tag
-                          >
-                        </div>
-                        <div
-                          v-if="item.requiredRemoved?.length"
-                          class="required-group"
-                        >
-                          <span class="required-label removed">Removed:</span
-                          ><Tag
-                            v-for="field in item.requiredRemoved"
-                            :key="field"
-                            severity="success"
-                            size="small"
-                            >{{ field }}</Tag
-                          >
-                        </div>
-                      </div>
-                    </div>
-
-                    <div v-if="item.enumChanged" class="validation-change">
-                      <i class="pi pi-list"></i><span>Enum values changed</span>
-                    </div>
-                    <div v-if="item.formatChanged" class="validation-change">
-                      <i class="pi pi-palette"></i><span>Format changed</span>
-                    </div>
-
+            <!-- Grouped sections: Added / Modified / Removed -->
+            <div id="added-section" class="change-section added">
+              <h4 class="section-title">➕ Added</h4>
+              <Accordion multiple>
+                <AccordionTab v-if="filteredDiff.infoAdded?.length">
+                  <template #header>
+                    <div>Information ({{ filteredDiff.infoAdded.length }})</div>
+                  </template>
+                  <div class="change-list">
                     <div
-                      v-if="item.validationChanged?.length"
-                      class="validation-changes"
+                      v-for="item in filteredDiff.infoAdded"
+                      :key="item.key"
+                      class="change-item added"
                     >
-                      <i class="pi pi-shield"></i
-                      ><span class="change-label"
-                        >Validation rules changed:</span
-                      >
-                      <div class="validation-list">
-                        <div
-                          v-for="(validation, idx) in item.validationChanged"
-                          :key="idx"
-                          class="validation-item"
-                        >
-                          <code>{{ validation.field }}</code
-                          ><span class="validation-arrow">:</span
-                          ><code class="old-val">{{
-                            validation.old ?? "none"
-                          }}</code
-                          ><i class="pi pi-arrow-right"></i
-                          ><code class="new-val">{{
-                            validation.new ?? "none"
-                          }}</code>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      v-if="item.propertiesAdded?.length"
-                      class="properties-summary added"
-                    >
-                      <i class="pi pi-plus-circle"></i
-                      ><span
-                        >{{ item.propertiesAdded.length }} properties
-                        added</span
-                      >
-                      <div class="property-badges">
-                        <Tag
-                          v-for="prop in item.propertiesAdded"
-                          :key="prop.name"
-                          severity="success"
-                          size="small"
-                          >{{ prop.name }}</Tag
-                        >
-                      </div>
-                    </div>
-
-                    <div
-                      v-if="item.propertiesRemoved?.length"
-                      class="properties-summary removed"
-                    >
-                      <i class="pi pi-minus-circle"></i
-                      ><span
-                        >{{ item.propertiesRemoved.length }} properties
-                        removed</span
-                      >
-                      <div class="property-badges">
-                        <Tag
-                          v-for="prop in item.propertiesRemoved"
-                          :key="prop.name"
-                          severity="danger"
-                          size="small"
-                          >{{ prop.name }}</Tag
-                        >
-                      </div>
-                    </div>
-
-                    <div
-                      v-if="item.propertiesModified?.length"
-                      class="properties-summary modified"
-                    >
-                      <i class="pi pi-pencil"></i
-                      ><span
-                        >{{ item.propertiesModified.length }} properties
-                        modified</span
-                      >
-                      <div class="property-badges">
-                        <Tag
-                          v-for="prop in item.propertiesModified"
-                          :key="prop.name"
-                          severity="warn"
-                          size="small"
-                          >{{ prop.name }}</Tag
-                        >
+                      <Tag severity="success">{{ item.key }}</Tag>
+                      <div class="single-value">
+                        <code>{{ item.value }}</code>
                       </div>
                     </div>
                   </div>
-                </div>
-              </AccordionTab>
+                </AccordionTab>
 
-              <AccordionTab v-if="filteredDiff.schemaRemoved?.length">
-                <template #header>
-                  <div>
-                    ➖ Removed Schemas ({{ filteredDiff.schemaRemoved.length }})
-                  </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="(item, index) in filteredDiff.schemaRemoved"
-                    :key="item.name"
-                    class="change-item removed"
-                  >
-                    <div class="schema-name-header">
-                      <i class="pi pi-sitemap"></i
-                      ><code class="schema-name">{{ item.name }}</code
-                      ><Tag
-                        v-if="item.schema.type"
-                        severity="danger"
-                        size="small"
-                        >{{ item.schema.type }}</Tag
-                      >
-                    </div>
-                    <Button
-                      class="p-button-text"
-                      @click="toggleRemovedSchema(index)"
-                      icon="pi pi-chevron-down"
-                      :class="{ 'rotate-180': expandedRemovedSchemas[index] }"
-                    />
+                <AccordionTab v-if="filteredDiff.schemaAdded?.length">
+                  <template #header>
+                    <div>Schemas ({{ filteredDiff.schemaAdded.length }})</div>
+                  </template>
+                  <div class="change-list">
                     <div
-                      v-if="expandedRemovedSchemas[index]"
-                      class="expanded-details"
+                      v-for="item in filteredDiff.schemaAdded"
+                      :key="item.name"
+                      class="change-item added"
                     >
+                      <div class="schema-name-header">
+                        <i class="pi pi-sitemap"></i
+                        ><code class="schema-name">{{ item.name }}</code
+                        ><Tag v-if="item.schema.type" severity="info">{{
+                          item.schema.type
+                        }}</Tag>
+                      </div>
                       <pre
                         class="schema-preview"
                       ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
                     </div>
                   </div>
-                </div>
-              </AccordionTab>
+                </AccordionTab>
 
-              <AccordionTab v-if="filteredDiff.added?.length">
-                <template #header>
-                  <div>
-                    ➕ Added Endpoints ({{ filteredDiff.added.length }})
+                <AccordionTab v-if="filteredDiff.added?.length">
+                  <template #header>
+                    <div>Endpoints ({{ filteredDiff.added.length }})</div>
+                  </template>
+                  <div class="change-list">
+                    <div
+                      v-for="item in filteredDiff.added"
+                      :key="item.path"
+                      class="change-item added"
+                    >
+                      <div class="endpoint-header">
+                        <Tag :severity="getMethodSeverity(item.method)">{{
+                          item.method
+                        }}</Tag
+                        ><code class="path">{{ item.path }}</code
+                        ><Tag
+                          v-if="item.deprecated"
+                          severity="danger"
+                          size="small"
+                          >Deprecated</Tag
+                        >
+                      </div>
+                      <div v-if="item.summary" class="endpoint-summary">
+                        <strong>Summary:</strong> {{ item.summary }}
+                      </div>
+                      <div v-if="item.description" class="endpoint-description">
+                        <strong>Description:</strong> {{ item.description }}
+                      </div>
+                    </div>
                   </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="item in filteredDiff.added"
-                    :key="item.path"
-                    class="change-item added"
-                  >
-                    <div class="endpoint-header">
-                      <Tag :severity="getMethodSeverity(item.method)">{{
-                        item.method
-                      }}</Tag
-                      ><code class="path">{{ item.path }}</code
-                      ><Tag
-                        v-if="item.deprecated"
-                        severity="danger"
-                        size="small"
-                        >Deprecated</Tag
+                </AccordionTab>
+              </Accordion>
+            </div>
+
+            <div id="modified-section" class="change-section modified">
+              <h4 class="section-title">✏️ Modified</h4>
+              <Accordion multiple>
+                <AccordionTab v-if="filteredDiff.infoModified?.length">
+                  <template #header>
+                    <div>
+                      Information ({{ filteredDiff.infoModified.length }})
+                    </div>
+                  </template>
+                  <div class="change-list">
+                    <div
+                      v-for="item in filteredDiff.infoModified"
+                      :key="item.key"
+                      class="change-item modified"
+                    >
+                      <Tag severity="warning">{{ item.key }}</Tag>
+                      <div class="change-values">
+                        <div class="old-value">
+                          <span class="value-label">Before:</span
+                          ><code>{{ item.old }}</code>
+                        </div>
+                        <i class="pi pi-arrow-right"></i>
+                        <div class="new-value">
+                          <span class="value-label">After:</span
+                          ><code>{{ item.new }}</code>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionTab>
+
+                <AccordionTab v-if="filteredDiff.schemaModified?.length">
+                  <template #header>
+                    <div>
+                      Schemas ({{ filteredDiff.schemaModified.length }})
+                    </div>
+                  </template>
+                  <div class="change-list">
+                    <div
+                      v-for="(item, index) in filteredDiff.schemaModified"
+                      :key="`schema-${item.name}-${index}`"
+                      class="change-item schema-modified"
+                    >
+                      <div class="schema-name-header">
+                        <i class="pi pi-sitemap"></i
+                        ><code class="schema-name">{{ item.name }}</code>
+                      </div>
+
+                      <div v-if="item.typeChanged" class="type-change-inline">
+                        <span class="change-label">Type:</span
+                        ><code>{{ item.oldType }}</code
+                        ><i class="pi pi-arrow-right"></i
+                        ><code>{{ item.newType }}</code>
+                      </div>
+
+                      <div v-if="item.requiredChanged" class="required-change">
+                        <i class="pi pi-exclamation-triangle"></i
+                        ><span class="change-label"
+                          >Required fields changed</span
+                        >
+                        <div class="required-badges">
+                          <div
+                            v-if="item.requiredAdded?.length"
+                            class="required-group"
+                          >
+                            <span class="required-label added">Added:</span
+                            ><Tag
+                              v-for="field in item.requiredAdded"
+                              :key="field"
+                              severity="danger"
+                              size="small"
+                              >{{ field }}</Tag
+                            >
+                          </div>
+                          <div
+                            v-if="item.requiredRemoved?.length"
+                            class="required-group"
+                          >
+                            <span class="required-label removed">Removed:</span
+                            ><Tag
+                              v-for="field in item.requiredRemoved"
+                              :key="field"
+                              severity="success"
+                              size="small"
+                              >{{ field }}</Tag
+                            >
+                          </div>
+                        </div>
+                      </div>
+
+                      <div v-if="item.enumChanged" class="validation-change">
+                        <i class="pi pi-list"></i
+                        ><span>Enum values changed</span>
+                      </div>
+                      <div v-if="item.formatChanged" class="validation-change">
+                        <i class="pi pi-palette"></i><span>Format changed</span>
+                      </div>
+
+                      <div
+                        v-if="item.validationChanged?.length"
+                        class="validation-changes"
                       >
-                    </div>
-                    <div v-if="item.summary" class="endpoint-summary">
-                      <strong>Summary:</strong> {{ item.summary }}
-                    </div>
-                    <div v-if="item.description" class="endpoint-description">
-                      <strong>Description:</strong> {{ item.description }}
-                    </div>
-                  </div>
-                </div>
-              </AccordionTab>
+                        <i class="pi pi-shield"></i
+                        ><span class="change-label"
+                          >Validation rules changed:</span
+                        >
+                        <div class="validation-list">
+                          <div
+                            v-for="(validation, idx) in item.validationChanged"
+                            :key="idx"
+                            class="validation-item"
+                          >
+                            <code>{{ validation.field }}</code
+                            ><span class="validation-arrow">:</span
+                            ><code class="old-val">{{
+                              validation.old ?? "none"
+                            }}</code
+                            ><i class="pi pi-arrow-right"></i
+                            ><code class="new-val">{{
+                              validation.new ?? "none"
+                            }}</code>
+                          </div>
+                        </div>
+                      </div>
 
-              <AccordionTab v-if="filteredDiff.modified?.length">
-                <template #header>
-                  <div>
-                    ✏️ Modified Endpoints ({{ filteredDiff.modified.length }})
-                  </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="item in filteredDiff.modified"
-                    :key="item.path + item.method"
-                    class="change-item modified"
-                  >
-                    <div class="endpoint-header">
-                      <Tag :severity="getMethodSeverity(item.method)">{{
-                        item.method
-                      }}</Tag
-                      ><code class="path">{{ item.path }}</code>
-                    </div>
-                  </div>
-                </div>
-              </AccordionTab>
+                      <div
+                        v-if="item.propertiesAdded?.length"
+                        class="properties-summary added"
+                      >
+                        <i class="pi pi-plus-circle"></i
+                        ><span
+                          >{{ item.propertiesAdded.length }} properties
+                          added</span
+                        >
+                        <div class="property-badges">
+                          <Tag
+                            v-for="prop in item.propertiesAdded"
+                            :key="prop.name"
+                            severity="success"
+                            size="small"
+                            >{{ prop.name }}</Tag
+                          >
+                        </div>
+                      </div>
 
-              <AccordionTab v-if="filteredDiff.removed?.length">
-                <template #header>
-                  <div>
-                    ➖ Removed Endpoints ({{ filteredDiff.removed.length }})
-                  </div>
-                </template>
-                <div class="change-list">
-                  <div
-                    v-for="item in filteredDiff.removed"
-                    :key="item.path"
-                    class="change-item removed"
-                  >
-                    <div class="endpoint-header">
-                      <Tag :severity="getMethodSeverity(item.method)">{{
-                        item.method
-                      }}</Tag
-                      ><code class="path">{{ item.path }}</code>
+                      <div
+                        v-if="item.propertiesRemoved?.length"
+                        class="properties-summary removed"
+                      >
+                        <i class="pi pi-minus-circle"></i
+                        ><span
+                          >{{ item.propertiesRemoved.length }} properties
+                          removed</span
+                        >
+                        <div class="property-badges">
+                          <Tag
+                            v-for="prop in item.propertiesRemoved"
+                            :key="prop.name"
+                            severity="danger"
+                            size="small"
+                            >{{ prop.name }}</Tag
+                          >
+                        </div>
+                      </div>
+
+                      <div
+                        v-if="item.propertiesModified?.length"
+                        class="properties-summary modified"
+                      >
+                        <i class="pi pi-pencil"></i
+                        ><span
+                          >{{ item.propertiesModified.length }} properties
+                          modified</span
+                        >
+                        <div class="property-badges">
+                          <Tag
+                            v-for="prop in item.propertiesModified"
+                            :key="prop.name"
+                            severity="warn"
+                            size="small"
+                            >{{ prop.name }}</Tag
+                          >
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </AccordionTab>
-            </Accordion>
+                </AccordionTab>
+
+                <AccordionTab v-if="filteredDiff.modified?.length">
+                  <template #header>
+                    <div>Endpoints ({{ filteredDiff.modified.length }})</div>
+                  </template>
+                  <div class="change-list">
+                    <div
+                      v-for="item in filteredDiff.modified"
+                      :key="item.path + item.method"
+                      class="change-item modified"
+                    >
+                      <div class="endpoint-header">
+                        <Tag :severity="getMethodSeverity(item.method)">{{
+                          item.method
+                        }}</Tag
+                        ><code class="path">{{ item.path }}</code>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionTab>
+              </Accordion>
+            </div>
+
+            <div id="removed-section" class="change-section removed">
+              <h4 class="section-title">➖ Removed</h4>
+              <Accordion multiple>
+                <AccordionTab v-if="filteredDiff.infoRemoved?.length">
+                  <template #header>
+                    <div>
+                      Information ({{ filteredDiff.infoRemoved.length }})
+                    </div>
+                  </template>
+                  <div class="change-list">
+                    <div
+                      v-for="item in filteredDiff.infoRemoved"
+                      :key="item.key"
+                      class="change-item removed"
+                    >
+                      <Tag severity="danger">{{ item.key }}</Tag>
+                      <div class="single-value">
+                        <code>{{ item.value }}</code>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionTab>
+
+                <AccordionTab v-if="filteredDiff.schemaRemoved?.length">
+                  <template #header>
+                    <div>Schemas ({{ filteredDiff.schemaRemoved.length }})</div>
+                  </template>
+                  <div class="change-list">
+                    <div
+                      v-for="(item, index) in filteredDiff.schemaRemoved"
+                      :key="item.name"
+                      class="change-item removed"
+                    >
+                      <div class="schema-name-header">
+                        <i class="pi pi-sitemap"></i
+                        ><code class="schema-name">{{ item.name }}</code
+                        ><Tag
+                          v-if="item.schema.type"
+                          severity="danger"
+                          size="small"
+                          >{{ item.schema.type }}</Tag
+                        >
+                      </div>
+                      <Button
+                        class="p-button-text"
+                        @click="toggleRemovedSchema(index)"
+                        icon="pi pi-chevron-down"
+                        :class="{ 'rotate-180': expandedRemovedSchemas[index] }"
+                      />
+                      <div
+                        v-if="expandedRemovedSchemas[index]"
+                        class="expanded-details"
+                      >
+                        <pre
+                          class="schema-preview"
+                        ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionTab>
+
+                <AccordionTab v-if="filteredDiff.removed?.length">
+                  <template #header>
+                    <div>Endpoints ({{ filteredDiff.removed.length }})</div>
+                  </template>
+                  <div class="change-list">
+                    <div
+                      v-for="item in filteredDiff.removed"
+                      :key="item.path"
+                      class="change-item removed"
+                    >
+                      <div class="endpoint-header">
+                        <Tag :severity="getMethodSeverity(item.method)">{{
+                          item.method
+                        }}</Tag
+                        ><code class="path">{{ item.path }}</code>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionTab>
+              </Accordion>
+            </div>
           </div>
         </div>
       </ScrollPanel>
@@ -526,28 +556,45 @@
           </div>
 
           <div v-else class="changes-content">
-            <Accordion multiple>
-              <!-- (same Accordion content omitted for brevity; inline mode provides full UI) -->
-              <AccordionTab>
-                <template #header>
-                  <div>Summary</div>
-                </template>
-                <div class="summary-grid">
-                  <div class="summary-item added">
-                    <Tag severity="success">Added</Tag>
-                    <div class="count">{{ summary.added }}</div>
-                  </div>
-                  <div class="summary-item modified">
-                    <Tag severity="warn">Modified</Tag>
-                    <div class="count">{{ summary.modified }}</div>
-                  </div>
-                  <div class="summary-item removed">
-                    <Tag severity="danger">Removed</Tag>
-                    <div class="count">{{ summary.removed }}</div>
-                  </div>
-                </div>
-              </AccordionTab>
-            </Accordion>
+            <!-- Summary always visible and clickable -->
+            <div
+              id="summary-section"
+              class="summary-grid summary-card"
+              role="group"
+              aria-label="Summary"
+            >
+              <div
+                class="summary-item added"
+                role="button"
+                tabindex="0"
+                @click="scrollToSection('added')"
+                @keydown.enter="scrollToSection('added')"
+              >
+                <Tag severity="success">Added</Tag>
+                <div class="count">{{ summary.added }}</div>
+              </div>
+              <div
+                class="summary-item modified"
+                role="button"
+                tabindex="0"
+                @click="scrollToSection('modified')"
+                @keydown.enter="scrollToSection('modified')"
+              >
+                <Tag severity="warn">Modified</Tag>
+                <div class="count">{{ summary.modified }}</div>
+              </div>
+              <div
+                class="summary-item removed"
+                role="button"
+                tabindex="0"
+                @click="scrollToSection('removed')"
+                @keydown.enter="scrollToSection('removed')"
+              >
+                <Tag severity="danger">Removed</Tag>
+                <div class="count">{{ summary.removed }}</div>
+              </div>
+            </div>
+            <Accordion multiple> </Accordion>
           </div>
         </div>
       </ScrollPanel>
@@ -918,6 +965,12 @@ input.p-inputtext {
   background: linear-gradient(180deg, #fff, #fffbf7);
   border-radius: 10px;
   border: 1px solid rgba(245, 158, 11, 0.12);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.summary-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
 }
 .summary-item .count {
   color: #f59e0b;
@@ -933,6 +986,40 @@ input.p-inputtext {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   font-size: 0.82rem;
   overflow: auto;
+}
+/* Change-section specific styles */
+.change-section {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+}
+.change-section .section-title {
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.change-section.added {
+  background: linear-gradient(180deg, #f7fdf8, #f0fdf4);
+  border: 1px solid rgba(16, 185, 129, 0.06);
+}
+.change-section.modified {
+  background: linear-gradient(180deg, #fffbf0, #fffbeb);
+  border: 1px solid rgba(245, 158, 11, 0.06);
+}
+.change-section.removed {
+  background: linear-gradient(180deg, #fff5f7, #fff1f2);
+  border: 1px solid rgba(244, 63, 94, 0.06);
+}
+.section-title {
+  font-size: 0.95rem;
+  color: #0f1724;
+}
+.sub-count {
+  color: #6b7280;
+  font-size: 0.78rem;
+  margin-top: 4px;
 }
 /* small screens */
 @media (max-width: 900px) {
