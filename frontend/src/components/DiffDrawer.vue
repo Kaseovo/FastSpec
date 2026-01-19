@@ -36,29 +36,7 @@
               class="toc-badges"
               role="navigation"
               aria-label="Changes table of contents"
-            >
-              <Button
-                class="p-button-text"
-                @click="scrollToSection('added')"
-                aria-label="Jump to added"
-              >
-                ➕ Added ({{ summary.added }})
-              </Button>
-              <Button
-                class="p-button-text"
-                @click="scrollToSection('modified')"
-                aria-label="Jump to modified"
-              >
-                ✏️ Modified ({{ summary.modified }})
-              </Button>
-              <Button
-                class="p-button-text"
-                @click="scrollToSection('removed')"
-                aria-label="Jump to removed"
-              >
-                ➖ Removed ({{ summary.removed }})
-              </Button>
-            </div>
+            ></div>
             <div style="flex: 1">
               <input
                 v-model="search"
@@ -94,7 +72,7 @@
                     <div class="count">{{ summary.added }}</div>
                   </div>
                   <div class="summary-item modified">
-                    <Tag severity="warning">Modified</Tag>
+                    <Tag severity="warn">Modified</Tag>
                     <div class="count">{{ summary.modified }}</div>
                   </div>
                   <div class="summary-item removed">
@@ -526,29 +504,7 @@
               class="toc-badges"
               role="navigation"
               aria-label="Changes table of contents"
-            >
-              <Button
-                class="p-button-text"
-                @click="scrollToSection('added')"
-                aria-label="Jump to added"
-              >
-                ➕ Added ({{ summary.added }})
-              </Button>
-              <Button
-                class="p-button-text"
-                @click="scrollToSection('modified')"
-                aria-label="Jump to modified"
-              >
-                ✏️ Modified ({{ summary.modified }})
-              </Button>
-              <Button
-                class="p-button-text"
-                @click="scrollToSection('removed')"
-                aria-label="Jump to removed"
-              >
-                ➖ Removed ({{ summary.removed }})
-              </Button>
-            </div>
+            ></div>
             <div style="flex: 1">
               <input
                 v-model="search"
@@ -582,7 +538,7 @@
                     <div class="count">{{ summary.added }}</div>
                   </div>
                   <div class="summary-item modified">
-                    <Tag severity="warning">Modified</Tag>
+                    <Tag severity="warn">Modified</Tag>
                     <div class="count">{{ summary.modified }}</div>
                   </div>
                   <div class="summary-item removed">
@@ -870,25 +826,71 @@ export default {
 </script>
 
 <style scoped>
+/* Modernized DiffDrawer styles */
 .diff-panel {
-  background: transparent;
-}
-.diff-container {
-  padding: 1rem;
-}
-.visually-hidden {
-  position: absolute !important;
-  height: 1px;
-  width: 1px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.04);
   overflow: hidden;
-  clip: rect(1px, 1px, 1px, 1px);
-  white-space: nowrap;
 }
-.section-header {
+.drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.04);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.6),
+    rgba(255, 255, 255, 0)
+  );
+}
+.diff-container {
+  padding: 1rem;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial;
+  color: #0f1724;
+  background: transparent;
+}
+.toc-and-search {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.toc-badges {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.toc-pill {
+  background: #fff7ed;
+  color: #b45309;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: 0 1px 2px rgba(2, 6, 23, 0.04);
+}
+input.p-inputtext {
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: none;
+}
+.no-changes {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #475569;
+}
+.no-changes i {
+  color: #10b981;
+  font-size: 3rem;
+}
+.changes-content {
+  padding-top: 0.5rem;
 }
 .change-list {
   display: flex;
@@ -896,8 +898,11 @@ export default {
   gap: 0.5rem;
 }
 .change-item {
-  padding: 0.5rem;
-  border-radius: 8px;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.03);
+  box-shadow: 0 2px 6px rgba(2, 6, 23, 0.03);
 }
 .summary-grid {
   display: grid;
@@ -907,9 +912,17 @@ export default {
 .summary-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
   align-items: center;
   padding: 0.75rem;
+  background: linear-gradient(180deg, #fff, #fffbf7);
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.12);
+}
+.summary-item .count {
+  color: #f59e0b;
+  font-weight: 800;
+  font-size: 1.1rem;
 }
 .schema-preview,
 .json-preview {
@@ -921,6 +934,7 @@ export default {
   font-size: 0.82rem;
   overflow: auto;
 }
+/* small screens */
 @media (max-width: 900px) {
   .diff-container {
     padding: 0.5rem;
