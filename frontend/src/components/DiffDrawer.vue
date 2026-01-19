@@ -1,505 +1,10 @@
 <template>
   <div>
-    <!-- Inline panel (when inline prop true) -->
+    <!-- Inline mode panel -->
     <div v-if="inline" class="diff-panel">
       <div class="drawer-header">
         <h3>Changes Overview</h3>
-        <Button
-          v-if="hasChanges"
-          icon="pi pi-copy"
-          label="Copy as Markdown"
-          size="small"
-          severity="secondary"
-          @click="copyAsMarkdown"
-          :loading="copying"
-          aria-label="Copy changes as markdown"
-        />
-      </div>
-
-      <ScrollPanel style="height: 100%">
-        <div
-          ref="diffContainer"
-          class="diff-container"
-          role="region"
-          aria-label="Changes content"
-        >
-          <div
-            class="toc-and-search"
-            style="
-              display: flex;
-              align-items: center;
-              gap: 0.5rem;
-              margin-bottom: 0.5rem;
-            "
-          >
-            <div
-              class="toc-badges"
-              role="navigation"
-              aria-label="Changes table of contents"
-            ></div>
-            <div style="flex: 1">
-              <input
-                v-model="search"
-                type="text"
-                placeholder="Filter changes..."
-                class="p-inputtext p-component"
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div v-if="!hasChanges" class="no-changes">
-            <i
-              class="pi pi-check-circle"
-              style="font-size: 3rem; color: #10b981"
-            ></i>
-            <h3>No Changes</h3>
-            <p>The specification hasn't been modified.</p>
-          </div>
-
-          <div v-else class="changes-content">
-            <!-- Summary always visible and clickable -->
-            <div
-              id="summary-section"
-              class="summary-grid summary-card"
-              role="group"
-              aria-label="Summary"
-            >
-              <div
-                class="summary-item added"
-                role="button"
-                tabindex="0"
-                @click="scrollToSection('added')"
-                @keydown.enter="scrollToSection('added')"
-              >
-                <Tag severity="success">Added</Tag>
-                <div class="count">{{ summary.added }}</div>
-                <div class="sub-count">
-                  {{ diff.added?.length || 0 }} endpoints ·
-                  {{ diff.schemaAdded?.length || 0 }} schemas ·
-                  {{ diff.infoAdded?.length || 0 }} info
-                </div>
-              </div>
-              <div
-                class="summary-item modified"
-                role="button"
-                tabindex="0"
-                @click="scrollToSection('modified')"
-                @keydown.enter="scrollToSection('modified')"
-              >
-                <Tag severity="warn">Modified</Tag>
-                <div class="count">{{ summary.modified }}</div>
-                <div class="sub-count">
-                  {{ diff.modified?.length || 0 }} endpoints ·
-                  {{ diff.schemaModified?.length || 0 }} schemas ·
-                  {{ diff.infoModified?.length || 0 }} info
-                </div>
-              </div>
-              <div
-                class="summary-item removed"
-                role="button"
-                tabindex="0"
-                @click="scrollToSection('removed')"
-                @keydown.enter="scrollToSection('removed')"
-              >
-                <Tag severity="danger">Removed</Tag>
-                <div class="count">{{ summary.removed }}</div>
-                <div class="sub-count">
-                  {{ diff.removed?.length || 0 }} endpoints ·
-                  {{ diff.schemaRemoved?.length || 0 }} schemas ·
-                  {{ diff.infoRemoved?.length || 0 }} info
-                </div>
-              </div>
-            </div>
-
-            <!-- Grouped sections: Added / Modified / Removed -->
-            <div id="added-section" class="change-section added">
-              <h4 class="section-title">➕ Added</h4>
-              <Accordion multiple>
-                <AccordionTab v-if="filteredDiff.infoAdded?.length">
-                  <template #header>
-                    <div>Information ({{ filteredDiff.infoAdded.length }})</div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="item in filteredDiff.infoAdded"
-                      :key="item.key"
-                      class="change-item added"
-                    >
-                      <Tag severity="success">{{ item.key }}</Tag>
-                      <div class="single-value">
-                        <code>{{ item.value }}</code>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionTab>
-
-                <AccordionTab v-if="filteredDiff.schemaAdded?.length">
-                  <template #header>
-                    <div>Schemas ({{ filteredDiff.schemaAdded.length }})</div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="item in filteredDiff.schemaAdded"
-                      :key="item.name"
-                      class="change-item added"
-                    >
-                      <div class="schema-name-header">
-                        <i class="pi pi-sitemap"></i
-                        ><code class="schema-name">{{ item.name }}</code
-                        ><Tag v-if="item.schema.type" severity="info">{{
-                          item.schema.type
-                        }}</Tag>
-                      </div>
-                      <pre
-                        class="schema-preview"
-                      ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
-                    </div>
-                  </div>
-                </AccordionTab>
-
-                <AccordionTab v-if="filteredDiff.added?.length">
-                  <template #header>
-                    <div>Endpoints ({{ filteredDiff.added.length }})</div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="item in filteredDiff.added"
-                      :key="item.path"
-                      class="change-item added"
-                    >
-                      <div class="endpoint-header">
-                        <Tag :severity="getMethodSeverity(item.method)">{{
-                          item.method
-                        }}</Tag
-                        ><code class="path">{{ item.path }}</code
-                        ><Tag
-                          v-if="item.deprecated"
-                          severity="danger"
-                          size="small"
-                          >Deprecated</Tag
-                        >
-                      </div>
-                      <div v-if="item.summary" class="endpoint-summary">
-                        <strong>Summary:</strong> {{ item.summary }}
-                      </div>
-                      <div v-if="item.description" class="endpoint-description">
-                        <strong>Description:</strong> {{ item.description }}
-                      </div>
-                    </div>
-                  </div>
-                </AccordionTab>
-              </Accordion>
-            </div>
-
-            <div id="modified-section" class="change-section modified">
-              <h4 class="section-title">✏️ Modified</h4>
-              <Accordion multiple>
-                <AccordionTab v-if="filteredDiff.infoModified?.length">
-                  <template #header>
-                    <div>
-                      Information ({{ filteredDiff.infoModified.length }})
-                    </div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="item in filteredDiff.infoModified"
-                      :key="item.key"
-                      class="change-item modified"
-                    >
-                      <Tag severity="warning">{{ item.key }}</Tag>
-                      <div class="change-values">
-                        <div class="old-value">
-                          <span class="value-label">Before:</span
-                          ><code>{{ item.old }}</code>
-                        </div>
-                        <i class="pi pi-arrow-right"></i>
-                        <div class="new-value">
-                          <span class="value-label">After:</span
-                          ><code>{{ item.new }}</code>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionTab>
-
-                <AccordionTab v-if="filteredDiff.schemaModified?.length">
-                  <template #header>
-                    <div>
-                      Schemas ({{ filteredDiff.schemaModified.length }})
-                    </div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="(item, index) in filteredDiff.schemaModified"
-                      :key="`schema-${item.name}-${index}`"
-                      class="change-item schema-modified"
-                    >
-                      <div class="schema-name-header">
-                        <i class="pi pi-sitemap"></i
-                        ><code class="schema-name">{{ item.name }}</code>
-                      </div>
-
-                      <div v-if="item.typeChanged" class="type-change-inline">
-                        <span class="change-label">Type:</span
-                        ><code>{{ item.oldType }}</code
-                        ><i class="pi pi-arrow-right"></i
-                        ><code>{{ item.newType }}</code>
-                      </div>
-
-                      <div v-if="item.requiredChanged" class="required-change">
-                        <i class="pi pi-exclamation-triangle"></i
-                        ><span class="change-label"
-                          >Required fields changed</span
-                        >
-                        <div class="required-badges">
-                          <div
-                            v-if="item.requiredAdded?.length"
-                            class="required-group"
-                          >
-                            <span class="required-label added">Added:</span
-                            ><Tag
-                              v-for="field in item.requiredAdded"
-                              :key="field"
-                              severity="danger"
-                              size="small"
-                              >{{ field }}</Tag
-                            >
-                          </div>
-                          <div
-                            v-if="item.requiredRemoved?.length"
-                            class="required-group"
-                          >
-                            <span class="required-label removed">Removed:</span
-                            ><Tag
-                              v-for="field in item.requiredRemoved"
-                              :key="field"
-                              severity="success"
-                              size="small"
-                              >{{ field }}</Tag
-                            >
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-if="item.enumChanged" class="validation-change">
-                        <i class="pi pi-list"></i
-                        ><span>Enum values changed</span>
-                      </div>
-                      <div v-if="item.formatChanged" class="validation-change">
-                        <i class="pi pi-palette"></i><span>Format changed</span>
-                      </div>
-
-                      <div
-                        v-if="item.validationChanged?.length"
-                        class="validation-changes"
-                      >
-                        <i class="pi pi-shield"></i
-                        ><span class="change-label"
-                          >Validation rules changed:</span
-                        >
-                        <div class="validation-list">
-                          <div
-                            v-for="(validation, idx) in item.validationChanged"
-                            :key="idx"
-                            class="validation-item"
-                          >
-                            <code>{{ validation.field }}</code
-                            ><span class="validation-arrow">:</span
-                            ><code class="old-val">{{
-                              validation.old ?? "none"
-                            }}</code
-                            ><i class="pi pi-arrow-right"></i
-                            ><code class="new-val">{{
-                              validation.new ?? "none"
-                            }}</code>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        v-if="item.propertiesAdded?.length"
-                        class="properties-summary added"
-                      >
-                        <i class="pi pi-plus-circle"></i
-                        ><span
-                          >{{ item.propertiesAdded.length }} properties
-                          added</span
-                        >
-                        <div class="property-badges">
-                          <Tag
-                            v-for="prop in item.propertiesAdded"
-                            :key="prop.name"
-                            severity="success"
-                            size="small"
-                            >{{ prop.name }}</Tag
-                          >
-                        </div>
-                      </div>
-
-                      <div
-                        v-if="item.propertiesRemoved?.length"
-                        class="properties-summary removed"
-                      >
-                        <i class="pi pi-minus-circle"></i
-                        ><span
-                          >{{ item.propertiesRemoved.length }} properties
-                          removed</span
-                        >
-                        <div class="property-badges">
-                          <Tag
-                            v-for="prop in item.propertiesRemoved"
-                            :key="prop.name"
-                            severity="danger"
-                            size="small"
-                            >{{ prop.name }}</Tag
-                          >
-                        </div>
-                      </div>
-
-                      <div
-                        v-if="item.propertiesModified?.length"
-                        class="properties-summary modified"
-                      >
-                        <i class="pi pi-pencil"></i
-                        ><span
-                          >{{ item.propertiesModified.length }} properties
-                          modified</span
-                        >
-                        <div class="property-badges">
-                          <Tag
-                            v-for="prop in item.propertiesModified"
-                            :key="prop.name"
-                            severity="warn"
-                            size="small"
-                            >{{ prop.name }}</Tag
-                          >
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionTab>
-
-                <AccordionTab v-if="filteredDiff.modified?.length">
-                  <template #header>
-                    <div>Endpoints ({{ filteredDiff.modified.length }})</div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="item in filteredDiff.modified"
-                      :key="item.path + item.method"
-                      class="change-item modified"
-                    >
-                      <div class="endpoint-header">
-                        <Tag :severity="getMethodSeverity(item.method)">{{
-                          item.method
-                        }}</Tag
-                        ><code class="path">{{ item.path }}</code>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionTab>
-              </Accordion>
-            </div>
-
-            <div id="removed-section" class="change-section removed">
-              <h4 class="section-title">➖ Removed</h4>
-              <Accordion multiple>
-                <AccordionTab v-if="filteredDiff.infoRemoved?.length">
-                  <template #header>
-                    <div>
-                      Information ({{ filteredDiff.infoRemoved.length }})
-                    </div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="item in filteredDiff.infoRemoved"
-                      :key="item.key"
-                      class="change-item removed"
-                    >
-                      <Tag severity="danger">{{ item.key }}</Tag>
-                      <div class="single-value">
-                        <code>{{ item.value }}</code>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionTab>
-
-                <AccordionTab v-if="filteredDiff.schemaRemoved?.length">
-                  <template #header>
-                    <div>Schemas ({{ filteredDiff.schemaRemoved.length }})</div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="(item, index) in filteredDiff.schemaRemoved"
-                      :key="item.name"
-                      class="change-item removed"
-                    >
-                      <div class="schema-name-header">
-                        <i class="pi pi-sitemap"></i
-                        ><code class="schema-name">{{ item.name }}</code
-                        ><Tag
-                          v-if="item.schema.type"
-                          severity="danger"
-                          size="small"
-                          >{{ item.schema.type }}</Tag
-                        >
-                      </div>
-                      <Button
-                        class="p-button-text"
-                        @click="toggleRemovedSchema(index)"
-                        icon="pi pi-chevron-down"
-                        :class="{ 'rotate-180': expandedRemovedSchemas[index] }"
-                      />
-                      <div
-                        v-if="expandedRemovedSchemas[index]"
-                        class="expanded-details"
-                      >
-                        <pre
-                          class="schema-preview"
-                        ><code>{{ JSON.stringify(item.schema, null, 2) }}</code></pre>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionTab>
-
-                <AccordionTab v-if="filteredDiff.removed?.length">
-                  <template #header>
-                    <div>Endpoints ({{ filteredDiff.removed.length }})</div>
-                  </template>
-                  <div class="change-list">
-                    <div
-                      v-for="item in filteredDiff.removed"
-                      :key="item.path"
-                      class="change-item removed"
-                    >
-                      <div class="endpoint-header">
-                        <Tag :severity="getMethodSeverity(item.method)">{{
-                          item.method
-                        }}</Tag
-                        ><code class="path">{{ item.path }}</code>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionTab>
-              </Accordion>
-            </div>
-          </div>
-        </div>
-      </ScrollPanel>
-    </div>
-
-    <!-- Drawer mode (when inline prop false) -->
-    <Drawer
-      v-else
-      :visible="visible"
-      @update:visible="$emit('update:visible', $event)"
-      position="right"
-      :style="{ width: '60vw' }"
-    >
-      <template #header>
-        <div class="drawer-header">
-          <h3>Changes Overview</h3>
+        <div class="header-actions">
           <Button
             v-if="hasChanges"
             icon="pi pi-copy"
@@ -511,6 +16,228 @@
             aria-label="Copy changes as markdown"
           />
         </div>
+      </div>
+
+      <ScrollPanel style="height: 100%">
+        <div
+          ref="diffContainer"
+          class="diff-container"
+          role="region"
+          aria-label="Changes content"
+        >
+          <div class="summary-sticky">
+            <div class="summary-grid">
+              <button
+                class="summary-pill added"
+                :class="{ active: filter === 'added' }"
+                @click="filter = 'added'"
+              >
+                <Tag severity="success">Added</Tag>
+                <div class="pill-count">{{ summary.added }}</div>
+                <div class="pill-sub">
+                  {{ diff.added?.length || 0 }} endpoints
+                </div>
+              </button>
+
+              <button
+                class="summary-pill modified"
+                :class="{ active: filter === 'modified' }"
+                @click="filter = 'modified'"
+              >
+                <Tag severity="warn">Modified</Tag>
+                <div class="pill-count">{{ summary.modified }}</div>
+                <div class="pill-sub">
+                  {{ diff.modified?.length || 0 }} endpoints
+                </div>
+              </button>
+
+              <button
+                class="summary-pill removed"
+                :class="{ active: filter === 'removed' }"
+                @click="filter = 'removed'"
+              >
+                <Tag severity="danger">Removed</Tag>
+                <div class="pill-count">{{ summary.removed }}</div>
+                <div class="pill-sub">
+                  {{ diff.removed?.length || 0 }} endpoints
+                </div>
+              </button>
+
+              <div class="search-wrap">
+                <input
+                  v-model="search"
+                  type="text"
+                  placeholder="Filter changes..."
+                  class="p-inputtext p-component"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div v-if="!hasChanges" class="no-changes">
+            <i class="pi pi-check-circle"></i>
+            <h3>No Changes</h3>
+            <p>The specification hasn't been modified.</p>
+          </div>
+
+          <div v-else class="cards-area">
+            <div v-if="groupedList.length === 0" class="no-results">
+              No items match the filter.
+            </div>
+
+            <div class="cards-grid">
+              <div
+                v-for="(item, idx) in groupedList"
+                :key="cardKey(item, idx)"
+                class="endpoint-card"
+              >
+                <!-- Left column varies by item kind -->
+                <div class="card-left">
+                  <template v-if="item.__kind === 'endpoint'">
+                    <Tag
+                      :severity="getMethodSeverity(item.method)"
+                      class="method-tag"
+                      >{{ item.method }}</Tag
+                    >
+                    <div class="path">{{ item.path }}</div>
+                    <div v-if="item.summary" class="short">
+                      {{ item.summary }}
+                    </div>
+                  </template>
+
+                  <template v-else-if="item.__kind === 'schema'">
+                    <div class="schema-header">
+                      <i class="pi pi-sitemap" aria-hidden="true"></i>
+                      <code class="schema-name">{{ item.name }}</code>
+                    </div>
+                    <div class="short">Schema</div>
+                  </template>
+
+                  <template v-else>
+                    <Tag severity="info">{{ item.key }}</Tag>
+                    <div class="short">{{ item.value }}</div>
+                  </template>
+                </div>
+
+                <!-- Inline details: expanded for added/removed; preview for modified -->
+                <div class="card-details">
+                  <template v-if="item.__kind === 'schema'">
+                    <div class="mini-section">
+                      <div class="mini-label">Schema preview</div>
+                      <pre
+                        class="mini-json"
+                      ><code>{{ prettyJSON(item.schema || item.schemaPreview || item.type) }}</code></pre>
+                    </div>
+                  </template>
+
+                  <template v-else-if="item.__kind === 'info'">
+                    <div class="mini-section">
+                      <div class="mini-label">Info</div>
+                      <div class="mini-desc">{{ item.value }}</div>
+                    </div>
+                  </template>
+
+                  <template v-else>
+                    <template
+                      v-if="
+                        item.changeType === 'added' ||
+                        item.changeType === 'removed'
+                      "
+                    >
+                      <div v-if="item.schema" class="mini-section">
+                        <div class="mini-label">Schema preview</div>
+                        <pre
+                          class="mini-json"
+                        ><code>{{ prettyJSON(item.schema) }}</code></pre>
+                      </div>
+                      <div v-else-if="item.description" class="mini-section">
+                        <div class="mini-label">Description</div>
+                        <div class="mini-desc">{{ item.description }}</div>
+                      </div>
+                      <div v-else-if="item.example" class="mini-section">
+                        <div class="mini-label">Example</div>
+                        <pre
+                          class="mini-json"
+                        ><code>{{ prettyJSON(item.example) }}</code></pre>
+                      </div>
+                    </template>
+
+                    <template v-else>
+                      <div
+                        v-if="item.diffDetails?.fields?.length"
+                        class="mini-section"
+                      >
+                        <div class="mini-label">Top field changes</div>
+                        <div
+                          class="modified-inline"
+                          v-for="(f, i) in item.diffDetails.fields.slice(0, 3)"
+                          :key="i"
+                        >
+                          <span class="mf">{{ formatFieldName(f.field) }}</span>
+                          <span class="mv old">{{
+                            truncate(String(f.old ?? "—"), 36)
+                          }}</span>
+                          <span class="marr">→</span>
+                          <span class="mv new">{{
+                            truncate(String(f.new ?? "—"), 36)
+                          }}</span>
+                        </div>
+                      </div>
+                      <div v-else class="mini-label">
+                        No field-level summary available
+                      </div>
+                    </template>
+                  </template>
+                </div>
+
+                <div class="card-right">
+                  <div class="change-hints">
+                    <span v-if="item.changeCount" class="hint"
+                      >{{ item.changeCount }} changes</span
+                    >
+                    <span v-if="item.deprecated" class="hint deprecated"
+                      >Deprecated</span
+                    >
+                  </div>
+                  <div class="card-actions">
+                    <Button
+                      icon="pi pi-eye"
+                      class="p-button-text"
+                      @click="openDetails(item)"
+                      aria-label="Open details"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ScrollPanel>
+    </div>
+
+    <!-- Drawer mode -->
+    <Drawer
+      v-else
+      :visible="visible"
+      @update:visible="$emit('update:visible', $event)"
+      position="right"
+      :style="{ width: '60vw' }"
+    >
+      <template #header>
+        <div class="drawer-header">
+          <h3>Changes Overview</h3>
+          <div class="header-actions">
+            <Button
+              v-if="hasChanges"
+              icon="pi pi-copy"
+              label="Copy as Markdown"
+              size="small"
+              severity="secondary"
+              @click="copyAsMarkdown"
+              :loading="copying"
+            />
+          </div>
+        </div>
       </template>
 
       <ScrollPanel style="height: 100%">
@@ -520,264 +247,326 @@
           role="region"
           aria-label="Changes content"
         >
-          <!-- reuse same internal content as inline -->
-          <div
-            class="toc-and-search"
-            style="
-              display: flex;
-              align-items: center;
-              gap: 0.5rem;
-              margin-bottom: 0.5rem;
-            "
-          >
-            <div
-              class="toc-badges"
-              role="navigation"
-              aria-label="Changes table of contents"
-            ></div>
-            <div style="flex: 1">
-              <input
-                v-model="search"
-                type="text"
-                placeholder="Filter changes..."
-                class="p-inputtext p-component"
-                style="width: 100%"
-              />
+          <div class="summary-sticky">
+            <div class="summary-grid">
+              <button
+                class="summary-pill added"
+                :class="{ active: filter === 'added' }"
+                @click="filter = 'added'"
+              >
+                <Tag severity="success">Added</Tag>
+                <div class="pill-count">{{ summary.added }}</div>
+                <div class="pill-sub">
+                  {{ diff.added?.length || 0 }} endpoints
+                </div>
+              </button>
+
+              <button
+                class="summary-pill modified"
+                :class="{ active: filter === 'modified' }"
+                @click="filter = 'modified'"
+              >
+                <Tag severity="warn">Modified</Tag>
+                <div class="pill-count">{{ summary.modified }}</div>
+                <div class="pill-sub">
+                  {{ diff.modified?.length || 0 }} endpoints
+                </div>
+              </button>
+
+              <button
+                class="summary-pill removed"
+                :class="{ active: filter === 'removed' }"
+                @click="filter = 'removed'"
+              >
+                <Tag severity="danger">Removed</Tag>
+                <div class="pill-count">{{ summary.removed }}</div>
+                <div class="pill-sub">
+                  {{ diff.removed?.length || 0 }} endpoints
+                </div>
+              </button>
+
+              <div class="search-wrap">
+                <input
+                  v-model="search"
+                  type="text"
+                  placeholder="Filter changes..."
+                  class="p-inputtext p-component"
+                />
+              </div>
             </div>
           </div>
 
           <div v-if="!hasChanges" class="no-changes">
-            <i
-              class="pi pi-check-circle"
-              style="font-size: 3rem; color: #10b981"
-            ></i>
+            <i class="pi pi-check-circle"></i>
             <h3>No Changes</h3>
             <p>The specification hasn't been modified.</p>
           </div>
 
-          <div v-else class="changes-content">
-            <!-- Summary always visible and clickable -->
-            <div
-              id="summary-section"
-              class="summary-grid summary-card"
-              role="group"
-              aria-label="Summary"
-            >
+          <div v-else class="cards-area">
+            <div v-if="groupedList.length === 0" class="no-results">
+              No items match the filter.
+            </div>
+
+            <div class="cards-grid">
               <div
-                class="summary-item added"
-                role="button"
-                tabindex="0"
-                @click="scrollToSection('added')"
-                @keydown.enter="scrollToSection('added')"
+                v-for="(item, idx) in groupedList"
+                :key="cardKey(item, idx)"
+                class="endpoint-card"
               >
-                <Tag severity="success">Added</Tag>
-                <div class="count">{{ summary.added }}</div>
-              </div>
-              <div
-                class="summary-item modified"
-                role="button"
-                tabindex="0"
-                @click="scrollToSection('modified')"
-                @keydown.enter="scrollToSection('modified')"
-              >
-                <Tag severity="warn">Modified</Tag>
-                <div class="count">{{ summary.modified }}</div>
-              </div>
-              <div
-                class="summary-item removed"
-                role="button"
-                tabindex="0"
-                @click="scrollToSection('removed')"
-                @keydown.enter="scrollToSection('removed')"
-              >
-                <Tag severity="danger">Removed</Tag>
-                <div class="count">{{ summary.removed }}</div>
+                <!-- Left column varies by item kind -->
+                <div class="card-left">
+                  <template v-if="item.__kind === 'endpoint'">
+                    <Tag
+                      :severity="getMethodSeverity(item.method)"
+                      class="method-tag"
+                      >{{ item.method }}</Tag
+                    >
+                    <div class="path">{{ item.path }}</div>
+                    <div v-if="item.summary" class="short">
+                      {{ item.summary }}
+                    </div>
+                  </template>
+
+                  <template v-else-if="item.__kind === 'schema'">
+                    <div class="schema-header">
+                      <i class="pi pi-sitemap" aria-hidden="true"></i>
+                      <code class="schema-name">{{ item.name }}</code>
+                    </div>
+                    <div class="short">Schema</div>
+                  </template>
+
+                  <template v-else>
+                    <Tag severity="info">{{ item.key }}</Tag>
+                    <div class="short">{{ item.value }}</div>
+                  </template>
+                </div>
+
+                <!-- Inline details: expanded for added/removed; preview for modified -->
+                <div class="card-details">
+                  <template v-if="item.__kind === 'schema'">
+                    <div class="mini-section">
+                      <div class="mini-label">Schema preview</div>
+                      <pre
+                        class="mini-json"
+                      ><code>{{ prettyJSON(item.schema || item.schemaPreview || item.type) }}</code></pre>
+                    </div>
+                  </template>
+
+                  <template v-else-if="item.__kind === 'info'">
+                    <div class="mini-section">
+                      <div class="mini-label">Info</div>
+                      <div class="mini-desc">{{ item.value }}</div>
+                    </div>
+                  </template>
+
+                  <template v-else>
+                    <template
+                      v-if="
+                        item.changeType === 'added' ||
+                        item.changeType === 'removed'
+                      "
+                    >
+                      <div v-if="item.schema" class="mini-section">
+                        <div class="mini-label">Schema preview</div>
+                        <pre
+                          class="mini-json"
+                        ><code>{{ prettyJSON(item.schema) }}</code></pre>
+                      </div>
+                      <div v-else-if="item.description" class="mini-section">
+                        <div class="mini-label">Description</div>
+                        <div class="mini-desc">{{ item.description }}</div>
+                      </div>
+                      <div v-else-if="item.example" class="mini-section">
+                        <div class="mini-label">Example</div>
+                        <pre
+                          class="mini-json"
+                        ><code>{{ prettyJSON(item.example) }}</code></pre>
+                      </div>
+                    </template>
+
+                    <template v-else>
+                      <div
+                        v-if="item.diffDetails?.fields?.length"
+                        class="mini-section"
+                      >
+                        <div class="mini-label">Top field changes</div>
+                        <div
+                          class="modified-inline"
+                          v-for="(f, i) in item.diffDetails.fields.slice(0, 3)"
+                          :key="i"
+                        >
+                          <span class="mf">{{ formatFieldName(f.field) }}</span>
+                          <span class="mv old">{{
+                            truncate(String(f.old ?? "—"), 36)
+                          }}</span>
+                          <span class="marr">→</span>
+                          <span class="mv new">{{
+                            truncate(String(f.new ?? "—"), 36)
+                          }}</span>
+                        </div>
+                      </div>
+                      <div v-else class="mini-label">
+                        No field-level summary available
+                      </div>
+                    </template>
+                  </template>
+                </div>
+
+                <div class="card-right">
+                  <div class="change-hints">
+                    <span v-if="item.changeCount" class="hint"
+                      >{{ item.changeCount }} changes</span
+                    >
+                    <span v-if="item.deprecated" class="hint deprecated"
+                      >Deprecated</span
+                    >
+                  </div>
+                  <div class="card-actions">
+                    <Button
+                      icon="pi pi-eye"
+                      class="p-button-text"
+                      @click="openDetails(item)"
+                      aria-label="Open details"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-            <Accordion multiple> </Accordion>
           </div>
         </div>
       </ScrollPanel>
     </Drawer>
+
+    <!-- Details dialog -->
+    <Dialog
+      :visible="detailOpen"
+      @update:visible="setDetailOpen"
+      header="Change Details"
+      :modal="true"
+      :closable="true"
+      :style="{ width: '70vw' }"
+    >
+      <div v-if="selectedItem">
+        <div class="detail-header">
+          <div class="detail-left">
+            <Tag :severity="getMethodSeverity(selectedItem.method)">{{
+              selectedItem.method
+            }}</Tag>
+            <code class="detail-path">{{ selectedItem.path }}</code>
+            <div v-if="selectedItem.summary" class="detail-summary">
+              {{ selectedItem.summary }}
+            </div>
+          </div>
+          <div class="detail-actions">
+            <Button
+              icon="pi pi-copy"
+              label="Copy Markdown"
+              class="p-button-text"
+              @click="copyItemMarkdown"
+            />
+            <Button
+              icon="pi pi-download"
+              label="Export JSON"
+              class="p-button-text"
+              @click="exportItemJSON"
+            />
+          </div>
+        </div>
+
+        <div class="detail-body">
+          <section v-if="selectedItem.diffDetails">
+            <h5>Field-level changes</h5>
+            <div class="fields-grid">
+              <div
+                v-for="(f, i) in selectedItem.diffDetails.fields || []"
+                :key="i"
+                class="field-row"
+              >
+                <div class="field-name">{{ formatFieldName(f.field) }}</div>
+                <div class="field-old">
+                  <code>{{ f.old ?? "—" }}</code>
+                </div>
+                <div class="field-arrow">➡</div>
+                <div class="field-new">
+                  <code>{{ f.new ?? "—" }}</code>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h5>JSON Preview</h5>
+            <pre
+              class="json-preview"
+            ><code>{{ prettyJSON(selectedItem.raw || selectedItem) }}</code></pre>
+          </section>
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Close" icon="pi pi-times" @click="detailOpen = false" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script>
-import { computed, ref, watch, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import Drawer from "primevue/drawer";
 import Tag from "primevue/tag";
 import Button from "primevue/button";
-import Accordion from "primevue/accordion";
-import AccordionTab from "primevue/accordiontab";
+import Dialog from "primevue/dialog";
 import ScrollPanel from "primevue/scrollpanel";
 import { useToast } from "primevue/usetoast";
 import { generateMarkdownReport } from "../utils/markdownGenerator";
 
 export default {
   name: "DiffDrawer",
-  components: {
-    Drawer,
-    Tag,
-    Button,
-    Accordion,
-    AccordionTab,
-    ScrollPanel,
-  },
+  components: { Drawer, Tag, Button, Dialog, ScrollPanel },
   props: {
-    visible: {
-      type: Boolean,
-      default: false,
-    },
-    diff: {
-      type: Object,
-      required: true,
-    },
-    inline: {
-      type: Boolean,
-      default: false,
-    },
+    visible: { type: Boolean, default: false },
+    diff: { type: Object, required: true },
+    inline: { type: Boolean, default: false },
   },
   emits: ["update:visible"],
   setup(props) {
-    const expandedItems = ref({});
-    const expandedRemovedSchemas = ref({});
-    const expandedRemovedEndpoints = ref({});
-    const copying = ref(false);
     const toast = useToast();
-
     const diffContainer = ref(null);
     const search = ref("");
-    let debounceTimer = null;
+    const copying = ref(false);
+    const filter = ref("modified");
 
-    const sectionKeys = [
-      "summary",
-      "infoAdded",
-      "infoModified",
-      "infoRemoved",
-      "schemaAdded",
-      "schemaModified",
-      "schemaRemoved",
-      "added",
-      "modified",
-      "removed",
-    ];
-
-    const expandedSections = ref({});
-    const initExpanded = () => {
-      sectionKeys.forEach((k) => {
-        if (k === "summary") expandedSections.value[k] = true;
-        else expandedSections.value[k] = !!props.diff[k]?.length;
-      });
-    };
-    initExpanded();
-
-    watch(
-      () => props.diff,
-      () => {
-        initExpanded();
-      },
-      { deep: true }
-    );
-
-    const toggleSection = (key) => {
-      expandedSections.value[key] = !expandedSections.value[key];
-    };
-
-    const copyAsMarkdown = async () => {
-      copying.value = true;
-      try {
-        const markdown = generateMarkdownReport(props.diff);
-
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(markdown);
-        } else {
-          const textArea = document.createElement("textarea");
-          textArea.value = markdown;
-          textArea.style.position = "fixed";
-          textArea.style.left = "-999999px";
-          textArea.style.top = "-999999px";
-          document.body.appendChild(textArea);
-          textArea.focus();
-          textArea.select();
-          try {
-            document.execCommand("copy");
-            textArea.remove();
-          } catch (err) {
-            textArea.remove();
-            throw new Error("Copy command failed");
-          }
-        }
-
-        toast.add({
-          severity: "success",
-          summary: "Copied!",
-          detail: "Changes copied as markdown to clipboard",
-          life: 3000,
-        });
-      } catch (error) {
-        console.error("Copy failed:", error);
-        toast.add({
-          severity: "error",
-          summary: "Copy Failed",
-          detail: error.message || "Failed to copy to clipboard",
-          life: 3000,
-        });
-      } finally {
-        copying.value = false;
-      }
-    };
-
-    const toggleExpand = (index) => {
-      expandedItems.value[index] = !expandedItems.value[index];
-    };
-
-    const toggleRemovedSchema = (index) => {
-      expandedRemovedSchemas.value[index] =
-        !expandedRemovedSchemas.value[index];
-    };
-
-    const toggleRemovedEndpoint = (index) => {
-      expandedRemovedEndpoints.value[index] =
-        !expandedRemovedEndpoints.value[index];
-    };
-
-    const formatFieldName = (field) => {
-      return field
-        .replace(/([A-Z])/g, " $1")
-        .replace(/^./, (str) => str.toUpperCase())
-        .trim();
-    };
+    const detailOpen = ref(false);
+    const selectedItem = ref(null);
 
     const hasChanges = computed(() => {
       return (
-        props.diff.infoAdded?.length > 0 ||
-        props.diff.infoModified?.length > 0 ||
-        props.diff.infoRemoved?.length > 0 ||
-        props.diff.added?.length > 0 ||
-        props.diff.modified?.length > 0 ||
-        props.diff.removed?.length > 0 ||
-        props.diff.schemaAdded?.length > 0 ||
-        props.diff.schemaModified?.length > 0 ||
-        props.diff.schemaRemoved?.length > 0
+        props.diff &&
+        (props.diff.infoAdded?.length ||
+          props.diff.infoModified?.length ||
+          props.diff.infoRemoved?.length ||
+          props.diff.added?.length ||
+          props.diff.modified?.length ||
+          props.diff.removed?.length ||
+          props.diff.schemaAdded?.length ||
+          props.diff.schemaModified?.length ||
+          props.diff.schemaRemoved?.length)
       );
     });
 
-    const summary = computed(() => {
-      return {
-        added:
-          (props.diff.infoAdded?.length || 0) +
-          (props.diff.added?.length || 0) +
-          (props.diff.schemaAdded?.length || 0),
-        modified:
-          (props.diff.infoModified?.length || 0) +
-          (props.diff.modified?.length || 0) +
-          (props.diff.schemaModified?.length || 0),
-        removed:
-          (props.diff.infoRemoved?.length || 0) +
-          (props.diff.removed?.length || 0) +
-          (props.diff.schemaRemoved?.length || 0),
-      };
-    });
+    const summary = computed(() => ({
+      added:
+        (props.diff.infoAdded?.length || 0) +
+        (props.diff.added?.length || 0) +
+        (props.diff.schemaAdded?.length || 0),
+      modified:
+        (props.diff.infoModified?.length || 0) +
+        (props.diff.modified?.length || 0) +
+        (props.diff.schemaModified?.length || 0),
+      removed:
+        (props.diff.infoRemoved?.length || 0) +
+        (props.diff.removed?.length || 0) +
+        (props.diff.schemaRemoved?.length || 0),
+    }));
 
     const getMethodSeverity = (method) => {
       const severities = {
@@ -790,8 +579,30 @@ export default {
       return severities[method?.toUpperCase()] || "secondary";
     };
 
+    const formatFieldName = (field) => {
+      if (!field) return "";
+      return field
+        .replace(/([A-Z])/g, " $1")
+        .replace(/^./, (s) => s.toUpperCase())
+        .trim();
+    };
+
+    const prettyJSON = (obj) => {
+      try {
+        return JSON.stringify(obj, null, 2);
+      } catch (e) {
+        return String(obj);
+      }
+    };
+
+    const truncate = (s, n) => {
+      if (s == null) return s;
+      return s.length > n ? s.slice(0, n - 1) + "…" : s;
+    };
+
     const filterList = (list, q) => {
       if (!list || !list.length) return [];
+      if (!q) return list;
       const term = q.toLowerCase();
       return list.filter((item) => {
         try {
@@ -802,130 +613,339 @@ export default {
       });
     };
 
-    const filteredDiff = computed(() => {
+    const mapEndpoints = (list, type) =>
+      (list || []).map((it) => ({
+        ...it,
+        __kind: "endpoint",
+        changeType: type,
+        changeCount: estimateChangeCount(it),
+        diffDetails: computeDetails(it),
+      }));
+    const mapSchemas = (list, type) =>
+      (list || []).map((it) => ({
+        ...it,
+        __kind: "schema",
+        changeType: type,
+        changeCount: it.schema ? 1 : 0,
+        schema: it.schema,
+        name: it.name || it.title,
+      }));
+    const mapInfos = (list, type) =>
+      (list || []).map((it) => ({
+        ...it,
+        __kind: "info",
+        changeType: type,
+        changeCount: 1,
+        key: it.key,
+        value: it.value,
+      }));
+
+    // helper to compute compact details per item
+    const computeDetails = (item) => {
+      if (!item) return null;
+      const details = { fields: [] };
+      if (item.fieldDiffs && Array.isArray(item.fieldDiffs)) {
+        details.fields = item.fieldDiffs.map((f) => ({
+          field: f.field,
+          old: f.old,
+          new: f.new,
+        }));
+      } else if (item.changes && Array.isArray(item.changes)) {
+        details.fields = item.changes.map((c) => ({
+          field: c.key || c.field || "unknown",
+          old: c.old,
+          new: c.new,
+        }));
+      }
+      return details;
+    };
+
+    const estimateChangeCount = (item) => {
+      let c = 0;
+      if (item.deprecated) c += 1;
+      if (item.fieldDiffs) c += item.fieldDiffs.length;
+      if (item.changes)
+        c += Array.isArray(item.changes) ? item.changes.length : 0;
+      return c;
+    };
+
+    // Produce a flat list including endpoints, schemas and info depending on filter
+    const groupedList = computed(() => {
       const q = (search.value || "").trim().toLowerCase();
-      if (!q) return props.diff;
-      return {
-        infoAdded: filterList(props.diff.infoAdded, q),
-        infoModified: filterList(props.diff.infoModified, q),
-        infoRemoved: filterList(props.diff.infoRemoved, q),
-        schemaAdded: filterList(props.diff.schemaAdded, q),
-        schemaModified: filterList(props.diff.schemaModified, q),
-        schemaRemoved: filterList(props.diff.schemaRemoved, q),
-        added: filterList(props.diff.added, q),
-        modified: filterList(props.diff.modified, q),
-        removed: filterList(props.diff.removed, q),
+      if (filter.value === "added") {
+        const endpoints = q
+          ? filterList(props.diff.added, q)
+          : props.diff.added || [];
+        const schemas = q
+          ? filterList(props.diff.schemaAdded, q)
+          : props.diff.schemaAdded || [];
+        const infos = q
+          ? filterList(props.diff.infoAdded, q)
+          : props.diff.infoAdded || [];
+        return [
+          ...mapEndpoints(endpoints, "added"),
+          ...mapSchemas(schemas, "added"),
+          ...mapInfos(infos, "added"),
+        ];
+      }
+      if (filter.value === "removed") {
+        const endpoints = q
+          ? filterList(props.diff.removed, q)
+          : props.diff.removed || [];
+        const schemas = q
+          ? filterList(props.diff.schemaRemoved, q)
+          : props.diff.schemaRemoved || [];
+        const infos = q
+          ? filterList(props.diff.infoRemoved, q)
+          : props.diff.infoRemoved || [];
+        return [
+          ...mapEndpoints(endpoints, "removed"),
+          ...mapSchemas(schemas, "removed"),
+          ...mapInfos(infos, "removed"),
+        ];
+      }
+      // modified
+      const endpoints = q
+        ? filterList(props.diff.modified, q)
+        : props.diff.modified || [];
+      const schemas = q
+        ? filterList(props.diff.schemaModified, q)
+        : props.diff.schemaModified || [];
+      const infos = q
+        ? filterList(props.diff.infoModified, q)
+        : props.diff.infoModified || [];
+      return [
+        ...mapEndpoints(endpoints, "modified"),
+        ...mapSchemas(schemas, "modified"),
+        ...mapInfos(infos, "modified"),
+      ];
+    });
+
+    const openDetails = (item) => {
+      selectedItem.value = {
+        ...item,
+        diffDetails: item.diffDetails || computeDetails(item),
+        raw: item,
       };
-    });
+      detailOpen.value = true;
+    };
 
-    watch(search, () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        debounceTimer = null;
-      }, 250);
-    });
+    const setDetailOpen = (v) => {
+      detailOpen.value = v;
+    };
 
-    const scrollToSection = (section) => {
-      const id = `${section}-section`;
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (props.inline && diffContainer.value) {
-        const container = diffContainer.value;
-        const headerEl = container.querySelector(".diff-header-sticky");
-        const headerOffset = headerEl ? headerEl.offsetHeight : 0;
-        const containerRect = container.getBoundingClientRect();
-        const elRect = el.getBoundingClientRect();
-        const scrollTop =
-          container.scrollTop +
-          (elRect.top - containerRect.top) -
-          headerOffset -
-          8;
-        container.scrollTo({ top: scrollTop, behavior: "smooth" });
-      } else {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const copyAsMarkdown = async () => {
+      copying.value = true;
+      try {
+        const markdown = generateMarkdownReport(props.diff);
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(markdown);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = markdown;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+        }
+        toast.add({
+          severity: "success",
+          summary: "Copied",
+          detail: "Changes copied as markdown",
+          life: 2500,
+        });
+      } catch (err) {
+        toast.add({
+          severity: "error",
+          summary: "Copy failed",
+          detail: err.message || String(err),
+          life: 3000,
+        });
+      } finally {
+        copying.value = false;
       }
     };
 
-    onMounted(() => {});
+    const copyItemMarkdown = async () => {
+      if (!selectedItem.value) return;
+      try {
+        const md =
+          `### ${
+            selectedItem.value.method ||
+            selectedItem.value.name ||
+            selectedItem.value.key ||
+            ""
+          } ${selectedItem.value.path || ""}\n\n` +
+          (selectedItem.value.short || selectedItem.value.summary || "") +
+          "\n\n" +
+          (selectedItem.value.diffDetails?.fields
+            ?.map((f) => `- **${f.field}**: ${f.old ?? "—"} → ${f.new ?? "—"}`)
+            .join("\n") || "No field-level details");
+        await navigator.clipboard.writeText(md);
+        toast.add({
+          severity: "success",
+          summary: "Copied",
+          detail: "Item markdown copied",
+          life: 2000,
+        });
+      } catch (e) {
+        toast.add({
+          severity: "error",
+          summary: "Copy failed",
+          detail: String(e),
+          life: 3000,
+        });
+      }
+    };
+
+    const exportItemJSON = async () => {
+      if (!selectedItem.value) return;
+      try {
+        const compact = {
+          path: selectedItem.value.path,
+          method: selectedItem.value.method,
+          kind: selectedItem.value.__kind,
+          changeType: selectedItem.value.changeType || "modified",
+          fieldsChanged: selectedItem.value.diffDetails?.fields || [],
+        };
+        const json = JSON.stringify(compact, null, 2);
+        await navigator.clipboard.writeText(json);
+        toast.add({
+          severity: "success",
+          summary: "Exported",
+          detail: "Compact JSON copied to clipboard",
+          life: 2500,
+        });
+      } catch (e) {
+        toast.add({
+          severity: "error",
+          summary: "Export failed",
+          detail: String(e),
+          life: 3000,
+        });
+      }
+    };
+
+    const cardKey = (item, idx) =>
+      `${item.__kind || "item"}::${
+        item.path || item.name || item.key || idx
+      }::${item.method || ""}::${idx}`;
+
+    watch(
+      () => props.diff,
+      () => {},
+      { deep: true }
+    );
 
     return {
-      expandedItems,
-      expandedRemovedSchemas,
-      expandedRemovedEndpoints,
-      copying,
-      copyAsMarkdown,
-      toggleExpand,
-      toggleRemovedSchema,
-      toggleRemovedEndpoint,
-      formatFieldName,
-      hasChanges,
-      summary,
-      getMethodSeverity,
       diffContainer,
       search,
-      filteredDiff,
-      expandedSections,
-      toggleSection,
-      scrollToSection,
+      copyAsMarkdown,
+      copying,
+      hasChanges,
+      summary,
+      filter,
+      groupedList,
+      getMethodSeverity,
+      openDetails,
+      detailOpen,
+      selectedItem,
+      formatFieldName,
+      prettyJSON,
+      copyItemMarkdown,
+      exportItemJSON,
+      cardKey,
+      setDetailOpen,
+      truncate,
     };
   },
 };
 </script>
 
 <style scoped>
-/* Modernized DiffDrawer styles */
 .diff-panel {
-  background: #ffffff;
+  background: #fff;
   border-radius: 12px;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(15, 23, 42, 0.04);
   overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.04);
 }
 .drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
+  padding: 14px 18px;
   border-bottom: 1px solid rgba(15, 23, 42, 0.04);
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.6),
-    rgba(255, 255, 255, 0)
-  );
+}
+.drawer-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.drawer-header .header-actions {
+  display: flex;
+  gap: 8px;
 }
 .diff-container {
-  padding: 1rem;
+  padding: 12px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, "Helvetica Neue", Arial;
   color: #0f1724;
-  background: transparent;
 }
-.toc-and-search {
+.summary-sticky {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.6)
+  );
+  padding-bottom: 8px;
+  z-index: 4;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+}
+.summary-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  background: #fff;
+  cursor: pointer;
+}
+.summary-pill.added {
+  border-color: rgba(16, 185, 129, 0.06);
+}
+.summary-pill.modified {
+  border-color: rgba(245, 158, 11, 0.06);
+}
+.summary-pill.removed {
+  border-color: rgba(244, 63, 94, 0.06);
+}
+.summary-pill .pill-count {
+  font-weight: 700;
+  color: #0f1724;
+}
+.summary-pill.active {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+.search-wrap {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-.toc-badges {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-.toc-pill {
-  background: #fff7ed;
-  color: #b45309;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  box-shadow: 0 1px 2px rgba(2, 6, 23, 0.04);
 }
 input.p-inputtext {
+  width: 100%;
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px 10px;
   border: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: none;
 }
 .no-changes {
   text-align: center;
@@ -933,101 +953,194 @@ input.p-inputtext {
   color: #475569;
 }
 .no-changes i {
-  color: #10b981;
   font-size: 3rem;
+  color: #10b981;
 }
-.changes-content {
-  padding-top: 0.5rem;
+.cards-area {
+  margin-top: 12px;
 }
-.change-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.change-item {
-  padding: 0.75rem;
-  border-radius: 10px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.03);
-  box-shadow: 0 2px 6px rgba(2, 6, 23, 0.03);
-}
-.summary-grid {
+.cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
 }
-.summary-item {
+.endpoint-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2px 8px rgba(2, 6, 23, 0.03);
+  gap: 12px;
+}
+.card-left {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  align-items: center;
-  padding: 0.75rem;
-  background: linear-gradient(180deg, #fff, #fffbf7);
-  border-radius: 10px;
-  border: 1px solid rgba(245, 158, 11, 0.12);
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  gap: 6px;
+  min-width: 220px;
 }
-.summary-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
-}
-.summary-item .count {
-  color: #f59e0b;
-  font-weight: 800;
-  font-size: 1.1rem;
-}
-.schema-preview,
-.json-preview {
-  background: #0f1724;
-  color: #d1fae5;
-  padding: 0.75rem;
-  border-radius: 8px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  font-size: 0.82rem;
-  overflow: auto;
-}
-/* Change-section specific styles */
-.change-section {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  border-radius: 10px;
-}
-.change-section .section-title {
-  margin: 0 0 0.5rem 0;
+.method-tag {
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
-.change-section.added {
-  background: linear-gradient(180deg, #f7fdf8, #f0fdf4);
-  border: 1px solid rgba(16, 185, 129, 0.06);
-}
-.change-section.modified {
-  background: linear-gradient(180deg, #fffbf0, #fffbeb);
-  border: 1px solid rgba(245, 158, 11, 0.06);
-}
-.change-section.removed {
-  background: linear-gradient(180deg, #fff5f7, #fff1f2);
-  border: 1px solid rgba(244, 63, 94, 0.06);
-}
-.section-title {
-  font-size: 0.95rem;
+.path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   color: #0f1724;
 }
-.sub-count {
+.short {
   color: #6b7280;
-  font-size: 0.78rem;
-  margin-top: 4px;
+  font-size: 0.9rem;
 }
-/* small screens */
+.card-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mini-section {
+  background: #f8fafc;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.03);
+}
+.mini-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+.mini-json {
+  background: #0b1220;
+  color: #d1fae5;
+  padding: 8px;
+  border-radius: 6px;
+  max-height: 96px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.78rem;
+}
+.mini-desc {
+  color: #374151;
+  font-size: 0.9rem;
+}
+.modified-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #fff;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.03);
+}
+.mf {
+  font-weight: 600;
+  width: 120px;
+}
+.mv {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.mv.old {
+  background: #fff7ed;
+  color: #92400e;
+}
+.mv.new {
+  background: #ecfdf5;
+  color: #064e3b;
+}
+.marr {
+  color: #6b7280;
+}
+.card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 120px;
+}
+.change-hints .hint {
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  margin-left: 6px;
+}
+.change-hints .deprecated {
+  background: #fff1f2;
+  color: #b91c1c;
+}
+.card-actions button {
+  margin-left: 6px;
+}
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.detail-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.detail-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  color: #0f1724;
+}
+.detail-summary {
+  color: #6b7280;
+}
+.detail-body {
+  margin-top: 12px;
+}
+.fields-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 40px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.03);
+}
+.field-name {
+  font-weight: 600;
+}
+.field-old code,
+.field-new code {
+  background: #0f1724;
+  color: #d1fae5;
+  padding: 6px;
+  border-radius: 6px;
+  display: block;
+}
+.json-preview {
+  background: #0b1220;
+  color: #d1fae5;
+  padding: 12px;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 320px;
+}
 @media (max-width: 900px) {
-  .diff-container {
-    padding: 0.5rem;
+  .cards-grid {
+    grid-template-columns: 1fr;
   }
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+  .endpoint-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .card-right {
+    align-items: flex-start;
   }
 }
 </style>
