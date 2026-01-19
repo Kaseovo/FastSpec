@@ -29,36 +29,72 @@
               <button
                 class="summary-pill added"
                 :class="{ active: filter === 'added' }"
-                @click="filter = 'added'"
+                @click="setFilter('added')"
               >
                 <Tag severity="success">Added</Tag>
-                <div class="pill-count">{{ summary.added }}</div>
+                <div class="pill-count">
+                  {{
+                    typeCounts.added.endpoints +
+                    typeCounts.added.components +
+                    typeCounts.added.info
+                  }}
+                </div>
                 <div class="pill-sub">
-                  {{ (diff.added || []).length }} endpoints
+                  <span>{{ typeCounts.added.endpoints }} endpoints</span>
+                  <span v-if="typeCounts.added.components"
+                    >, {{ typeCounts.added.components }} components</span
+                  >
+                  <span v-if="typeCounts.added.info"
+                    >, {{ typeCounts.added.info }} info</span
+                  >
                 </div>
               </button>
 
               <button
                 class="summary-pill modified"
                 :class="{ active: filter === 'modified' }"
-                @click="filter = 'modified'"
+                @click="setFilter('modified')"
               >
                 <Tag severity="warn">Modified</Tag>
-                <div class="pill-count">{{ summary.modified }}</div>
+                <div class="pill-count">
+                  {{
+                    typeCounts.modified.endpoints +
+                    typeCounts.modified.components +
+                    typeCounts.modified.info
+                  }}
+                </div>
                 <div class="pill-sub">
-                  {{ (diff.modified || []).length }} endpoints
+                  <span>{{ typeCounts.modified.endpoints }} endpoints</span>
+                  <span v-if="typeCounts.modified.components"
+                    >, {{ typeCounts.modified.components }} components</span
+                  >
+                  <span v-if="typeCounts.modified.info"
+                    >, {{ typeCounts.modified.info }} info</span
+                  >
                 </div>
               </button>
 
               <button
                 class="summary-pill removed"
                 :class="{ active: filter === 'removed' }"
-                @click="filter = 'removed'"
+                @click="setFilter('removed')"
               >
                 <Tag severity="danger">Removed</Tag>
-                <div class="pill-count">{{ summary.removed }}</div>
+                <div class="pill-count">
+                  {{
+                    typeCounts.removed.endpoints +
+                    typeCounts.removed.components +
+                    typeCounts.removed.info
+                  }}
+                </div>
                 <div class="pill-sub">
-                  {{ (diff.removed || []).length }} endpoints
+                  <span>{{ typeCounts.removed.endpoints }} endpoints</span>
+                  <span v-if="typeCounts.removed.components"
+                    >, {{ typeCounts.removed.components }} components</span
+                  >
+                  <span v-if="typeCounts.removed.info"
+                    >, {{ typeCounts.removed.info }} info</span
+                  >
                 </div>
               </button>
 
@@ -81,7 +117,11 @@
 
           <div v-else class="cards-area">
             <!-- Endpoints -->
-            <div v-if="endpoints.length" class="section-group">
+            <div
+              v-if="endpoints.length"
+              :key="'endpoints-' + filter"
+              class="section-group"
+            >
               <div class="section-header">
                 <h4>Endpoints ({{ endpoints.length }})</h4>
                 <Button
@@ -321,36 +361,72 @@
               <button
                 class="summary-pill added"
                 :class="{ active: filter === 'added' }"
-                @click="filter = 'added'"
+                @click="setFilter('added')"
               >
                 <Tag severity="success">Added</Tag>
-                <div class="pill-count">{{ summary.added }}</div>
+                <div class="pill-count">
+                  {{
+                    typeCounts.added.endpoints +
+                    typeCounts.added.components +
+                    typeCounts.added.info
+                  }}
+                </div>
                 <div class="pill-sub">
-                  {{ (diff.added || []).length }} endpoints
+                  <span>{{ typeCounts.added.endpoints }} endpoints</span>
+                  <span v-if="typeCounts.added.components"
+                    >, {{ typeCounts.added.components }} components</span
+                  >
+                  <span v-if="typeCounts.added.info"
+                    >, {{ typeCounts.added.info }} info</span
+                  >
                 </div>
               </button>
 
               <button
                 class="summary-pill modified"
                 :class="{ active: filter === 'modified' }"
-                @click="filter = 'modified'"
+                @click="setFilter('modified')"
               >
                 <Tag severity="warn">Modified</Tag>
-                <div class="pill-count">{{ summary.modified }}</div>
+                <div class="pill-count">
+                  {{
+                    typeCounts.modified.endpoints +
+                    typeCounts.modified.components +
+                    typeCounts.modified.info
+                  }}
+                </div>
                 <div class="pill-sub">
-                  {{ (diff.modified || []).length }} endpoints
+                  <span>{{ typeCounts.modified.endpoints }} endpoints</span>
+                  <span v-if="typeCounts.modified.components"
+                    >, {{ typeCounts.modified.components }} components</span
+                  >
+                  <span v-if="typeCounts.modified.info"
+                    >, {{ typeCounts.modified.info }} info</span
+                  >
                 </div>
               </button>
 
               <button
                 class="summary-pill removed"
                 :class="{ active: filter === 'removed' }"
-                @click="filter = 'removed'"
+                @click="setFilter('removed')"
               >
                 <Tag severity="danger">Removed</Tag>
-                <div class="pill-count">{{ summary.removed }}</div>
+                <div class="pill-count">
+                  {{
+                    typeCounts.removed.endpoints +
+                    typeCounts.removed.components +
+                    typeCounts.removed.info
+                  }}
+                </div>
                 <div class="pill-sub">
-                  {{ (diff.removed || []).length }} endpoints
+                  <span>{{ typeCounts.removed.endpoints }} endpoints</span>
+                  <span v-if="typeCounts.removed.components"
+                    >, {{ typeCounts.removed.components }} components</span
+                  >
+                  <span v-if="typeCounts.removed.info"
+                    >, {{ typeCounts.removed.info }} info</span
+                  >
                 </div>
               </button>
 
@@ -373,7 +449,11 @@
 
           <div v-else class="cards-area">
             <!-- Endpoints -->
-            <div v-if="endpoints.length" class="section-group">
+            <div
+              v-if="endpoints.length"
+              :key="'endpoints-' + filter"
+              class="section-group"
+            >
               <div class="section-header">
                 <h4>Endpoints ({{ endpoints.length }})</h4>
                 <Button
@@ -735,26 +815,47 @@ export default {
       );
     });
 
-    const endpointsAll = computed(() => {
+    const addedEndpoints = computed(() => {
       const d = props.diff || {};
-      const list = [];
-      (d.added || []).forEach((it) =>
-        list.push({ ...it, changeType: "added" })
-      );
-      (d.modified || []).forEach((it) =>
-        list.push({ ...it, changeType: "modified" })
-      );
-      (d.removed || []).forEach((it) =>
-        list.push({ ...it, changeType: "removed" })
-      );
-      return list;
+      return (d.added || []).map((it) => ({ ...it, changeType: "added" }));
     });
+
+    const modifiedEndpoints = computed(() => {
+      const d = props.diff || {};
+      return (d.modified || []).map((it) => ({
+        ...it,
+        changeType: "modified",
+      }));
+    });
+
+    const removedEndpoints = computed(() => {
+      const d = props.diff || {};
+      return (d.removed || []).map((it) => ({ ...it, changeType: "removed" }));
+    });
+
+    const endpointsTotal = computed(
+      () =>
+        addedEndpoints.value.length +
+        modifiedEndpoints.value.length +
+        removedEndpoints.value.length
+    );
 
     const endpoints = computed(() => {
       const q = search.value.trim().toLowerCase();
-      return endpointsAll.value.filter((it) => {
-        if (filter.value && it.changeType !== filter.value) return false;
-        if (!q) return true;
+
+      let list = [];
+      if (filter.value === "added") list = addedEndpoints.value;
+      else if (filter.value === "modified") list = modifiedEndpoints.value;
+      else if (filter.value === "removed") list = removedEndpoints.value;
+      else
+        list = [
+          ...addedEndpoints.value,
+          ...modifiedEndpoints.value,
+          ...removedEndpoints.value,
+        ];
+
+      if (!q) return list;
+      return list.filter((it) => {
         return (
           (it.path || "").toLowerCase().includes(q) ||
           (it.method || "").toLowerCase().includes(q) ||
@@ -763,14 +864,198 @@ export default {
       });
     });
 
-    const schemas = computed(() => props.diff?.schemaAdded || []);
+    // debug watcher to log counts and current filter to help reproduce
+    // cases where selecting an empty category shows other items
+    watch(
+      [addedEndpoints, modifiedEndpoints, removedEndpoints, filter, endpoints],
+      () => {
+        try {
+          const d = props.diff || {};
+          console.debug("[DiffDrawer] counts", {
+            added: addedEndpoints.value.length,
+            modified: modifiedEndpoints.value.length,
+            removed: removedEndpoints.value.length,
+            filter: filter.value,
+            endpoints: endpoints.value.length,
+          });
+
+          // snapshot of incoming diff for quick inspection
+          console.debug("[DiffDrawer] diff-keys", Object.keys(d));
+          console.debug("[DiffDrawer] diff-snapshot", {
+            addedSample: (d.added || []).slice(0, 3),
+            modifiedSample: (d.modified || []).slice(0, 3),
+            removedSample: (d.removed || []).slice(0, 3),
+            infoAdded: (d.infoAdded || []).slice(0, 3),
+            infoModified: (d.infoModified || []).slice(0, 3),
+            infoRemoved: (d.infoRemoved || []).slice(0, 3),
+            schemaAdded: (d.schemaAdded || []).slice(0, 3),
+            schemaModified: (d.schemaModified || []).slice(0, 3),
+            schemaRemoved: (d.schemaRemoved || []).slice(0, 3),
+          });
+
+          // detect possible inconsistency: diff.removed present but computed removedEndpoints empty
+          if (
+            d.removed &&
+            (Array.isArray(d.removed) ? d.removed.length : 1) > 0 &&
+            removedEndpoints.value.length === 0
+          ) {
+            console.warn(
+              "[DiffDrawer] Inconsistency: props.diff.removed exists but removedEndpoints computed is empty",
+              d.removed
+            );
+          }
+        } catch (e) {
+          // ignore logging errors in non-browser environments
+        }
+      }
+    );
+
+    // ensure that when user selects a filter with no items we collapse the endpoints
+    // section so the UI doesn't accidentally show other lists.
+    watch([filter, endpoints], () => {
+      try {
+        console.debug(
+          "[DiffDrawer] endpoints items sample",
+          endpoints.value.slice(0, 6)
+        );
+        if (["added", "modified", "removed"].includes(filter.value)) {
+          if ((endpoints.value || []).length === 0) {
+            expandedSections.value.endpoints = false;
+          } else {
+            expandedSections.value.endpoints = true;
+          }
+        }
+        try {
+          console.debug("[DiffDrawer] schema lists", {
+            schemaAdded: props.diff?.schemaAdded?.length ?? null,
+            schemaModified: props.diff?.schemaModified?.length ?? null,
+            schemaRemoved: props.diff?.schemaRemoved?.length ?? null,
+          });
+        } catch (e) {
+          // ignore
+        }
+      } catch (e) {
+        // ignore
+      }
+    });
+
+    const typeCounts = computed(() => {
+      const d = props.diff || {};
+      return {
+        added: {
+          endpoints: (d.added || []).length,
+          components: (d.schemaAdded || []).length,
+          info: (d.infoAdded || []).length,
+        },
+        modified: {
+          endpoints: (d.modified || []).length,
+          components: (d.schemaModified || []).length,
+          info: (d.infoModified || []).length,
+        },
+        removed: {
+          endpoints: (d.removed || []).length,
+          components: (d.schemaRemoved || []).length,
+          info: (d.infoRemoved || []).length,
+        },
+      };
+    });
+
+    const addedSchemas = computed(() => {
+      const d = props.diff || {};
+      return (d.schemaAdded || []).map((it) => ({
+        ...it,
+        changeType: "added",
+        name: it.name || it.key,
+      }));
+    });
+
+    const modifiedSchemas = computed(() => {
+      const d = props.diff || {};
+      return (d.schemaModified || []).map((it) => ({
+        ...it,
+        changeType: "modified",
+        name: it.name || it.key,
+      }));
+    });
+
+    const removedSchemas = computed(() => {
+      const d = props.diff || {};
+      return (d.schemaRemoved || []).map((it) => ({
+        ...it,
+        changeType: "removed",
+        name: it.name || it.key,
+      }));
+    });
+
+    const schemas = computed(() => {
+      const q = search.value.trim().toLowerCase();
+      let list = [];
+      if (filter.value === "added") list = addedSchemas.value;
+      else if (filter.value === "modified") list = modifiedSchemas.value;
+      else if (filter.value === "removed") list = removedSchemas.value;
+      else
+        list = [
+          ...addedSchemas.value,
+          ...modifiedSchemas.value,
+          ...removedSchemas.value,
+        ];
+
+      if (!q) return list;
+      return list.filter((it) => {
+        const name = (it.name || it.key || "").toLowerCase();
+        const schemaText = JSON.stringify(it.schema || {}).toLowerCase();
+        return name.includes(q) || schemaText.includes(q);
+      });
+    });
+
+    const schemasTotal = computed(
+      () =>
+        addedSchemas.value.length +
+        modifiedSchemas.value.length +
+        removedSchemas.value.length
+    );
+
     const infos = computed(() => {
       const d = props.diff || {};
-      return [
-        ...(d.infoAdded || []).map((i) => ({ key: i.key, value: i.value })),
-        ...(d.infoModified || []).map((i) => ({ key: i.key, value: i.new })),
-        ...(d.infoRemoved || []).map((i) => ({ key: i.key, value: i.value })),
+      const q = search.value.trim().toLowerCase();
+
+      // build full list grouped by change type so we can apply filter
+      const list = [
+        ...(d.infoAdded || []).map((i) => ({
+          key: i.key,
+          value: i.value,
+          changeType: "added",
+        })),
+        ...(d.infoModified || []).map((i) => ({
+          key: i.key,
+          value: i.new,
+          changeType: "modified",
+        })),
+        ...(d.infoRemoved || []).map((i) => ({
+          key: i.key,
+          value: i.value,
+          changeType: "removed",
+        })),
       ];
+
+      // apply top-level filter (added/modified/removed) similar to endpoints/schemas
+      let filtered = [];
+      if (filter.value === "added")
+        filtered = list.filter((it) => it.changeType === "added");
+      else if (filter.value === "modified")
+        filtered = list.filter((it) => it.changeType === "modified");
+      else if (filter.value === "removed")
+        filtered = list.filter((it) => it.changeType === "removed");
+      else filtered = list;
+
+      // apply search
+      if (!q) return filtered;
+      return filtered.filter((it) => {
+        return (
+          (it.key || "").toLowerCase().includes(q) ||
+          (String(it.value || "") || "").toLowerCase().includes(q)
+        );
+      });
     });
 
     function getMethodSeverity(method) {
@@ -812,6 +1097,15 @@ export default {
     function setDetailOpen(val) {
       detailOpen.value = val;
       if (!val) selectedItem.value = null;
+    }
+
+    const userSelectedFilter = ref(false);
+
+    function setFilter(val) {
+      // record user selection so we can show the endpoints section even when
+      // the selected category is empty (shows "No endpoints")
+      userSelectedFilter.value = true;
+      filter.value = val;
     }
 
     function toggleSection(key) {
@@ -881,12 +1175,19 @@ export default {
       search,
       copying,
       summary,
+      typeCounts,
       hasChanges,
       endpoints,
+      addedEndpoints,
+      modifiedEndpoints,
+      removedEndpoints,
+      endpointsTotal,
       schemas,
+      schemasTotal,
       infos,
       expandedSections,
       toggleSection,
+      setFilter,
       getMethodSeverity,
       prettyJSON,
       truncate,
