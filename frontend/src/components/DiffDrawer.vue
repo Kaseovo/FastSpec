@@ -131,7 +131,14 @@
                   class="endpoint-line"
                 >
                   <span class="endpoint-text"
-                    >{{ item.method }} {{ item.path }} {{ item.summary }}</span
+                    ><Tag
+                      :style="{
+                        backgroundColor: getMethodColor(item.method),
+                        color: 'white',
+                      }"
+                      >{{ item.method }}</Tag
+                    >
+                    {{ item.path }} {{ item.summary }}</span
                   >
                   <div class="card-actions">
                     <Button
@@ -383,7 +390,14 @@
                   class="endpoint-line"
                 >
                   <span class="endpoint-text"
-                    >{{ item.method }} {{ item.path }} {{ item.summary }}</span
+                    ><Tag
+                      :style="{
+                        backgroundColor: getMethodColor(item.method),
+                        color: 'white',
+                      }"
+                      >{{ item.method }}</Tag
+                    >
+                    {{ item.path }} {{ item.summary }}</span
                   >
                   <div class="card-actions">
                     <Button
@@ -908,7 +922,8 @@ export default {
       const m = (method || "").toUpperCase();
       if (m === "GET") return "#10b981";
       if (m === "POST") return "#3b82f6";
-      if (m === "PUT" || m === "PATCH") return "#f59e0b";
+      if (m === "PUT") return "#f59e0b";
+      if (m === "PATCH") return "#eab308";
       if (m === "DELETE") return "#ef4444";
       return "#6b7280";
     }
@@ -1210,9 +1225,6 @@ input.p-inputtext {
   align-items: center;
   gap: 12px;
   white-space: nowrap;
-}
-.method-tag {
-  font-weight: 700;
 }
 .path {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
