@@ -117,14 +117,14 @@
 
           <div v-else class="cards-area">
             <!-- Endpoints -->
-            <div class="section-group endpoints-section">
+            <div
+              class="section-group endpoints-section"
+              v-if="endpoints.length"
+            >
               <div class="section-header">
                 <h4>Endpoints ({{ endpoints.length }})</h4>
               </div>
               <div class="endpoints-list">
-                <div v-if="endpoints.length === 0" class="no-items">
-                  No endpoints
-                </div>
                 <div
                   v-for="(item, idx) in endpoints"
                   :key="cardKey(item, idx)"
@@ -369,14 +369,14 @@
 
           <div v-else class="cards-area">
             <!-- Endpoints -->
-            <div class="section-group endpoints-section">
+            <div
+              class="section-group endpoints-section"
+              v-if="endpoints.length"
+            >
               <div class="section-header">
                 <h4>Endpoints ({{ endpoints.length }})</h4>
               </div>
               <div class="endpoints-list">
-                <div v-if="endpoints.length === 0" class="no-items">
-                  No endpoints
-                </div>
                 <div
                   v-for="(item, idx) in endpoints"
                   :key="cardKey(item, idx)"
