@@ -571,7 +571,7 @@
             <h5>Endpoint Details</h5>
             <div class="endpoint-details">
               <div v-if="selectedItem.description" class="detail-section">
-                <h6>Description</h6>
+                <h6>📝 Description</h6>
                 <p>{{ selectedItem.description }}</p>
               </div>
 
@@ -579,7 +579,7 @@
                 v-if="selectedItem.parameters && selectedItem.parameters.length"
                 class="detail-section"
               >
-                <h6>Parameters</h6>
+                <h6>📋 Parameters</h6>
                 <div class="parameters-table">
                   <table class="p-datatable p-datatable-sm">
                     <thead>
@@ -615,7 +615,7 @@
               </div>
 
               <div v-if="selectedItem.requestBody" class="detail-section">
-                <h6>Request Body</h6>
+                <h6>📤 Request Body</h6>
                 <div
                   v-if="selectedItem.requestBody.description"
                   class="body-desc"
@@ -648,7 +648,7 @@
               </div>
 
               <div v-if="selectedItem.responses" class="detail-section">
-                <h6>Responses</h6>
+                <h6>📥 Responses</h6>
                 <div class="responses-list">
                   <div
                     v-for="(response, code) in selectedItem.responses"
@@ -656,8 +656,12 @@
                     class="response-item"
                   >
                     <div class="response-header">
-                      <strong>{{ code }}</strong
-                      >: {{ response.description }}
+                      <Tag :severity="getResponseSeverity(code)" size="small">{{
+                        code
+                      }}</Tag>
+                      <span class="response-desc">{{
+                        response.description
+                      }}</span>
                     </div>
                     <div v-if="response.content" class="response-content">
                       <div
@@ -1047,6 +1051,15 @@ export default {
       return "info";
     }
 
+    function getResponseSeverity(code) {
+      const c = parseInt(code);
+      if (c >= 200 && c < 300) return "success";
+      if (c >= 300 && c < 400) return "warn";
+      if (c >= 400 && c < 500) return "danger";
+      if (c >= 500) return "danger";
+      return "info";
+    }
+
     function getMethodColor(method) {
       const m = (method || "").toUpperCase();
       if (m === "GET") return "#10b981";
@@ -1183,6 +1196,7 @@ export default {
       setFilter,
       getMethodSeverity,
       getMethodColor,
+      getResponseSeverity,
       prettyJSON,
       truncate,
       formatFieldName,
@@ -1522,67 +1536,120 @@ input.p-inputtext {
 .endpoint-details {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 12px;
+  gap: 28px;
+  margin-top: 16px;
 }
 
 .detail-section {
-  background: #f8fafc;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.03);
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+
+.detail-section:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
 }
 
 .detail-section h6 {
-  margin: 0 0 8px 0;
-  font-size: 0.9rem;
+  margin: 0 0 12px 0;
+  font-size: 1rem;
   color: #0f1724;
-  font-weight: 600;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-section h6::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-radius: 2px;
 }
 
 .parameters-table .p-datatable {
   border: none;
   background: transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
 }
 
 .parameters-table .p-datatable thead th {
-  background: #f8fafc;
-  border: 1px solid rgba(15, 23, 42, 0.04);
-  padding: 8px;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border: none;
+  padding: 12px 8px;
   font-weight: 600;
-  color: #0f1724;
+  color: #f1f5f9;
   font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .parameters-table .p-datatable tbody td {
-  border: 1px solid rgba(15, 23, 42, 0.04);
-  padding: 8px;
+  border: none;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  padding: 10px 8px;
   font-size: 0.85rem;
+  background: #ffffff;
 }
 
 .parameters-table .p-datatable tbody tr:nth-child(even) {
   background: #f8fafc;
 }
 
+.parameters-table .p-datatable tbody tr:hover {
+  background: #e2e8f0;
+  transition: background-color 0.2s ease;
+}
+
+.parameters-table code {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
 .content-list,
 .response-content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .content-item {
-  background: #f8fafc;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(15, 23, 42, 0.04);
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  transition: all 0.2s ease;
+}
+
+.content-item:hover {
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
 }
 
 .content-item h6 {
-  margin: 0 0 8px 0;
-  font-size: 0.9rem;
+  margin: 0 0 10px 0;
+  font-size: 0.95rem;
   color: #0f1724;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.content-item h6::before {
+  content: "📄";
+  font-size: 0.9rem;
 }
 
 .schema-preview,
@@ -1605,6 +1672,18 @@ input.p-inputtext {
   display: flex;
   justify-content: center;
   margin: 12px 0;
+}
+
+.response-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.response-desc {
+  color: #374151;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 900px) {
