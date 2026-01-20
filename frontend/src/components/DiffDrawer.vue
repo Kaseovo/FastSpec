@@ -543,12 +543,6 @@
               class="p-button-text"
               @click="copyItemMarkdown"
             />
-            <Button
-              icon="pi pi-download"
-              label="Export JSON"
-              class="p-button-text"
-              @click="exportItemJSON"
-            />
           </div>
         </div>
 
@@ -573,7 +567,135 @@
             </div>
           </section>
 
-          <section>
+          <section v-if="selectedItem.method">
+            <h5>Endpoint Details</h5>
+            <div class="endpoint-details">
+              <div v-if="selectedItem.description" class="detail-section">
+                <h6>Description</h6>
+                <p>{{ selectedItem.description }}</p>
+              </div>
+
+              <div
+                v-if="selectedItem.parameters && selectedItem.parameters.length"
+                class="detail-section"
+              >
+                <h6>Parameters</h6>
+                <div class="parameters-table">
+                  <table class="p-datatable p-datatable-sm">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>In</th>
+                        <th>Required</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="param in selectedItem.parameters"
+                        :key="param.name"
+                      >
+                        <td>
+                          <code>{{ param.name }}</code>
+                        </td>
+                        <td>{{ param.in }}</td>
+                        <td>
+                          <Tag v-if="param.required" severity="danger"
+                            >Required</Tag
+                          >
+                          <Tag v-else severity="success">Optional</Tag>
+                        </td>
+                        <td>{{ param.schema?.type || "object" }}</td>
+                        <td>{{ param.description || "-" }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div v-if="selectedItem.requestBody" class="detail-section">
+                <h6>Request Body</h6>
+                <div
+                  v-if="selectedItem.requestBody.description"
+                  class="body-desc"
+                >
+                  {{ selectedItem.requestBody.description }}
+                </div>
+                <div
+                  v-if="selectedItem.requestBody.content"
+                  class="content-list"
+                >
+                  <div
+                    v-for="(content, type) in selectedItem.requestBody.content"
+                    :key="type"
+                    class="content-item"
+                  >
+                    <h6>{{ type }}</h6>
+                    <div v-if="content.schema" class="schema-preview">
+                      <pre
+                        class="mini-json"
+                      ><code>{{ prettyJSON(content.schema) }}</code></pre>
+                    </div>
+                    <div v-if="content.example" class="example-preview">
+                      <strong>Example:</strong>
+                      <pre
+                        class="mini-json"
+                      ><code>{{ prettyJSON(content.example) }}</code></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="selectedItem.responses" class="detail-section">
+                <h6>Responses</h6>
+                <div class="responses-list">
+                  <div
+                    v-for="(response, code) in selectedItem.responses"
+                    :key="code"
+                    class="response-item"
+                  >
+                    <div class="response-header">
+                      <strong>{{ code }}</strong
+                      >: {{ response.description }}
+                    </div>
+                    <div v-if="response.content" class="response-content">
+                      <div
+                        v-for="(content, type) in response.content"
+                        :key="type"
+                        class="content-item"
+                      >
+                        <h6>{{ type }}</h6>
+                        <div v-if="content.schema" class="schema-preview">
+                          <pre
+                            class="mini-json"
+                          ><code>{{ prettyJSON(content.schema) }}</code></pre>
+                        </div>
+                        <div v-if="content.example" class="example-preview">
+                          <strong>Example:</strong>
+                          <pre
+                            class="mini-json"
+                          ><code>{{ prettyJSON(content.example) }}</code></pre>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else>No content defined</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="json-toggle">
+            <Button
+              :icon="showJson ? 'pi pi-eye-slash' : 'pi pi-eye'"
+              :label="showJson ? 'Hide JSON' : 'Show JSON'"
+              class="p-button-text p-button-sm"
+              @click="showJson = !showJson"
+            />
+          </div>
+
+          <section v-if="showJson">
             <h5>JSON Preview</h5>
             <pre
               class="json-preview"
@@ -627,6 +749,7 @@ export default {
     const copying = ref(false);
     const detailOpen = ref(false);
     const selectedItem = ref(null);
+    const showJson = ref(false);
     const expandedSections = ref({
       schemas: true,
       info: true,
@@ -963,7 +1086,10 @@ export default {
 
     function setDetailOpen(val) {
       detailOpen.value = val;
-      if (!val) selectedItem.value = null;
+      if (!val) {
+        selectedItem.value = null;
+        showJson.value = false;
+      }
     }
 
     const userSelectedFilter = ref(false);
@@ -1065,8 +1191,8 @@ export default {
       detailOpen,
       selectedItem,
       setDetailOpen,
+      showJson,
       copyItemMarkdown,
-      exportItemJSON,
       copyAsMarkdown,
     };
   },
@@ -1393,6 +1519,94 @@ input.p-inputtext {
   overflow: auto;
   max-height: 320px;
 }
+.endpoint-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.detail-section {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.03);
+}
+
+.detail-section h6 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: #0f1724;
+  font-weight: 600;
+}
+
+.parameters-table .p-datatable {
+  border: none;
+  background: transparent;
+}
+
+.parameters-table .p-datatable thead th {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  padding: 8px;
+  font-weight: 600;
+  color: #0f1724;
+  font-size: 0.85rem;
+}
+
+.parameters-table .p-datatable tbody td {
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  padding: 8px;
+  font-size: 0.85rem;
+}
+
+.parameters-table .p-datatable tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.content-list,
+.response-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.content-item {
+  background: #f8fafc;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+}
+
+.content-item h6 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: #0f1724;
+  font-weight: 600;
+}
+
+.schema-preview,
+.example-preview {
+  margin-top: 8px;
+}
+
+.schema-preview .mini-json,
+.example-preview .mini-json {
+  max-height: 150px;
+}
+
+.body-desc {
+  color: #374151;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.json-toggle {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+}
+
 @media (max-width: 900px) {
   .cards-grid {
     grid-template-columns: 1fr;
