@@ -117,109 +117,29 @@
 
           <div v-else class="cards-area">
             <!-- Endpoints -->
-            <div
-              v-if="endpoints.length"
-              :key="'endpoints-' + filter"
-              class="section-group"
-            >
+            <div class="section-group endpoints-section">
               <div class="section-header">
                 <h4>Endpoints ({{ endpoints.length }})</h4>
-                <Button
-                  icon="pi pi-angle-down"
-                  class="p-button-text"
-                  @click="toggleSection('endpoints')"
-                />
               </div>
-              <div v-show="expandedSections.endpoints" class="cards-grid">
+              <div class="endpoints-list">
                 <div v-if="endpoints.length === 0" class="no-items">
                   No endpoints
                 </div>
                 <div
                   v-for="(item, idx) in endpoints"
                   :key="cardKey(item, idx)"
-                  class="endpoint-card"
+                  class="endpoint-line"
                 >
-                  <div class="card-left">
-                    <Tag
-                      :severity="getMethodSeverity(item.method)"
-                      class="method-tag"
-                      >{{ item.method }}</Tag
-                    >
-                    <div class="path">{{ item.path }}</div>
-                    <div v-if="item.summary" class="short">
-                      {{ item.summary }}
-                    </div>
-                  </div>
-
-                  <div class="card-details">
-                    <template
-                      v-if="
-                        item.changeType === 'added' ||
-                        item.changeType === 'removed'
-                      "
-                    >
-                      <div v-if="item.schema" class="mini-section">
-                        <div class="mini-label">Schema preview</div>
-                        <pre
-                          class="mini-json"
-                        ><code>{{ prettyJSON(item.schema) }}</code></pre>
-                      </div>
-                      <div v-else-if="item.description" class="mini-section">
-                        <div class="mini-label">Description</div>
-                        <div class="mini-desc">{{ item.description }}</div>
-                      </div>
-                      <div v-else-if="item.example" class="mini-section">
-                        <div class="mini-label">Example</div>
-                        <pre
-                          class="mini-json"
-                        ><code>{{ prettyJSON(item.example) }}</code></pre>
-                      </div>
-                    </template>
-
-                    <template v-else>
-                      <div
-                        v-if="item.diffDetails?.fields?.length"
-                        class="mini-section"
-                      >
-                        <div class="mini-label">Top field changes</div>
-                        <div
-                          class="modified-inline"
-                          v-for="(f, i) in item.diffDetails.fields.slice(0, 3)"
-                          :key="i"
-                        >
-                          <span class="mf">{{ formatFieldName(f.field) }}</span>
-                          <span class="mv old">{{
-                            truncate(String(f.old ?? "—"), 36)
-                          }}</span>
-                          <span class="marr">→</span>
-                          <span class="mv new">{{
-                            truncate(String(f.new ?? "—"), 36)
-                          }}</span>
-                        </div>
-                      </div>
-                      <div v-else class="mini-label">
-                        No field-level summary available
-                      </div>
-                    </template>
-                  </div>
-
-                  <div class="card-right">
-                    <div class="change-hints">
-                      <span v-if="item.changeCount" class="hint"
-                        >{{ item.changeCount }} changes</span
-                      >
-                      <span v-if="item.deprecated" class="hint deprecated"
-                        >Deprecated</span
-                      >
-                    </div>
-                    <div class="card-actions">
-                      <Button
-                        icon="pi pi-eye"
-                        class="p-button-text"
-                        @click="openDetails(item)"
-                        aria-label="Open details"
-                      />
-                    </div>
+                  <span class="endpoint-text"
+                    >{{ item.method }} {{ item.path }} {{ item.summary }}</span
+                  >
+                  <div class="card-actions">
+                    <Button
+                      icon="pi pi-eye"
+                      class="p-button-text"
+                      @click="openDetails(item)"
+                      aria-label="Open details"
+                    />
                   </div>
                 </div>
               </div>
@@ -449,109 +369,29 @@
 
           <div v-else class="cards-area">
             <!-- Endpoints -->
-            <div
-              v-if="endpoints.length"
-              :key="'endpoints-' + filter"
-              class="section-group"
-            >
+            <div class="section-group endpoints-section">
               <div class="section-header">
                 <h4>Endpoints ({{ endpoints.length }})</h4>
-                <Button
-                  icon="pi pi-angle-down"
-                  class="p-button-text"
-                  @click="toggleSection('endpoints')"
-                />
               </div>
-              <div v-show="expandedSections.endpoints" class="cards-grid">
+              <div class="endpoints-list">
                 <div v-if="endpoints.length === 0" class="no-items">
                   No endpoints
                 </div>
                 <div
                   v-for="(item, idx) in endpoints"
                   :key="cardKey(item, idx)"
-                  class="endpoint-card"
+                  class="endpoint-line"
                 >
-                  <div class="card-left">
-                    <Tag
-                      :severity="getMethodSeverity(item.method)"
-                      class="method-tag"
-                      >{{ item.method }}</Tag
-                    >
-                    <div class="path">{{ item.path }}</div>
-                    <div v-if="item.summary" class="short">
-                      {{ item.summary }}
-                    </div>
-                  </div>
-
-                  <div class="card-details">
-                    <template
-                      v-if="
-                        item.changeType === 'added' ||
-                        item.changeType === 'removed'
-                      "
-                    >
-                      <div v-if="item.schema" class="mini-section">
-                        <div class="mini-label">Schema preview</div>
-                        <pre
-                          class="mini-json"
-                        ><code>{{ prettyJSON(item.schema) }}</code></pre>
-                      </div>
-                      <div v-else-if="item.description" class="mini-section">
-                        <div class="mini-label">Description</div>
-                        <div class="mini-desc">{{ item.description }}</div>
-                      </div>
-                      <div v-else-if="item.example" class="mini-section">
-                        <div class="mini-label">Example</div>
-                        <pre
-                          class="mini-json"
-                        ><code>{{ prettyJSON(item.example) }}</code></pre>
-                      </div>
-                    </template>
-
-                    <template v-else>
-                      <div
-                        v-if="item.diffDetails?.fields?.length"
-                        class="mini-section"
-                      >
-                        <div class="mini-label">Top field changes</div>
-                        <div
-                          class="modified-inline"
-                          v-for="(f, i) in item.diffDetails.fields.slice(0, 3)"
-                          :key="i"
-                        >
-                          <span class="mf">{{ formatFieldName(f.field) }}</span>
-                          <span class="mv old">{{
-                            truncate(String(f.old ?? "—"), 36)
-                          }}</span>
-                          <span class="marr">→</span>
-                          <span class="mv new">{{
-                            truncate(String(f.new ?? "—"), 36)
-                          }}</span>
-                        </div>
-                      </div>
-                      <div v-else class="mini-label">
-                        No field-level summary available
-                      </div>
-                    </template>
-                  </div>
-
-                  <div class="card-right">
-                    <div class="change-hints">
-                      <span v-if="item.changeCount" class="hint"
-                        >{{ item.changeCount }} changes</span
-                      >
-                      <span v-if="item.deprecated" class="hint deprecated"
-                        >Deprecated</span
-                      >
-                    </div>
-                    <div class="card-actions">
-                      <Button
-                        icon="pi pi-eye"
-                        class="p-button-text"
-                        @click="openDetails(item)"
-                        aria-label="Open details"
-                      />
-                    </div>
+                  <span class="endpoint-text"
+                    >{{ item.method }} {{ item.path }} {{ item.summary }}</span
+                  >
+                  <div class="card-actions">
+                    <Button
+                      icon="pi pi-eye"
+                      class="p-button-text"
+                      @click="openDetails(item)"
+                      aria-label="Open details"
+                    />
                   </div>
                 </div>
               </div>
@@ -768,7 +608,6 @@ export default {
     const detailOpen = ref(false);
     const selectedItem = ref(null);
     const expandedSections = ref({
-      endpoints: true,
       schemas: true,
       info: true,
     });
@@ -854,14 +693,18 @@ export default {
           ...removedEndpoints.value,
         ];
 
-      if (!q) return list;
-      return list.filter((it) => {
-        return (
-          (it.path || "").toLowerCase().includes(q) ||
-          (it.method || "").toLowerCase().includes(q) ||
-          (it.summary || "").toLowerCase().includes(q)
-        );
-      });
+      let filtered = list;
+      if (q) {
+        filtered = list.filter((it) => {
+          return (
+            (it.path || "").toLowerCase().includes(q) ||
+            (it.method || "").toLowerCase().includes(q) ||
+            (it.summary || "").toLowerCase().includes(q)
+          );
+        });
+      }
+
+      return filtered;
     });
 
     // debug watcher to log counts and current filter to help reproduce
@@ -876,7 +719,7 @@ export default {
             modified: modifiedEndpoints.value.length,
             removed: removedEndpoints.value.length,
             filter: filter.value,
-            endpoints: endpoints.value.length,
+            endpoints: Object.keys(endpoints.value).length,
           });
 
           // snapshot of incoming diff for quick inspection
@@ -916,15 +759,9 @@ export default {
       try {
         console.debug(
           "[DiffDrawer] endpoints items sample",
-          endpoints.value.slice(0, 6)
+          Object.entries(endpoints.value).slice(0, 6)
         );
-        if (["added", "modified", "removed"].includes(filter.value)) {
-          if ((endpoints.value || []).length === 0) {
-            expandedSections.value.endpoints = false;
-          } else {
-            expandedSections.value.endpoints = true;
-          }
-        }
+        // sections are dynamically managed by the watch on Object.keys(endpoints.value)
         try {
           console.debug("[DiffDrawer] schema lists", {
             schemaAdded: props.diff?.schemaAdded?.length ?? null,
@@ -1067,6 +904,15 @@ export default {
       return "info";
     }
 
+    function getMethodColor(method) {
+      const m = (method || "").toUpperCase();
+      if (m === "GET") return "#10b981";
+      if (m === "POST") return "#3b82f6";
+      if (m === "PUT" || m === "PATCH") return "#f59e0b";
+      if (m === "DELETE") return "#ef4444";
+      return "#6b7280";
+    }
+
     function prettyJSON(obj) {
       try {
         return JSON.stringify(obj, null, 2);
@@ -1189,6 +1035,7 @@ export default {
       toggleSection,
       setFilter,
       getMethodSeverity,
+      getMethodColor,
       prettyJSON,
       truncate,
       formatFieldName,
@@ -1302,9 +1149,40 @@ input.p-inputtext {
 .cards-area {
   margin-top: 12px;
 }
+.endpoints-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+.endpoints-list {
+  margin-top: 12px;
+}
+.endpoint-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  margin-bottom: 12px;
+  gap: 12px;
+  font-size: 1rem;
+}
+.endpoint-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-weight: 600;
+  color: #0f1724;
+  flex: 1;
+}
+.endpoint-line .card-actions {
+  margin-left: auto;
+}
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 .endpoint-card {
@@ -1317,12 +1195,21 @@ input.p-inputtext {
   border: 1px solid rgba(15, 23, 42, 0.04);
   box-shadow: 0 2px 8px rgba(2, 6, 23, 0.03);
   gap: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.endpoint-card:hover {
+  box-shadow: 0 4px 16px rgba(2, 6, 23, 0.08);
+  transform: translateY(-2px);
+  border-color: rgba(15, 23, 42, 0.08);
 }
 .card-left {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 220px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
 }
 .method-tag {
   font-weight: 700;
@@ -1330,10 +1217,19 @@ input.p-inputtext {
 .path {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   color: #0f1724;
+  font-weight: 600;
 }
 .short {
-  color: #6b7280;
-  font-size: 0.9rem;
+  color: #475569;
+  font-size: 0.85rem;
+}
+.endpoint-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  color: #0f1724;
+  font-weight: 600;
+}
+.method-text {
+  font-weight: bold;
 }
 .card-details {
   flex: 1;
