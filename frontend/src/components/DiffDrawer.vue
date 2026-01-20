@@ -131,15 +131,18 @@
                   class="endpoint-line"
                 >
                   <span class="endpoint-text"
-                    ><Tag
-                      :style="{
-                        backgroundColor: getMethodColor(item.method),
-                        color: 'white',
-                      }"
-                      >{{ item.method }}</Tag
-                    >
-                    {{ item.path }} {{ item.summary }}</span
+                    ><span class="endpoint-left"
+                      ><Tag
+                        :style="{
+                          backgroundColor: getMethodColor(item.method),
+                          color: 'white',
+                        }"
+                        >{{ item.method }}</Tag
+                      >
+                      {{ item.path }}</span
+                    ></span
                   >
+                  <span class="endpoint-summary">{{ item.summary }}</span>
                   <div class="card-actions">
                     <Button
                       icon="pi pi-eye"
@@ -390,15 +393,18 @@
                   class="endpoint-line"
                 >
                   <span class="endpoint-text"
-                    ><Tag
-                      :style="{
-                        backgroundColor: getMethodColor(item.method),
-                        color: 'white',
-                      }"
-                      >{{ item.method }}</Tag
-                    >
-                    {{ item.path }} {{ item.summary }}</span
+                    ><span class="endpoint-left"
+                      ><Tag
+                        :style="{
+                          backgroundColor: getMethodColor(item.method),
+                          color: 'white',
+                        }"
+                        >{{ item.method }}</Tag
+                      >
+                      {{ item.path }}</span
+                    ></span
                   >
+                  <span class="endpoint-summary">{{ item.summary }}</span>
                   <div class="card-actions">
                     <Button
                       icon="pi pi-eye"
@@ -1177,7 +1183,7 @@ input.p-inputtext {
 .endpoint-line {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 16px 20px;
   border-radius: 8px;
   background: #fff;
@@ -1191,8 +1197,16 @@ input.p-inputtext {
   font-weight: 600;
   color: #0f1724;
   flex: 1;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
 }
-.endpoint-line .card-actions {
+.endpoint-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.endpoint-summary {
   margin-left: auto;
 }
 .cards-grid {
