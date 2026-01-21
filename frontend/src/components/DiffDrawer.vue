@@ -172,7 +172,7 @@
                 <div
                   v-for="(item, idx) in schemas"
                   :key="cardKey(item, idx)"
-                  class="endpoint-card"
+                  class="schema-card"
                 >
                   <div class="card-left">
                     <div class="schema-header">
@@ -434,21 +434,119 @@
                 <div
                   v-for="(item, idx) in schemas"
                   :key="cardKey(item, idx)"
-                  class="endpoint-card"
+                  class="schema-card"
                 >
                   <div class="card-left">
                     <div class="schema-header">
                       <i class="pi pi-sitemap"></i>
                       <code class="schema-name">{{ item.name }}</code>
+                      <Tag
+                        :severity="getChangeSeverity(item.changeType)"
+                        size="small"
+                        class="change-type-tag"
+                        >{{ item.changeType }}</Tag
+                      >
                     </div>
                     <div class="short">Component/schema</div>
                   </div>
                   <div class="card-details">
-                    <div class="mini-section">
-                      <div class="mini-label">Schema reference</div>
-                      <pre
-                        class="mini-json"
-                      ><code>{{ prettyJSON({ "$ref": "#/components/schemas/" + item.name }) }}</code></pre>
+                    <div class="schema-overview">
+                      <div class="schema-type">
+                        <strong>Type:</strong>
+                        {{ item.dereferencedSchema?.type || "unknown" }}
+                      </div>
+                      <div
+                        v-if="item.dereferencedSchema?.description"
+                        class="schema-desc"
+                      >
+                        {{ item.dereferencedSchema.description }}
+                      </div>
+                      <div
+                        v-if="item.changeType === 'modified'"
+                        class="schema-changes"
+                      >
+                        <div class="change-summary">
+                          <span
+                            v-if="item.propertiesAdded?.length"
+                            class="change-added"
+                            >+{{ item.propertiesAdded.length }} added</span
+                          >
+                          <span
+                            v-if="item.propertiesRemoved?.length"
+                            class="change-removed"
+                            >-{{ item.propertiesRemoved.length }} removed</span
+                          >
+                          <span
+                            v-if="item.propertiesModified?.length"
+                            class="change-modified"
+                            >~{{
+                              item.propertiesModified.length
+                            }}
+                            modified</span
+                          >
+                          <span v-if="item.typeChanged" class="change-modified"
+                            >Type changed</span
+                          >
+                          <span
+                            v-if="item.requiredChanged"
+                            class="change-modified"
+                            >Required changed</span
+                          >
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      v-if="item.dereferencedSchema?.properties"
+                      class="schema-properties"
+                    >
+                      <Button
+                        :icon="
+                          expandedSchemas[item.name]
+                            ? 'pi pi-chevron-down'
+                            : 'pi pi-chevron-right'
+                        "
+                        class="p-button-text p-button-sm expand-btn"
+                        @click="toggleSchemaExpand(item.name)"
+                        aria-label="Toggle properties"
+                      />
+                      <span class="properties-count"
+                        >{{
+                          Object.keys(item.dereferencedSchema.properties).length
+                        }}
+                        properties</span
+                      >
+                      <div
+                        v-show="expandedSchemas[item.name]"
+                        class="properties-list"
+                      >
+                        <div
+                          v-for="(prop, propName) in item.dereferencedSchema
+                            .properties"
+                          :key="propName"
+                          class="property-item"
+                          :class="getPropertyChangeClass(item, propName)"
+                        >
+                          <code class="prop-name">{{ propName }}</code>
+                          <span class="prop-type">{{
+                            prop.type || "object"
+                          }}</span>
+                          <Tag
+                            v-if="
+                              item.dereferencedSchema.required?.includes(
+                                propName
+                              )
+                            "
+                            severity="danger"
+                            size="small"
+                            >Req</Tag
+                          >
+                          <span
+                            v-if="getPropertyChangeType(item, propName)"
+                            class="change-indicator"
+                            >{{ getPropertyChangeType(item, propName) }}</span
+                          >
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div class="card-right">
@@ -825,6 +923,59 @@
             />
           </div>
 
+          <section
+            v-if="
+              selectedItem.changeType === 'modified' &&
+              selectedItem.propertiesAdded
+            "
+          >
+            <h5>Schema Changes</h5>
+            <div class="schema-changes-detail">
+              <div
+                v-if="selectedItem.propertiesAdded.length"
+                class="change-group"
+              >
+                <h6>Added Properties</h6>
+                <ul>
+                  <li
+                    v-for="prop in selectedItem.propertiesAdded"
+                    :key="prop.name"
+                  >
+                    {{ prop.name }}
+                  </li>
+                </ul>
+              </div>
+              <div
+                v-if="selectedItem.propertiesRemoved.length"
+                class="change-group"
+              >
+                <h6>Removed Properties</h6>
+                <ul>
+                  <li
+                    v-for="prop in selectedItem.propertiesRemoved"
+                    :key="prop.name"
+                  >
+                    {{ prop.name }}
+                  </li>
+                </ul>
+              </div>
+              <div
+                v-if="selectedItem.propertiesModified.length"
+                class="change-group"
+              >
+                <h6>Modified Properties</h6>
+                <ul>
+                  <li
+                    v-for="prop in selectedItem.propertiesModified"
+                    :key="prop.name"
+                  >
+                    {{ prop.name }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
           <section v-if="showJson">
             <h5>JSON Preview</h5>
             <pre
@@ -888,6 +1039,7 @@ export default {
       schemas: true,
       info: true,
     });
+    const expandedSchemas = ref({});
 
     watch(
       () => props.diff,
@@ -1081,6 +1233,7 @@ export default {
         changeType: "added",
         name: it.name || it.key,
         dereferencedSchema: dereferenceSchema(it.schema),
+        changeCount: 1,
       }));
     });
 
@@ -1088,11 +1241,21 @@ export default {
       const d = props.diff || {};
       return (d.schemaModified || []).map((it) => {
         const fullSchema = props.spec?.components?.schemas?.[it.name];
+        const changeCount =
+          (it.propertiesAdded?.length || 0) +
+          (it.propertiesRemoved?.length || 0) +
+          (it.propertiesModified?.length || 0) +
+          (it.typeChanged ? 1 : 0) +
+          (it.requiredChanged ? 1 : 0) +
+          (it.enumChanged ? 1 : 0) +
+          (it.formatChanged ? 1 : 0) +
+          (it.validationChanged?.length || 0);
         return {
           ...it,
           changeType: "modified",
           name: it.name || it.key,
           dereferencedSchema: dereferenceSchema(fullSchema),
+          changeCount,
         };
       });
     });
@@ -1104,6 +1267,7 @@ export default {
         changeType: "removed",
         name: it.name || it.key,
         dereferencedSchema: dereferenceSchema(it.schema),
+        changeCount: 1,
       }));
     });
 
@@ -1308,6 +1472,33 @@ export default {
       expandedSections.value[key] = !expandedSections.value[key];
     }
 
+    function toggleSchemaExpand(name) {
+      expandedSchemas.value[name] = !expandedSchemas.value[name];
+    }
+
+    function getChangeSeverity(changeType) {
+      if (changeType === "added") return "success";
+      if (changeType === "modified") return "warn";
+      if (changeType === "removed") return "danger";
+      return "info";
+    }
+
+    function getPropertyChangeType(item, propName) {
+      if (item.changeType !== "modified") return null;
+      if (item.propertiesAdded?.some((p) => p.name === propName)) return "+";
+      if (item.propertiesRemoved?.some((p) => p.name === propName)) return "-";
+      if (item.propertiesModified?.some((p) => p.name === propName)) return "~";
+      return null;
+    }
+
+    function getPropertyChangeClass(item, propName) {
+      const change = getPropertyChangeType(item, propName);
+      if (change === "+") return "prop-added";
+      if (change === "-") return "prop-removed";
+      if (change === "~") return "prop-modified";
+      return "";
+    }
+
     async function copyAsMarkdown() {
       copying.value = true;
       try {
@@ -1382,11 +1573,16 @@ export default {
       schemasTotal,
       infos,
       expandedSections,
+      expandedSchemas,
       toggleSection,
+      toggleSchemaExpand,
       setFilter,
       getMethodSeverity,
       getMethodColor,
       getResponseSeverity,
+      getChangeSeverity,
+      getPropertyChangeType,
+      getPropertyChangeClass,
       prettyJSON,
       truncate,
       formatFieldName,
@@ -1558,6 +1754,26 @@ input.p-inputtext {
   gap: 12px;
   transition: all 0.2s ease;
   cursor: pointer;
+}
+
+.schema-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2px 8px rgba(2, 6, 23, 0.03);
+  gap: 16px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.schema-card:hover {
+  box-shadow: 0 4px 16px rgba(2, 6, 23, 0.08);
+  transform: translateY(-2px);
+  border-color: rgba(15, 23, 42, 0.08);
 }
 
 .endpoint-card:hover {
@@ -1956,6 +2172,165 @@ input.p-inputtext {
   font-weight: 500;
 }
 
+.schema-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.schema-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-weight: 600;
+  color: #0f1724;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.change-type-tag {
+  margin-left: auto;
+}
+
+.schema-overview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.schema-type {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.schema-desc {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.schema-changes {
+  margin-top: 8px;
+}
+
+.change-summary {
+  display: flex;
+  gap: 12px;
+  font-size: 0.8rem;
+}
+
+.change-added {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.change-removed {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.change-modified {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.schema-properties {
+  margin-top: 12px;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  padding-top: 8px;
+}
+
+.expand-btn {
+  margin-right: 8px;
+}
+
+.properties-count {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.properties-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  transition: all 0.3s ease;
+}
+
+.property-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #f8fafc;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+}
+
+.prop-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-weight: 600;
+  color: #0f1724;
+  background: #e2e8f0;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.prop-type {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.change-indicator {
+  margin-left: auto;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.prop-added {
+  background: #ecfdf5;
+  border-left: 3px solid #10b981;
+}
+
+.prop-removed {
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+}
+
+.prop-modified {
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+}
+
+.schema-changes-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.change-group h6 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: #0f1724;
+  font-weight: 600;
+}
+
+.change-group ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.change-group li {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
 @media (max-width: 900px) {
   .cards-grid {
     grid-template-columns: 1fr;
@@ -1964,6 +2339,10 @@ input.p-inputtext {
     grid-template-columns: 1fr;
   }
   .endpoint-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .schema-card {
     flex-direction: column;
     align-items: stretch;
   }
