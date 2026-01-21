@@ -183,10 +183,10 @@
                   </div>
                   <div class="card-details">
                     <div class="mini-section">
-                      <div class="mini-label">Schema preview</div>
+                      <div class="mini-label">Schema reference</div>
                       <pre
                         class="mini-json"
-                      ><code>{{ prettyJSON(item.schema) }}</code></pre>
+                      ><code>{{ prettyJSON({ "$ref": "#/components/schemas/" + item.name }) }}</code></pre>
                     </div>
                   </div>
                   <div class="card-right">
@@ -445,10 +445,10 @@
                   </div>
                   <div class="card-details">
                     <div class="mini-section">
-                      <div class="mini-label">Schema preview</div>
+                      <div class="mini-label">Schema reference</div>
                       <pre
                         class="mini-json"
-                      ><code>{{ prettyJSON(item.schema) }}</code></pre>
+                      ><code>{{ prettyJSON({ "$ref": "#/components/schemas/" + item.name }) }}</code></pre>
                     </div>
                   </div>
                   <div class="card-right">
@@ -635,7 +635,7 @@
                     <div v-if="content.schema" class="schema-preview">
                       <pre
                         class="mini-json"
-                      ><code>{{ prettyJSON(content.schema) }}</code></pre>
+                      ><code>{{ prettyJSON(dereferenceSchema(content.schema)) }}</code></pre>
                     </div>
                     <div v-if="content.example" class="example-preview">
                       <strong>Example:</strong>
@@ -673,7 +673,7 @@
                         <div v-if="content.schema" class="schema-preview">
                           <pre
                             class="mini-json"
-                          ><code>{{ prettyJSON(content.schema) }}</code></pre>
+                          ><code>{{ prettyJSON(dereferenceSchema(content.schema)) }}</code></pre>
                         </div>
                         <div v-if="content.example" class="example-preview">
                           <strong>Example:</strong>
@@ -736,6 +736,10 @@ export default {
     diff: {
       type: Object,
       default: () => ({ info: null, added: [], modified: [], removed: [] }),
+    },
+    spec: {
+      type: Object,
+      default: () => ({}),
     },
     inline: {
       type: Boolean,
@@ -950,16 +954,21 @@ export default {
         ...it,
         changeType: "added",
         name: it.name || it.key,
+        dereferencedSchema: dereferenceSchema(it.schema),
       }));
     });
 
     const modifiedSchemas = computed(() => {
       const d = props.diff || {};
-      return (d.schemaModified || []).map((it) => ({
-        ...it,
-        changeType: "modified",
-        name: it.name || it.key,
-      }));
+      return (d.schemaModified || []).map((it) => {
+        const fullSchema = props.spec?.components?.schemas?.[it.name];
+        return {
+          ...it,
+          changeType: "modified",
+          name: it.name || it.key,
+          dereferencedSchema: dereferenceSchema(fullSchema),
+        };
+      });
     });
 
     const removedSchemas = computed(() => {
@@ -968,6 +977,7 @@ export default {
         ...it,
         changeType: "removed",
         name: it.name || it.key,
+        dereferencedSchema: dereferenceSchema(it.schema),
       }));
     });
 
@@ -987,7 +997,9 @@ export default {
       if (!q) return list;
       return list.filter((it) => {
         const name = (it.name || it.key || "").toLowerCase();
-        const schemaText = JSON.stringify(it.schema || {}).toLowerCase();
+        const schemaText = JSON.stringify(
+          it.dereferencedSchema || {}
+        ).toLowerCase();
         return name.includes(q) || schemaText.includes(q);
       });
     });
@@ -1086,6 +1098,45 @@ export default {
     function formatFieldName(f) {
       if (!f) return "";
       return String(f).replace(/\./g, " → ");
+    }
+
+    function getComponentName(ref) {
+      if (!ref) return "";
+      return ref.split("/").pop();
+    }
+
+    function dereferenceSchema(schema, visited = new Set()) {
+      if (!schema || typeof schema !== "object") return schema;
+
+      // Handle $ref
+      if (schema.$ref) {
+        const refPath = schema.$ref;
+        if (refPath.startsWith("#/")) {
+          const path = refPath.slice(2).split("/");
+          let resolved = props.spec;
+          for (const segment of path) {
+            resolved = resolved?.[segment];
+            if (resolved === undefined) break;
+          }
+          if (resolved && !visited.has(refPath)) {
+            visited.add(refPath);
+            const deref = dereferenceSchema(resolved, visited);
+            visited.delete(refPath);
+            return { ...deref, _resolvedFrom: refPath };
+          }
+        }
+        // If can't resolve, return as is
+        return schema;
+      }
+
+      // Recursively dereference nested objects
+      const result = { ...schema };
+      for (const key in result) {
+        if (result[key] && typeof result[key] === "object") {
+          result[key] = dereferenceSchema(result[key], visited);
+        }
+      }
+      return result;
     }
 
     function cardKey(item, idx) {
@@ -1200,6 +1251,8 @@ export default {
       prettyJSON,
       truncate,
       formatFieldName,
+      getComponentName,
+      dereferenceSchema,
       cardKey,
       openDetails,
       detailOpen,
@@ -1660,6 +1713,57 @@ input.p-inputtext {
 .schema-preview .mini-json,
 .example-preview .mini-json {
   max-height: 150px;
+}
+
+.schema-ref {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #0c4a6e;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.schema-ref i {
+  color: #0ea5e9;
+}
+
+.schema-properties {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.property-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  font-size: 0.85rem;
+}
+
+.prop-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-weight: 600;
+  color: #0f1724;
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.prop-type {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.prop-desc {
+  color: #6b7280;
+  font-style: italic;
 }
 
 .body-desc {

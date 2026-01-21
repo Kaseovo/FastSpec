@@ -81,7 +81,7 @@
 
         <template v-else-if="viewMode === 'changes'">
           <!-- Use DiffDrawer component in inline mode (panel) -->
-          <DiffDrawer :diff="specDiff" inline />
+          <DiffDrawer :diff="specDiff" :spec="parsedSpec" inline />
         </template>
 
         <template v-else-if="viewMode === 'preview'">
