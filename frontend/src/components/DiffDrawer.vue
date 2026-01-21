@@ -179,10 +179,72 @@
                       <i class="pi pi-sitemap"></i>
                       <code class="schema-name">{{ item.name }}</code>
                     </div>
-                    <div class="short">Component/schema</div>
                   </div>
                   <div class="card-details">
-                    <div class="mini-section">
+                    <div
+                      v-if="item.changeType === 'added'"
+                      class="schema-preview"
+                    >
+                      <div
+                        v-if="
+                          item.dereferencedSchema.title &&
+                          item.dereferencedSchema.title !== item.name
+                        "
+                        class="schema-title"
+                      >
+                        {{ item.dereferencedSchema.title }}
+                      </div>
+                      <div
+                        v-if="item.dereferencedSchema.description"
+                        class="schema-desc"
+                      >
+                        {{ item.dereferencedSchema.description }}
+                      </div>
+                      <div
+                        v-if="item.dereferencedSchema.type"
+                        class="schema-type"
+                      >
+                        Type: {{ item.dereferencedSchema.type }}
+                      </div>
+                      <div
+                        v-if="
+                          item.dereferencedSchema.required &&
+                          item.dereferencedSchema.required.length
+                        "
+                        class="required-list"
+                      >
+                        Required:
+                        {{ item.dereferencedSchema.required.join(", ") }}
+                      </div>
+                      <div
+                        v-if="item.dereferencedSchema.properties"
+                        class="properties-list"
+                      >
+                        <div
+                          v-for="(prop, name) in item.dereferencedSchema
+                            .properties"
+                          :key="name"
+                          class="property-item"
+                        >
+                          <code class="prop-name">{{ name }}</code>
+                          <span class="prop-type">{{
+                            prop.type || "object"
+                          }}</span>
+                          <span v-if="prop.description" class="prop-desc">{{
+                            prop.description
+                          }}</span>
+                          <span v-if="prop.title" class="prop-title">{{
+                            prop.title.replace(/^\(|\)$/g, "")
+                          }}</span>
+                        </div>
+                      </div>
+                      <div v-else>
+                        <pre
+                          class="mini-json"
+                        ><code>{{ prettyJSON(item.dereferencedSchema) }}</code></pre>
+                      </div>
+                    </div>
+                    <div v-else class="mini-section">
                       <div class="mini-label">Schema reference</div>
                       <pre
                         class="mini-json"
@@ -190,9 +252,6 @@
                     </div>
                   </div>
                   <div class="card-right">
-                    <div class="change-hints">
-                      <span class="hint">{{ item.changeCount }} changes</span>
-                    </div>
                     <div class="card-actions">
                       <Button
                         icon="pi pi-eye"
@@ -447,7 +506,6 @@
                         >{{ item.changeType }}</Tag
                       >
                     </div>
-                    <div class="short">Component/schema</div>
                   </div>
                   <div class="card-details">
                     <div class="schema-overview">
@@ -496,7 +554,10 @@
                       </div>
                     </div>
                     <div
-                      v-if="item.dereferencedSchema?.properties"
+                      v-if="
+                        item.dereferencedSchema?.properties &&
+                        item.changeType !== 'added'
+                      "
                       class="schema-properties"
                     >
                       <Button
@@ -558,7 +619,9 @@
                   </div>
                   <div class="card-right">
                     <div class="change-hints">
-                      <span class="hint">{{ item.changeCount }} changes</span>
+                      <span v-if="item.changeType !== 'added'" class="hint"
+                        >{{ item.changeCount }} changes</span
+                      >
                     </div>
                     <div class="card-actions">
                       <Button
