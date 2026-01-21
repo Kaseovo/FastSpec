@@ -736,7 +736,6 @@
                     :key="type"
                     class="content-item"
                   >
-                    <h6>{{ type }}</h6>
                     <div v-if="content.schema" class="schema-preview">
                       <div
                         v-if="dereferenceSchema(content.schema).title"
@@ -787,7 +786,7 @@
                             prop.description
                           }}</span>
                           <span v-if="prop.title" class="prop-title">{{
-                            prop.title
+                            prop.title.replace(/^\(|\)$/g, "")
                           }}</span>
                         </div>
                       </div>
@@ -829,7 +828,6 @@
                         :key="type"
                         class="content-item"
                       >
-                        <h6>{{ type }}</h6>
                         <div v-if="content.schema" class="schema-preview">
                           <div
                             v-if="dereferenceSchema(content.schema).title"
@@ -2151,6 +2149,12 @@ input.p-inputtext {
 .response-desc {
   color: #374151;
   font-size: 0.9rem;
+}
+
+.responses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .schema-title {
