@@ -633,9 +633,64 @@
                   >
                     <h6>{{ type }}</h6>
                     <div v-if="content.schema" class="schema-preview">
-                      <pre
-                        class="mini-json"
-                      ><code>{{ prettyJSON(dereferenceSchema(content.schema)) }}</code></pre>
+                      <div
+                        v-if="dereferenceSchema(content.schema).title"
+                        class="schema-title"
+                      >
+                        {{ dereferenceSchema(content.schema).title }}
+                      </div>
+                      <div
+                        v-if="dereferenceSchema(content.schema).description"
+                        class="schema-desc"
+                      >
+                        {{ dereferenceSchema(content.schema).description }}
+                      </div>
+                      <div
+                        v-if="dereferenceSchema(content.schema).type"
+                        class="schema-type"
+                      >
+                        Type: {{ dereferenceSchema(content.schema).type }}
+                      </div>
+                      <div
+                        v-if="
+                          dereferenceSchema(content.schema).required &&
+                          dereferenceSchema(content.schema).required.length
+                        "
+                        class="required-list"
+                      >
+                        Required:
+                        {{
+                          dereferenceSchema(content.schema).required.join(", ")
+                        }}
+                      </div>
+                      <div
+                        v-if="dereferenceSchema(content.schema).properties"
+                        class="properties-list"
+                      >
+                        <div
+                          v-for="(prop, name) in dereferenceSchema(
+                            content.schema
+                          ).properties"
+                          :key="name"
+                          class="property-item"
+                        >
+                          <code class="prop-name">{{ name }}</code>
+                          <span class="prop-type">{{
+                            prop.type || "object"
+                          }}</span>
+                          <span v-if="prop.title" class="prop-title"
+                            >({{ prop.title }})</span
+                          >
+                          <span v-if="prop.description" class="prop-desc">{{
+                            prop.description
+                          }}</span>
+                        </div>
+                      </div>
+                      <div v-else>
+                        <pre
+                          class="mini-json"
+                        ><code>{{ prettyJSON(dereferenceSchema(content.schema)) }}</code></pre>
+                      </div>
                     </div>
                     <div v-if="content.example" class="example-preview">
                       <strong>Example:</strong>
@@ -671,9 +726,80 @@
                       >
                         <h6>{{ type }}</h6>
                         <div v-if="content.schema" class="schema-preview">
-                          <pre
-                            class="mini-json"
-                          ><code>{{ prettyJSON(dereferenceSchema(content.schema)) }}</code></pre>
+                          <div
+                            v-if="dereferenceSchema(content.schema).title"
+                            class="schema-title"
+                          >
+                            {{ dereferenceSchema(content.schema).title }}
+                          </div>
+                          <div
+                            v-if="dereferenceSchema(content.schema).description"
+                            class="schema-desc"
+                          >
+                            {{ dereferenceSchema(content.schema).description }}
+                          </div>
+                          <div
+                            v-if="dereferenceSchema(content.schema).type"
+                            class="schema-type"
+                          >
+                            Type: {{ dereferenceSchema(content.schema).type }}
+                          </div>
+                          <div
+                            v-if="
+                              dereferenceSchema(content.schema).required &&
+                              dereferenceSchema(content.schema).required.length
+                            "
+                            class="required-list"
+                          >
+                            Required:
+                            {{
+                              dereferenceSchema(content.schema).required.join(
+                                ", "
+                              )
+                            }}
+                          </div>
+                          <div
+                            v-if="dereferenceSchema(content.schema).properties"
+                            class="properties-list"
+                          >
+                            <div
+                              v-for="(prop, name) in dereferenceSchema(
+                                content.schema
+                              ).properties"
+                              :key="name"
+                              class="property-item"
+                            >
+                              <code class="prop-name">{{ name }}</code>
+                              <Tag
+                                v-if="
+                                  dereferenceSchema(content.schema).required &&
+                                  Array.isArray(
+                                    dereferenceSchema(content.schema).required
+                                  ) &&
+                                  dereferenceSchema(
+                                    content.schema
+                                  ).required.includes(name)
+                                "
+                                severity="danger"
+                                size="small"
+                                >Req</Tag
+                              >
+                              <span class="prop-type">{{
+                                prop.type || "object"
+                              }}</span>
+                              <span v-if="prop.title" class="prop-title"
+                                >({{ prop.title }})</span
+                              >
+                              <span v-if="prop.description" class="prop-desc">{{
+                                prop.description
+                              }}</span>
+                            </div>
+                          </div>
+                          <div v-else>
+                            <pre
+                              class="mini-json"
+                            ><code>{{ prettyJSON(dereferenceSchema(content.schema)) }}</code></pre>
+                          </div>
                         </div>
                         <div v-if="content.example" class="example-preview">
                           <strong>Example:</strong>
@@ -1122,7 +1248,7 @@ export default {
             visited.add(refPath);
             const deref = dereferenceSchema(resolved, visited);
             visited.delete(refPath);
-            return { ...deref, _resolvedFrom: refPath };
+            return deref;
           }
         }
         // If can't resolve, return as is
@@ -1136,6 +1262,19 @@ export default {
           result[key] = dereferenceSchema(result[key], visited);
         }
       }
+
+      // Debug logging for required field
+      if (result && typeof result.required !== "undefined") {
+        console.log(
+          "[Debug] dereferenceSchema result.required:",
+          result.required,
+          "type:",
+          typeof result.required,
+          "isArray:",
+          Array.isArray(result.required)
+        );
+      }
+
       return result;
     }
 
@@ -1739,11 +1878,12 @@ input.p-inputtext {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 8px 12px;
   background: #f8fafc;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid rgba(15, 23, 42, 0.06);
   font-size: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .prop-name {
@@ -1788,6 +1928,32 @@ input.p-inputtext {
 .response-desc {
   color: #374151;
   font-size: 0.9rem;
+}
+
+.schema-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 1rem;
+  color: #0f1724;
+}
+.schema-type {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+.required-list {
+  font-size: 0.9rem;
+  color: #dc2626;
+  margin-bottom: 8px;
+}
+.properties-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prop-title {
+  color: #059669;
+  font-weight: 500;
 }
 
 @media (max-width: 900px) {
