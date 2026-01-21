@@ -1517,6 +1517,12 @@ export default {
     function openDetails(item) {
       selectedItem.value = item;
       detailOpen.value = true;
+      if (item.name) {
+        // it's a schema
+        showJson.value = true;
+      } else {
+        showJson.value = false;
+      }
     }
 
     function setDetailOpen(val) {
