@@ -682,7 +682,7 @@
 
               <div
                 v-if="selectedItem.parameters && selectedItem.parameters.length"
-                class="detail-section"
+                class="detail-section parameters-section"
               >
                 <h6>📋 Parameters</h6>
                 <div class="parameters-table">
@@ -1985,12 +1985,27 @@ input.p-inputtext {
   border-radius: 2px;
 }
 
+.parameters-section {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.parameters-section h6 {
+  padding-left: 16px;
+}
+
+.parameters-table {
+  margin: 0;
+  width: 100%;
+}
+
 .parameters-table .p-datatable {
   border: none;
   background: transparent;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  width: 100%;
 }
 
 .parameters-table .p-datatable thead th {
