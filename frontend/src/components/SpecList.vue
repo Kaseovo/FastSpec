@@ -11,20 +11,56 @@
       <div
         v-for="spec in specs"
         :key="spec.id"
-        :class="['spec-item', { active: spec.id === selectedId }]"
+        :class="['spec-card', { active: spec.id === selectedId }]"
         @click="selectSpec(spec)"
       >
-        <div class="spec-info">
-          <h4>{{ spec.name }}</h4>
-          <p>{{ spec.title }} v{{ spec.version }}</p>
+        <div class="spec-header">
+          <div class="spec-info">
+            <h4>{{ spec.name }}</h4>
+            <p>{{ spec.title }} v{{ spec.version }}</p>
+          </div>
+          <div class="spec-actions">
+            <Button
+              :icon="
+                expanded.has(spec.id)
+                  ? 'pi pi-chevron-up'
+                  : 'pi pi-chevron-down'
+              "
+              text
+              rounded
+              @click.stop="toggleExpand(spec.id)"
+              :aria-expanded="expanded.has(spec.id)"
+              aria-label="Toggle details"
+            />
+            <Button
+              icon="pi pi-trash"
+              severity="danger"
+              text
+              rounded
+              @click.stop="confirmDelete(spec)"
+            />
+          </div>
         </div>
-        <Button
-          icon="pi pi-trash"
-          severity="danger"
-          text
-          rounded
-          @click.stop="confirmDelete(spec)"
-        />
+        <transition name="expand">
+          <div v-if="expanded.has(spec.id)" class="spec-details">
+            <div class="detail-row">
+              <span class="label">ID:</span>
+              <span>{{ spec.id }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">User ID:</span>
+              <span>{{ spec.user_id }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Created:</span>
+              <span>{{ formatRelativeTime(spec.created_at) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Updated:</span>
+              <span>{{ formatRelativeTime(spec.updated_at) }}</span>
+            </div>
+          </div>
+        </transition>
       </div>
       <div v-if="specs.length === 0" class="empty">
         <p>No saved specs yet</p>
@@ -65,6 +101,28 @@ export default {
     const error = ref(null);
     const confirm = useConfirm();
     const refreshSpecList = inject("refreshSpecList");
+    const expanded = ref(new Set());
+
+    const toggleExpand = (id) => {
+      if (expanded.value.has(id)) {
+        expanded.value.delete(id);
+      } else {
+        expanded.value.add(id);
+      }
+    };
+
+    const formatRelativeTime = (date) => {
+      const now = new Date();
+      const diff = now - new Date(date);
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      if (days > 0) return `${days} day${days > 1 ? "s" : ""} ago`;
+      if (hours > 0) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+      if (minutes > 0) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+      return "Just now";
+    };
 
     const loadSpecs = async () => {
       loading.value = true;
@@ -111,6 +169,9 @@ export default {
       error,
       selectSpec,
       confirmDelete,
+      expanded,
+      toggleExpand,
+      formatRelativeTime,
     };
   },
 };
@@ -144,24 +205,29 @@ export default {
   gap: 8px;
 }
 
-.spec-item {
-  padding: 10px;
-  border-radius: 6px;
+.spec-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  background: white;
+}
+
+.spec-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.spec-card.active {
+  border-left: 4px solid #2563eb;
+  background: #f0f9ff;
+}
+
+.spec-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1px solid transparent;
-}
-
-.spec-item:hover {
-  background: #f3f4f6;
-}
-
-.spec-item.active {
-  background: #dbeafe;
-  border-left: 3px solid #2563eb;
 }
 
 .spec-info h4 {
@@ -174,5 +240,60 @@ export default {
 .spec-info p {
   font-size: 12px;
   color: #6b7280;
+}
+
+.spec-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.spec-details {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.3s ease;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  opacity: 1;
+  max-height: 200px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .spec-card {
+    padding: 10px;
+  }
+  .spec-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .spec-actions {
+    align-self: flex-end;
+  }
 }
 </style>

@@ -526,25 +526,32 @@
                           class="property-item"
                           :class="getPropertyChangeClass(item, propName)"
                         >
-                          <code class="prop-name">{{ propName }}</code>
-                          <span class="prop-type">{{
-                            prop.type || "object"
+                          <div class="prop-left">
+                            <code class="prop-name">{{ propName }}</code>
+                            <span class="prop-type">{{
+                              prop.type || "object"
+                            }}</span>
+                            <Tag
+                              v-if="
+                                item.dereferencedSchema.required?.includes(
+                                  propName
+                                )
+                              "
+                              severity="danger"
+                              size="small"
+                              >Req</Tag
+                            >
+                          </div>
+                          <div class="prop-right">
+                            <span
+                              v-if="getPropertyChangeType(item, propName)"
+                              class="change-indicator"
+                              >{{ getPropertyChangeType(item, propName) }}</span
+                            >
+                          </div>
+                          <span v-if="prop.title" class="prop-title">{{
+                            prop.title
                           }}</span>
-                          <Tag
-                            v-if="
-                              item.dereferencedSchema.required?.includes(
-                                propName
-                              )
-                            "
-                            severity="danger"
-                            size="small"
-                            >Req</Tag
-                          >
-                          <span
-                            v-if="getPropertyChangeType(item, propName)"
-                            class="change-indicator"
-                            >{{ getPropertyChangeType(item, propName) }}</span
-                          >
                         </div>
                       </div>
                     </div>
@@ -776,11 +783,11 @@
                           <span class="prop-type">{{
                             prop.type || "object"
                           }}</span>
-                          <span v-if="prop.title" class="prop-title"
-                            >({{ prop.title }})</span
-                          >
                           <span v-if="prop.description" class="prop-desc">{{
                             prop.description
+                          }}</span>
+                          <span v-if="prop.title" class="prop-title">{{
+                            prop.title
                           }}</span>
                         </div>
                       </div>
@@ -885,11 +892,11 @@
                               <span class="prop-type">{{
                                 prop.type || "object"
                               }}</span>
-                              <span v-if="prop.title" class="prop-title"
-                                >({{ prop.title }})</span
-                              >
                               <span v-if="prop.description" class="prop-desc">{{
                                 prop.description
+                              }}</span>
+                              <span v-if="prop.title" class="prop-title">{{
+                                prop.title.replace(/^\(|\)$/g, "")
                               }}</span>
                             </div>
                           </div>
@@ -2170,6 +2177,8 @@ input.p-inputtext {
 .prop-title {
   color: #059669;
   font-weight: 500;
+  font-size: 0.8rem;
+  margin-left: auto;
 }
 
 .schema-header {
@@ -2264,12 +2273,25 @@ input.p-inputtext {
 .property-item {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   padding: 6px 8px;
   border-radius: 6px;
   background: #f8fafc;
   font-size: 0.8rem;
   transition: background-color 0.2s ease;
+}
+
+.prop-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prop-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .prop-name {
@@ -2279,6 +2301,7 @@ input.p-inputtext {
   background: #e2e8f0;
   padding: 2px 4px;
   border-radius: 3px;
+  text-align: left;
 }
 
 .prop-type {
