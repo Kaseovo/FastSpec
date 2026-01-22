@@ -285,17 +285,52 @@
                 >
                   <div class="card-left">
                     <Tag severity="info">{{ item.key }}</Tag>
-                    <div class="short">{{ item.value }}</div>
+                    <div class="short">
+                      {{
+                        item.changeType === "modified"
+                          ? item.newValue
+                          : item.value
+                      }}
+                    </div>
                   </div>
                   <div class="card-details">
                     <div class="mini-section">
                       <div class="mini-label">Value</div>
-                      <div class="mini-desc">{{ item.value }}</div>
+                      <div
+                        v-if="item.changeType === 'added'"
+                        class="change-value added"
+                      >
+                        <span class="label">Added:</span>
+                        <code>{{ item.value }}</code>
+                      </div>
+                      <div
+                        v-if="item.changeType === 'removed'"
+                        class="change-value removed"
+                      >
+                        <span class="label">Removed:</span>
+                        <code>{{ item.value }}</code>
+                      </div>
+                      <div
+                        v-if="item.changeType === 'modified'"
+                        class="change-value modified"
+                      >
+                        <div class="before">
+                          <span class="label">Before:</span>
+                          <code>{{ item.oldValue }}</code>
+                        </div>
+                        <div class="after">
+                          <span class="label">After:</span>
+                          <code>{{ item.newValue }}</code>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div class="card-right">
                     <div class="change-hints">
-                      <span class="hint">1 change</span>
+                      <span class="hint">{{
+                        item.changeType.charAt(0).toUpperCase() +
+                        item.changeType.slice(1)
+                      }}</span>
                     </div>
                     <div class="card-actions">
                       <Button
@@ -656,17 +691,52 @@
                 >
                   <div class="card-left">
                     <Tag severity="info">{{ item.key }}</Tag>
-                    <div class="short">{{ item.value }}</div>
+                    <div class="short">
+                      {{
+                        item.changeType === "modified"
+                          ? item.newValue
+                          : item.value
+                      }}
+                    </div>
                   </div>
                   <div class="card-details">
                     <div class="mini-section">
                       <div class="mini-label">Value</div>
-                      <div class="mini-desc">{{ item.value }}</div>
+                      <div
+                        v-if="item.changeType === 'added'"
+                        class="change-value added"
+                      >
+                        <span class="label">Added:</span>
+                        <code>{{ item.value }}</code>
+                      </div>
+                      <div
+                        v-if="item.changeType === 'removed'"
+                        class="change-value removed"
+                      >
+                        <span class="label">Removed:</span>
+                        <code>{{ item.value }}</code>
+                      </div>
+                      <div
+                        v-if="item.changeType === 'modified'"
+                        class="change-value modified"
+                      >
+                        <div class="before">
+                          <span class="label">Before:</span>
+                          <code>{{ item.oldValue }}</code>
+                        </div>
+                        <div class="after">
+                          <span class="label">After:</span>
+                          <code>{{ item.newValue }}</code>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div class="card-right">
                     <div class="change-hints">
-                      <span class="hint">1 change</span>
+                      <span class="hint">{{
+                        item.changeType.charAt(0).toUpperCase() +
+                        item.changeType.slice(1)
+                      }}</span>
                     </div>
                     <div class="card-actions">
                       <Button
@@ -1382,7 +1452,8 @@ export default {
         })),
         ...(d.infoModified || []).map((i) => ({
           key: i.key,
-          value: i.new,
+          oldValue: i.old,
+          newValue: i.new,
           changeType: "modified",
         })),
         ...(d.infoRemoved || []).map((i) => ({
@@ -2440,6 +2511,57 @@ input.p-inputtext {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   font-size: 0.85rem;
   color: #475569;
+}
+
+.change-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.change-value.added code {
+  background: #ecfdf5;
+  color: #064e3b;
+}
+
+.change-value.removed code {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.change-value.modified {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.change-value.modified .before,
+.change-value.modified .after {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.change-value.modified .before code {
+  background: #fff7ed;
+  color: #92400e;
+}
+
+.change-value.modified .after code {
+  background: #ecfdf5;
+  color: #064e3b;
+}
+
+.label {
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.change-value code {
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.85rem;
 }
 
 @media (max-width: 900px) {
