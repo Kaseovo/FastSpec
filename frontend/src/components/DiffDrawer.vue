@@ -759,6 +759,12 @@
             <div v-if="selectedItem.summary" class="detail-summary">
               {{ selectedItem.summary }}
             </div>
+            <div
+              v-if="selectedItem.dereferencedSchema?.description"
+              class="detail-summary"
+            >
+              {{ selectedItem.dereferencedSchema.description }}
+            </div>
           </div>
           <div class="detail-actions">
             <Button
