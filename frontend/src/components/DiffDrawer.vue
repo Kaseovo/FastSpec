@@ -1962,7 +1962,7 @@ input.p-inputtext {
 }
 .endpoint-card {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   padding: 12px;
   border-radius: 10px;
@@ -2000,11 +2000,16 @@ input.p-inputtext {
   border-color: rgba(15, 23, 42, 0.08);
 }
 .card-left {
+  margin-top: 8px;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
   white-space: nowrap;
+}
+
+.schema-card .card-left {
+  align-items: flex-start;
 }
 .path {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
@@ -2460,6 +2465,7 @@ input.p-inputtext {
   font-size: 0.85rem;
   color: #64748b;
   font-style: italic;
+  padding-top: 2px;
 }
 
 .schema-changes {
@@ -2746,11 +2752,11 @@ input.p-inputtext {
   }
   .endpoint-card {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
   }
   .schema-card {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
   }
   .card-right {
     align-items: flex-start;
