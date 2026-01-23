@@ -135,8 +135,13 @@
             >
               <div class="section-header">
                 <h4>Paths ({{ endpoints.length }})</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('endpoints')"
+                />
               </div>
-              <div class="endpoints-list">
+              <div v-show="expandedSections.endpoints" class="endpoints-list">
                 <div
                   v-for="(item, idx) in endpoints"
                   :key="cardKey(item, idx)"
@@ -168,7 +173,7 @@
             </div>
 
             <!-- Schemas / Components -->
-            <div v-if="schemas.length" class="section-group">
+            <div v-if="schemas.length" class="section-group endpoints-section">
               <div class="section-header">
                 <h4>Components ({{ schemas.length }})</h4>
                 <Button
@@ -248,7 +253,7 @@
             </div>
 
             <!-- Info -->
-            <div v-if="infos.length" class="section-group">
+            <div v-if="infos.length" class="section-group endpoints-section">
               <div class="section-header">
                 <h4>Info ({{ infos.length }})</h4>
                 <Button
@@ -326,7 +331,7 @@
             </div>
 
             <!-- Servers -->
-            <div v-if="servers.length" class="section-group">
+            <div v-if="servers.length" class="section-group endpoints-section">
               <div class="section-header">
                 <h4>Servers</h4>
                 <Button
@@ -551,8 +556,13 @@
             >
               <div class="section-header">
                 <h4>Paths ({{ endpoints.length }})</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('endpoints')"
+                />
               </div>
-              <div class="endpoints-list">
+              <div v-show="expandedSections.endpoints" class="endpoints-list">
                 <div
                   v-for="(item, idx) in endpoints"
                   :key="cardKey(item, idx)"
@@ -584,7 +594,7 @@
             </div>
 
             <!-- Schemas / Components -->
-            <div v-if="schemas.length" class="section-group">
+            <div v-if="schemas.length" class="section-group endpoints-section">
               <div class="section-header">
                 <h4>Components ({{ schemas.length }})</h4>
                 <Button
@@ -750,7 +760,7 @@
             </div>
 
             <!-- Info -->
-            <div v-if="infos.length" class="section-group">
+            <div v-if="infos.length" class="section-group endpoints-section">
               <div class="section-header">
                 <h4>Info ({{ infos.length }})</h4>
                 <Button
@@ -832,7 +842,7 @@
             </div>
 
             <!-- Servers -->
-            <div v-if="servers.length" class="section-group">
+            <div v-if="servers.length" class="section-group endpoints-section">
               <div class="section-header">
                 <h4>Servers</h4>
                 <Button
@@ -1375,6 +1385,7 @@ export default {
     const selectedItem = ref(null);
     const showJson = ref(false);
     const expandedSections = ref({
+      endpoints: true,
       schemas: true,
       info: true,
       servers: true,
