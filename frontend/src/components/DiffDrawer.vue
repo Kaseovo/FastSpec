@@ -303,10 +303,14 @@
                   </div>
                   <div class="card-right">
                     <div class="change-hints">
-                      <span class="hint">{{
-                        item.changeType.charAt(0).toUpperCase() +
-                        item.changeType.slice(1)
-                      }}</span>
+                      <span
+                        v-if="item.changeType !== 'modified'"
+                        class="hint"
+                        >{{
+                          item.changeType.charAt(0).toUpperCase() +
+                          item.changeType.slice(1)
+                        }}</span
+                      >
                     </div>
                     <div class="card-actions">
                       <Button
@@ -714,10 +718,14 @@
                   </div>
                   <div class="card-right">
                     <div class="change-hints">
-                      <span class="hint">{{
-                        item.changeType.charAt(0).toUpperCase() +
-                        item.changeType.slice(1)
-                      }}</span>
+                      <span
+                        v-if="item.changeType !== 'modified'"
+                        class="hint"
+                        >{{
+                          item.changeType.charAt(0).toUpperCase() +
+                          item.changeType.slice(1)
+                        }}</span
+                      >
                     </div>
                     <div class="card-actions">
                       <Button
