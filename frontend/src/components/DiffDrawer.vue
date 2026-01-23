@@ -201,7 +201,10 @@
                         {{ item.dereferencedSchema.description }}
                       </div>
                       <div
-                        v-if="item.dereferencedSchema.type"
+                        v-if="
+                          item.dereferencedSchema.type &&
+                          item.dereferencedSchema.type !== 'object'
+                        "
                         class="schema-type"
                       >
                         Type: {{ item.dereferencedSchema.type }}
@@ -209,6 +212,7 @@
                       <div
                         v-if="
                           item.dereferencedSchema.required &&
+                          Array.isArray(item.dereferencedSchema.required) &&
                           item.dereferencedSchema.required.length
                         "
                         class="required-list"
@@ -216,29 +220,7 @@
                         Required:
                         {{ item.dereferencedSchema.required.join(", ") }}
                       </div>
-                      <div
-                        v-if="item.dereferencedSchema.properties"
-                        class="properties-list"
-                      >
-                        <div
-                          v-for="(prop, name) in item.dereferencedSchema
-                            .properties"
-                          :key="name"
-                          class="property-item"
-                        >
-                          <code class="prop-name">{{ name }}</code>
-                          <span class="prop-type">{{
-                            prop.type || "object"
-                          }}</span>
-                          <span v-if="prop.description" class="prop-desc">{{
-                            prop.description
-                          }}</span>
-                          <span v-if="prop.title" class="prop-title">{{
-                            prop.title.replace(/^\(|\)$/g, "")
-                          }}</span>
-                        </div>
-                      </div>
-                      <div v-else>
+                      <div v-if="!item.dereferencedSchema.properties">
                         <pre
                           class="mini-json"
                         ><code>{{ prettyJSON(item.dereferencedSchema) }}</code></pre>
@@ -538,9 +520,15 @@
                   </div>
                   <div class="card-details">
                     <div class="schema-overview">
-                      <div class="schema-type">
+                      <div
+                        v-if="
+                          item.dereferencedSchema?.type &&
+                          item.dereferencedSchema.type !== 'object'
+                        "
+                        class="schema-type"
+                      >
                         <strong>Type:</strong>
-                        {{ item.dereferencedSchema?.type || "unknown" }}
+                        {{ item.dereferencedSchema.type }}
                       </div>
                       <div
                         v-if="item.dereferencedSchema?.description"
@@ -583,10 +571,7 @@
                       </div>
                     </div>
                     <div
-                      v-if="
-                        item.dereferencedSchema?.properties &&
-                        item.changeType !== 'added'
-                      "
+                      v-if="item.dereferencedSchema?.properties"
                       class="schema-properties"
                     >
                       <Button
@@ -623,7 +608,11 @@
                             }}</span>
                             <Tag
                               v-if="
-                                item.dereferencedSchema.required?.includes(
+                                item.dereferencedSchema.required &&
+                                Array.isArray(
+                                  item.dereferencedSchema.required
+                                ) &&
+                                item.dereferencedSchema.required.includes(
                                   propName
                                 )
                               "
@@ -1096,6 +1085,42 @@
                     {{ prop.name }}
                   </li>
                 </ul>
+              </div>
+            </div>
+          </section>
+
+          <section
+            v-if="
+              selectedItem.changeType === 'added' &&
+              selectedItem.dereferencedSchema?.properties
+            "
+          >
+            <h5>Schema Properties</h5>
+            <div class="properties-list">
+              <div
+                v-for="(prop, name) in selectedItem.dereferencedSchema
+                  .properties"
+                :key="name"
+                class="property-item"
+              >
+                <code class="prop-name">{{ name }}</code>
+                <span class="prop-type">{{ prop.type || "object" }}</span>
+                <span v-if="prop.description" class="prop-desc">{{
+                  prop.description
+                }}</span>
+                <span v-if="prop.title" class="prop-title">{{
+                  prop.title.replace(/^\(|\)$/g, "")
+                }}</span>
+                <Tag
+                  v-if="
+                    selectedItem.dereferencedSchema.required &&
+                    Array.isArray(selectedItem.dereferencedSchema.required) &&
+                    selectedItem.dereferencedSchema.required.includes(name)
+                  "
+                  severity="danger"
+                  size="small"
+                  >Req</Tag
+                >
               </div>
             </div>
           </section>
@@ -1590,6 +1615,16 @@ export default {
           typeof result.required,
           "isArray:",
           Array.isArray(result.required)
+        );
+      }
+
+      // Additional log for the error location
+      if (result && result.required && !Array.isArray(result.required)) {
+        console.error(
+          "[Error] required is not an array:",
+          result.required,
+          "in schema:",
+          result
         );
       }
 
