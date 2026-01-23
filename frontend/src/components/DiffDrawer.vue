@@ -747,7 +747,9 @@
       <div v-if="selectedItem">
         <div class="detail-header">
           <div class="detail-left">
-            <span class="header-left-label">{{ selectedItem.key }}</span>
+            <span class="header-left-label">{{
+              selectedItem.key || selectedItem.name
+            }}</span>
             <Tag
               v-if="selectedItem.method"
               :severity="getMethodSeverity(selectedItem.method)"
