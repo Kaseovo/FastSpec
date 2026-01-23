@@ -204,29 +204,29 @@
                     >
                       <div
                         v-if="
-                          item.dereferencedSchema.title &&
-                          item.dereferencedSchema.title !== item.name
+                          item.dereferencedSchema?.title &&
+                          item.dereferencedSchema?.title !== item.name
                         "
                         class="schema-title"
                       >
-                        {{ item.dereferencedSchema.title }}
+                        {{ item.dereferencedSchema?.title }}
                       </div>
                       <div
-                        v-if="item.dereferencedSchema.description"
+                        v-if="item.dereferencedSchema?.description"
                         class="schema-desc"
                       >
-                        {{ item.dereferencedSchema.description }}
+                        {{ item.dereferencedSchema?.description }}
                       </div>
                       <div
                         v-if="
-                          item.dereferencedSchema.type &&
-                          item.dereferencedSchema.type !== 'object'
+                          item.dereferencedSchema?.type &&
+                          item.dereferencedSchema?.type !== 'object'
                         "
                         class="schema-type"
                       >
-                        Type: {{ item.dereferencedSchema.type }}
+                        Type: {{ item.dereferencedSchema?.type }}
                       </div>
-                      <div v-if="!item.dereferencedSchema.properties">
+                      <div v-if="!item.dereferencedSchema?.properties">
                         <pre
                           class="mini-json"
                         ><code>{{ prettyJSON(item.dereferencedSchema) }}</code></pre>
@@ -629,18 +629,18 @@
                       <div
                         v-if="
                           item.dereferencedSchema?.type &&
-                          item.dereferencedSchema.type !== 'object'
+                          item.dereferencedSchema?.type !== 'object'
                         "
                         class="schema-type"
                       >
                         <strong>Type:</strong>
-                        {{ item.dereferencedSchema.type }}
+                        {{ item.dereferencedSchema?.type }}
                       </div>
                       <div
                         v-if="item.dereferencedSchema?.description"
                         class="schema-desc"
                       >
-                        {{ item.dereferencedSchema.description }}
+                        {{ item.dereferencedSchema?.description }}
                       </div>
                       <div
                         v-if="item.changeType === 'modified'"
@@ -692,7 +692,8 @@
                       />
                       <span class="properties-count"
                         >{{
-                          Object.keys(item.dereferencedSchema.properties).length
+                          Object.keys(item.dereferencedSchema?.properties || {})
+                            .length
                         }}
                         properties</span
                       >
@@ -714,13 +715,9 @@
                             }}</span>
                             <Tag
                               v-if="
-                                item.dereferencedSchema.required &&
-                                Array.isArray(
-                                  item.dereferencedSchema.required
-                                ) &&
-                                item.dereferencedSchema.required.includes(
-                                  propName
-                                )
+                                (
+                                  item.dereferencedSchema?.required || []
+                                ).includes(propName)
                               "
                               severity="danger"
                               size="small"
@@ -952,7 +949,7 @@
               v-if="selectedItem.dereferencedSchema?.description"
               class="detail-summary"
             >
-              {{ selectedItem.dereferencedSchema.description }}
+              {{ selectedItem.dereferencedSchema?.description }}
             </div>
           </div>
           <div class="detail-actions">
@@ -1284,9 +1281,9 @@
                 }}</span>
                 <Tag
                   v-if="
-                    selectedItem.dereferencedSchema.required &&
-                    Array.isArray(selectedItem.dereferencedSchema.required) &&
-                    selectedItem.dereferencedSchema.required.includes(name)
+                    (selectedItem.dereferencedSchema?.required || []).includes(
+                      name
+                    )
                   "
                   severity="danger"
                   size="small"
@@ -1599,19 +1596,37 @@ export default {
 
     const addedSchemas = computed(() => {
       const d = props.diff || {};
-      return (d.schemaAdded || []).map((it) => ({
-        ...it,
-        changeType: "added",
-        name: it.name || it.key,
-        dereferencedSchema: dereferenceSchema(it.schema),
-        changeCount: 1,
-      }));
+      return (d.schemaAdded || []).map((it) => {
+        console.log(
+          "[addedSchemas] Processing",
+          it.name || it.key,
+          "schema:",
+          it.schema
+        );
+        const deref = dereferenceSchema(it.schema);
+        console.log("[addedSchemas] Dereferenced:", deref);
+        return {
+          ...it,
+          changeType: "added",
+          name: it.name || it.key,
+          dereferencedSchema: deref || {},
+          changeCount: 1,
+        };
+      });
     });
 
     const modifiedSchemas = computed(() => {
       const d = props.diff || {};
       return (d.schemaModified || []).map((it) => {
         const fullSchema = props.spec?.components?.schemas?.[it.name];
+        console.log(
+          "[modifiedSchemas] Processing",
+          it.name || it.key,
+          "fullSchema:",
+          fullSchema
+        );
+        const deref = dereferenceSchema(fullSchema);
+        console.log("[modifiedSchemas] Dereferenced:", deref);
         const changeCount =
           (it.propertiesAdded?.length || 0) +
           (it.propertiesRemoved?.length || 0) +
@@ -1625,7 +1640,7 @@ export default {
           ...it,
           changeType: "modified",
           name: it.name || it.key,
-          dereferencedSchema: dereferenceSchema(fullSchema),
+          dereferencedSchema: deref,
           changeCount,
         };
       });
@@ -1633,13 +1648,23 @@ export default {
 
     const removedSchemas = computed(() => {
       const d = props.diff || {};
-      return (d.schemaRemoved || []).map((it) => ({
-        ...it,
-        changeType: "removed",
-        name: it.name || it.key,
-        dereferencedSchema: dereferenceSchema(it.schema),
-        changeCount: 1,
-      }));
+      return (d.schemaRemoved || []).map((it) => {
+        console.log(
+          "[removedSchemas] Processing",
+          it.name || it.key,
+          "schema:",
+          it.schema
+        );
+        const deref = dereferenceSchema(it.schema);
+        console.log("[removedSchemas] Dereferenced:", deref);
+        return {
+          ...it,
+          changeType: "removed",
+          name: it.name || it.key,
+          dereferencedSchema: deref,
+          changeCount: 1,
+        };
+      });
     });
 
     const schemas = computed(() => {
@@ -1656,13 +1681,20 @@ export default {
         ];
 
       if (!q) {
-        if (!list.length) {
-          const currentServers = props.spec?.servers || [];
+        const totalSchemaChanges =
+          (addedSchemas.value?.length || 0) +
+          (modifiedSchemas.value?.length || 0) +
+          (removedSchemas.value?.length || 0);
+
+        // Only inject current components when there are NO schema changes at all.
+        if (!list.length && totalSchemaChanges === 0) {
+          const currentSchemas = props.spec?.components?.schemas || {};
           list.push(
-            ...currentServers.map((s, i) => ({
-              key: String(i),
-              value: s,
+            ...Object.keys(currentSchemas).map((name) => ({
+              key: name,
+              name,
               changeType: "added",
+              dereferencedSchema: dereferenceSchema(currentSchemas[name]),
             }))
           );
         }
@@ -1856,7 +1888,14 @@ export default {
     }
 
     function dereferenceSchema(schema, visited = new Set()) {
-      if (!schema || typeof schema !== "object") return schema;
+      if (!schema || typeof schema !== "object") {
+        console.log(
+          "[dereferenceSchema] Invalid schema:",
+          schema,
+          "returning original"
+        );
+        return schema;
+      }
 
       // Handle $ref
       if (schema.$ref) {
@@ -1904,11 +1943,16 @@ export default {
         }
       }
 
-      return result;
+      return result || {};
     }
 
     function cardKey(item, idx) {
-      return `${item.path || ""}-${item.method || ""}-${idx}`;
+      // Use multiple identifying fields and include changeType to avoid
+      // Vue reusing DOM nodes between different lists (added vs modified).
+      const name = item?.name || item?.key || item?.path || "";
+      const method = item?.method || "";
+      const type = item?.changeType || "";
+      return `${name}-${method}-${type}-${idx}`;
     }
 
     function openDetails(item) {
