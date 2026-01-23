@@ -346,7 +346,7 @@
                 >
                   <div class="card-left">
                     <div class="schema-header">
-                      <i class="pi pi-sitemap"></i>
+                      <i class="pi pi-server"></i>
                       <div>
                         <div class="server-name">
                           {{
@@ -852,7 +852,7 @@
                 >
                   <div class="card-left">
                     <div class="schema-header">
-                      <i class="pi pi-sitemap"></i>
+                      <i class="pi pi-server"></i>
                       <div>
                         <div class="server-name">
                           {{
@@ -2291,7 +2291,6 @@ input.p-inputtext {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 40%;
   margin-left: auto;
 }
 .endpoint-line {
