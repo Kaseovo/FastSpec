@@ -294,7 +294,10 @@
                     </div>
                   </div>
                   <div class="card-details">
-                    <div class="mini-section">
+                    <div
+                      v-if="item.changeType !== 'modified'"
+                      class="mini-section"
+                    >
                       <div class="mini-label">Value</div>
                       <div
                         v-if="item.changeType === 'added'"
@@ -313,16 +316,7 @@
                       <div
                         v-if="item.changeType === 'modified'"
                         class="change-value modified"
-                      >
-                        <div class="before">
-                          <span class="label">Before:</span>
-                          <code>{{ item.oldValue }}</code>
-                        </div>
-                        <div class="after">
-                          <span class="label">After:</span>
-                          <code>{{ item.newValue }}</code>
-                        </div>
-                      </div>
+                      ></div>
                     </div>
                   </div>
                   <div class="card-right">
@@ -690,17 +684,24 @@
                   class="endpoint-card"
                 >
                   <div class="card-left">
-                    <Tag severity="info">{{ item.key }}</Tag>
+                    <Tag
+                      v-if="item.key && item.changeType !== 'modified'"
+                      severity="info"
+                      >{{ item.key }}</Tag
+                    >
                     <div class="short">
                       {{
                         item.changeType === "modified"
-                          ? item.newValue
+                          ? item.oldValue
                           : item.value
                       }}
                     </div>
                   </div>
                   <div class="card-details">
-                    <div class="mini-section">
+                    <div
+                      v-if="item.changeType !== 'modified'"
+                      class="mini-section"
+                    >
                       <div class="mini-label">Value</div>
                       <div
                         v-if="item.changeType === 'added'"
@@ -719,16 +720,7 @@
                       <div
                         v-if="item.changeType === 'modified'"
                         class="change-value modified"
-                      >
-                        <div class="before">
-                          <span class="label">Before:</span>
-                          <code>{{ item.oldValue }}</code>
-                        </div>
-                        <div class="after">
-                          <span class="label">After:</span>
-                          <code>{{ item.newValue }}</code>
-                        </div>
-                      </div>
+                      ></div>
                     </div>
                   </div>
                   <div class="card-right">
@@ -766,9 +758,12 @@
       <div v-if="selectedItem">
         <div class="detail-header">
           <div class="detail-left">
-            <Tag :severity="getMethodSeverity(selectedItem.method)">{{
-              selectedItem.method
-            }}</Tag>
+            <span class="header-left-label">{{ selectedItem.key }}</span>
+            <Tag
+              v-if="selectedItem.method"
+              :severity="getMethodSeverity(selectedItem.method)"
+              >{{ selectedItem.method }}</Tag
+            >
             <code class="detail-path">{{ selectedItem.path }}</code>
             <div v-if="selectedItem.summary" class="detail-summary">
               {{ selectedItem.summary }}
@@ -791,7 +786,7 @@
               <div
                 v-for="(f, i) in selectedItem.diffDetails.fields || []"
                 :key="i"
-                class="field-row"
+                class="field-row change-header"
               >
                 <div class="field-name">{{ formatFieldName(f.field) }}</div>
                 <div class="field-old">
@@ -1052,15 +1047,6 @@
             </div>
           </section>
 
-          <div class="json-toggle">
-            <Button
-              :icon="showJson ? 'pi pi-eye-slash' : 'pi pi-eye'"
-              :label="showJson ? 'Hide JSON' : 'Show JSON'"
-              class="p-button-text p-button-sm"
-              @click="showJson = !showJson"
-            />
-          </div>
-
           <section
             v-if="
               selectedItem.changeType === 'modified' &&
@@ -1113,6 +1099,35 @@
               </div>
             </div>
           </section>
+
+          <section
+            v-if="
+              selectedItem.changeType === 'modified' && selectedItem.oldValue
+            "
+          >
+            <h5>Info Change</h5>
+            <div class="detail-section no-hover" style="margin-bottom: 16px">
+              <h6>⏪ Before</h6>
+              <div class="before-value">
+                {{ truncate(selectedItem.oldValue || "", 200) }}
+              </div>
+            </div>
+            <div class="detail-section no-hover">
+              <h6>⏩ After</h6>
+              <div class="before-value">
+                {{ truncate(selectedItem.newValue || "", 200) }}
+              </div>
+            </div>
+          </section>
+
+          <div class="json-toggle">
+            <Button
+              :icon="showJson ? 'pi pi-eye-slash' : 'pi pi-eye'"
+              :label="showJson ? 'Hide JSON' : 'Show JSON'"
+              class="p-button-text p-button-sm"
+              @click="showJson = !showJson"
+            />
+          </div>
 
           <section v-if="showJson">
             <h5>JSON Preview</h5>
@@ -1621,6 +1636,17 @@ export default {
       expandedSchemas.value[name] = !expandedSchemas.value[name];
     }
 
+    function getFormattedValue(value) {
+      if (typeof value === "string") {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+      }
+      return value;
+    }
+
     function getChangeSeverity(changeType) {
       if (changeType === "added") return "success";
       if (changeType === "modified") return "warn";
@@ -1741,6 +1767,7 @@ export default {
       showJson,
       copyItemMarkdown,
       copyAsMarkdown,
+      getFormattedValue,
     };
   },
 };
@@ -2036,6 +2063,7 @@ input.p-inputtext {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  margin: 12px 0;
 }
 .detail-left {
   display: flex;
@@ -2066,6 +2094,10 @@ input.p-inputtext {
   background: #fff;
   border-radius: 6px;
   border: 1px solid rgba(15, 23, 42, 0.03);
+}
+
+.change-header {
+  gap: 12px;
 }
 .field-name {
   font-weight: 600;
@@ -2105,6 +2137,11 @@ input.p-inputtext {
 .detail-section:hover {
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
+}
+
+.detail-section.no-hover:hover {
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transform: none;
 }
 
 .detail-section h6 {
@@ -2530,25 +2567,40 @@ input.p-inputtext {
 }
 
 .change-value.modified {
-  flex-direction: column;
-  gap: 6px;
-}
-
-.change-value.modified .before,
-.change-value.modified .after {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.change-value.modified .before code {
-  background: #fff7ed;
-  color: #92400e;
+.diff-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.change-value.modified .after code {
+.old {
+  background: #f8fafc;
+  color: #0f1724;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.85rem;
+}
+
+.new {
   background: #ecfdf5;
   color: #064e3b;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.85rem;
+}
+
+.arrow {
+  color: #6b7280;
+  font-weight: bold;
+  font-size: 0.9rem;
 }
 
 .label {
@@ -2562,6 +2614,81 @@ input.p-inputtext {
   border-radius: 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   font-size: 0.85rem;
+}
+
+.strikethrough {
+  text-decoration: line-through;
+  color: #b91c1c;
+}
+
+.before-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.expand-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.expand-btn:hover {
+  background-color: rgba(107, 114, 128, 0.1);
+}
+
+.before-content {
+  margin-left: 16px;
+  margin-top: 4px;
+  animation: slideDown 0.3s ease;
+}
+
+.before-only {
+  background: #f8fafc;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.03);
+}
+
+.before-value code {
+  background: #0b1220;
+  color: #d1fae5;
+  padding: 8px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.78rem;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.info-change {
+  background: #f8fafc;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.03);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -2583,4 +2710,16 @@ input.p-inputtext {
     align-items: flex-start;
   }
 }
+
+.mini-label {
+  min-width: 56px;
+}
+
+.header-left-label {
+  margin-right: 12px;
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: inherit;
+}
 </style>
+
