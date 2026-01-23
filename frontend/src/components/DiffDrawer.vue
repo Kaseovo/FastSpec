@@ -36,16 +36,20 @@
                   {{
                     typeCounts.added.endpoints +
                     typeCounts.added.components +
-                    typeCounts.added.info
+                    typeCounts.added.info +
+                    typeCounts.added.servers
                   }}
                 </div>
                 <div class="pill-sub">
-                  <span>{{ typeCounts.added.endpoints }} endpoints</span>
+                  <span>{{ typeCounts.added.endpoints }} paths</span>
                   <span v-if="typeCounts.added.components"
                     >, {{ typeCounts.added.components }} components</span
                   >
                   <span v-if="typeCounts.added.info"
                     >, {{ typeCounts.added.info }} info</span
+                  >
+                  <span v-if="typeCounts.added.servers"
+                    >, {{ typeCounts.added.servers }} servers</span
                   >
                 </div>
               </button>
@@ -60,16 +64,20 @@
                   {{
                     typeCounts.modified.endpoints +
                     typeCounts.modified.components +
-                    typeCounts.modified.info
+                    typeCounts.modified.info +
+                    typeCounts.modified.servers
                   }}
                 </div>
                 <div class="pill-sub">
-                  <span>{{ typeCounts.modified.endpoints }} endpoints</span>
+                  <span>{{ typeCounts.modified.endpoints }} paths</span>
                   <span v-if="typeCounts.modified.components"
                     >, {{ typeCounts.modified.components }} components</span
                   >
                   <span v-if="typeCounts.modified.info"
                     >, {{ typeCounts.modified.info }} info</span
+                  >
+                  <span v-if="typeCounts.modified.servers"
+                    >, {{ typeCounts.modified.servers }} servers</span
                   >
                 </div>
               </button>
@@ -84,16 +92,20 @@
                   {{
                     typeCounts.removed.endpoints +
                     typeCounts.removed.components +
-                    typeCounts.removed.info
+                    typeCounts.removed.info +
+                    typeCounts.removed.servers
                   }}
                 </div>
                 <div class="pill-sub">
-                  <span>{{ typeCounts.removed.endpoints }} endpoints</span>
+                  <span>{{ typeCounts.removed.endpoints }} paths</span>
                   <span v-if="typeCounts.removed.components"
                     >, {{ typeCounts.removed.components }} components</span
                   >
                   <span v-if="typeCounts.removed.info"
                     >, {{ typeCounts.removed.info }} info</span
+                  >
+                  <span v-if="typeCounts.removed.servers"
+                    >, {{ typeCounts.removed.servers }} servers</span
                   >
                 </div>
               </button>
@@ -122,7 +134,7 @@
               v-if="endpoints.length"
             >
               <div class="section-header">
-                <h4>Endpoints ({{ endpoints.length }})</h4>
+                <h4>Paths ({{ endpoints.length }})</h4>
               </div>
               <div class="endpoints-list">
                 <div
@@ -158,7 +170,7 @@
             <!-- Schemas / Components -->
             <div v-if="schemas.length" class="section-group">
               <div class="section-header">
-                <h4>Components / Schemas ({{ schemas.length }})</h4>
+                <h4>Components ({{ schemas.length }})</h4>
                 <Button
                   icon="pi pi-angle-down"
                   class="p-button-text"
@@ -208,17 +220,6 @@
                         class="schema-type"
                       >
                         Type: {{ item.dereferencedSchema.type }}
-                      </div>
-                      <div
-                        v-if="
-                          item.dereferencedSchema.required &&
-                          Array.isArray(item.dereferencedSchema.required) &&
-                          item.dereferencedSchema.required.length
-                        "
-                        class="required-list"
-                      >
-                        Required:
-                        {{ item.dereferencedSchema.required.join(", ") }}
                       </div>
                       <div v-if="!item.dereferencedSchema.properties">
                         <pre
@@ -323,6 +324,85 @@
                 </div>
               </div>
             </div>
+
+            <!-- Servers -->
+            <div v-if="servers.length" class="section-group">
+              <div class="section-header">
+                <h4>Servers</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('servers')"
+                />
+              </div>
+              <div v-show="expandedSections.servers" class="cards-grid">
+                <div v-if="servers.length === 0" class="no-items">
+                  No servers
+                </div>
+                <div
+                  v-for="(item, idx) in servers"
+                  :key="cardKey(item, idx)"
+                  class="schema-card"
+                >
+                  <div class="card-left">
+                    <div class="schema-header">
+                      <i class="pi pi-sitemap"></i>
+                      <div>
+                        <div class="server-name">
+                          {{
+                            getFormattedValue(item.value)?.url ||
+                            item.key ||
+                            getFormattedValue(item.value)?.description ||
+                            item.value
+                          }}
+                        </div>
+                        <div class="server-desc">
+                          {{
+                            getFormattedValue(item.value)?.description ||
+                            getFormattedValue(item.value)?.url ||
+                            ""
+                          }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-details">
+                    <div
+                      v-if="item.changeType === 'removed'"
+                      class="mini-section"
+                    >
+                      <div class="mini-label">Value</div>
+                      <div class="change-value removed">
+                        <span class="label">Removed:</span>
+                        <code>{{ item.value }}</code>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-right">
+                    <div class="change-hints">
+                      <span
+                        v-if="
+                          item.changeType !== 'modified' &&
+                          item.changeType !== 'added'
+                        "
+                        class="hint"
+                        >{{
+                          item.changeType.charAt(0).toUpperCase() +
+                          item.changeType.slice(1)
+                        }}</span
+                      >
+                    </div>
+                    <div class="card-actions">
+                      <Button
+                        icon="pi pi-eye"
+                        class="p-button-text"
+                        @click="openDetails(item)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </ScrollPanel>
@@ -372,16 +452,20 @@
                   {{
                     typeCounts.added.endpoints +
                     typeCounts.added.components +
-                    typeCounts.added.info
+                    typeCounts.added.info +
+                    typeCounts.added.servers
                   }}
                 </div>
                 <div class="pill-sub">
-                  <span>{{ typeCounts.added.endpoints }} endpoints</span>
+                  <span>{{ typeCounts.added.endpoints }} paths</span>
                   <span v-if="typeCounts.added.components"
                     >, {{ typeCounts.added.components }} components</span
                   >
                   <span v-if="typeCounts.added.info"
                     >, {{ typeCounts.added.info }} info</span
+                  >
+                  <span v-if="typeCounts.added.servers"
+                    >, {{ typeCounts.added.servers }} servers</span
                   >
                 </div>
               </button>
@@ -396,16 +480,20 @@
                   {{
                     typeCounts.modified.endpoints +
                     typeCounts.modified.components +
-                    typeCounts.modified.info
+                    typeCounts.modified.info +
+                    typeCounts.modified.servers
                   }}
                 </div>
                 <div class="pill-sub">
-                  <span>{{ typeCounts.modified.endpoints }} endpoints</span>
+                  <span>{{ typeCounts.modified.endpoints }} paths</span>
                   <span v-if="typeCounts.modified.components"
                     >, {{ typeCounts.modified.components }} components</span
                   >
                   <span v-if="typeCounts.modified.info"
                     >, {{ typeCounts.modified.info }} info</span
+                  >
+                  <span v-if="typeCounts.modified.servers"
+                    >, {{ typeCounts.modified.servers }} servers</span
                   >
                 </div>
               </button>
@@ -420,16 +508,20 @@
                   {{
                     typeCounts.removed.endpoints +
                     typeCounts.removed.components +
-                    typeCounts.removed.info
+                    typeCounts.removed.info +
+                    typeCounts.removed.servers
                   }}
                 </div>
                 <div class="pill-sub">
-                  <span>{{ typeCounts.removed.endpoints }} endpoints</span>
+                  <span>{{ typeCounts.removed.endpoints }} paths</span>
                   <span v-if="typeCounts.removed.components"
                     >, {{ typeCounts.removed.components }} components</span
                   >
                   <span v-if="typeCounts.removed.info"
                     >, {{ typeCounts.removed.info }} info</span
+                  >
+                  <span v-if="typeCounts.removed.servers"
+                    >, {{ typeCounts.removed.servers }} servers</span
                   >
                 </div>
               </button>
@@ -458,7 +550,7 @@
               v-if="endpoints.length"
             >
               <div class="section-header">
-                <h4>Endpoints ({{ endpoints.length }})</h4>
+                <h4>Paths ({{ endpoints.length }})</h4>
               </div>
               <div class="endpoints-list">
                 <div
@@ -494,7 +586,7 @@
             <!-- Schemas / Components -->
             <div v-if="schemas.length" class="section-group">
               <div class="section-header">
-                <h4>Components / Schemas ({{ schemas.length }})</h4>
+                <h4>Components ({{ schemas.length }})</h4>
                 <Button
                   icon="pi pi-angle-down"
                   class="p-button-text"
@@ -738,6 +830,85 @@
                 </div>
               </div>
             </div>
+
+            <!-- Servers -->
+            <div v-if="servers.length" class="section-group">
+              <div class="section-header">
+                <h4>Servers</h4>
+                <Button
+                  icon="pi pi-angle-down"
+                  class="p-button-text"
+                  @click="toggleSection('servers')"
+                />
+              </div>
+              <div v-show="expandedSections.servers" class="cards-grid">
+                <div v-if="servers.length === 0" class="no-items">
+                  No servers
+                </div>
+                <div
+                  v-for="(item, idx) in servers"
+                  :key="cardKey(item, idx)"
+                  class="schema-card"
+                >
+                  <div class="card-left">
+                    <div class="schema-header">
+                      <i class="pi pi-sitemap"></i>
+                      <div>
+                        <div class="server-name">
+                          {{
+                            getFormattedValue(item.value)?.url ||
+                            item.key ||
+                            getFormattedValue(item.value)?.description ||
+                            item.value
+                          }}
+                        </div>
+                        <div class="server-desc">
+                          {{
+                            getFormattedValue(item.value)?.description ||
+                            getFormattedValue(item.value)?.url ||
+                            ""
+                          }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-details">
+                    <div
+                      v-if="item.changeType === 'removed'"
+                      class="mini-section"
+                    >
+                      <div class="mini-label">Value</div>
+                      <div class="change-value removed">
+                        <span class="label">Removed:</span>
+                        <code>{{ item.value }}</code>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-right">
+                    <div class="change-hints">
+                      <span
+                        v-if="
+                          item.changeType !== 'modified' &&
+                          item.changeType !== 'added'
+                        "
+                        class="hint"
+                        >{{
+                          item.changeType.charAt(0).toUpperCase() +
+                          item.changeType.slice(1)
+                        }}</span
+                      >
+                    </div>
+                    <div class="card-actions">
+                      <Button
+                        icon="pi pi-eye"
+                        class="p-button-text"
+                        @click="openDetails(item)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </ScrollPanel>
@@ -889,18 +1060,6 @@
                         Type: {{ dereferenceSchema(content.schema).type }}
                       </div>
                       <div
-                        v-if="
-                          dereferenceSchema(content.schema).required &&
-                          dereferenceSchema(content.schema).required.length
-                        "
-                        class="required-list"
-                      >
-                        Required:
-                        {{
-                          dereferenceSchema(content.schema).required.join(", ")
-                        }}
-                      </div>
-                      <div
                         v-if="dereferenceSchema(content.schema).properties"
                         class="properties-list"
                       >
@@ -979,20 +1138,6 @@
                             class="schema-type"
                           >
                             Type: {{ dereferenceSchema(content.schema).type }}
-                          </div>
-                          <div
-                            v-if="
-                              dereferenceSchema(content.schema).required &&
-                              dereferenceSchema(content.schema).required.length
-                            "
-                            class="required-list"
-                          >
-                            Required:
-                            {{
-                              dereferenceSchema(content.schema).required.join(
-                                ", "
-                              )
-                            }}
                           </div>
                           <div
                             v-if="dereferenceSchema(content.schema).properties"
@@ -1232,6 +1377,7 @@ export default {
     const expandedSections = ref({
       schemas: true,
       info: true,
+      servers: true,
     });
     const expandedSchemas = ref({});
 
@@ -1249,15 +1395,18 @@ export default {
         added:
           (d.infoAdded?.length || 0) +
           (d.added?.length || 0) +
-          (d.schemaAdded?.length || 0),
+          (d.schemaAdded?.length || 0) +
+          (d.serverAdded?.length || 0),
         modified:
           (d.infoModified?.length || 0) +
           (d.modified?.length || 0) +
-          (d.schemaModified?.length || 0),
+          (d.schemaModified?.length || 0) +
+          (d.serverModified?.length || 0),
         removed:
           (d.infoRemoved?.length || 0) +
           (d.removed?.length || 0) +
-          (d.schemaRemoved?.length || 0),
+          (d.schemaRemoved?.length || 0) +
+          (d.serverRemoved?.length || 0),
       };
     });
 
@@ -1405,17 +1554,34 @@ export default {
         added: {
           endpoints: (d.added || []).length,
           components: (d.schemaAdded || []).length,
-          info: (d.infoAdded || []).length,
+          info:
+            (d.infoAdded || []).length ||
+            ((d.infoAdded || []).length === 0 &&
+            (d.infoModified || []).length === 0 &&
+            (d.infoRemoved || []).length === 0
+              ? Object.keys(props.spec?.info || {}).filter((key) =>
+                  ["title", "version", "description"].includes(key)
+                ).length
+              : 0),
+          servers:
+            (d.serverAdded || []).length ||
+            ((d.serverAdded || []).length === 0 &&
+            (d.serverModified || []).length === 0 &&
+            (d.serverRemoved || []).length === 0
+              ? (props.spec?.servers || []).length
+              : 0),
         },
         modified: {
           endpoints: (d.modified || []).length,
           components: (d.schemaModified || []).length,
           info: (d.infoModified || []).length,
+          servers: (d.serverModified || []).length,
         },
         removed: {
           endpoints: (d.removed || []).length,
           components: (d.schemaRemoved || []).length,
           info: (d.infoRemoved || []).length,
+          servers: (d.serverRemoved || []).length,
         },
       };
     });
@@ -1478,7 +1644,19 @@ export default {
           ...removedSchemas.value,
         ];
 
-      if (!q) return list;
+      if (!q) {
+        if (!list.length) {
+          const currentServers = props.spec?.servers || [];
+          list.push(
+            ...currentServers.map((s, i) => ({
+              key: String(i),
+              value: s,
+              changeType: "added",
+            }))
+          );
+        }
+        return list;
+      }
       return list.filter((it) => {
         const name = (it.name || it.key || "").toLowerCase();
         const schemaText = JSON.stringify(
@@ -1500,7 +1678,7 @@ export default {
       const q = search.value.trim().toLowerCase();
 
       // build full list grouped by change type so we can apply filter
-      const list = [
+      let list = [
         ...(d.infoAdded || []).map((i) => ({
           key: i.key,
           value: i.value,
@@ -1519,6 +1697,20 @@ export default {
         })),
       ];
 
+      // if no changes, add current info
+      if (!list.length) {
+        const currentInfo = props.spec?.info || {};
+        for (const field of ["title", "version", "description"]) {
+          if (currentInfo[field]) {
+            list.push({
+              key: field,
+              value: currentInfo[field],
+              changeType: "added",
+            });
+          }
+        }
+      }
+
       // apply top-level filter (added/modified/removed) similar to endpoints/schemas
       let filtered = [];
       if (filter.value === "added")
@@ -1530,13 +1722,75 @@ export default {
       else filtered = list;
 
       // apply search
-      if (!q) return filtered;
-      return filtered.filter((it) => {
-        return (
-          (it.key || "").toLowerCase().includes(q) ||
-          (String(it.value || "") || "").toLowerCase().includes(q)
+      if (q) {
+        filtered = filtered.filter((it) => {
+          return (
+            (it.key || "").toLowerCase().includes(q) ||
+            (String(it.value || "") || "").toLowerCase().includes(q)
+          );
+        });
+      }
+
+      return filtered;
+    });
+
+    const servers = computed(() => {
+      const d = props.diff || {};
+      const q = search.value.trim().toLowerCase();
+
+      // build full list grouped by change type so we can apply filter
+      let list = [
+        ...(d.serverAdded || []).map((i) => ({
+          key: i.key,
+          value: i.value,
+          changeType: "added",
+        })),
+        ...(d.serverModified || []).map((i) => ({
+          key: i.key,
+          oldValue: i.old,
+          newValue: i.new,
+          changeType: "modified",
+        })),
+        ...(d.serverRemoved || []).map((i) => ({
+          key: i.key,
+          value: i.value,
+          changeType: "removed",
+        })),
+      ];
+
+      // if no changes, add current servers
+      if (!list.length) {
+        const currentServers = props.spec?.servers || [];
+        list.push(
+          ...currentServers.map((s, i) => ({
+            key: s.url || s.description || s.name || String(i),
+            value: s,
+            changeType: "added",
+          }))
         );
-      });
+      }
+
+      // apply top-level filter (added/modified/removed) similar to endpoints/schemas
+      let filtered = [];
+      if (filter.value === "added")
+        filtered = list.filter((it) => it.changeType === "added");
+      else if (filter.value === "modified")
+        filtered = list.filter((it) => it.changeType === "modified");
+      else if (filter.value === "removed")
+        filtered = list.filter((it) => it.changeType === "removed");
+      else filtered = list;
+
+      // apply search
+      if (q) {
+        filtered = filtered.filter((it) => {
+          return (
+            (it.key || "").toLowerCase().includes(q) ||
+            (String(it.value || "") || "").toLowerCase().includes(q)
+          );
+        });
+      }
+
+      return filtered;
     });
 
     function getMethodSeverity(method) {
@@ -1622,26 +1876,21 @@ export default {
         }
       }
 
-      // Debug logging for required field
-      if (result && typeof result.required !== "undefined") {
+      // Fix required field if it's not an array
+      if (
+        result &&
+        typeof result.required !== "undefined" &&
+        !Array.isArray(result.required)
+      ) {
         console.log(
-          "[Debug] dereferenceSchema result.required:",
-          result.required,
-          "type:",
-          typeof result.required,
-          "isArray:",
-          Array.isArray(result.required)
+          "[Fixing] required is not an array, converting:",
+          result.required
         );
-      }
-
-      // Additional log for the error location
-      if (result && result.required && !Array.isArray(result.required)) {
-        console.error(
-          "[Error] required is not an array:",
-          result.required,
-          "in schema:",
-          result
-        );
+        if (typeof result.required === "object") {
+          result.required = Object.keys(result.required);
+        } else {
+          result.required = [];
+        }
       }
 
       return result;
@@ -1789,6 +2038,7 @@ export default {
       schemas,
       schemasTotal,
       infos,
+      servers,
       expandedSections,
       expandedSchemas,
       toggleSection,
@@ -2010,6 +2260,7 @@ input.p-inputtext {
 
 .schema-card .card-left {
   align-items: flex-start;
+  white-space: normal;
 }
 .path {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
@@ -2019,6 +2270,29 @@ input.p-inputtext {
 .short {
   color: #475569;
   font-size: 0.85rem;
+}
+.server-name {
+  font-weight: 600;
+  color: #0f1724;
+  font-size: 0.95rem;
+  flex: 1;
+  min-width: 0;
+  margin-right: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.server-desc {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin-top: 0;
+  text-align: right;
+  align-self: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+  margin-left: auto;
 }
 .endpoint-line {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
@@ -2433,6 +2707,15 @@ input.p-inputtext {
   align-items: center;
   gap: 8px;
   margin-bottom: 4px;
+}
+
+.schema-header > div {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
 }
 
 .schema-name {
