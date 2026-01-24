@@ -1313,6 +1313,50 @@
             </div>
           </section>
 
+          <section
+            v-if="selectedItem.value && !selectedItem.method"
+            class="detail-section"
+          >
+            <h5>Server Details</h5>
+            <div>
+              <div v-if="getFormattedValue(selectedItem.value)?.url">
+                <h6>🔗 URL</h6>
+                <div class="before-value">
+                  <code>{{ getFormattedValue(selectedItem.value).url }}</code>
+                </div>
+              </div>
+              <div
+                v-if="getFormattedValue(selectedItem.value)?.description"
+                style="margin-top: 12px"
+              >
+                <h6>📝 Description</h6>
+                <p>{{ getFormattedValue(selectedItem.value).description }}</p>
+              </div>
+              <div
+                v-if="getFormattedValue(selectedItem.value)?.variables"
+                style="margin-top: 12px"
+              >
+                <h6>⚙️ Variables</h6>
+                <div class="properties-list">
+                  <div
+                    v-for="(v, name) in getFormattedValue(selectedItem.value)
+                      .variables"
+                    :key="name"
+                    class="property-item"
+                  >
+                    <code class="prop-name">{{ name }}</code>
+                    <div class="prop-desc">{{ v.description || "-" }}</div>
+                    <div class="prop-type" style="margin-left: auto">
+                      {{
+                        v.default !== undefined ? "Default: " + v.default : ""
+                      }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <div class="json-toggle">
             <Button
               :icon="showJson ? 'pi pi-eye-slash' : 'pi pi-eye'"
