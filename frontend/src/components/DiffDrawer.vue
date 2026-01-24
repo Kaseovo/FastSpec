@@ -294,16 +294,6 @@
                     </div>
                   </div>
                   <div class="card-right">
-                    <div class="change-hints">
-                      <span
-                        v-if="item.changeType !== 'modified'"
-                        class="hint"
-                        >{{
-                          item.changeType.charAt(0).toUpperCase() +
-                          item.changeType.slice(1)
-                        }}</span
-                      >
-                    </div>
                     <div class="card-actions">
                       <Button
                         icon="pi pi-eye"
@@ -370,19 +360,6 @@
                     </div>
                   </div>
                   <div class="card-right">
-                    <div class="change-hints">
-                      <span
-                        v-if="
-                          item.changeType !== 'modified' &&
-                          item.changeType !== 'added'
-                        "
-                        class="hint"
-                        >{{
-                          item.changeType.charAt(0).toUpperCase() +
-                          item.changeType.slice(1)
-                        }}</span
-                      >
-                    </div>
                     <div class="card-actions">
                       <Button
                         icon="pi pi-eye"
@@ -802,16 +779,6 @@
                     </div>
                   </div>
                   <div class="card-right">
-                    <div class="change-hints">
-                      <span
-                        v-if="item.changeType !== 'modified'"
-                        class="hint"
-                        >{{
-                          item.changeType.charAt(0).toUpperCase() +
-                          item.changeType.slice(1)
-                        }}</span
-                      >
-                    </div>
                     <div class="card-actions">
                       <Button
                         icon="pi pi-eye"
@@ -878,19 +845,6 @@
                     </div>
                   </div>
                   <div class="card-right">
-                    <div class="change-hints">
-                      <span
-                        v-if="
-                          item.changeType !== 'modified' &&
-                          item.changeType !== 'added'
-                        "
-                        class="hint"
-                        >{{
-                          item.changeType.charAt(0).toUpperCase() +
-                          item.changeType.slice(1)
-                        }}</span
-                      >
-                    </div>
                     <div class="card-actions">
                       <Button
                         icon="pi pi-eye"
