@@ -283,28 +283,14 @@
                   </div>
                   <div class="card-details">
                     <div
-                      v-if="item.changeType !== 'modified'"
+                      v-if="item.changeType === 'removed'"
                       class="mini-section"
                     >
                       <div class="mini-label">Value</div>
-                      <div
-                        v-if="item.changeType === 'added'"
-                        class="change-value added"
-                      >
-                        <span class="label">Added:</span>
-                        <code>{{ item.value }}</code>
-                      </div>
-                      <div
-                        v-if="item.changeType === 'removed'"
-                        class="change-value removed"
-                      >
+                      <div class="change-value removed">
                         <span class="label">Removed:</span>
                         <code>{{ item.value }}</code>
                       </div>
-                      <div
-                        v-if="item.changeType === 'modified'"
-                        class="change-value modified"
-                      ></div>
                     </div>
                   </div>
                   <div class="card-right">
