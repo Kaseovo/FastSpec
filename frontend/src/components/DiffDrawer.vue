@@ -304,11 +304,54 @@
                         </span>
                       </template>
                       <template v-else>
-                        {{
-                          item.changeType === "modified"
-                            ? item.newValue
-                            : item.value
-                        }}
+                        <template
+                          v-if="
+                            getFormattedValue(
+                              item.changeType === 'modified'
+                                ? item.newValue
+                                : item.value
+                            ) &&
+                            typeof getFormattedValue(
+                              item.changeType === 'modified'
+                                ? item.newValue
+                                : item.value
+                            ) === 'object'
+                          "
+                        >
+                          <span class="info-inline">
+                            {{
+                              getFormattedValue(
+                                item.changeType === "modified"
+                                  ? item.newValue
+                                  : item.value
+                              ).email ||
+                              getFormattedValue(
+                                item.changeType === "modified"
+                                  ? item.newValue
+                                  : item.value
+                              ).name ||
+                              getFormattedValue(
+                                item.changeType === "modified"
+                                  ? item.newValue
+                                  : item.value
+                              ).url ||
+                              prettyJSON(
+                                getFormattedValue(
+                                  item.changeType === "modified"
+                                    ? item.newValue
+                                    : item.value
+                                )
+                              )
+                            }}
+                          </span>
+                        </template>
+                        <template v-else>
+                          {{
+                            item.changeType === "modified"
+                              ? item.newValue
+                              : item.value
+                          }}
+                        </template>
                       </template>
                     </div>
                   </div>
@@ -320,7 +363,11 @@
                       <div class="mini-label">Value</div>
                       <div class="change-value removed">
                         <span class="label">Removed:</span>
-                        <code>{{ item.value }}</code>
+                        <code>{{
+                          typeof getFormattedValue(item.value) === "object"
+                            ? prettyJSON(getFormattedValue(item.value))
+                            : item.value
+                        }}</code>
                       </div>
                     </div>
                   </div>
@@ -776,11 +823,52 @@
                       >{{ item.key }}</Tag
                     >
                     <div class="short">
-                      {{
-                        item.changeType === "modified"
-                          ? item.oldValue
-                          : item.value
-                      }}
+                      <template
+                        v-if="
+                          getFormattedValue(
+                            item.changeType === 'modified'
+                              ? item.oldValue
+                              : item.value
+                          ) &&
+                          typeof getFormattedValue(
+                            item.changeType === 'modified'
+                              ? item.oldValue
+                              : item.value
+                          ) === 'object'
+                        "
+                      >
+                        {{
+                          getFormattedValue(
+                            item.changeType === "modified"
+                              ? item.oldValue
+                              : item.value
+                          ).email ||
+                          getFormattedValue(
+                            item.changeType === "modified"
+                              ? item.oldValue
+                              : item.value
+                          ).name ||
+                          getFormattedValue(
+                            item.changeType === "modified"
+                              ? item.oldValue
+                              : item.value
+                          ).url ||
+                          prettyJSON(
+                            getFormattedValue(
+                              item.changeType === "modified"
+                                ? item.oldValue
+                                : item.value
+                            )
+                          )
+                        }}
+                      </template>
+                      <template v-else>
+                        {{
+                          item.changeType === "modified"
+                            ? item.oldValue
+                            : item.value
+                        }}
+                      </template>
                     </div>
                   </div>
                   <div class="card-details">
@@ -794,14 +882,22 @@
                         class="change-value added"
                       >
                         <span class="label">Added:</span>
-                        <code>{{ item.value }}</code>
+                        <code>{{
+                          typeof getFormattedValue(item.value) === "object"
+                            ? prettyJSON(getFormattedValue(item.value))
+                            : item.value
+                        }}</code>
                       </div>
                       <div
                         v-if="item.changeType === 'removed'"
                         class="change-value removed"
                       >
                         <span class="label">Removed:</span>
-                        <code>{{ item.value }}</code>
+                        <code>{{
+                          typeof getFormattedValue(item.value) === "object"
+                            ? prettyJSON(getFormattedValue(item.value))
+                            : item.value
+                        }}</code>
                       </div>
                       <div
                         v-if="item.changeType === 'modified'"
