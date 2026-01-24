@@ -274,11 +274,42 @@
                   <div class="card-left">
                     <Tag severity="info">{{ item.key }}</Tag>
                     <div class="short">
-                      {{
-                        item.changeType === "modified"
-                          ? item.newValue
-                          : item.value
-                      }}
+                      <template
+                        v-if="
+                          item.key === 'license' &&
+                          getFormattedValue(item.value) &&
+                          typeof getFormattedValue(item.value) === 'object'
+                        "
+                      >
+                        <span class="license-inline">
+                          <a
+                            v-if="getFormattedValue(item.value).url"
+                            :href="getFormattedValue(item.value).url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {{
+                              getFormattedValue(item.value).name ||
+                              getFormattedValue(item.value).url
+                            }}
+                          </a>
+                          <span v-else>{{
+                            getFormattedValue(item.value).name
+                          }}</span>
+                          <span
+                            class="license-paren"
+                            v-if="getFormattedValue(item.value).url"
+                            >({{ getFormattedValue(item.value).url }})</span
+                          >
+                        </span>
+                      </template>
+                      <template v-else>
+                        {{
+                          item.changeType === "modified"
+                            ? item.newValue
+                            : item.value
+                        }}
+                      </template>
                     </div>
                   </div>
                   <div class="card-details">
@@ -2309,6 +2340,28 @@ input.p-inputtext {
 .short {
   color: #475569;
   font-size: 0.85rem;
+}
+.license-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #0f1724;
+  overflow: hidden;
+  min-width: 0;
+}
+.license-inline a {
+  text-decoration: none;
+  color: inherit;
+}
+.license-paren {
+  color: #64748b;
+  font-weight: 400;
+  font-size: 0.85rem;
+  margin-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .server-name {
   font-weight: 600;
