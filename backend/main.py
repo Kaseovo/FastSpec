@@ -25,6 +25,7 @@ app = FastAPI(
     description="OpenAPI Specification Editor and Validator with OAuth2 Authentication",
     version="2.0.0",
     lifespan=lifespan,
+    root_path=os.getenv("ROOT_PATH", ""),
 )
 
 # Session middleware for OAuth (required by Authlib)
