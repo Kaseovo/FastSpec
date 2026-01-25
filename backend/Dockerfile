@@ -21,12 +21,9 @@ RUN apt-get update \
 
 # Copy backend source and start script
 COPY backend/ ./backend/
-COPY validator.py ./
-COPY diff_utils.py ./
-COPY start-backend.sh ./
-RUN chmod +x ./start-backend.sh
+RUN chmod +x ./backend/start-backend.sh
 
 # Expose port and set default command
 EXPOSE 8000
 
-CMD ["./start-backend.sh"]
+CMD ["./backend/start-backend.sh"]
