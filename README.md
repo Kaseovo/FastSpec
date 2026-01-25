@@ -31,7 +31,7 @@ A modern full-stack application for creating, editing, validating, and managing 
 
 ### Development Setup
 
-> **⚠️ Authentication Required**: FastSpec now requires OAuth2 authentication. See [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) for quick setup.
+> **⚠️ Authentication Required**: FastSpec now requires OAuth2 authentication. See [`AUTHENTICATION_SETUP.md`](AUTHENTICATION_SETUP.md:1) for quick setup.
 
 1. **Clone the repository:**
 
@@ -43,7 +43,6 @@ A modern full-stack application for creating, editing, validating, and managing 
 2. **Set up authentication** (Required - 5 minutes):
 
    Follow the [Authentication Setup Guide](AUTHENTICATION_SETUP.md) to:
-
    - Get OAuth credentials from Google and GitHub
    - Configure environment variables
    - Run database migration
@@ -56,7 +55,6 @@ A modern full-stack application for creating, editing, validating, and managing 
    ```
 
    This will:
-
    - Create a Python virtual environment
    - Install backend dependencies
    - Install frontend dependencies
@@ -64,7 +62,6 @@ A modern full-stack application for creating, editing, validating, and managing 
    - Start Vue.js frontend on port 3000
 
 4. **Access the application:**
-
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
@@ -139,7 +136,7 @@ FastSpec/
 │   │   │   ├── SpecList.vue
 │   │   │   ├── EditorPanel.vue
 │   │   │   ├── PreviewPanel.vue
-│   │   │   └── SaveDialog.vue
+│   │   │   │   └── SaveDialog.vue
 │   │   └── api/             # API client
 │   │       └── specs.js
 │   ├── package.json         # Frontend dependencies
@@ -186,7 +183,7 @@ Legacy Django files (can be removed):
 
 ## Environment Variables
 
-Create a `.env` file (see `.env.example` or [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md)):
+Create a `.env` file (see `.env.example` or [`AUTHENTICATION_SETUP.md`](AUTHENTICATION_SETUP.md:1)):
 
 ```env
 # JWT Configuration
@@ -323,10 +320,24 @@ This project was migrated from Django to FastAPI + Vue.js. The old Django code i
 
 These can be safely removed once migration is confirmed working.
 
+## Developer Documentation
+
+Detailed project documentation is available under the `docs/` directory. See the following files for scoped, implementation-focused documentation:
+
+- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md:1) — high-level overview and quick start
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md:1) — data flow, components, and deployment notes
+- [`docs/API.md`](docs/API.md:1) — endpoint reference and request/response shapes
+- [`docs/FRONTEND.md`](docs/FRONTEND.md:1) — frontend structure and development notes
+- [`docs/BACKEND.md`](docs/BACKEND.md:1) — backend routes, auth, validation, and database
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md:1) — docker-compose and local setup instructions
+- [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) — detailed authentication setup and security guidance
+
+These files provide implementation details, setup steps, and architectural context for contributors.
+
 ## Authentication Documentation
 
-- **Quick Start**: [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) - 5-minute setup guide
-- **Full Documentation**: [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) - Complete authentication guide
+- **Quick Start**: [`AUTHENTICATION_SETUP.md`](AUTHENTICATION_SETUP.md:1) - 5-minute setup guide
+- **Full Documentation**: [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) - Complete authentication guide
 - **Security**: See authentication docs for production best practices
 
 ## License
@@ -339,7 +350,7 @@ Pull requests welcome! Please ensure code follows project conventions.
 
 ## Need Help?
 
-1. Check [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) for quick setup
-2. Review [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for detailed info
+1. Check [`AUTHENTICATION_SETUP.md`](AUTHENTICATION_SETUP.md:1) for quick setup
+2. Review [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) for detailed info
 3. Check API documentation at http://localhost:8000/docs
 4. Open an issue on GitHub
