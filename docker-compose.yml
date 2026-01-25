@@ -24,7 +24,7 @@ services:
     env_file: .env
     restart: unless-stopped
     labels:
-      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`) || PathPrefix(`/auth`)"
       - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     networks:

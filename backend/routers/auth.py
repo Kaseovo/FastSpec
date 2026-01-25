@@ -26,7 +26,7 @@ async def login_google(request: Request):
     Redirects user to Google consent page
     """
     redirect_uri = os.getenv(
-        "GOOGLE_REDIRECT_URI", f"http://localhost:8000/auth/google/callback"
+        "GOOGLE_REDIRECT_URI", f"{FRONTEND_URL}/auth/google/callback"
     )
     return await oauth.google.authorize_redirect(request, redirect_uri)
 

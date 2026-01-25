@@ -1,7 +1,7 @@
 import axios from "axios";
 import { useAuth } from "../stores/auth";
 
-const API_BASE = "/api";
+const API_BASE = "/api/specs";
 
 // Create axios instance
 const api = axios.create({
@@ -19,7 +19,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor to handle 401 errors
@@ -33,31 +33,31 @@ api.interceptors.response.use(
       window.location.href = "/";
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export const fetchSpecs = async () => {
-  const response = await api.get("/specs");
+  const response = await api.get("/");
   return response.data;
 };
 
 export const fetchSpec = async (id) => {
-  const response = await api.get(`/specs/${id}`);
+  const response = await api.get(`/${id}`);
   return response.data;
 };
 
 export const createSpec = async (data) => {
-  const response = await api.post("/specs", data);
+  const response = await api.post("/", data);
   return response.data;
 };
 
 export const updateSpec = async (id, data) => {
-  const response = await api.put(`/specs/${id}`, data);
+  const response = await api.put(`//${id}`, data);
   return response.data;
 };
 
 export const deleteSpec = async (id) => {
-  await api.delete(`/specs/${id}`);
+  await api.delete(`//${id}`);
 };
 
 export const validateSpec = async (spec_json) => {
@@ -66,7 +66,7 @@ export const validateSpec = async (spec_json) => {
 };
 
 export const fetchDiff = async (id, format = "json") => {
-  const response = await api.get(`/specs/${id}/diff`, {
+  const response = await api.get(`/${id}/diff`, {
     params: { format },
   });
   return response.data;

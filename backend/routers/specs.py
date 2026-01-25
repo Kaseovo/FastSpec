@@ -26,7 +26,7 @@ from diff_utils import compare_specs, generate_markdown_report
 router = APIRouter()
 
 
-@router.get("/specs", response_model=List[OpenAPISpecResponse])
+@router.get("/", response_model=List[OpenAPISpecResponse])
 async def list_specs(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
@@ -56,7 +56,7 @@ async def list_specs(
     return result
 
 
-@router.get("/specs/{spec_id}", response_model=OpenAPISpecResponse)
+@router.get("/{spec_id}", response_model=OpenAPISpecResponse)
 async def get_spec(
     spec_id: int,
     current_user: User = Depends(get_current_user),
@@ -88,7 +88,7 @@ async def get_spec(
 
 
 @router.post(
-    "/specs", response_model=OpenAPISpecResponse, status_code=status.HTTP_201_CREATED
+    "/", response_model=OpenAPISpecResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_spec(
     spec_data: OpenAPISpecCreate,
@@ -153,7 +153,7 @@ async def create_spec(
     }
 
 
-@router.put("/specs/{spec_id}", response_model=OpenAPISpecResponse)
+@router.put("/{spec_id}", response_model=OpenAPISpecResponse)
 async def update_spec(
     spec_id: int,
     spec_data: OpenAPISpecUpdate,
@@ -232,7 +232,7 @@ async def update_spec(
     }
 
 
-@router.delete("/specs/{spec_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{spec_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_spec(
     spec_id: int,
     current_user: User = Depends(get_current_user),
@@ -281,7 +281,7 @@ async def validate_spec(spec_json: dict):
     }
 
 
-@router.get("/specs/{spec_id}/diff")
+@router.get("/{spec_id}/diff")
 async def get_spec_diff(
     spec_id: int,
     format: str = Query("json", regex="^(json|markdown)$"),
