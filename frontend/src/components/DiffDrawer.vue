@@ -1708,46 +1708,128 @@ export default {
       return filtered;
     });
 
-    // debug watcher to log counts and current filter to help reproduce
-    // cases where selecting an empty category shows other items
+    // enhanced debug watcher — clearer, grouped, and includes server/info/schema lists
     watch(
       [addedEndpoints, modifiedEndpoints, removedEndpoints, filter, endpoints],
       () => {
         try {
           const d = props.diff || {};
-          console.debug("[DiffDrawer] counts", {
+
+          const sample = (arr, n = 5) =>
+            Array.isArray(arr) ? arr.slice(0, n) : [];
+
+          console.groupCollapsed("[DiffDrawer] Debug snapshot");
+          console.log("counts", {
             added: addedEndpoints.value.length,
             modified: modifiedEndpoints.value.length,
             removed: removedEndpoints.value.length,
             filter: filter.value,
-            endpoints: Object.keys(endpoints.value).length,
+            endpointsVisible: endpoints.value.length,
           });
 
-          // snapshot of incoming diff for quick inspection
-          console.debug("[DiffDrawer] diff-keys", Object.keys(d));
-          console.debug("[DiffDrawer] diff-snapshot", {
-            addedSample: (d.added || []).slice(0, 3),
-            modifiedSample: (d.modified || []).slice(0, 3),
-            removedSample: (d.removed || []).slice(0, 3),
-            infoAdded: (d.infoAdded || []).slice(0, 3),
-            infoModified: (d.infoModified || []).slice(0, 3),
-            infoRemoved: (d.infoRemoved || []).slice(0, 3),
-            schemaAdded: (d.schemaAdded || []).slice(0, 3),
-            schemaModified: (d.schemaModified || []).slice(0, 3),
-            schemaRemoved: (d.schemaRemoved || []).slice(0, 3),
+          console.log("diffKeys", Object.keys(d));
+
+          // Log trimmed samples for quick inspection
+          console.log("diffSamples", {
+            added: sample(d.added),
+            modified: sample(d.modified),
+            removed: sample(d.removed),
+            schemaAdded: sample(d.schemaAdded),
+            schemaModified: sample(d.schemaModified),
+            schemaRemoved: sample(d.schemaRemoved),
+            serverAdded: sample(d.serverAdded),
+            serverModified: sample(d.serverModified),
+            serverRemoved: sample(d.serverRemoved),
+            infoAdded: sample(d.infoAdded),
+            infoModified: sample(d.infoModified),
+            infoRemoved: sample(d.infoRemoved),
           });
 
-          // detect possible inconsistency: diff.removed present but computed removedEndpoints empty
+          // If there's an apparent inconsistency, print the full arrays for diagnosis
           if (
-            d.removed &&
-            (Array.isArray(d.removed) ? d.removed.length : 1) > 0 &&
-            removedEndpoints.value.length === 0
+            Array.isArray(d.removed) &&
+            d.removed.length > 0 &&
+            removedEndpoints.value === 0
           ) {
             console.warn(
-              "[DiffDrawer] Inconsistency: props.diff.removed exists but removedEndpoints computed is empty",
-              d.removed
+              "[DiffDrawer] Inconsistency: props.diff.removed exists but removedEndpoints computed is empty — full lists below"
+            );
+            try {
+              console.log("props.diff.removed (full)", d.removed);
+            } catch (e) {
+              console.log(
+                "props.diff.removed (full) stringified",
+                JSON.stringify(d.removed)
+              );
+            }
+          }
+
+          // Also show servers from diff and the current spec for context
+          try {
+            console.log("spec.servers", props.spec?.servers || []);
+            console.log("serverRemoved (full)", d.serverRemoved || []);
+            console.log("serverAdded (full)", d.serverAdded || []);
+            console.log("serverModified (full)", d.serverModified || []);
+          } catch (e) {
+            // fall back to stringified output if structured objects cause issues
+            console.log(
+              "spec.servers (string)",
+              JSON.stringify(props.spec?.servers || [])
             );
           }
+
+          // Single structured summary (counts + full arrays) for copy/paste
+          try {
+            const summaryObj = {
+              counts: {
+                added: {
+                  endpoints: (d.added || []).length,
+                  schemas: (d.schemaAdded || []).length,
+                  servers: (d.serverAdded || []).length,
+                  info: (d.infoAdded || []).length,
+                },
+                modified: {
+                  endpoints: (d.modified || []).length,
+                  schemas: (d.schemaModified || []).length,
+                  servers: (d.serverModified || []).length,
+                  info: (d.infoModified || []).length,
+                },
+                removed: {
+                  endpoints: (d.removed || []).length,
+                  schemas: (d.schemaRemoved || []).length,
+                  servers: (d.serverRemoved || []).length,
+                  info: (d.infoRemoved || []).length,
+                },
+              },
+              changes: {
+                added: {
+                  endpoints: d.added || [],
+                  schemas: d.schemaAdded || [],
+                  servers: d.serverAdded || [],
+                  info: d.infoAdded || [],
+                },
+                modified: {
+                  endpoints: d.modified || [],
+                  schemas: d.schemaModified || [],
+                  servers: d.serverModified || [],
+                  info: d.infoModified || [],
+                },
+                removed: {
+                  endpoints: d.removed || [],
+                  schemas: d.schemaRemoved || [],
+                  servers: d.serverRemoved || [],
+                  info: d.infoRemoved || [],
+                },
+              },
+            };
+
+            // Print a pretty JSON string so it's easy to copy/paste into the chat
+            console.log("diffSummary", JSON.stringify(summaryObj, null, 2));
+          } catch (e) {
+            console.log("diffSummary (error building summary)", e);
+          }
+
+          console.groupEnd();
         } catch (e) {
           // ignore logging errors in non-browser environments
         }
@@ -2008,16 +2090,34 @@ export default {
         })),
       ];
 
-      // if no changes, add current servers
+      // if no server diff entries, only inject current servers when there are no other changes
       if (!list.length) {
-        const currentServers = props.spec?.servers || [];
-        list.push(
-          ...currentServers.map((s, i) => ({
-            key: s.url || s.description || s.name || String(i),
-            value: s,
-            changeType: "added",
-          }))
-        );
+        const totalOtherChanges =
+          (d.added?.length || 0) +
+          (d.modified?.length || 0) +
+          (d.removed?.length || 0) +
+          (d.schemaAdded?.length || 0) +
+          (d.schemaModified?.length || 0) +
+          (d.schemaRemoved?.length || 0) +
+          (d.infoAdded?.length || 0) +
+          (d.infoModified?.length || 0) +
+          (d.infoRemoved?.length || 0);
+
+        const totalServerChanges =
+          (d.serverAdded?.length || 0) +
+          (d.serverModified?.length || 0) +
+          (d.serverRemoved?.length || 0);
+
+        if (totalOtherChanges === 0 && totalServerChanges === 0) {
+          const currentServers = props.spec?.servers || [];
+          list.push(
+            ...currentServers.map((s, i) => ({
+              key: s.url || s.description || s.name || String(i),
+              value: s,
+              changeType: "added",
+            }))
+          );
+        }
       }
 
       // apply top-level filter (added/modified/removed) similar to endpoints/schemas
