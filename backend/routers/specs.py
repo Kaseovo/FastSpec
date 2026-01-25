@@ -14,9 +14,6 @@ from ..schemas import (
     OpenAPISpecUpdate,
     OpenAPISpecResponse,
     ValidationResponse,
-    DiffResponse,
-    MarkdownDiffResponse,
-    ValidationError as ValidationErrorSchema,
 )
 from ..auth.dependencies import get_current_user
 from ..validation.validator import validate_openapi_spec

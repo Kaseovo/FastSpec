@@ -2,8 +2,7 @@
 Utility functions for comparing OpenAPI specifications
 """
 
-from typing import Dict, Any, List, Tuple
-import json
+from typing import Dict, Any
 
 
 def compare_specs(

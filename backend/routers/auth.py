@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User
-from ..schemas import Token, UserResponse
+from ..schemas import UserResponse
 from ..auth.oauth import oauth, get_google_user_info, get_github_user_info
 from ..auth.jwt import create_access_token
 from ..auth.dependencies import get_current_user
