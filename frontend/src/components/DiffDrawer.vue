@@ -199,7 +199,10 @@
                   </div>
                   <div class="card-details">
                     <div
-                      v-if="item.changeType === 'added'"
+                      v-if="
+                        item.changeType === 'added' ||
+                        item.changeType === 'removed'
+                      "
                       class="schema-preview"
                     >
                       <div
@@ -226,7 +229,38 @@
                       >
                         Type: {{ item.dereferencedSchema?.type }}
                       </div>
-                      <div v-if="!item.dereferencedSchema?.properties">
+                      <div
+                        v-if="item.dereferencedSchema?.properties"
+                        class="schema-properties"
+                      >
+                        <div
+                          v-for="(prop, propName) in item.dereferencedSchema
+                            .properties"
+                          :key="propName"
+                          class="property-item"
+                        >
+                          <div class="prop-left">
+                            <code class="prop-name">{{ propName }}</code>
+                            <span class="prop-type">{{
+                              prop.type || "object"
+                            }}</span>
+                            <Tag
+                              v-if="
+                                (
+                                  item.dereferencedSchema?.required || []
+                                ).includes(propName)
+                              "
+                              severity="danger"
+                              size="small"
+                              >Req</Tag
+                            >
+                          </div>
+                          <span v-if="prop.title" class="prop-title">{{
+                            prop.title
+                          }}</span>
+                        </div>
+                      </div>
+                      <div v-else>
                         <pre
                           class="mini-json"
                         ><code>{{ prettyJSON(item.dereferencedSchema) }}</code></pre>
