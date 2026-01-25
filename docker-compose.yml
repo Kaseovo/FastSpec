@@ -23,6 +23,8 @@ services:
       dockerfile: backend/Dockerfile
     env_file: .env
     restart: unless-stopped
+    volumes:
+      - ./data:/app/data
     labels:
       - "traefik.http.routers.backend.rule=PathPrefix(`/api`) || PathPrefix(`/auth`)"
       - "traefik.http.routers.backend.entrypoints=web"

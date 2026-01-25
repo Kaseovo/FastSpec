@@ -7,7 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./fastspec.db")
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:////app/data/fastspec.db")
 
 engine = create_engine(
     DATABASE_URL,
