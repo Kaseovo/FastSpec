@@ -392,34 +392,12 @@
                   <div class="card-details">
                     <div v-if="item.changeType === 'removed'">
                       <div class="change-value removed">
-                        <span class="label">Removed:</span>
                         <template
                           v-if="
                             getFormattedValue(item.value) &&
                             typeof getFormattedValue(item.value) === 'object'
                           "
                         >
-                          <div class="properties-list" style="margin-top: 8px">
-                            <div
-                              v-for="(val, key) in getFormattedValue(
-                                item.value
-                              )"
-                              :key="key"
-                              class="property-item"
-                            >
-                              <div class="prop-left">
-                                <code class="prop-name">{{ key }}</code>
-                                <div class="prop-desc">
-                                  :
-                                  {{
-                                    typeof val === "object"
-                                      ? prettyJSON(val)
-                                      : String(val)
-                                  }}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
                         </template>
                         <template v-else>
                           <code>{{
@@ -962,29 +940,8 @@
                             getFormattedValue(item.value) &&
                             typeof getFormattedValue(item.value) === 'object'
                           "
-                          class="properties-list"
-                          style="margin-top: 8px"
-                        >
-                          <div
-                            v-for="(val, key) in getFormattedValue(item.value)"
-                            :key="key"
-                            class="property-item"
-                          >
-                            <div class="prop-left">
-                              <code class="prop-name">{{ key }}</code>
-                              <div class="prop-desc">
-                                :
-                                {{
-                                  typeof val === "object"
-                                    ? prettyJSON(val)
-                                    : String(val)
-                                }}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                        ></div>
                         <div v-else class="change-value removed">
-                          <span class="label">Removed:</span>
                           <code>{{
                             truncate(
                               String(
