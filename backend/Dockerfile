@@ -19,11 +19,10 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove build-essential gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy backend source and start script
+# Copy backend source
 COPY backend/ ./backend/
-RUN chmod +x ./backend/start-backend.sh
 
 # Expose port and set default command
 EXPOSE 8000
 
-CMD ["./backend/start-backend.sh"]
+CMD ["uvicorn", "backend.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
