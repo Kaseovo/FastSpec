@@ -1749,22 +1749,8 @@ export default {
         added: {
           endpoints: (d.added || []).length,
           components: (d.schemaAdded || []).length,
-          info:
-            (d.infoAdded || []).length ||
-            ((d.infoAdded || []).length === 0 &&
-            (d.infoModified || []).length === 0 &&
-            (d.infoRemoved || []).length === 0
-              ? Object.keys(props.spec?.info || {}).filter((key) =>
-                  ["title", "version", "description"].includes(key)
-                ).length
-              : 0),
-          servers:
-            (d.serverAdded || []).length ||
-            ((d.serverAdded || []).length === 0 &&
-            (d.serverModified || []).length === 0 &&
-            (d.serverRemoved || []).length === 0
-              ? (props.spec?.servers || []).length
-              : 0),
+          info: (d.infoAdded || []).length,
+          servers: (d.serverAdded || []).length,
         },
         modified: {
           endpoints: (d.modified || []).length,
