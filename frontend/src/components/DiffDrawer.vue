@@ -1381,7 +1381,83 @@
           </section>
 
           <section
-            v-if="selectedItem.value && !selectedItem.method"
+            v-else-if="
+              selectedItem.changeType === 'added' && selectedItem.value
+            "
+          >
+            <h5>Info Change</h5>
+            <div class="detail-section no-hover">
+              <div
+                v-if="
+                  getFormattedValue(selectedItem.value) &&
+                  typeof getFormattedValue(selectedItem.value) === 'object'
+                "
+              >
+                <div class="properties-list" style="margin-top: 8px">
+                  <div
+                    v-for="(val, key) in getFormattedValue(selectedItem.value)"
+                    :key="key"
+                    class="property-item"
+                  >
+                    <div class="prop-left">
+                      <code class="prop-name">{{ key }}</code>
+                      <div class="prop-desc">
+                        :
+                        {{
+                          typeof val === "object"
+                            ? prettyJSON(val)
+                            : String(val)
+                        }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="before-value">
+                {{ truncate(selectedItem.value || "", 200) }}
+              </div>
+            </div>
+          </section>
+
+          <section
+            v-else-if="
+              selectedItem.changeType === 'removed' && selectedItem.value
+            "
+          >
+            <h5>Info Change</h5>
+            <div class="detail-section no-hover">
+              <h6>🗑️ Removed</h6>
+              <div
+                v-if="
+                  getFormattedValue(selectedItem.value) &&
+                  typeof getFormattedValue(selectedItem.value) === 'object'
+                "
+              >
+                <pre
+                  class="mini-json"
+                ><code>{{ prettyJSON(getFormattedValue(selectedItem.value)) }}</code></pre>
+              </div>
+              <div v-else class="before-value">
+                {{ truncate(selectedItem.value || "", 200) }}
+              </div>
+            </div>
+          </section>
+
+          <section
+            v-if="
+              selectedItem.value &&
+              !selectedItem.method &&
+              !(
+                selectedItem.changeType === 'added' &&
+                [
+                  'title',
+                  'version',
+                  'description',
+                  'contact',
+                  'license',
+                ].includes(selectedItem.key)
+              )
+            "
             class="detail-section"
           >
             <h5>Server Details</h5>
