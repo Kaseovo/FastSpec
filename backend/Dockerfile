@@ -4,9 +4,10 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000 \
-    ROOT_PATH="/api"
+    ROOT_PATH="/api" \
+    PYTHONPATH=/app
 
-WORKDIR /app
+WORKDIR /app/backend
 
 # Copy requirements file
 COPY backend/requirements.txt ./backend/requirements.txt
@@ -20,9 +21,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend source
-COPY backend/ ./backend/
+COPY backend/ ./
 
 # Expose port and set default command
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   backend:
     # Override runtime for dev (do not change build context in base compose)
     container_name: fastspec-backend-dev
     # When DEV_DEBUG=1 the container will stay idle so you can exec in and start manually
-    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload; fi'
+    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload; fi'
     working_dir: /app
     volumes:
       - ./:/app:delegated
@@ -14,7 +12,7 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - DEV_DEBUG=0
+      - DEV_DEBUG=1
 
   frontend:
     # Override runtime for dev (do not change build context in base compose)
