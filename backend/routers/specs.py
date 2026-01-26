@@ -7,17 +7,17 @@ from sqlalchemy.orm import Session
 from typing import List
 import json
 
-from ..database import get_db
-from ..models import OpenAPISpec, User
-from ..schemas import (
+from database import get_db
+from models import OpenAPISpec, User
+from schemas import (
     OpenAPISpecCreate,
     OpenAPISpecUpdate,
     OpenAPISpecResponse,
     ValidationResponse,
 )
-from ..auth.dependencies import get_current_user
-from ..validation.validator import validate_openapi_spec
-from ..validation.diff_utils import compare_specs, generate_markdown_report
+from auth.dependencies import get_current_user
+from validation.validator import validate_openapi_spec
+from validation.diff_utils import compare_specs, generate_markdown_report
 
 
 router = APIRouter()

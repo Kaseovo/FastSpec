@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    # Override runtime for dev (do not change build context in base compose)
+    container_name: fastspec-backend-dev
+    # When DEV_DEBUG=1 the container will stay idle so you can exec in and start manually
+    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload; fi'
+    working_dir: /app
+    volumes:
+      - ./:/app:delegated
+      - /app/.venv
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DEV_DEBUG=0
+
+  frontend:
+    # Override runtime for dev (do not change build context in base compose)
+    container_name: fastspec-frontend-dev
+    # When DEV_DEBUG=1 the container will stay idle so you can exec in and start manually
+    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0; fi'
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend:delegated
+      - /app/frontend/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - DEV_DEBUG=0
+
+# Usage (local dev):
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# To start containers in debug mode (container stays idle so you can exec into it):
+# DEV_DEBUG=1 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# This file intentionally does not change the base `build` contexts to avoid build errors.

@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 
-from .database import engine, Base
-from .routers import specs, auth
+from database import engine, Base
+from routers import specs, auth
 
 
 @asynccontextmanager
