@@ -235,6 +235,30 @@ npm run build
 
 ## Development
 
+### Local development with Docker Compose
+
+Two Docker Compose files are provided:
+
+- [`docker-compose.yml`](docker-compose.yml:1) — base composition for running the backend, frontend, and database in a production-like configuration.
+- [`docker-compose.dev.yml`](docker-compose.dev.yml:1) — development overrides: mounts local source code into containers, enables hot-reload for backend/frontend, and sets development environment variables (including DEBUG).
+
+To start the application for local development (build images and apply dev overrides):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+This command combines the base compose file with the development overrides so containers use local source and run in watch/reload mode.
+
+### DEBUG mode
+
+Set the environment variable `DEBUG=true` (in your `.env` or via the dev compose file) to enable development behavior:
+
+- Backend: runs with auto-reload (uvicorn --reload) and more verbose logging.
+- Frontend: runs the Vite dev server with hot-module replacement.
+
+The `docker-compose.dev.yml` file already configures the containers for DEBUG-friendly development; override or unset DEBUG for production-like runs.
+
 ### Backend Development
 
 - **FastAPI** with automatic OpenAPI documentation
