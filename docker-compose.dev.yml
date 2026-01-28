@@ -12,7 +12,7 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - DEV_DEBUG=1
+      - DEV_DEBUG=0
 
   frontend:
     # Override runtime for dev (do not change build context in base compose)

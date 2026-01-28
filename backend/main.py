@@ -51,18 +51,41 @@ app.include_router(auth.router, tags=["authentication"])
 app.include_router(specs.router, prefix="/specs", tags=["specs"])
 
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "FastSpec API",
-        "version": "2.0.0",
-        "authentication": "OAuth2 (Google, GitHub)",
-        "docs": "/docs",
-    }
-
-
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+@app.get("/openapi.json")
+async def get_openapi():
+    """Serve OpenAPI spec with logging"""
+    import logging
+
+    try:
+        spec = app.openapi()
+        logging.info(f"OpenAPI spec keys: {list(spec.keys())}")
+        logging.info(f"Has openapi: {'openapi' in spec}")
+        if "openapi" in spec:
+            logging.info(f"OpenAPI version: {spec['openapi']}")
+        else:
+            logging.warning("OpenAPI spec missing 'openapi' field")
+        return spec
+    except Exception as e:
+        logging.error(f"Error generating OpenAPI spec: {e}")
+        return {"error": str(e)}
+
+
+@app.get("/debug/openapi")
+async def debug_openapi():
+    """Debug endpoint to return OpenAPI spec"""
+    try:
+        spec = app.openapi()
+        return {
+            "openapi_version": app.openapi_version,
+            "spec_keys": list(spec.keys()),
+            "has_openapi": "openapi" in spec,
+            "spec": spec,
+        }
+    except Exception as e:
+        return {"error": str(e), "type": type(e).__name__}
