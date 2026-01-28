@@ -9,4 +9,4 @@ COPY server.py .
 
 EXPOSE 9000
 
-CMD ["fastmcp", "run", "server.py:mcp", "--transport", "http", "--host", "0.0.0.0", "--port", "9000"]
+CMD ["fastmcp", "run", "server.py:mcp", "--transport", "http", "--host", "0.0.0.0", "--port", "9000", "--path", "/"]
