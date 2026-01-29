@@ -2,19 +2,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Uvicorn (backend directory)",
+      "name": "Run MCP Server",
       "type": "python",
       "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "main:app",
-        "--reload",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000"
-      ],
-      "cwd": "${fileDirname}/..",
+      "program": "server.py",
+      "args": [],
+      "cwd": "/app",
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}"

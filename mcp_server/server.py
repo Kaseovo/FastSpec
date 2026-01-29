@@ -15,7 +15,7 @@ auth_provider = GitHubProvider(
 )
 
 
-mcp = FastMCP(name="My MCP Server", auth_provider=auth_provider)
+mcp = FastMCP(name="My MCP Server", auth=auth_provider)
 
 
 @mcp.tool
@@ -38,4 +38,4 @@ async def get_user_info() -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="http", host="0.0.0.0", port=9000, path="/")
