@@ -1,13 +1,11 @@
 services:
   backend:
     # Override runtime for dev (do not change build context in base compose)
-    container_name: fastspec-backend-dev
     # When DEV_DEBUG=1 the container will stay idle so you can exec in and start manually
-    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload; fi'
+    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else uvicorn main:app --host 0.0.0.0 --port 8000 --reload; fi'
     working_dir: /app
     volumes:
-      - ./:/app:delegated
-      - /app/.venv
+      - ./backend:/app
     ports:
       - "8000:8000"
     environment:
@@ -16,18 +14,26 @@ services:
 
   frontend:
     # Override runtime for dev (do not change build context in base compose)
-    container_name: fastspec-frontend-dev
     # When DEV_DEBUG=1 the container will stay idle so you can exec in and start manually
     command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0; fi'
-    working_dir: /app/frontend
+    working_dir: /app
     volumes:
-      - ./frontend:/app/frontend:delegated
-      - /app/frontend/node_modules
+      - ./frontend:/app
     ports:
       - "5173:5173"
     environment:
       - CHOKIDAR_USEPOLLING=true
       - DEV_DEBUG=0
+  
+  mcp:
+    # Override runtime for dev (do not change build context in base compose)
+    working_dir: /app
+    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else fastmcp run server.py:mcp --transport http --host 0.0.0.0 --port 9000 --path /; fi'
+    volumes:
+      - ./mcp_server:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DEV_DEBUG=1
 
 # Usage (local dev):
 # docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build

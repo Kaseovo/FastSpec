@@ -7,16 +7,16 @@ ENV PYTHONUNBUFFERED=1 \
     ROOT_PATH="/api" \
     PYTHONPATH=/app
 
-WORKDIR /app/backend
+WORKDIR /app
 
 # Copy requirements file
-COPY backend/requirements.txt ./backend/requirements.txt
+COPY backend/requirements.txt ./requirements.txt
 
 # Install system build deps, install Python deps, then remove build deps to keep image small
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential gcc libpq-dev \
     && pip install --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir -r ./backend/requirements.txt \
+    && pip install --no-cache-dir -r ./requirements.txt \
     && apt-get purge -y --auto-remove build-essential gcc \
     && rm -rf /var/lib/apt/lists/*
 

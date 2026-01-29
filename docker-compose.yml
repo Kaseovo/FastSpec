@@ -1,5 +1,6 @@
 services:
   traefik:
+    container_name: fastspec-traefik-dev
     image: traefik:v2.10
     command:
       - "--api.insecure=true"
@@ -16,6 +17,7 @@ services:
       - webnet
 
   backend:
+    container_name: fastspec-backend-dev
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -31,6 +33,7 @@ services:
       - webnet
 
   frontend:
+    container_name: fastspec-frontend-dev
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -43,9 +46,11 @@ services:
       - webnet
 
   mcp:
+    container_name: fastspec-mcp-dev
     build:
       context: ./mcp_server
     restart: unless-stopped
+    env_file: .env
     ports:
       - "9000:9000"
     labels:
