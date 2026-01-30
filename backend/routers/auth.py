@@ -3,20 +3,134 @@ Authentication routes for OAuth2 and JWT
 """
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Request
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List
 
 from database import get_db
-from models import User
+from models import User, CustomToken
 from schemas import UserResponse
 from auth.oauth import oauth, get_google_user_info, get_github_user_info
-from auth.jwt import create_access_token
+from auth.jwt import (
+    create_access_token,
+    create_custom_token,
+    verify_custom_token,
+    refresh_custom_token,
+)
 from auth.dependencies import get_current_user
 
 router = APIRouter()
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+
+class TokenCreateRequest(BaseModel):
+    actions: List[str]
+
+
+class TokenIntrospectRequest(BaseModel):
+    token: str
+
+
+ALLOWED_ACTIONS = {"A", "B"}
+
+
+@router.post("/auth/tokens", status_code=status.HTTP_201_CREATED)
+async def create_token(
+    payload: TokenCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # basic validation
+    if not set(payload.actions).issubset(ALLOWED_ACTIONS):
+        raise HTTPException(status_code=400, detail="Invalid actions")
+    token_str, jti, expires_at = create_custom_token(db, current_user, payload.actions)
+    return {"token": token_str, "jti": jti, "expires_at": expires_at}
+
+
+@router.get("/auth/tokens")
+async def list_tokens(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    tokens = (
+        db.query(CustomToken)
+        .filter(CustomToken.user_id == current_user.id)
+        .order_by(CustomToken.created_at.desc())
+        .all()
+    )
+    result = []
+    now = datetime.utcnow()
+    for t in tokens:
+        if t.expires_at < now:
+            continue
+        result.append(
+            {
+                "jti": t.jti,
+                "actions": t.get_actions(),
+                "expires_at": t.expires_at,
+                "revoked": t.revoked,
+                "created_at": t.created_at,
+            }
+        )
+    return result
+
+
+@router.delete("/auth/tokens/{jti}")
+async def revoke_token(
+    jti: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    token = (
+        db.query(CustomToken)
+        .filter(CustomToken.jti == jti, CustomToken.user_id == current_user.id)
+        .first()
+    )
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    token.revoked = True
+    db.add(token)
+    db.commit()
+    return {"message": "Token revoked"}
+
+
+@router.post("/auth/tokens/{jti}/refresh")
+async def refresh_token(
+    jti: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    token = (
+        db.query(CustomToken)
+        .filter(CustomToken.jti == jti, CustomToken.user_id == current_user.id)
+        .first()
+    )
+    if not token or token.revoked:
+        raise HTTPException(status_code=404, detail="Token not found")
+    new_token, new_expires = refresh_custom_token(db, current_user, jti)
+    return {"token": new_token, "expires_at": new_expires}
+
+
+@router.post("/auth/tokens/introspect")
+async def introspect_token(
+    payload: TokenIntrospectRequest, db: Session = Depends(get_db)
+):
+    try:
+        data = verify_custom_token(db, payload.token)
+        return {
+            "active": True,
+            "user_id": data["user_id"],
+            "actions": data["actions"],
+            "expires_at": data["expires_at"],
+        }
+    except HTTPException:
+        return {"active": False}
+
+
+# existing oauth routes and callbacks (unchanged) ...
 
 
 @router.get("/auth/google")

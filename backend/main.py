@@ -11,6 +11,9 @@ from contextlib import asynccontextmanager
 from database import engine, Base
 from routers import specs, auth
 
+# ensure SHORT_LIVED_JWT_EXP_SECONDS is read and available via env
+_ = int(os.getenv("SHORT_LIVED_JWT_EXP_SECONDS", "300"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
