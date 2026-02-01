@@ -70,19 +70,6 @@ class RefreshActionsResponse(BaseModel):
     actions: List[str]
 
 
-class CustomTokenActionsUpdateRequest(BaseModel):
-    """Request schema for updating custom token actions"""
-
-    actions: List[str]
-
-
-class CustomTokenActionsResponse(BaseModel):
-    """Response schema after updating custom token actions"""
-
-    message: str
-    actions: List[str]
-
-
 # OpenAPI Spec Schemas
 class OpenAPISpecBase(BaseModel):
     """Base schema for OpenAPI spec"""

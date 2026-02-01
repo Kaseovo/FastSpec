@@ -57,87 +57,8 @@ const getAuthHeaders = () => {
 };
 
 /**
- * Create a short-lived custom token with allowed actions
- * @param {Array<string>} actions - e.g. ['A','B']
- * @returns {Promise<Object>} Created token data { token, jti, expires_at, ... }
+ * Token APIs removed: only refresh token APIs and OAuth login functions remain.
  */
-export const createToken = async (actions) => {
-  // Normalize incoming actions to strings (support object items) before validation.
-  // Fallback to empty-string which is filtered out.
-  const normalized = (actions || [])
-    .map((a) => (typeof a === "string" ? a : (a && a.value) || a || ""))
-    .filter(Boolean);
-
-  // if (normalized.length === 0) {
-  //   throw new Error("At least one action must be selected");
-  // }
-  const allowed = ["A", "B"];
-  const filtered = normalized.filter((a) => allowed.includes(a));
-  if (filtered.length !== normalized.length) {
-    throw new Error("Invalid actions");
-  }
-
-  const response = await axios.post(
-    `${API_BASE}/tokens`,
-    { actions: filtered },
-    { headers: getAuthHeaders() },
-  );
-  return response.data;
-};
-
-/**
- * List existing custom tokens
- * @returns {Promise<Array>} List of token objects
- */
-export const listTokens = async () => {
-  const response = await axios.get(`${API_BASE}/tokens`, {
-    headers: getAuthHeaders(),
-  });
-  return response.data;
-};
-
-/**
- * Revoke a token by JTI
- * @param {string} jti
- * @returns {Promise<Object>}
- */
-export const revokeToken = async (jti) => {
-  const response = await axios.delete(
-    `${API_BASE}/tokens/${encodeURIComponent(jti)}`,
-    { headers: getAuthHeaders() },
-  );
-  return response.data;
-};
-
-/**
- * Update authorized actions for an existing token
- * PUT /auth/tokens/{jti}/actions
- * @param {string} jti
- * @param {Array<string>} actions - e.g. ['A','B']
- * @returns {Promise<Object>}
- */
-export const updateTokenActions = async (jti, actions) => {
-  const response = await axios.put(
-    `${API_BASE}/tokens/${encodeURIComponent(jti)}/actions`,
-    { actions },
-    { headers: getAuthHeaders() },
-  );
-  return response.data;
-};
-
-/**
- * Introspect a token string
- * @param {string} token
- * @returns {Promise<Object>} Introspection result
- */
-export const introspectToken = async (token) => {
-  const response = await axios.post(
-    `${API_BASE}/tokens/introspect`,
-    { token },
-    { headers: getAuthHeaders() },
-  );
-  return response.data;
-};
 
 /**
  * --- Refresh token management ---
