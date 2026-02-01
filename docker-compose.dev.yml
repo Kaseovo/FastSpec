@@ -10,7 +10,7 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - DEV_DEBUG=1
+      - DEV_DEBUG=0
 
   frontend:
     # Override runtime for dev (do not change build context in base compose)
@@ -23,17 +23,17 @@ services:
       - "5173:5173"
     environment:
       - CHOKIDAR_USEPOLLING=true
-      - DEV_DEBUG=1
+      - DEV_DEBUG=0
 
   mcp:
     # Override runtime for dev (do not change build context in base compose)
     working_dir: /app
-    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else fastmcp run server.py:mcp --transport http --host 0.0.0.0 --port 9000 --path /; fi'
+    command: sh -c 'if [ "$${DEV_DEBUG:-0}" = "1" ]; then tail -f /dev/null; else fastmcp run mcp/server.py:mcp --transport http --host 0.0.0.0 --port 9000 --path /; fi'
     volumes:
-      - ./mcp_server:/app
+      - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - DEV_DEBUG=1
+      - DEV_DEBUG=0
 
 # Usage (local dev):
 # docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build

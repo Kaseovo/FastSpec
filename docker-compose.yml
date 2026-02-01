@@ -48,7 +48,8 @@ services:
   mcp:
     container_name: fastspec-mcp-dev
     build:
-      context: ./mcp_server
+      context: .
+      dockerfile: backend/Dockerfile-MCP
     restart: unless-stopped
     env_file: .env
     ports:

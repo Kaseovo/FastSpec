@@ -20,6 +20,19 @@
         "PYTHONPATH": "${workspaceFolder}"
       },
       "justMyCode": true
+    },
+    {
+      "name": "MCP Server",
+      "type": "python",
+      "request": "launch",
+      "program": "mcp/server.py",
+      "args": [],
+      "cwd": "/app",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "justMyCode": true
     }
   ]
 }
