@@ -392,9 +392,13 @@ export default {
       editError.value = "";
       // reverse map backend codes to frontend option values
       const reverseMap = { A: "action_a", B: "action_b" };
-      editActionsSelected.value = (token.actions || []).map(
-        (a) => reverseMap[a] ?? a
-      );
+      // Map backend action codes (e.g. "A", "B") back to the option values
+      const vals = (token.actions || []).map((a) => reverseMap[a] ?? a);
+      // MultiSelect is configured with option objects, so pre-populate with the
+      // matching option objects when possible; fall back to the raw value.
+      editActionsSelected.value = vals
+        .map((v) => actionOptions.find((opt) => opt.value === v) || v)
+        .filter(Boolean);
       editingJti.value = token.jti;
       editDialogVisible.value = true;
     };
