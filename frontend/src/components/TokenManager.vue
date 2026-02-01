@@ -165,15 +165,6 @@
               <template #body="slotProps">
                 <div class="row-actions">
                   <Button
-                    label="Revoke"
-                    size="small"
-                    severity="danger"
-                    @click="handleRevoke(slotProps.data)"
-                    :loading="revoking[slotProps.data.jti]"
-                    :disabled="slotProps.data.revoked"
-                  />
-
-                  <Button
                     label="Refresh"
                     size="small"
                     @click="handleRefresh(slotProps.data)"
@@ -182,10 +173,20 @@
                   />
 
                   <Button
-                    label="Edit Actions"
+                    label="Edit"
                     size="small"
+                    severity="warn"
                     @click="openEditDialog(slotProps.data)"
                     :loading="editLoading && editingJti === slotProps.data.jti"
+                    :disabled="slotProps.data.revoked"
+                  />
+
+                  <Button
+                    label="Revoke"
+                    size="small"
+                    severity="danger"
+                    @click="handleRevoke(slotProps.data)"
+                    :loading="revoking[slotProps.data.jti]"
                     :disabled="slotProps.data.revoked"
                   />
                 </div>
