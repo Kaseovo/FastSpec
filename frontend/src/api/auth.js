@@ -110,20 +110,6 @@ export const revokeToken = async (jti) => {
 };
 
 /**
- * Refresh a token by JTI (issue a new token for same jti/actions)
- * @param {string} jti
- * @returns {Promise<Object>} { token, expires_at, ... }
- */
-export const refreshToken = async (jti) => {
-  const response = await axios.post(
-    `${API_BASE}/tokens/${encodeURIComponent(jti)}/refresh`,
-    null,
-    { headers: getAuthHeaders() },
-  );
-  return response.data;
-};
-
-/**
  * Update authorized actions for an existing token
  * PUT /auth/tokens/{jti}/actions
  * @param {string} jti

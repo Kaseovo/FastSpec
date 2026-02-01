@@ -165,14 +165,6 @@
               <template #body="slotProps">
                 <div class="row-actions">
                   <Button
-                    label="Refresh"
-                    size="small"
-                    @click="handleRefresh(slotProps.data)"
-                    :loading="refreshing[slotProps.data.jti]"
-                    :disabled="slotProps.data.revoked"
-                  />
-
-                  <Button
                     label="Edit"
                     size="small"
                     severity="warn"
@@ -207,7 +199,6 @@ import {
   createToken,
   listTokens,
   revokeToken,
-  refreshToken,
   updateTokenActions,
 } from "../api/auth";
 import Card from "primevue/card";
@@ -249,7 +240,6 @@ export default {
     const listError = ref("");
 
     const revoking = ref({});
-    const refreshing = ref({});
 
     const createdInput = ref(null);
 
@@ -364,30 +354,6 @@ export default {
       }
     };
 
-    const handleRefresh = async (t) => {
-      refreshing.value[t.jti] = true;
-      try {
-        const res = await refreshToken(t.jti);
-        toast.add({
-          severity: "success",
-          summary: "Token Refreshed",
-          detail: "New token generated",
-          life: 7000,
-        });
-        t.expires_at = res.expires_at;
-      } catch (e) {
-        console.error("Refresh failed", e);
-        toast.add({
-          severity: "error",
-          summary: "Refresh Failed",
-          detail: e.response?.data?.detail || e.message || "Refresh failed",
-          life: 5000,
-        });
-      } finally {
-        refreshing.value[t.jti] = false;
-      }
-    };
-
     // Open edit dialog and pre-populate selections from token.actions
     const openEditDialog = (token) => {
       editError.value = "";
@@ -485,11 +451,9 @@ export default {
       tokens,
       listError,
       revoking,
-      refreshing,
       createdInput,
       handleCreate,
       handleRevoke,
-      handleRefresh,
       formatTime,
       copyCreated,
       // edit dialog
