@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User
+from models import User, AuthToken
 from .jwt import verify_token
 
 # Security scheme for Swagger UI
@@ -35,6 +35,29 @@ async def get_current_user(
 
     # Verify and decode token
     token_data = verify_token(token)
+
+    # Ensure token exists in DB and is not revoked/expired
+    jti = token_data.get("jti")
+    if not jti:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token (missing jti)",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token_rec = (
+        db.query(AuthToken)
+        .filter(AuthToken.jti == jti, AuthToken.revoked == False)
+        .first()
+    )
+    from datetime import datetime
+
+    if not token_rec or token_rec.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token revoked or expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     # Get user from database
     user = db.query(User).filter(User.id == token_data["user_id"]).first()

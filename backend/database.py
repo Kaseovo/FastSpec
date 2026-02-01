@@ -19,6 +19,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+# Ensure models are imported so tables are created via Base.metadata.create_all
+# Importing here avoids circular imports elsewhere when creating tables on startup
+from models import *  # noqa: F401,F403
+
+
 def get_db():
     """Dependency to get database session"""
     db = SessionLocal()
@@ -26,3 +31,8 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# Create tables at module import time so startup creates needed tables
+# This is a simple create_all approach; no migration system is used intentionally
+Base.metadata.create_all(bind=engine)

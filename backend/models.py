@@ -16,6 +16,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
 import json
+import uuid
 
 
 class User(Base):
@@ -48,6 +49,11 @@ class User(Base):
     # Relationship to custom tokens
     tokens = relationship(
         "CustomToken", back_populates="user", cascade="all, delete-orphan"
+    )
+
+    # Relationship to access/auth tokens
+    auth_tokens = relationship(
+        "AuthToken", back_populates="user", cascade="all, delete-orphan"
     )
 
     def revoke_token(self, db_session, jti: str) -> bool:
@@ -123,3 +129,24 @@ class CustomToken(Base):
 
     def __repr__(self):
         return f"<CustomToken {self.jti} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"
+
+
+class AuthToken(Base):
+    """Persistent stored JWTs for access sessions (supports revocation)."""
+
+    __tablename__ = "auth_tokens"
+
+    id = Column(
+        String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
+    )
+    jti = Column(String(64), unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    revoked = Column(Boolean, nullable=False, server_default="false", default=False)
+
+    user = relationship("User", back_populates="auth_tokens")
+
+    def __repr__(self):
+        return f"<AuthToken {self.jti} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"

@@ -20,10 +20,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
 )  # 30 days
 SHORT_LIVED_JWT_EXP_SECONDS = int(os.getenv("SHORT_LIVED_JWT_EXP_SECONDS", "300"))
 
-from models import CustomToken, User
+from models import CustomToken, User, AuthToken
 
 
-def create_access_token(user_id: int, email: str) -> str:
+def create_access_token(user_id: int, email: str, db_session=None) -> str:
     """
     Create a JWT access token for a user
 
@@ -35,13 +35,34 @@ def create_access_token(user_id: int, email: str) -> str:
         JWT token string
     """
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    now = datetime.utcnow()
+    jti = uuid.uuid4().hex
     to_encode = {
         "sub": str(user_id),
         "email": email,
+        "jti": jti,
         "exp": expire,
-        "iat": datetime.utcnow(),
+        "iat": now,
     }
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+    # Persist token if db_session provided
+    if db_session is not None:
+        try:
+            expires_at = expire
+            token_rec = AuthToken(
+                jti=jti,
+                user_id=user_id,
+                token=encoded_jwt,
+                expires_at=expires_at,
+            )
+            db_session.add(token_rec)
+            db_session.commit()
+            db_session.refresh(token_rec)
+        except Exception:
+            # Don't fail token creation if DB persistence fails; log in real app
+            pass
+
     return encoded_jwt
 
 
@@ -68,11 +89,15 @@ def verify_token(token: str) -> dict:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         email: str = payload.get("email")
+        jti: str = payload.get("jti")
 
         if user_id is None or email is None:
             raise credentials_exception
 
-        return {"user_id": int(user_id), "email": email}
+        result = {"user_id": int(user_id), "email": email}
+        if jti:
+            result["jti"] = jti
+        return result
 
     except JWTError:
         raise credentials_exception

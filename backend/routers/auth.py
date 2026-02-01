@@ -6,12 +6,13 @@ import os
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
 
 from database import get_db
-from models import User, CustomToken
+from models import User, CustomToken, AuthToken
 from schemas import UserResponse
 from auth.oauth import oauth, get_google_user_info, get_github_user_info
 from auth.jwt import (
@@ -19,6 +20,7 @@ from auth.jwt import (
     create_custom_token,
     verify_custom_token,
     refresh_custom_token,
+    verify_token,
 )
 from auth.dependencies import get_current_user
 
@@ -187,8 +189,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-        # Generate JWT token
-        access_token = create_access_token(user.id, user.email)
+        # Generate JWT token and persist it
+        access_token = create_access_token(user.id, user.email, db_session=db)
 
         # Redirect to frontend with token
         redirect_url = f"{FRONTEND_URL}/?token={access_token}"
@@ -253,8 +255,8 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-        # Generate JWT token
-        access_token = create_access_token(user.id, user.email)
+        # Generate JWT token and persist it
+        access_token = create_access_token(user.id, user.email, db_session=db)
 
         # Redirect to frontend with token
         redirect_url = f"{FRONTEND_URL}/?token={access_token}"
@@ -275,10 +277,27 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/auth/logout")
-async def logout():
+async def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Logout endpoint (client-side token removal)
-    Token is stored on client side, so this is just a placeholder
-    The actual logout happens when client removes the token
+    Logout endpoint: revoke the AuthToken associated with the presented JWT.
+    Expects Authorization header with Bearer token.
     """
+    token_str = credentials.credentials
+    # decode to get jti
+    token_data = verify_token(token_str)
+    jti = token_data.get("jti")
+    if jti:
+        token_rec = (
+            db.query(AuthToken)
+            .filter(AuthToken.jti == jti, AuthToken.user_id == current_user.id)
+            .first()
+        )
+        if token_rec:
+            token_rec.revoked = True
+            db.add(token_rec)
+            db.commit()
     return {"message": "Logged out successfully"}
