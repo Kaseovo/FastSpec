@@ -62,12 +62,18 @@ const getAuthHeaders = () => {
  * @returns {Promise<Object>} Created token data { token, jti, expires_at, ... }
  */
 export const createToken = async (actions) => {
-  if (!Array.isArray(actions) || actions.length === 0) {
+  // Normalize incoming actions to strings (support object items) before validation.
+  // Fallback to empty-string which is filtered out.
+  const normalized = (actions || [])
+    .map((a) => (typeof a === "string" ? a : (a && a.value) || a || ""))
+    .filter(Boolean);
+
+  if (normalized.length === 0) {
     throw new Error("At least one action must be selected");
   }
   const allowed = ["A", "B"];
-  const filtered = actions.filter((a) => allowed.includes(a));
-  if (filtered.length !== actions.length) {
+  const filtered = normalized.filter((a) => allowed.includes(a));
+  if (filtered.length !== normalized.length) {
     throw new Error("Invalid actions");
   }
 

@@ -117,7 +117,7 @@
       @update:visible="showTokenDialog = $event"
       header="Manage Tokens"
       :modal="true"
-      :style="{ width: '900px' }"
+      :style="{ width: '1200px' }"
     >
       <TokenManager />
     </Dialog>

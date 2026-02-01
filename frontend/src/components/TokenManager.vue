@@ -189,6 +189,10 @@ export default {
 
     const handleCreate = async () => {
       createError.value = "";
+      // Ensure actionsSelected is an array to avoid runtime errors from non-array bindings
+      if (!Array.isArray(actionsSelected.value)) {
+        actionsSelected.value = [];
+      }
       if (!actionsSelected.value || actionsSelected.value.length === 0) {
         createError.value = "Select at least one action";
         return;
@@ -196,9 +200,17 @@ export default {
 
       // Map frontend option values to API expected action codes
       const valueMap = { action_a: "A", action_b: "B" };
+      // Normalize selections to support both string items and object items from MultiSelect.
+      // Fallback to raw value when no explicit mapping exists.
       const mapped = actionsSelected.value
-        .map((a) => valueMap[a])
-        .filter((v) => !!v);
+        .map((a) => {
+          const val = typeof a === "string" ? a : (a && a.value) || "";
+          return valueMap[val] ?? val;
+        })
+        .filter(Boolean);
+
+      // Debug: payload about to be sent to createToken
+      console.debug("create token payload", { actions: mapped });
 
       if (mapped.length === 0) {
         createError.value = "Invalid actions selected";
@@ -404,3 +416,4 @@ export default {
   width: 100%;
 }
 </style>
+
