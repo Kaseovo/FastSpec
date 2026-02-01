@@ -10,14 +10,13 @@
         <div class="create-grid">
           <div class="actions-list">
             <label class="field-label">Select actions</label>
-            <div class="action-item">
-              <Checkbox id="actionA" v-model="actionsSelected" value="A" />
-              <label for="actionA" class="inline-label">Action A</label>
-            </div>
-            <div class="action-item">
-              <Checkbox id="actionB" v-model="actionsSelected" value="B" />
-              <label for="actionB" class="inline-label">Action B</label>
-            </div>
+            <MultiSelect
+              v-model="actionsSelected"
+              :options="actionOptions"
+              optionLabel="label"
+              placeholder="Select actions"
+              class="w-full"
+            />
             <p v-if="createError" class="error">{{ createError }}</p>
           </div>
 
@@ -125,20 +124,20 @@ import {
 } from "../api/auth";
 import Card from "primevue/card";
 import Button from "primevue/button";
-import Checkbox from "primevue/checkbox";
 import InputText from "primevue/inputtext";
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import Tag from "primevue/tag";
 import Toast from "primevue/toast";
 import { useToast } from "primevue/usetoast";
+import MultiSelect from "primevue/multiselect";
 
 export default {
   name: "TokenManager",
   components: {
     Card,
     Button,
-    Checkbox,
+    MultiSelect,
     InputText,
     DataTable,
     Column,
@@ -147,6 +146,10 @@ export default {
   },
   setup() {
     const toast = useToast();
+    const actionOptions = [
+      { label: "Action A", value: "action_a" },
+      { label: "Action B", value: "action_b" },
+    ];
     const actionsSelected = ref([]);
     const creating = ref(false);
     const createError = ref("");
@@ -182,21 +185,26 @@ export default {
         createError.value = "Select at least one action";
         return;
       }
-      const allowed = ["A", "B"];
-      const filtered = actionsSelected.value.filter((a) => allowed.includes(a));
-      if (filtered.length === 0) {
+
+      // Map frontend option values to API expected action codes
+      const valueMap = { action_a: "A", action_b: "B" };
+      const mapped = actionsSelected.value
+        .map((a) => valueMap[a])
+        .filter((v) => !!v);
+
+      if (mapped.length === 0) {
         createError.value = "Invalid actions selected";
         return;
       }
 
       creating.value = true;
       try {
-        const res = await createToken(filtered);
+        const res = await createToken(mapped);
         createdToken.value = res;
 
         tokens.value.unshift({
           jti: res.jti,
-          actions: filtered,
+          actions: mapped,
           created_at: new Date().toISOString(),
           expires_at: res.expires_at,
           revoked: false,
@@ -306,6 +314,7 @@ export default {
     };
 
     return {
+      actionOptions,
       actionsSelected,
       creating,
       createError,
@@ -382,5 +391,8 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.w-full {
+  width: 100%;
 }
 </style>
