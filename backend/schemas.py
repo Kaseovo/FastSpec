@@ -58,9 +58,8 @@ class TokenData(BaseModel):
 
 
 class RefreshActionsUpdateRequest(BaseModel):
-    """Request schema for updating refresh token actions"""
+    """Request schema for updating refresh token actions by id (payload only contains actions)"""
 
-    refresh_token: str
     actions: List[str]
 
 

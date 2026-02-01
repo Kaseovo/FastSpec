@@ -221,6 +221,30 @@ def verify_refresh_token_raw(raw: str, token_hash: str) -> bool:
     return pwd_context.verify(raw, token_hash)
 
 
+def create_refresh_token(
+    db_session, user: User, actions: list[str]
+) -> (str, RefreshToken, datetime):
+    """Create and persist a new RefreshToken for the given user.
+
+    Returns (raw_token_plaintext, refresh_token_record, expires_at)
+    """
+    now = datetime.utcnow()
+    raw = generate_refresh_token()
+    hashed = hash_refresh_token(raw)
+    expires_at = now + timedelta(days=REFRESH_TOKEN_TTL_DAYS)
+
+    rt = RefreshToken(
+        token_hash=hashed,
+        user_id=user.id,
+        actions=json.dumps(actions or []),
+        expires_at=expires_at,
+    )
+    db_session.add(rt)
+    db_session.commit()
+    db_session.refresh(rt)
+    return raw, rt, expires_at
+
+
 def create_short_jwt(user_id: int, actions: list[str]) -> (str, datetime):
     """Create a short-lived JWT containing the provided actions and token_type="short"."""
     now = datetime.utcnow()

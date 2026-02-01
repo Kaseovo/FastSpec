@@ -32,6 +32,7 @@ from auth.jwt import (
     hash_refresh_token,
     find_refresh_token_by_raw,
     create_short_jwt,
+    create_refresh_token,
 )
 from auth.dependencies import get_current_user
 
@@ -59,7 +60,7 @@ class RefreshRevokeRequest(BaseModel):
 ALLOWED_ACTIONS = {"A", "B"}
 
 
-@router.post("/auth/tokens", status_code=status.HTTP_201_CREATED)
+@router.post("/tokens", status_code=status.HTTP_201_CREATED)
 async def create_token(
     payload: TokenCreateRequest,
     db: Session = Depends(get_db),
@@ -72,7 +73,7 @@ async def create_token(
     return {"token": token_str, "jti": jti, "expires_at": expires_at}
 
 
-@router.get("/auth/tokens")
+@router.get("/tokens")
 async def list_tokens(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
@@ -99,7 +100,7 @@ async def list_tokens(
     return result
 
 
-@router.delete("/auth/tokens/{jti}")
+@router.delete("/tokens/{jti}")
 async def revoke_token(
     jti: str,
     db: Session = Depends(get_db),
@@ -118,7 +119,7 @@ async def revoke_token(
     return {"message": "Token revoked"}
 
 
-@router.post("/auth/tokens/{jti}/refresh")
+@router.post("/tokens/{jti}/refresh")
 async def refresh_token(
     jti: str,
     db: Session = Depends(get_db),
@@ -135,7 +136,7 @@ async def refresh_token(
     return {"token": new_token, "expires_at": new_expires}
 
 
-@router.post("/auth/tokens/introspect")
+@router.post("/tokens/introspect")
 async def introspect_token(
     payload: TokenIntrospectRequest, db: Session = Depends(get_db)
 ):
@@ -152,7 +153,7 @@ async def introspect_token(
 
 
 # New endpoint: exchange refresh token for a short JWT
-@router.post("/auth/exchange")
+@router.post("/refresh/exchange")
 async def exchange_refresh_token(
     payload: RefreshExchangeRequest, db: Session = Depends(get_db)
 ):
@@ -176,7 +177,7 @@ async def exchange_refresh_token(
 
 
 # New endpoint: revoke a refresh token (requires short JWT auth)
-@router.post("/auth/revoke")
+@router.post("/refresh/revoke")
 async def revoke_refresh_token(
     payload: RefreshRevokeRequest,
     db: Session = Depends(get_db),
@@ -192,34 +193,98 @@ async def revoke_refresh_token(
     return {"message": "Refresh token revoked"}
 
 
-@router.put("/auth/refresh/actions", response_model=RefreshActionsResponse)
+@router.get("/refresh")
+async def list_refresh_tokens(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    tokens = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.user_id == current_user.id)
+        .order_by(RefreshToken.created_at.desc())
+        .all()
+    )
+    result = []
+    now = datetime.utcnow()
+    for t in tokens:
+        if t.expires_at < now:
+            continue
+        result.append(
+            {
+                "id": t.id,
+                "actions": t.get_actions(),
+                "expires_at": t.expires_at,
+                "revoked": t.revoked,
+                "created_at": t.created_at,
+                "last_used_at": t.last_used_at,
+            }
+        )
+    return result
+
+
+@router.post("/refresh")
+async def create_refresh(
+    payload: TokenCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # basic validation
+    if not set(payload.actions).issubset(ALLOWED_ACTIONS):
+        raise HTTPException(status_code=400, detail="Invalid actions")
+    raw, rt, expires_at = create_refresh_token(db, current_user, payload.actions)
+    return {"refresh_token": raw, "id": rt.id, "expires_at": expires_at}
+
+
+@router.delete("/refresh/{id}")
+async def revoke_refresh(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rt = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.id == id, RefreshToken.user_id == current_user.id)
+        .first()
+    )
+    if not rt:
+        raise HTTPException(status_code=404, detail="Refresh token not found")
+    rt.revoked = True
+    db.add(rt)
+    db.commit()
+    return {"message": "Refresh token revoked"}
+
+
+@router.put("/refresh/{id}/actions", response_model=RefreshActionsResponse)
 async def update_refresh_token_actions(
+    id: str,
     payload: RefreshActionsUpdateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update the actions allowed for a given refresh token.
+    """Update the actions allowed for a given refresh token by id.
 
     Validates token ownership and that provided actions are a subset of
     ALLOWED_ACTIONS before persisting the change.
     """
-    raw = payload.refresh_token
-    token_rec = find_refresh_token_by_raw(db, raw)
-    if not token_rec or token_rec.user_id != current_user.id:
+    rt = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.id == id, RefreshToken.user_id == current_user.id)
+        .first()
+    )
+    if not rt:
         raise HTTPException(status_code=404, detail="Refresh token not found")
     if not set(payload.actions).issubset(ALLOWED_ACTIONS):
         raise HTTPException(status_code=400, detail="Invalid actions")
-    token_rec.set_actions(payload.actions)
-    db.add(token_rec)
+    rt.set_actions(payload.actions)
+    db.add(rt)
     db.commit()
-    db.refresh(token_rec)
+    db.refresh(rt)
     return {
         "message": "Refresh token actions updated",
-        "actions": token_rec.get_actions(),
+        "actions": rt.get_actions(),
     }
 
 
-@router.put("/auth/tokens/{jti}/actions", response_model=CustomTokenActionsResponse)
+@router.put("/tokens/{jti}/actions", response_model=CustomTokenActionsResponse)
 async def update_custom_token_actions(
     jti: str,
     payload: CustomTokenActionsUpdateRequest,
@@ -250,7 +315,7 @@ async def update_custom_token_actions(
     }
 
 
-@router.post("/auth/tokens/introspect")
+@router.post("/tokens/introspect")
 async def _introspect_duplicate():
     # placeholder to avoid route collision in some setups; real introspect above
     return {"active": False}
@@ -259,7 +324,7 @@ async def _introspect_duplicate():
 # existing oauth routes and callbacks (unchanged) ...
 
 
-@router.get("/auth/google")
+@router.get("/google")
 async def login_google(request: Request):
     """
     Initiate Google OAuth flow
@@ -271,7 +336,7 @@ async def login_google(request: Request):
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
-@router.get("/auth/google/callback")
+@router.get("/google/callback")
 async def google_callback(request: Request, db: Session = Depends(get_db)):
     """
     Handle Google OAuth callback
@@ -343,7 +408,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url=error_url)
 
 
-@router.get("/auth/github")
+@router.get("/github")
 async def login_github(request: Request):
     """
     Initiate GitHub OAuth flow
@@ -355,7 +420,7 @@ async def login_github(request: Request):
     return await oauth.github.authorize_redirect(request, redirect_uri)
 
 
-@router.get("/auth/github/callback")
+@router.get("/github/callback")
 async def github_callback(request: Request, db: Session = Depends(get_db)):
     """
     Handle GitHub OAuth callback
@@ -427,7 +492,7 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url=error_url)
 
 
-@router.get("/auth/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current authenticated user information
@@ -436,7 +501,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.post("/auth/logout")
+@router.post("/logout")
 async def logout(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     db: Session = Depends(get_db),

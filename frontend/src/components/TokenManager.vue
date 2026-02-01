@@ -43,7 +43,7 @@
     >
       <Card class="p-mb-4" style="width: 100%">
         <template #title>
-          <div class="card-title">Create New Token</div>
+          <div class="card-title">Create New Refresh Token</div>
         </template>
         <template #content>
           <div class="create-grid">
@@ -68,7 +68,7 @@
                 "
               >
                 <Button
-                  label="Create Token"
+                  label="Create Refresh Token"
                   @click="handleCreate"
                   :loading="creating"
                   class="p-button-primary"
@@ -77,20 +77,20 @@
             </div>
           </div>
 
-          <!-- created token shown full-width below the grid -->
+          <!-- created refresh token shown full-width below the grid -->
           <div
             v-if="createdToken"
             class="created-result full-width"
             style="margin-top: 1rem"
           >
-            <label class="field-label">Token</label>
+            <label class="field-label">Refresh Token (shown once)</label>
             <div
               class="token-line"
               style="display: flex; gap: 0.5rem; align-items: center"
             >
               <InputText
                 ref="createdInput"
-                :value="createdToken.token"
+                :value="createdToken.refresh_token"
                 readonly
                 aria-readonly="true"
                 class="w-full"
@@ -105,7 +105,7 @@
                 font-size: 0.875rem;
               "
             >
-              Copy and store safely — this token will not be shown again.
+              Copy and store the raw refresh token safely — it will not be shown again.
             </div>
             <div class="meta">
               Expires at: {{ formatTime(createdToken.expires_at) }}
@@ -116,7 +116,7 @@
 
       <Card style="width: 100%">
         <template #title>
-          <div class="card-title">Existing Tokens</div>
+          <div class="card-title">Existing Refresh Tokens</div>
         </template>
         <template #content>
           <div v-if="listError" class="error mb-3">{{ listError }}</div>
@@ -127,10 +127,10 @@
             :rows="10"
             responsiveLayout="scroll"
           >
-            <Column field="jti" header="JTI" style="max-width: 320px">
+            <Column field="id" header="ID" style="max-width: 320px">
               <template #body="slotProps">
-                <span class="jti" :title="slotProps.data.jti">{{
-                  slotProps.data.jti
+                <span class="id" :title="slotProps.data.id">{{
+                  slotProps.data.id
                 }}</span>
               </template>
             </Column>
@@ -169,7 +169,7 @@
                     size="small"
                     severity="warn"
                     @click="openEditDialog(slotProps.data)"
-                    :loading="editLoading && editingJti === slotProps.data.jti"
+                    :loading="editLoading && editingId === slotProps.data.id"
                     :disabled="slotProps.data.revoked"
                   />
 
@@ -178,7 +178,7 @@
                     size="small"
                     severity="danger"
                     @click="handleRevoke(slotProps.data)"
-                    :loading="revoking[slotProps.data.jti]"
+                    :loading="revoking[slotProps.data.id]"
                     :disabled="slotProps.data.revoked"
                   />
                 </div>
@@ -196,10 +196,10 @@
 <script>
 import { ref, onMounted, nextTick } from "vue";
 import {
-  createToken,
-  listTokens,
-  revokeToken,
-  updateTokenActions,
+  createRefreshToken,
+  listRefreshTokens,
+  revokeRefreshToken,
+  updateRefreshTokenActions,
 } from "../api/auth";
 import Card from "primevue/card";
 import Button from "primevue/button";
@@ -245,7 +245,7 @@ export default {
 
     // Edit dialog state
     const editDialogVisible = ref(false);
-    const editingJti = ref(null);
+    const editingId = ref(null);
     const editActionsSelected = ref([]);
     const editLoading = ref(false);
     const editError = ref("");
@@ -253,10 +253,10 @@ export default {
     const loadList = async () => {
       listError.value = "";
       try {
-        const data = await listTokens();
+        const data = await listRefreshTokens();
         tokens.value = data;
       } catch (e) {
-        console.error("Failed to list tokens", e);
+        console.error("Failed to list refresh tokens", e);
         listError.value =
           e.response?.data?.detail || e.message || "Failed to load tokens";
       }
@@ -268,15 +268,11 @@ export default {
 
     const handleCreate = async () => {
       createError.value = "";
-      // Ensure actionsSelected is an array to avoid runtime errors from non-array bindings
       if (!Array.isArray(actionsSelected.value)) {
         actionsSelected.value = [];
       }
 
-      // Map frontend option values to API expected action codes
       const valueMap = { action_a: "A", action_b: "B" };
-      // Normalize selections to support both string items and object items from MultiSelect.
-      // Fallback to raw value when no explicit mapping exists.
       const mapped = actionsSelected.value
         .map((a) => {
           const val = typeof a === "string" ? a : (a && a.value) || "";
@@ -286,11 +282,12 @@ export default {
 
       creating.value = true;
       try {
-        const res = await createToken(mapped);
+        const res = await createRefreshToken(mapped);
+        // res: { refresh_token, id, expires_at }
         createdToken.value = res;
 
         tokens.value.unshift({
-          jti: res.jti,
+          id: res.id,
           actions: mapped,
           created_at: new Date().toISOString(),
           expires_at: res.expires_at,
@@ -299,8 +296,8 @@ export default {
 
         toast.add({
           severity: "success",
-          summary: "Token Created",
-          detail: "New token generated — copy it now",
+          summary: "Refresh Token Created",
+          detail: "New refresh token generated — copy it now",
           life: 5000,
         });
 
@@ -314,7 +311,7 @@ export default {
           el.select();
         }
       } catch (e) {
-        console.error("Create token failed", e);
+        console.error("Create refresh token failed", e);
         createError.value =
           e.response?.data?.detail || e.message || "Create failed";
         toast.add({
@@ -329,14 +326,14 @@ export default {
     };
 
     const handleRevoke = async (t) => {
-      revoking.value[t.jti] = true;
+      revoking.value[t.id] = true;
       const oldRevoked = t.revoked;
       t.revoked = true;
       try {
-        await revokeToken(t.jti);
+        await revokeRefreshToken(t.id);
         toast.add({
           severity: "success",
-          summary: "Token Revoked",
+          summary: "Refresh Token Revoked",
           detail: "Token has been successfully revoked",
           life: 3000,
         });
@@ -350,29 +347,25 @@ export default {
           life: 5000,
         });
       } finally {
-        revoking.value[t.jti] = false;
+        revoking.value[t.id] = false;
       }
     };
 
     // Open edit dialog and pre-populate selections from token.actions
     const openEditDialog = (token) => {
       editError.value = "";
-      // reverse map backend codes to frontend option values
       const reverseMap = { A: "action_a", B: "action_b" };
-      // Map backend action codes (e.g. "A", "B") back to the option values
       const vals = (token.actions || []).map((a) => reverseMap[a] ?? a);
-      // MultiSelect is configured with option objects, so pre-populate with the
-      // matching option objects when possible; fall back to the raw value.
       editActionsSelected.value = vals
         .map((v) => actionOptions.find((opt) => opt.value === v) || v)
         .filter(Boolean);
-      editingJti.value = token.jti;
+      editingId.value = token.id;
       editDialogVisible.value = true;
     };
 
     const saveEdit = async () => {
       editError.value = "";
-      if (!editingJti.value) return;
+      if (!editingId.value) return;
       editLoading.value = true;
       try {
         const valueMap = { action_a: "A", action_b: "B" };
@@ -381,10 +374,9 @@ export default {
           .map((val) => valueMap[val] ?? val)
           .filter(Boolean);
 
-        await updateTokenActions(editingJti.value, mapped);
+        await updateRefreshTokenActions(editingId.value, mapped);
 
-        // update local token
-        const idx = tokens.value.findIndex((t) => t.jti === editingJti.value);
+        const idx = tokens.value.findIndex((t) => t.id === editingId.value);
         if (idx !== -1) {
           tokens.value[idx].actions = mapped;
         }
@@ -422,13 +414,13 @@ export default {
 
     const copyCreated = async () => {
       try {
-        const val = createdToken.value?.token;
+        const val = createdToken.value?.refresh_token;
         if (!val) return;
         await navigator.clipboard.writeText(val);
         toast.add({
           severity: "success",
           summary: "Copied",
-          detail: "Token copied to clipboard",
+          detail: "Refresh token copied to clipboard",
           life: 2000,
         });
       } catch (e) {
@@ -463,7 +455,7 @@ export default {
       editError,
       openEditDialog,
       saveEdit,
-      editingJti,
+      editingId,
     };
   },
 };
@@ -530,7 +522,7 @@ export default {
   padding: 1rem 0;
   color: var(--muted-color, #6b7280);
 }
-.jti {
+.id {
   display: inline-block;
   max-width: 320px;
   overflow: hidden;

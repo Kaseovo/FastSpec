@@ -138,3 +138,79 @@ export const introspectToken = async (token) => {
   );
   return response.data;
 };
+
+/**
+ * --- Refresh token management ---
+ * The following functions mirror the custom token endpoints but operate on
+ * refresh tokens via /auth/refresh and use `id` as the identifier.
+ */
+
+/**
+ * Create a refresh token (server returns the raw refresh token once)
+ * POST /auth/refresh
+ * @param {Array<string>} actions - e.g. ['A','B']
+ * @returns {Promise<Object>} Created refresh token data { refresh_token, id, expires_at }
+ */
+export const createRefreshToken = async (actions) => {
+  const normalized = (actions || [])
+    .map((a) => (typeof a === "string" ? a : (a && a.value) || a || ""))
+    .filter(Boolean);
+
+  const allowed = ["A", "B"];
+  const filtered = normalized.filter((a) => allowed.includes(a));
+  if (filtered.length !== normalized.length) {
+    throw new Error("Invalid actions");
+  }
+
+  const response = await axios.post(
+    `${API_BASE}/refresh`,
+    { actions: filtered },
+    { headers: getAuthHeaders() },
+  );
+
+  // backend returns { refresh_token: raw, id, expires_at }
+  // the raw refresh token is shown once by the backend; return the full response
+  return response.data;
+};
+
+/**
+ * List refresh tokens for the current user
+ * GET /auth/refresh
+ * @returns {Promise<Array>} List of refresh token objects
+ */
+export const listRefreshTokens = async () => {
+  const response = await axios.get(`${API_BASE}/refresh`, {
+    headers: getAuthHeaders(),
+  });
+  return response.data;
+};
+
+/**
+ * Revoke a refresh token by id
+ * DELETE /auth/refresh/{id}
+ * @param {string} id
+ * @returns {Promise<Object>}
+ */
+export const revokeRefreshToken = async (id) => {
+  const response = await axios.delete(
+    `${API_BASE}/refresh/${encodeURIComponent(id)}`,
+    { headers: getAuthHeaders() },
+  );
+  return response.data;
+};
+
+/**
+ * Update actions for a refresh token by id
+ * PUT /auth/refresh/{id}/actions
+ * @param {string} id
+ * @param {Array<string>} actions
+ * @returns {Promise<Object>}
+ */
+export const updateRefreshTokenActions = async (id, actions) => {
+  const response = await axios.put(
+    `${API_BASE}/refresh/${encodeURIComponent(id)}/actions`,
+    { actions },
+    { headers: getAuthHeaders() },
+  );
+  return response.data;
+};
