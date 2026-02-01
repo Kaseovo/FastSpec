@@ -2,123 +2,139 @@
   <div class="token-manager">
     <Toast />
 
-    <Card class="p-mb-4">
-      <template #title>
-        <div class="card-title">Create New Token</div>
-      </template>
-      <template #content>
-        <div class="create-grid">
-          <div class="actions-list">
-            <label class="field-label">Select actions</label>
-            <MultiSelect
-              v-model="actionsSelected"
-              :options="actionOptions"
-              optionLabel="label"
-              placeholder="Select actions"
-              class="w-full"
-            />
-            <p v-if="createError" class="error">{{ createError }}</p>
-          </div>
-
-          <div class="create-controls">
-            <div
-              style="
-                display: flex;
-                justify-content: flex-end;
-                align-items: center;
-              "
-            >
-              <Button
-                label="Create Token"
-                @click="handleCreate"
-                :loading="creating"
-                class="p-button-primary"
+    <div
+      class="token-manager-grid"
+      style="
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+      "
+    >
+      <Card class="p-mb-4" style="width: 100%">
+        <template #title>
+          <div class="card-title">Create New Token</div>
+        </template>
+        <template #content>
+          <div class="create-grid">
+            <div class="actions-list">
+              <label class="field-label">Select actions</label>
+              <MultiSelect
+                v-model="actionsSelected"
+                :options="actionOptions"
+                optionLabel="label"
+                placeholder="Select actions"
+                class="w-full"
               />
+              <p v-if="createError" class="error">{{ createError }}</p>
             </div>
 
-            <div v-if="createdToken" class="created-result">
-              <label class="field-label">Token (copy and store safely)</label>
-              <div class="created-row">
-                <InputText
-                  ref="createdInput"
-                  :value="createdToken.token"
-                  readonly
-                  aria-readonly="true"
+            <div class="create-controls">
+              <div
+                style="
+                  display: flex;
+                  justify-content: flex-end;
+                  align-items: center;
+                "
+              >
+                <Button
+                  label="Create Token"
+                  @click="handleCreate"
+                  :loading="creating"
+                  class="p-button-primary"
                 />
-                <Button icon="pi pi-copy" class="p-ml-2" @click="copyCreated" />
               </div>
-              <div class="meta">Expires at: {{ createdToken.expires_at }}</div>
+
+              <div v-if="createdToken" class="created-result">
+                <label class="field-label">Token (copy and store safely)</label>
+                <div class="created-row">
+                  <InputText
+                    ref="createdInput"
+                    :value="createdToken.token"
+                    readonly
+                    aria-readonly="true"
+                  />
+                  <Button
+                    icon="pi pi-copy"
+                    class="p-ml-2"
+                    @click="copyCreated"
+                  />
+                </div>
+                <div class="meta">
+                  Expires at: {{ createdToken.expires_at }}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </template>
-    </Card>
+        </template>
+      </Card>
 
-    <Card>
-      <template #title>
-        <div class="card-title">Existing Tokens</div>
-      </template>
-      <template #content>
-        <div v-if="listError" class="error mb-3">{{ listError }}</div>
+      <Card style="width: 100%">
+        <template #title>
+          <div class="card-title">Existing Tokens</div>
+        </template>
+        <template #content>
+          <div v-if="listError" class="error mb-3">{{ listError }}</div>
 
-        <DataTable
-          :value="tokens"
-          :paginator="true"
-          :rows="10"
-          responsiveLayout="scroll"
-        >
-          <Column field="jti" header="JTI" style="max-width: 320px">
-            <template #body="slotProps">
-              <span class="jti" :title="slotProps.data.jti">{{
-                slotProps.data.jti
-              }}</span>
-            </template>
-          </Column>
+          <DataTable
+            :value="tokens"
+            :paginator="true"
+            :rows="10"
+            responsiveLayout="scroll"
+          >
+            <Column field="jti" header="JTI" style="max-width: 320px">
+              <template #body="slotProps">
+                <span class="jti" :title="slotProps.data.jti">{{
+                  slotProps.data.jti
+                }}</span>
+              </template>
+            </Column>
 
-          <Column field="actions" header="Actions">
-            <template #body="slotProps">
-              {{ slotProps.data.actions.join(", ") }}
-            </template>
-          </Column>
+            <Column field="actions" header="Actions">
+              <template #body="slotProps">
+                {{ slotProps.data.actions.join(", ") }}
+              </template>
+            </Column>
 
-          <Column field="created_at" header="Created At"></Column>
-          <Column field="expires_at" header="Expires At"></Column>
+            <Column field="created_at" header="Created At"></Column>
+            <Column field="expires_at" header="Expires At"></Column>
 
-          <Column field="revoked" header="Revoked">
-            <template #body="slotProps">
-              <Tag
-                :value="slotProps.data.revoked ? 'Yes' : 'No'"
-                :severity="slotProps.data.revoked ? 'danger' : 'success'"
-              />
-            </template>
-          </Column>
+            <Column field="revoked" header="Revoked">
+              <template #body="slotProps">
+                <Tag
+                  :value="slotProps.data.revoked ? 'Yes' : 'No'"
+                  :severity="slotProps.data.revoked ? 'danger' : 'success'"
+                />
+              </template>
+            </Column>
 
-          <Column header="Actions">
-            <template #body="slotProps">
-              <Button
-                label="Revoke"
-                size="small"
-                severity="danger"
-                @click="handleRevoke(slotProps.data)"
-                :loading="revoking[slotProps.data.jti]"
-                :disabled="slotProps.data.revoked"
-                class="p-mr-2"
-              />
+            <Column header="Actions">
+              <template #body="slotProps">
+                <Button
+                  label="Revoke"
+                  size="small"
+                  severity="danger"
+                  @click="handleRevoke(slotProps.data)"
+                  :loading="revoking[slotProps.data.jti]"
+                  :disabled="slotProps.data.revoked"
+                  class="p-mr-2"
+                />
 
-              <Button
-                label="Refresh"
-                size="small"
-                @click="handleRefresh(slotProps.data)"
-                :loading="refreshing[slotProps.data.jti]"
-                :disabled="slotProps.data.revoked"
-              />
-            </template>
-          </Column>
-        </DataTable>
+                <Button
+                  label="Refresh"
+                  size="small"
+                  @click="handleRefresh(slotProps.data)"
+                  :loading="refreshing[slotProps.data.jti]"
+                  :disabled="slotProps.data.revoked"
+                />
+              </template>
+            </Column>
+          </DataTable>
 
-        <div v-if="tokens.length === 0" class="empty">No tokens</div>
-      </template>
-    </Card>
+          <div v-if="tokens.length === 0" class="empty">No tokens</div>
+        </template>
+      </Card>
+    </div>
   </div>
 </template>
 
