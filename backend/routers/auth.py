@@ -14,7 +14,13 @@ import json
 
 from database import get_db
 from models import User, CustomToken, AuthToken, RefreshToken
-from schemas import UserResponse, RefreshActionsUpdateRequest, RefreshActionsResponse
+from schemas import (
+    UserResponse,
+    RefreshActionsUpdateRequest,
+    RefreshActionsResponse,
+    CustomTokenActionsUpdateRequest,
+    CustomTokenActionsResponse,
+)
 from auth.oauth import oauth, get_google_user_info, get_github_user_info
 from auth.jwt import (
     create_access_token,
@@ -209,6 +215,37 @@ async def update_refresh_token_actions(
     db.refresh(token_rec)
     return {
         "message": "Refresh token actions updated",
+        "actions": token_rec.get_actions(),
+    }
+
+
+@router.put("/auth/tokens/{jti}/actions", response_model=CustomTokenActionsResponse)
+async def update_custom_token_actions(
+    jti: str,
+    payload: CustomTokenActionsUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update the actions allowed for a given custom token.
+
+    Validates token ownership, that it is not revoked, and that provided
+    actions are a subset of ALLOWED_ACTIONS before persisting the change.
+    """
+    token_rec = (
+        db.query(CustomToken)
+        .filter(CustomToken.jti == jti, CustomToken.user_id == current_user.id)
+        .first()
+    )
+    if not token_rec or token_rec.revoked:
+        raise HTTPException(status_code=404, detail="Token not found")
+    if not set(payload.actions).issubset(ALLOWED_ACTIONS):
+        raise HTTPException(status_code=400, detail="Invalid actions")
+    token_rec.set_actions(payload.actions)
+    db.add(token_rec)
+    db.commit()
+    db.refresh(token_rec)
+    return {
+        "message": "Custom token actions updated",
         "actions": token_rec.get_actions(),
     }
 

@@ -2,6 +2,29 @@
   <div class="token-manager">
     <Toast />
 
+    <Dialog v-model:visible="editDialogVisible" header="Edit Actions" :modal="true" :closable="true">
+      <div>
+        <label class="field-label">Select actions</label>
+        <MultiSelect
+          v-model="editActionsSelected"
+          :options="actionOptions"
+          optionLabel="label"
+          placeholder="Select actions"
+          class="w-full"
+        />
+        <p v-if="editError" class="error">{{ editError }}</p>
+      </div>
+      <template #footer>
+        <Button label="Cancel" @click="editDialogVisible = false" />
+        <Button
+          label="Save"
+          class="p-button-primary"
+          :loading="editLoading"
+          @click="saveEdit"
+        />
+      </template>
+    </Dialog>
+
     <div
       class="token-manager-grid"
       style="
@@ -150,6 +173,15 @@
                   :loading="refreshing[slotProps.data.jti]"
                   :disabled="slotProps.data.revoked"
                 />
+
+                <Button
+                  label="Edit Actions"
+                  size="small"
+                  class="p-mr-2 p-ml-2"
+                  @click="openEditDialog(slotProps.data)"
+                  :loading="editLoading && editingJti === slotProps.data.jti"
+                  :disabled="slotProps.data.revoked"
+                />
               </template>
             </Column>
           </DataTable>
@@ -168,6 +200,7 @@ import {
   listTokens,
   revokeToken,
   refreshToken,
+  updateTokenActions,
 } from "../api/auth";
 import Card from "primevue/card";
 import Button from "primevue/button";
@@ -178,6 +211,7 @@ import Tag from "primevue/tag";
 import Toast from "primevue/toast";
 import { useToast } from "primevue/usetoast";
 import MultiSelect from "primevue/multiselect";
+import Dialog from "primevue/dialog";
 
 export default {
   name: "TokenManager",
@@ -190,6 +224,7 @@ export default {
     Column,
     Tag,
     Toast,
+    Dialog,
   },
   setup() {
     const toast = useToast();
@@ -209,6 +244,13 @@ export default {
     const refreshing = ref({});
 
     const createdInput = ref(null);
+
+    // Edit dialog state
+    const editDialogVisible = ref(false);
+    const editingJti = ref(null);
+    const editActionsSelected = ref([]);
+    const editLoading = ref(false);
+    const editError = ref("");
 
     const loadList = async () => {
       listError.value = "";
@@ -232,10 +274,6 @@ export default {
       if (!Array.isArray(actionsSelected.value)) {
         actionsSelected.value = [];
       }
-      // if (!actionsSelected.value || actionsSelected.value.length === 0) {
-      //   createError.value = "Select at least one action";
-      //   return;
-      // }
 
       // Map frontend option values to API expected action codes
       const valueMap = { action_a: "A", action_b: "B" };
@@ -247,14 +285,6 @@ export default {
           return valueMap[val] ?? val;
         })
         .filter(Boolean);
-
-      // Debug: payload about to be sent to createToken
-      console.debug("create token payload", { actions: mapped });
-
-      // if (mapped.length === 0) {
-      //   createError.value = "Invalid actions selected";
-      //   return;
-      // }
 
       creating.value = true;
       try {
@@ -350,6 +380,58 @@ export default {
       }
     };
 
+    // Open edit dialog and pre-populate selections from token.actions
+    const openEditDialog = (token) => {
+      editError.value = "";
+      // reverse map backend codes to frontend option values
+      const reverseMap = { A: "action_a", B: "action_b" };
+      editActionsSelected.value = (token.actions || []).map(
+        (a) => reverseMap[a] ?? a,
+      );
+      editingJti.value = token.jti;
+      editDialogVisible.value = true;
+    };
+
+    const saveEdit = async () => {
+      editError.value = "";
+      if (!editingJti.value) return;
+      editLoading.value = true;
+      try {
+        const valueMap = { action_a: "A", action_b: "B" };
+        const mapped = (editActionsSelected.value || [])
+          .map((a) => (typeof a === "string" ? a : (a && a.value) || ""))
+          .map((val) => valueMap[val] ?? val)
+          .filter(Boolean);
+
+        await updateTokenActions(editingJti.value, mapped);
+
+        // update local token
+        const idx = tokens.value.findIndex((t) => t.jti === editingJti.value);
+        if (idx !== -1) {
+          tokens.value[idx].actions = mapped;
+        }
+
+        toast.add({
+          severity: "success",
+          summary: "Updated",
+          detail: "Token actions updated",
+          life: 3000,
+        });
+        editDialogVisible.value = false;
+      } catch (e) {
+        console.error("Update actions failed", e);
+        editError.value = e.response?.data?.detail || e.message || "Update failed";
+        toast.add({
+          severity: "error",
+          summary: "Update Failed",
+          detail: editError.value,
+          life: 5000,
+        });
+      } finally {
+        editLoading.value = false;
+      }
+    };
+
     const formatTime = (iso) => {
       if (!iso) return "";
       const d = new Date(iso);
@@ -397,6 +479,14 @@ export default {
       handleRefresh,
       formatTime,
       copyCreated,
+      // edit dialog
+      editDialogVisible,
+      editActionsSelected,
+      editLoading,
+      editError,
+      openEditDialog,
+      saveEdit,
+      editingJti,
     };
   },
 };
@@ -474,4 +564,3 @@ export default {
   width: 100%;
 }
 </style>
-

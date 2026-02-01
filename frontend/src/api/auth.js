@@ -124,6 +124,22 @@ export const refreshToken = async (jti) => {
 };
 
 /**
+ * Update authorized actions for an existing token
+ * PUT /auth/tokens/{jti}/actions
+ * @param {string} jti
+ * @param {Array<string>} actions - e.g. ['A','B']
+ * @returns {Promise<Object>}
+ */
+export const updateTokenActions = async (jti, actions) => {
+  const response = await axios.put(
+    `${API_BASE}/tokens/${encodeURIComponent(jti)}/actions`,
+    { actions },
+    { headers: getAuthHeaders() },
+  );
+  return response.data;
+};
+
+/**
  * Introspect a token string
  * @param {string} token
  * @returns {Promise<Object>} Introspection result
