@@ -111,6 +111,17 @@
       <LoginPage :inline="true" @close="showLoginDialog = false" />
     </Dialog>
 
+    <!-- Token Manager Dialog -->
+    <Dialog
+      :visible="showTokenDialog"
+      @update:visible="showTokenDialog = $event"
+      header="Manage Tokens"
+      :modal="true"
+      :style="{ width: '900px' }"
+    >
+      <TokenManager />
+    </Dialog>
+
     <Toast />
   </div>
 </template>
@@ -131,6 +142,7 @@ import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
 import DiffDrawer from "./components/DiffDrawer.vue";
 import LoginPage from "./components/LoginPage.vue";
+import TokenManager from "./components/TokenManager.vue";
 import { validateSpec, createSpec, updateSpec } from "./api/specs";
 import { compareSpecs } from "./utils/diffUtils";
 import { generateMarkdownReport } from "./utils/markdownGenerator";
@@ -156,6 +168,7 @@ export default {
     SaveDialog,
     DiffDrawer,
     LoginPage,
+    TokenManager,
   },
   setup() {
     // Initialize authentication
@@ -189,6 +202,8 @@ export default {
       },
       { label: "Preview", value: "preview", icon: "pi pi-eye" },
     ]);
+
+    const showTokenDialog = ref(false);
 
     // Inline diff UI state
     const copying = ref(false);
@@ -703,6 +718,7 @@ export default {
     // Provide the spec list key ref so children can watch it.
     // Parent increments specListKey.value after save to trigger a refresh in SpecList.
     provide("refreshSpecList", specListKey);
+    provide("showTokenDialog", () => (showTokenDialog.value = true));
 
     return {
       isAuthenticated,
@@ -711,6 +727,7 @@ export default {
       parsedSpec,
       showSaveDialog,
       showLoginDialog,
+      showTokenDialog,
       specDiff,
       alert,
       viewMode,

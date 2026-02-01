@@ -8,6 +8,12 @@
 
       <!-- User Profile Section -->
       <div v-if="isAuthenticated" class="toolbar-right">
+        <Button
+          label="Manage Tokens"
+          icon="pi pi-key"
+          @click="showTokenDialog"
+          class="me-2"
+        />
         <UserProfile />
       </div>
     </div>
@@ -59,6 +65,7 @@ export default {
     const togglePreview = inject("togglePreview");
     const toggleDiff = inject("toggleDiff");
     const viewMode = inject("viewMode", ref("split"));
+    const showTokenDialog = inject("showTokenDialog");
 
     const createBlank = () => {
       newSpec();
@@ -79,7 +86,13 @@ export default {
       viewMode,
       createBlank,
       createFromTemplate,
+      showTokenDialog,
     };
+  },
+  methods: {
+    goToTokens() {
+      this.$router.push("/tokens");
+    },
   },
 };
 </script>

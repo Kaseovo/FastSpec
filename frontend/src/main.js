@@ -6,7 +6,6 @@ import Tooltip from "primevue/tooltip";
 import Aura from "@primevue/themes/aura";
 import App from "./App.vue";
 import OAuthCallback from "./components/OAuthCallback.vue";
-
 // PrimeIcons
 import "primeicons/primeicons.css";
 
