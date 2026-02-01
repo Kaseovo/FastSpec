@@ -18,7 +18,7 @@ ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("JWT_EXPIRATION_MINUTES", "43200")
 )  # 30 days
-SHORT_LIVED_JWT_EXP_SECONDS = int(os.getenv("SHORT_LIVED_JWT_EXP_SECONDS", "300"))
+SHORT_LIVED_JWT_EXP_SECONDS = int(os.getenv("SHORT_LIVED_JWT_EXP_SECONDS", "30000"))
 
 from models import CustomToken, User, AuthToken
 
