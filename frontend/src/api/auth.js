@@ -68,9 +68,9 @@ export const createToken = async (actions) => {
     .map((a) => (typeof a === "string" ? a : (a && a.value) || a || ""))
     .filter(Boolean);
 
-  if (normalized.length === 0) {
-    throw new Error("At least one action must be selected");
-  }
+  // if (normalized.length === 0) {
+  //   throw new Error("At least one action must be selected");
+  // }
   const allowed = ["A", "B"];
   const filtered = normalized.filter((a) => allowed.includes(a));
   if (filtered.length !== normalized.length) {

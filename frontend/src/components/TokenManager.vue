@@ -232,10 +232,10 @@ export default {
       if (!Array.isArray(actionsSelected.value)) {
         actionsSelected.value = [];
       }
-      if (!actionsSelected.value || actionsSelected.value.length === 0) {
-        createError.value = "Select at least one action";
-        return;
-      }
+      // if (!actionsSelected.value || actionsSelected.value.length === 0) {
+      //   createError.value = "Select at least one action";
+      //   return;
+      // }
 
       // Map frontend option values to API expected action codes
       const valueMap = { action_a: "A", action_b: "B" };
@@ -251,10 +251,10 @@ export default {
       // Debug: payload about to be sent to createToken
       console.debug("create token payload", { actions: mapped });
 
-      if (mapped.length === 0) {
-        createError.value = "Invalid actions selected";
-        return;
-      }
+      // if (mapped.length === 0) {
+      //   createError.value = "Invalid actions selected";
+      //   return;
+      // }
 
       creating.value = true;
       try {
