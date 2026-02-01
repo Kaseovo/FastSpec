@@ -56,6 +56,11 @@ class User(Base):
         "AuthToken", back_populates="user", cascade="all, delete-orphan"
     )
 
+    # Relationship to refresh tokens
+    refresh_tokens = relationship(
+        "RefreshToken", back_populates="user", cascade="all, delete-orphan"
+    )
+
     def revoke_token(self, db_session, jti: str) -> bool:
         """Revoke a specific CustomToken belonging to this user."""
         token = (
@@ -150,3 +155,34 @@ class AuthToken(Base):
 
     def __repr__(self):
         return f"<AuthToken {self.jti} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"
+
+
+class RefreshToken(Base):
+    """Long-lived editable refresh token stored as a hash."""
+
+    __tablename__ = "refresh_tokens"
+
+    id = Column(
+        String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
+    )
+    token_hash = Column(String(255), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    actions = Column(Text, nullable=False, default="[]")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    revoked = Column(Boolean, nullable=False, server_default="false", default=False)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="refresh_tokens")
+
+    def get_actions(self):
+        try:
+            return json.loads(self.actions)
+        except Exception:
+            return []
+
+    def set_actions(self, actions_list):
+        self.actions = json.dumps(actions_list)
+
+    def __repr__(self):
+        return f"<RefreshToken id={self.id} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"

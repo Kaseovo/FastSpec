@@ -3,16 +3,17 @@ Authentication routes for OAuth2 and JWT
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
+import json
 
 from database import get_db
-from models import User, CustomToken, AuthToken
+from models import User, CustomToken, AuthToken, RefreshToken
 from schemas import UserResponse
 from auth.oauth import oauth, get_google_user_info, get_github_user_info
 from auth.jwt import (
@@ -21,6 +22,10 @@ from auth.jwt import (
     verify_custom_token,
     refresh_custom_token,
     verify_token,
+    generate_refresh_token,
+    hash_refresh_token,
+    find_refresh_token_by_raw,
+    create_short_jwt,
 )
 from auth.dependencies import get_current_user
 
@@ -35,6 +40,14 @@ class TokenCreateRequest(BaseModel):
 
 class TokenIntrospectRequest(BaseModel):
     token: str
+
+
+class RefreshExchangeRequest(BaseModel):
+    refresh_token: str
+
+
+class RefreshRevokeRequest(BaseModel):
+    refresh_token: str
 
 
 ALLOWED_ACTIONS = {"A", "B"}
@@ -132,6 +145,53 @@ async def introspect_token(
         return {"active": False}
 
 
+# New endpoint: exchange refresh token for a short JWT
+@router.post("/auth/exchange")
+async def exchange_refresh_token(
+    payload: RefreshExchangeRequest, db: Session = Depends(get_db)
+):
+    """Validate a refresh token string and return a short-lived JWT with actions."""
+    raw = payload.refresh_token
+    token_rec = find_refresh_token_by_raw(db, raw)
+    now = datetime.utcnow()
+    if not token_rec or token_rec.revoked or token_rec.expires_at < now:
+        raise HTTPException(status_code=401, detail="Invalid or revoked refresh token")
+
+    # Issue short JWT with actions embedded
+    actions = token_rec.get_actions()
+    short_jwt, expires_at = create_short_jwt(token_rec.user_id, actions)
+
+    # update last_used_at
+    token_rec.last_used_at = now
+    db.add(token_rec)
+    db.commit()
+
+    return {"access_token": short_jwt, "expires_at": expires_at}
+
+
+# New endpoint: revoke a refresh token (requires short JWT auth)
+@router.post("/auth/revoke")
+async def revoke_refresh_token(
+    payload: RefreshRevokeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    raw = payload.refresh_token
+    token_rec = find_refresh_token_by_raw(db, raw)
+    if not token_rec or token_rec.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Refresh token not found")
+    token_rec.revoked = True
+    db.add(token_rec)
+    db.commit()
+    return {"message": "Refresh token revoked"}
+
+
+@router.post("/auth/tokens/introspect")
+async def _introspect_duplicate():
+    # placeholder to avoid route collision in some setups; real introspect above
+    return {"active": False}
+
+
 # existing oauth routes and callbacks (unchanged) ...
 
 
@@ -192,8 +252,26 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         # Generate JWT token and persist it
         access_token = create_access_token(user.id, user.email, db_session=db)
 
-        # Redirect to frontend with token
-        redirect_url = f"{FRONTEND_URL}/?token={access_token}"
+        # Generate refresh token (plaintext returned once) and persist hash
+        raw_refresh = generate_refresh_token()
+        hashed = hash_refresh_token(raw_refresh)
+        expires_at = datetime.utcnow() + timedelta(
+            days=int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "30"))
+        )
+        rt = RefreshToken(
+            token_hash=hashed,
+            user_id=user.id,
+            actions=json.dumps([]),
+            expires_at=expires_at,
+        )
+        db.add(rt)
+        db.commit()
+        db.refresh(rt)
+
+        # Redirect to frontend with token and refresh token (refresh token shown once)
+        redirect_url = (
+            f"{FRONTEND_URL}/?token={access_token}&refresh_token={raw_refresh}"
+        )
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
@@ -258,8 +336,26 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
         # Generate JWT token and persist it
         access_token = create_access_token(user.id, user.email, db_session=db)
 
-        # Redirect to frontend with token
-        redirect_url = f"{FRONTEND_URL}/?token={access_token}"
+        # Generate refresh token (plaintext returned once) and persist hash
+        raw_refresh = generate_refresh_token()
+        hashed = hash_refresh_token(raw_refresh)
+        expires_at = datetime.utcnow() + timedelta(
+            days=int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "30"))
+        )
+        rt = RefreshToken(
+            token_hash=hashed,
+            user_id=user.id,
+            actions=json.dumps([]),
+            expires_at=expires_at,
+        )
+        db.add(rt)
+        db.commit()
+        db.refresh(rt)
+
+        # Redirect to frontend with token and refresh token (refresh token shown once)
+        redirect_url = (
+            f"{FRONTEND_URL}/?token={access_token}&refresh_token={raw_refresh}"
+        )
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:

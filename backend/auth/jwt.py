@@ -9,30 +9,29 @@ from jose import JWTError, jwt
 from fastapi import HTTPException, status
 import uuid
 import json
+import secrets
+
+# Hashing
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # JWT Configuration
-SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY", "your-super-secret-jwt-key-change-in-production"
+JWT_SIGNING_KEY = os.getenv(
+    "JWT_SIGNING_KEY",
+    os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key-change-in-production"),
 )
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "3600")
-)  # 30 days
-SHORT_LIVED_JWT_EXP_SECONDS = int(os.getenv("SHORT_LIVED_JWT_EXP_SECONDS", "30000"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "3600"))
+REFRESH_TOKEN_TTL_DAYS = int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "30"))
+SHORT_JWT_TTL_SECONDS = int(os.getenv("SHORT_JWT_TTL_SECONDS", "300"))
 
-from models import CustomToken, User, AuthToken
+from models import CustomToken, User, AuthToken, RefreshToken
 
 
 def create_access_token(user_id: int, email: str, db_session=None) -> str:
     """
     Create a JWT access token for a user
-
-    Args:
-        user_id: User's database ID
-        email: User's email address
-
-    Returns:
-        JWT token string
     """
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     now = datetime.utcnow()
@@ -44,7 +43,7 @@ def create_access_token(user_id: int, email: str, db_session=None) -> str:
         "exp": expire,
         "iat": now,
     }
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, JWT_SIGNING_KEY, algorithm=ALGORITHM)
 
     # Persist token if db_session provided
     if db_session is not None:
@@ -69,15 +68,6 @@ def create_access_token(user_id: int, email: str, db_session=None) -> str:
 def verify_token(token: str) -> dict:
     """
     Verify and decode a JWT token
-
-    Args:
-        token: JWT token string
-
-    Returns:
-        Decoded token payload
-
-    Raises:
-        HTTPException: If token is invalid or expired
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -86,7 +76,7 @@ def verify_token(token: str) -> dict:
     )
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SIGNING_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         email: str = payload.get("email")
         jti: str = payload.get("jti")
@@ -103,7 +93,10 @@ def verify_token(token: str) -> dict:
         raise credentials_exception
 
 
-# --- Custom short-lived token lifecycle ---
+# --- Custom short-lived token lifecycle (existing custom tokens) ---
+
+
+SHORT_LIVED_JWT_EXP_SECONDS = SHORT_JWT_TTL_SECONDS
 
 
 def create_custom_token(
@@ -136,7 +129,7 @@ def create_custom_token(
         "exp": expires_at,
         "iat": now,
     }
-    token_str = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    token_str = jwt.encode(payload, JWT_SIGNING_KEY, algorithm=ALGORITHM)
     return token_str, jti, expires_at
 
 
@@ -149,7 +142,7 @@ def verify_custom_token(db_session, token_str: str):
     )
 
     try:
-        payload = jwt.decode(token_str, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token_str, JWT_SIGNING_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise credentials_exception
 
@@ -208,5 +201,76 @@ def refresh_custom_token(db_session, user: User, jti: str) -> (str, datetime):
         "exp": new_expires,
         "iat": now,
     }
-    token_str = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    token_str = jwt.encode(payload, JWT_SIGNING_KEY, algorithm=ALGORITHM)
     return token_str, new_expires
+
+
+# --- New: Refresh token generation and short JWT helpers ---
+
+
+def generate_refresh_token() -> str:
+    """Generate a secure random refresh token (plaintext returned once)."""
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(raw: str) -> str:
+    return pwd_context.hash(raw)
+
+
+def verify_refresh_token_raw(raw: str, token_hash: str) -> bool:
+    return pwd_context.verify(raw, token_hash)
+
+
+def create_short_jwt(user_id: int, actions: list[str]) -> (str, datetime):
+    """Create a short-lived JWT containing the provided actions and token_type="short"."""
+    now = datetime.utcnow()
+    exp = now + timedelta(seconds=SHORT_JWT_TTL_SECONDS)
+    payload = {
+        "sub": str(user_id),
+        "actions": actions,
+        "token_type": "short",
+        "exp": exp,
+        "iat": now,
+    }
+    token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm=ALGORITHM)
+    return token, exp
+
+
+def verify_short_jwt(token: str) -> dict:
+    """Verify a short JWT and ensure token_type=="short"."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired short token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, JWT_SIGNING_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise credentials_exception
+
+    if payload.get("token_type") != "short":
+        raise credentials_exception
+    sub = payload.get("sub")
+    if not sub:
+        raise credentials_exception
+    return payload
+
+
+# Helper: find refresh token by raw value
+
+
+def find_refresh_token_by_raw(db_session, raw: str) -> Optional[RefreshToken]:
+    # Since we store only hashes, we must check all non-revoked non-expired tokens for the user
+    now = datetime.utcnow()
+    candidates = (
+        db_session.query(RefreshToken)
+        .filter(RefreshToken.revoked == False, RefreshToken.expires_at >= now)
+        .all()
+    )
+    for rec in candidates:
+        try:
+            if verify_refresh_token_raw(raw, rec.token_hash):
+                return rec
+        except Exception:
+            continue
+    return None
