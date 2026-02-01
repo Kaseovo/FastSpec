@@ -189,7 +189,8 @@ Create a `.env` file (see `.env.example` or [`AUTHENTICATION_SETUP.md`](AUTHENTI
 # JWT Configuration
 JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
 JWT_ALGORITHM=HS256
-JWT_EXPIRATION_MINUTES=43200
+# Access token expiry in minutes
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=3600  # 7 days
 
 # OAuth2 - Google
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com

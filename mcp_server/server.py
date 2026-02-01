@@ -5,12 +5,13 @@ import jwt
 from jwt import PyJWTError
 
 
-
 # MCP Debug : npx @modelcontextprotocol/inspector
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-JWT_SECRET = "your-super-secret-jwt-key-change-in-production-use-openssl-rand-hex-32"
-JWT_ALGORITHM = "HS256"
+JWT_SECRET = os.getenv(
+    "JWT_SECRET_KEY", "your-super-secret-jwt-key-change-in-production"
+)
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 from fastmcp.server.auth.providers.debug import DebugTokenVerifier
 
@@ -19,7 +20,7 @@ verifier = JWTVerifier(
     public_key=JWT_SECRET,  # Despite the name, this accepts symmetric secrets
     # issuer="internal-auth-service",
     # audience="mcp-internal-api",
-    algorithm=JWT_ALGORITHM  # or HS384, HS512 for stronger security
+    algorithm=JWT_ALGORITHM,  # or HS384, HS512 for stronger security
 )
 
 
@@ -49,6 +50,7 @@ def authenticate(context: Context) -> dict:
 def greet(name: str) -> str:
     return f"Hello, {name}!"
 
+
 @mcp.tool()
 def who_am_i(context: Context) -> dict:
     """
@@ -64,6 +66,7 @@ def who_am_i(context: Context) -> dict:
         "issued_at": claims.get("iat"),
         "expires_at": claims.get("exp"),
     }
+
 
 if __name__ == "__main__":
     mcp.run(transport="http", host="0.0.0.0", port=9000, path="/")

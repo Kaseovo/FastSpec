@@ -24,7 +24,7 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - DEV_DEBUG=1
-  
+
   mcp:
     # Override runtime for dev (do not change build context in base compose)
     working_dir: /app
