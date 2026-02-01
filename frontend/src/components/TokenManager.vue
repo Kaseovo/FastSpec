@@ -77,7 +77,9 @@
             >
               Copy and store safely — this token will not be shown again.
             </div>
-            <div class="meta">Expires at: {{ createdToken.expires_at }}</div>
+            <div class="meta">
+              Expires at: {{ formatTime(createdToken.expires_at) }}
+            </div>
           </div>
         </template>
       </Card>
@@ -109,8 +111,16 @@
               </template>
             </Column>
 
-            <Column field="created_at" header="Created At"></Column>
-            <Column field="expires_at" header="Expires At"></Column>
+            <Column field="created_at" header="Created At">
+              <template #body="slotProps">
+                {{ formatTime(slotProps.data.created_at) }}
+              </template>
+            </Column>
+            <Column field="expires_at" header="Expires At">
+              <template #body="slotProps">
+                {{ formatTime(slotProps.data.expires_at) }}
+              </template>
+            </Column>
 
             <Column field="revoked" header="Revoked">
               <template #body="slotProps">
@@ -340,6 +350,15 @@ export default {
       }
     };
 
+    const formatTime = (iso) => {
+      if (!iso) return "";
+      const d = new Date(iso);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+        d.getDate()
+      )} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
+
     const copyCreated = async () => {
       try {
         const val = createdToken.value?.token;
@@ -376,6 +395,7 @@ export default {
       handleCreate,
       handleRevoke,
       handleRefresh,
+      formatTime,
       copyCreated,
     };
   },
