@@ -21,12 +21,20 @@
           </div>
 
           <div class="create-controls">
-            <Button
-              label="Create Token"
-              @click="handleCreate"
-              :loading="creating"
-              class="p-button-primary"
-            />
+            <div
+              style="
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+              "
+            >
+              <Button
+                label="Create Token"
+                @click="handleCreate"
+                :loading="creating"
+                class="p-button-primary"
+              />
+            </div>
 
             <div v-if="createdToken" class="created-result">
               <label class="field-label">Token (copy and store safely)</label>
