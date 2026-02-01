@@ -14,7 +14,7 @@ import json
 
 from database import get_db
 from models import User, CustomToken, AuthToken, RefreshToken
-from schemas import UserResponse
+from schemas import UserResponse, RefreshActionsUpdateRequest, RefreshActionsResponse
 from auth.oauth import oauth, get_google_user_info, get_github_user_info
 from auth.jwt import (
     create_access_token,
@@ -184,6 +184,33 @@ async def revoke_refresh_token(
     db.add(token_rec)
     db.commit()
     return {"message": "Refresh token revoked"}
+
+
+@router.put("/auth/refresh/actions", response_model=RefreshActionsResponse)
+async def update_refresh_token_actions(
+    payload: RefreshActionsUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update the actions allowed for a given refresh token.
+
+    Validates token ownership and that provided actions are a subset of
+    ALLOWED_ACTIONS before persisting the change.
+    """
+    raw = payload.refresh_token
+    token_rec = find_refresh_token_by_raw(db, raw)
+    if not token_rec or token_rec.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Refresh token not found")
+    if not set(payload.actions).issubset(ALLOWED_ACTIONS):
+        raise HTTPException(status_code=400, detail="Invalid actions")
+    token_rec.set_actions(payload.actions)
+    db.add(token_rec)
+    db.commit()
+    db.refresh(token_rec)
+    return {
+        "message": "Refresh token actions updated",
+        "actions": token_rec.get_actions(),
+    }
 
 
 @router.post("/auth/tokens/introspect")

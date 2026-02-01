@@ -57,6 +57,20 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 
+class RefreshActionsUpdateRequest(BaseModel):
+    """Request schema for updating refresh token actions"""
+
+    refresh_token: str
+    actions: List[str]
+
+
+class RefreshActionsResponse(BaseModel):
+    """Response schema after updating refresh token actions"""
+
+    message: str
+    actions: List[str]
+
+
 # OpenAPI Spec Schemas
 class OpenAPISpecBase(BaseModel):
     """Base schema for OpenAPI spec"""
