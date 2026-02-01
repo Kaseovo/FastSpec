@@ -116,6 +116,7 @@ export default {
 .toolbar-right {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
 .new-spec-options {
