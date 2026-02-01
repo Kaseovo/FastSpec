@@ -44,27 +44,40 @@
                   class="p-button-primary"
                 />
               </div>
-
-              <div v-if="createdToken" class="created-result">
-                <label class="field-label">Token (copy and store safely)</label>
-                <div class="created-row">
-                  <InputText
-                    ref="createdInput"
-                    :value="createdToken.token"
-                    readonly
-                    aria-readonly="true"
-                  />
-                  <Button
-                    icon="pi pi-copy"
-                    class="p-ml-2"
-                    @click="copyCreated"
-                  />
-                </div>
-                <div class="meta">
-                  Expires at: {{ createdToken.expires_at }}
-                </div>
-              </div>
             </div>
+          </div>
+
+          <!-- created token shown full-width below the grid -->
+          <div
+            v-if="createdToken"
+            class="created-result full-width"
+            style="margin-top: 1rem"
+          >
+            <label class="field-label">Token</label>
+            <div
+              class="token-line"
+              style="display: flex; gap: 0.5rem; align-items: center"
+            >
+              <InputText
+                ref="createdInput"
+                :value="createdToken.token"
+                readonly
+                aria-readonly="true"
+                class="w-full"
+              />
+              <Button icon="pi pi-copy" class="p-ml-2" @click="copyCreated" />
+            </div>
+            <div
+              class="note"
+              style="
+                margin-top: 0.5rem;
+                color: var(--text-color, #6b7280);
+                font-size: 0.875rem;
+              "
+            >
+              Copy and store safely — this token will not be shown again.
+            </div>
+            <div class="meta">Expires at: {{ createdToken.expires_at }}</div>
           </div>
         </template>
       </Card>
@@ -403,10 +416,19 @@ export default {
 .create-controls {
   flex: 1;
 }
-.created-row {
+/* token area adjustments */
+.full-width {
+  width: 100%;
+}
+.token-line {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
+}
+.token-line .w-full {
+  flex: 1;
+  min-width: 0; /* allow input to shrink inside flex */
 }
 .meta {
   margin-top: 0.5rem;
