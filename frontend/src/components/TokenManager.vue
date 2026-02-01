@@ -2,7 +2,14 @@
   <div class="token-manager">
     <Toast />
 
-    <Dialog v-model:visible="editDialogVisible" header="Edit Actions" :modal="true" :closable="true">
+    <Dialog
+      v-model:visible="editDialogVisible"
+      header="Edit Actions"
+      :modal="true"
+      :closable="true"
+      class="edit-dialog"
+      :style="{ width: '520px' }"
+    >
       <div>
         <label class="field-label">Select actions</label>
         <MultiSelect
@@ -156,32 +163,32 @@
 
             <Column header="Actions">
               <template #body="slotProps">
-                <Button
-                  label="Revoke"
-                  size="small"
-                  severity="danger"
-                  @click="handleRevoke(slotProps.data)"
-                  :loading="revoking[slotProps.data.jti]"
-                  :disabled="slotProps.data.revoked"
-                  class="p-mr-2"
-                />
+                <div class="row-actions">
+                  <Button
+                    label="Revoke"
+                    size="small"
+                    severity="danger"
+                    @click="handleRevoke(slotProps.data)"
+                    :loading="revoking[slotProps.data.jti]"
+                    :disabled="slotProps.data.revoked"
+                  />
 
-                <Button
-                  label="Refresh"
-                  size="small"
-                  @click="handleRefresh(slotProps.data)"
-                  :loading="refreshing[slotProps.data.jti]"
-                  :disabled="slotProps.data.revoked"
-                />
+                  <Button
+                    label="Refresh"
+                    size="small"
+                    @click="handleRefresh(slotProps.data)"
+                    :loading="refreshing[slotProps.data.jti]"
+                    :disabled="slotProps.data.revoked"
+                  />
 
-                <Button
-                  label="Edit Actions"
-                  size="small"
-                  class="p-mr-2 p-ml-2"
-                  @click="openEditDialog(slotProps.data)"
-                  :loading="editLoading && editingJti === slotProps.data.jti"
-                  :disabled="slotProps.data.revoked"
-                />
+                  <Button
+                    label="Edit Actions"
+                    size="small"
+                    @click="openEditDialog(slotProps.data)"
+                    :loading="editLoading && editingJti === slotProps.data.jti"
+                    :disabled="slotProps.data.revoked"
+                  />
+                </div>
               </template>
             </Column>
           </DataTable>
@@ -386,7 +393,7 @@ export default {
       // reverse map backend codes to frontend option values
       const reverseMap = { A: "action_a", B: "action_b" };
       editActionsSelected.value = (token.actions || []).map(
-        (a) => reverseMap[a] ?? a,
+        (a) => reverseMap[a] ?? a
       );
       editingJti.value = token.jti;
       editDialogVisible.value = true;
@@ -420,7 +427,8 @@ export default {
         editDialogVisible.value = false;
       } catch (e) {
         console.error("Update actions failed", e);
-        editError.value = e.response?.data?.detail || e.message || "Update failed";
+        editError.value =
+          e.response?.data?.detail || e.message || "Update failed";
         toast.add({
           severity: "error",
           summary: "Update Failed",
@@ -562,5 +570,29 @@ export default {
 }
 .w-full {
   width: 100%;
+}
+
+/* Action buttons row spacing */
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Keep edit dialog from resizing when MultiSelect content changes */
+.edit-dialog {
+  /* Dialog root spacing handled via inline style for width; ensure content area respects it */
+}
+.edit-dialog .p-dialog-content {
+  min-width: 520px; /* match the inline width to prevent shrink/grow */
+  max-width: calc(100vw - 2rem);
+}
+.edit-dialog .p-multiselect {
+  width: 100%;
+}
+.edit-dialog .p-multiselect .p-multiselect-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>
