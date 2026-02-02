@@ -57,22 +57,22 @@ const getAuthHeaders = () => {
 };
 
 /**
- * Token APIs removed: only refresh token APIs and OAuth login functions remain.
+ * Token APIs removed: only API key APIs and OAuth login functions remain.
  */
 
 /**
- * --- Refresh token management ---
+ * --- API Key management ---
  * The following functions mirror the custom token endpoints but operate on
- * refresh tokens via /auth/refresh and use `id` as the identifier.
+ * API keys via /auth/refresh and use `id` as the identifier.
  */
 
 /**
- * Create a refresh token (server returns the raw refresh token once)
+ * Create an API key (server returns the raw API key once)
  * POST /auth/refresh
  * @param {Array<string>} actions - e.g. ['A','B']
- * @returns {Promise<Object>} Created refresh token data { refresh_token, id, expires_at }
+ * @returns {Promise<Object>} Created API key data { api_key, id, expires_at }
  */
-export const createRefreshToken = async (actions) => {
+export const createApiKey = async (actions) => {
   const normalized = (actions || [])
     .map((a) => (typeof a === "string" ? a : (a && a.value) || a || ""))
     .filter(Boolean);
@@ -95,11 +95,11 @@ export const createRefreshToken = async (actions) => {
 };
 
 /**
- * List refresh tokens for the current user
+ * List API keys for the current user
  * GET /auth/refresh
- * @returns {Promise<Array>} List of refresh token objects
+ * @returns {Promise<Array>} List of API key objects
  */
-export const listRefreshTokens = async () => {
+export const listApiKeys = async () => {
   const response = await axios.get(`${API_BASE}/refresh`, {
     headers: getAuthHeaders(),
   });
@@ -107,12 +107,12 @@ export const listRefreshTokens = async () => {
 };
 
 /**
- * Revoke a refresh token by id
+ * Revoke an API key by id
  * DELETE /auth/refresh/{id}
  * @param {string} id
  * @returns {Promise<Object>}
  */
-export const revokeRefreshToken = async (id) => {
+export const revokeApiKey = async (id) => {
   const response = await axios.delete(
     `${API_BASE}/refresh/${encodeURIComponent(id)}`,
     { headers: getAuthHeaders() },
@@ -121,13 +121,13 @@ export const revokeRefreshToken = async (id) => {
 };
 
 /**
- * Update actions for a refresh token by id
+ * Update actions for an API key by id
  * PUT /auth/refresh/{id}/actions
  * @param {string} id
  * @param {Array<string>} actions
  * @returns {Promise<Object>}
  */
-export const updateRefreshTokenActions = async (id, actions) => {
+export const updateApiKeyActions = async (id, actions) => {
   const response = await axios.put(
     `${API_BASE}/refresh/${encodeURIComponent(id)}/actions`,
     { actions },

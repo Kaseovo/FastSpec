@@ -57,14 +57,14 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 
-class RefreshActionsUpdateRequest(BaseModel):
-    """Request schema for updating refresh token actions by id (payload only contains actions)"""
+class ApiKeyActionsUpdateRequest(BaseModel):
+    """Request schema for updating api_key actions by id (payload only contains actions)"""
 
     actions: List[str]
 
 
-class RefreshActionsResponse(BaseModel):
-    """Response schema after updating refresh token actions"""
+class ApiKeyActionsResponse(BaseModel):
+    """Response schema after updating api_key actions"""
 
     message: str
     actions: List[str]

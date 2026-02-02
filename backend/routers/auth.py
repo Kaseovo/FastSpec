@@ -13,21 +13,21 @@ from typing import List
 import json
 
 from database import get_db
-from models import User, AuthToken, RefreshToken
+from models import User, AuthToken, APIKey
 from schemas import (
     UserResponse,
-    RefreshActionsUpdateRequest,
-    RefreshActionsResponse,
+    ApiKeyActionsUpdateRequest,
+    ApiKeyActionsResponse,
 )
 from auth.oauth import oauth, get_google_user_info, get_github_user_info
 from auth.jwt import (
     create_access_token,
     verify_token,
-    generate_refresh_token,
-    hash_refresh_token,
-    find_refresh_token_by_raw,
+    generate_api_key,
+    hash_api_key,
+    find_api_key_by_raw,
     create_short_jwt,
-    create_refresh_token,
+    create_api_key,
 )
 from auth.dependencies import get_current_user
 
@@ -40,28 +40,28 @@ class TokenCreateRequest(BaseModel):
     actions: List[str]
 
 
-class RefreshExchangeRequest(BaseModel):
-    refresh_token: str
+class ApiKeyExchangeRequest(BaseModel):
+    api_key: str
 
 
-class RefreshRevokeRequest(BaseModel):
-    refresh_token: str
+class ApiKeyRevokeRequest(BaseModel):
+    api_key: str
 
 
 ALLOWED_ACTIONS = {"A", "B"}
 
 
-# New endpoint: exchange refresh token for a short JWT
+# New endpoint: exchange api_key for a short JWT
 @router.post("/refresh/exchange")
-async def exchange_refresh_token(
-    payload: RefreshExchangeRequest, db: Session = Depends(get_db)
+async def exchange_api_key(
+    payload: ApiKeyExchangeRequest, db: Session = Depends(get_db)
 ):
-    """Validate a refresh token string and return a short-lived JWT with actions."""
-    raw = payload.refresh_token
-    token_rec = find_refresh_token_by_raw(db, raw)
+    """Validate an API key string and return a short-lived JWT with actions."""
+    api_key_raw = payload.api_key
+    token_rec = find_api_key_by_raw(db, api_key_raw)
     now = datetime.utcnow()
     if not token_rec or token_rec.revoked or token_rec.expires_at < now:
-        raise HTTPException(status_code=401, detail="Invalid or revoked refresh token")
+        raise HTTPException(status_code=401, detail="Invalid or revoked api_key")
 
     # Issue short JWT with actions embedded
     actions = token_rec.get_actions()
@@ -75,31 +75,31 @@ async def exchange_refresh_token(
     return {"access_token": short_jwt, "expires_at": expires_at}
 
 
-# New endpoint: revoke a refresh token (requires short JWT auth)
+# New endpoint: revoke an api_key (requires short JWT auth)
 @router.post("/refresh/revoke")
-async def revoke_refresh_token(
-    payload: RefreshRevokeRequest,
+async def revoke_api_key(
+    payload: ApiKeyRevokeRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    raw = payload.refresh_token
-    token_rec = find_refresh_token_by_raw(db, raw)
+    api_key_raw = payload.api_key
+    token_rec = find_api_key_by_raw(db, api_key_raw)
     if not token_rec or token_rec.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Refresh token not found")
+        raise HTTPException(status_code=404, detail="api_key not found")
     token_rec.revoked = True
     db.add(token_rec)
     db.commit()
-    return {"message": "Refresh token revoked"}
+    return {"message": "api_key revoked"}
 
 
 @router.get("/refresh")
-async def list_refresh_tokens(
+async def list_api_keys(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     tokens = (
-        db.query(RefreshToken)
-        .filter(RefreshToken.user_id == current_user.id)
-        .order_by(RefreshToken.created_at.desc())
+        db.query(APIKey)
+        .filter(APIKey.user_id == current_user.id)
+        .order_by(APIKey.created_at.desc())
         .all()
     )
     result = []
@@ -121,7 +121,7 @@ async def list_refresh_tokens(
 
 
 @router.post("/refresh")
-async def create_refresh(
+async def create_api_key_route(
     payload: TokenCreateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -129,48 +129,48 @@ async def create_refresh(
     # basic validation
     if not set(payload.actions).issubset(ALLOWED_ACTIONS):
         raise HTTPException(status_code=400, detail="Invalid actions")
-    raw, rt, expires_at = create_refresh_token(db, current_user, payload.actions)
-    return {"refresh_token": raw, "id": rt.id, "expires_at": expires_at}
+    raw, rt, expires_at = create_api_key(db, current_user, payload.actions)
+    return {"api_key": raw, "id": rt.id, "expires_at": expires_at}
 
 
 @router.delete("/refresh/{id}")
-async def revoke_refresh(
+async def revoke_api_key(
     id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     rt = (
-        db.query(RefreshToken)
-        .filter(RefreshToken.id == id, RefreshToken.user_id == current_user.id)
+        db.query(APIKey)
+        .filter(APIKey.id == id, APIKey.user_id == current_user.id)
         .first()
     )
     if not rt:
-        raise HTTPException(status_code=404, detail="Refresh token not found")
+        raise HTTPException(status_code=404, detail="api_key not found")
     rt.revoked = True
     db.add(rt)
     db.commit()
-    return {"message": "Refresh token revoked"}
+    return {"message": "api_key revoked"}
 
 
-@router.put("/refresh/{id}/actions", response_model=RefreshActionsResponse)
-async def update_refresh_token_actions(
+@router.put("/refresh/{id}/actions", response_model=ApiKeyActionsResponse)
+async def update_api_key_actions(
     id: str,
-    payload: RefreshActionsUpdateRequest,
+    payload: ApiKeyActionsUpdateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update the actions allowed for a given refresh token by id.
+    """Update the actions allowed for a given api_key by id.
 
     Validates token ownership and that provided actions are a subset of
     ALLOWED_ACTIONS before persisting the change.
     """
     rt = (
-        db.query(RefreshToken)
-        .filter(RefreshToken.id == id, RefreshToken.user_id == current_user.id)
+        db.query(APIKey)
+        .filter(APIKey.id == id, APIKey.user_id == current_user.id)
         .first()
     )
     if not rt:
-        raise HTTPException(status_code=404, detail="Refresh token not found")
+        raise HTTPException(status_code=404, detail="api_key not found")
     if not set(payload.actions).issubset(ALLOWED_ACTIONS):
         raise HTTPException(status_code=400, detail="Invalid actions")
     rt.set_actions(payload.actions)
@@ -178,7 +178,7 @@ async def update_refresh_token_actions(
     db.commit()
     db.refresh(rt)
     return {
-        "message": "Refresh token actions updated",
+        "message": "api_key actions updated",
         "actions": rt.get_actions(),
     }
 

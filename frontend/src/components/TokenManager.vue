@@ -43,7 +43,7 @@
     >
       <Card class="p-mb-4" style="width: 100%">
         <template #title>
-          <div class="card-title">Create New Refresh Token</div>
+          <div class="card-title">Create New API Key</div>
         </template>
         <template #content>
           <div class="create-grid">
@@ -68,7 +68,7 @@
                 "
               >
                 <Button
-                  label="Create Refresh Token"
+                  label="Create API Key"
                   @click="handleCreate"
                   :loading="creating"
                   class="p-button-primary"
@@ -77,20 +77,20 @@
             </div>
           </div>
 
-          <!-- created refresh token shown full-width below the grid -->
+          <!-- created API key shown full-width below the grid -->
           <div
             v-if="createdToken"
             class="created-result full-width"
             style="margin-top: 1rem"
           >
-            <label class="field-label">Refresh Token (shown once)</label>
+            <label class="field-label">API Key (shown once)</label>
             <div
               class="token-line"
               style="display: flex; gap: 0.5rem; align-items: center"
             >
               <InputText
                 ref="createdInput"
-                :value="createdToken.refresh_token"
+                :value="createdToken.api_key || createdToken.refresh_token"
                 readonly
                 aria-readonly="true"
                 class="w-full"
@@ -105,7 +105,8 @@
                 font-size: 0.875rem;
               "
             >
-              Copy and store the raw refresh token safely — it will not be shown again.
+              Copy and store the raw API key safely — it will not be shown
+              again.
             </div>
             <div class="meta">
               Expires at: {{ formatTime(createdToken.expires_at) }}
@@ -116,7 +117,7 @@
 
       <Card style="width: 100%">
         <template #title>
-          <div class="card-title">Existing Refresh Tokens</div>
+          <div class="card-title">Existing API Keys</div>
         </template>
         <template #content>
           <div v-if="listError" class="error mb-3">{{ listError }}</div>
@@ -196,10 +197,10 @@
 <script>
 import { ref, onMounted, nextTick } from "vue";
 import {
-  createRefreshToken,
-  listRefreshTokens,
-  revokeRefreshToken,
-  updateRefreshTokenActions,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
+  updateApiKeyActions,
 } from "../api/auth";
 import Card from "primevue/card";
 import Button from "primevue/button";
@@ -253,10 +254,10 @@ export default {
     const loadList = async () => {
       listError.value = "";
       try {
-        const data = await listRefreshTokens();
+        const data = await listApiKeys();
         tokens.value = data;
       } catch (e) {
-        console.error("Failed to list refresh tokens", e);
+        console.error("Failed to list API keys", e);
         listError.value =
           e.response?.data?.detail || e.message || "Failed to load tokens";
       }
@@ -282,8 +283,8 @@ export default {
 
       creating.value = true;
       try {
-        const res = await createRefreshToken(mapped);
-        // res: { refresh_token, id, expires_at }
+        const res = await createApiKey(mapped);
+        // res: { api_key, refresh_token?, id, expires_at }
         createdToken.value = res;
 
         tokens.value.unshift({
@@ -296,8 +297,8 @@ export default {
 
         toast.add({
           severity: "success",
-          summary: "Refresh Token Created",
-          detail: "New refresh token generated — copy it now",
+          summary: "API Key Created",
+          detail: "New API key generated — copy it now",
           life: 5000,
         });
 
@@ -311,7 +312,7 @@ export default {
           el.select();
         }
       } catch (e) {
-        console.error("Create refresh token failed", e);
+        console.error("Create API key failed", e);
         createError.value =
           e.response?.data?.detail || e.message || "Create failed";
         toast.add({
@@ -330,10 +331,10 @@ export default {
       const oldRevoked = t.revoked;
       t.revoked = true;
       try {
-        await revokeRefreshToken(t.id);
+        await revokeApiKey(t.id);
         toast.add({
           severity: "success",
-          summary: "Refresh Token Revoked",
+          summary: "API Key Revoked",
           detail: "Token has been successfully revoked",
           life: 3000,
         });
@@ -374,7 +375,7 @@ export default {
           .map((val) => valueMap[val] ?? val)
           .filter(Boolean);
 
-        await updateRefreshTokenActions(editingId.value, mapped);
+        await updateApiKeyActions(editingId.value, mapped);
 
         const idx = tokens.value.findIndex((t) => t.id === editingId.value);
         if (idx !== -1) {
@@ -414,13 +415,14 @@ export default {
 
     const copyCreated = async () => {
       try {
-        const val = createdToken.value?.refresh_token;
+        const val =
+          createdToken.value?.api_key || createdToken.value?.refresh_token;
         if (!val) return;
         await navigator.clipboard.writeText(val);
         toast.add({
           severity: "success",
           summary: "Copied",
-          detail: "Refresh token copied to clipboard",
+          detail: "API key copied to clipboard",
           life: 2000,
         });
       } catch (e) {

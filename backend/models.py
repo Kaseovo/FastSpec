@@ -51,9 +51,9 @@ class User(Base):
         "AuthToken", back_populates="user", cascade="all, delete-orphan"
     )
 
-    # Relationship to refresh tokens
-    refresh_tokens = relationship(
-        "RefreshToken", back_populates="user", cascade="all, delete-orphan"
+    # Relationship to API keys
+    api_keys = relationship(
+        "APIKey", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self):
@@ -105,10 +105,10 @@ class AuthToken(Base):
         return f"<AuthToken {self.jti} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"
 
 
-class RefreshToken(Base):
-    """Long-lived editable refresh token stored as a hash."""
+class APIKey(Base):
+    """Long-lived editable API key stored as a hash."""
 
-    __tablename__ = "refresh_tokens"
+    __tablename__ = "api_keys"
 
     id = Column(
         String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
@@ -121,7 +121,7 @@ class RefreshToken(Base):
     revoked = Column(Boolean, nullable=False, server_default="false", default=False)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
-    user = relationship("User", back_populates="refresh_tokens")
+    user = relationship("User", back_populates="api_keys")
 
     def get_actions(self):
         try:
@@ -133,4 +133,4 @@ class RefreshToken(Base):
         self.actions = json.dumps(actions_list)
 
     def __repr__(self):
-        return f"<RefreshToken id={self.id} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"
+        return f"<APIKey id={self.id} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"

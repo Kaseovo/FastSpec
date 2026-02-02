@@ -23,10 +23,10 @@ JWT_SIGNING_KEY = os.getenv(
 )
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "3600"))
-REFRESH_TOKEN_TTL_DAYS = int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "30"))
+API_KEY_TTL_DAYS = int(os.getenv("API_KEY_TTL_DAYS", "30"))
 SHORT_JWT_TTL_SECONDS = int(os.getenv("SHORT_JWT_TTL_SECONDS", "300"))
 
-from models import User, AuthToken, RefreshToken
+from models import User, AuthToken, APIKey
 
 
 def create_access_token(user_id: int, email: str, db_session=None) -> str:
@@ -93,35 +93,35 @@ def verify_token(token: str) -> dict:
         raise credentials_exception
 
 
-# --- Refresh token generation and short JWT helpers ---
+# --- API key generation and short JWT helpers ---
 
 
-def generate_refresh_token() -> str:
-    """Generate a secure random refresh token (plaintext returned once)."""
+def generate_api_key() -> str:
+    """Generate a secure random api_key (plaintext returned once)."""
     return secrets.token_urlsafe(48)
 
 
-def hash_refresh_token(raw: str) -> str:
+def hash_api_key(raw: str) -> str:
     return pwd_context.hash(raw)
 
 
-def verify_refresh_token_raw(raw: str, token_hash: str) -> bool:
+def verify_api_key_raw(raw: str, token_hash: str) -> bool:
     return pwd_context.verify(raw, token_hash)
 
 
-def create_refresh_token(
+def create_api_key(
     db_session, user: User, actions: list[str]
-) -> (str, RefreshToken, datetime):
-    """Create and persist a new RefreshToken for the given user.
+) -> (str, APIKey, datetime):
+    """Create and persist a new API key (stored as a hashed APIKey record).
 
-    Returns (raw_token_plaintext, refresh_token_record, expires_at)
+    Returns (raw_api_key_plaintext, api_key_record, expires_at)
     """
     now = datetime.utcnow()
-    raw = generate_refresh_token()
-    hashed = hash_refresh_token(raw)
-    expires_at = now + timedelta(days=REFRESH_TOKEN_TTL_DAYS)
+    raw = generate_api_key()
+    hashed = hash_api_key(raw)
+    expires_at = now + timedelta(days=API_KEY_TTL_DAYS)
 
-    rt = RefreshToken(
+    rt = APIKey(
         token_hash=hashed,
         user_id=user.id,
         actions=json.dumps(actions or []),
@@ -168,20 +168,20 @@ def verify_short_jwt(token: str) -> dict:
     return payload
 
 
-# Helper: find refresh token by raw value
+# Helper: find API key by raw value
 
 
-def find_refresh_token_by_raw(db_session, raw: str) -> Optional[RefreshToken]:
+def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
     # Since we store only hashes, we must check all non-revoked non-expired tokens for the user
     now = datetime.utcnow()
     candidates = (
-        db_session.query(RefreshToken)
-        .filter(RefreshToken.revoked == False, RefreshToken.expires_at >= now)
+        db_session.query(APIKey)
+        .filter(APIKey.revoked == False, APIKey.expires_at >= now)
         .all()
     )
     for rec in candidates:
         try:
-            if verify_refresh_token_raw(raw, rec.token_hash):
+            if verify_api_key_raw(raw, rec.token_hash):
                 return rec
         except Exception:
             continue
