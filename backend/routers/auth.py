@@ -243,26 +243,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         # Generate JWT token and persist it
         access_token = create_access_token(user.id, user.email, db_session=db)
 
-        # Generate refresh token (plaintext returned once) and persist hash
-        raw_refresh = generate_refresh_token()
-        hashed = hash_refresh_token(raw_refresh)
-        expires_at = datetime.utcnow() + timedelta(
-            days=int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "30"))
-        )
-        rt = RefreshToken(
-            token_hash=hashed,
-            user_id=user.id,
-            actions=json.dumps([]),
-            expires_at=expires_at,
-        )
-        db.add(rt)
-        db.commit()
-        db.refresh(rt)
-
-        # Redirect to frontend with token and refresh token (refresh token shown once)
-        redirect_url = (
-            f"{FRONTEND_URL}/?token={access_token}&refresh_token={raw_refresh}"
-        )
+        # Redirect to frontend with token (only access token)
+        redirect_url = f"{FRONTEND_URL}/?token={access_token}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
@@ -327,26 +309,8 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
         # Generate JWT token and persist it
         access_token = create_access_token(user.id, user.email, db_session=db)
 
-        # Generate refresh token (plaintext returned once) and persist hash
-        raw_refresh = generate_refresh_token()
-        hashed = hash_refresh_token(raw_refresh)
-        expires_at = datetime.utcnow() + timedelta(
-            days=int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "30"))
-        )
-        rt = RefreshToken(
-            token_hash=hashed,
-            user_id=user.id,
-            actions=json.dumps([]),
-            expires_at=expires_at,
-        )
-        db.add(rt)
-        db.commit()
-        db.refresh(rt)
-
-        # Redirect to frontend with token and refresh token (refresh token shown once)
-        redirect_url = (
-            f"{FRONTEND_URL}/?token={access_token}&refresh_token={raw_refresh}"
-        )
+        # Redirect to frontend with token (only access token)
+        redirect_url = f"{FRONTEND_URL}/?token={access_token}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
