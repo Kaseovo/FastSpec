@@ -1,21 +1,22 @@
 # Backend Implementation
 
-Location: `backend/`
+Location: [`backend`](backend:1)
 
 Overview
 
 - Backend is a FastAPI application that exposes auth and spec-related endpoints.
-- Main entrypoint: `backend/main.py` which sets up the FastAPI app and mounts routers.
+- Main entrypoint: [`backend/main.py`](backend/main.py:1) which sets up the FastAPI app and mounts routers.
 
 Key files
 
-- `backend/main.py` — app instantiation and router registration.
-- `backend/models.py` — ORM models or DB-layer structures used to persist specs and users.
-- `backend/schemas.py` — Pydantic models for request/response validation.
-- `backend/database.py` — database connection and session management.
-- `backend/auth/` — authentication helpers: `jwt.py`, `oauth.py`, and `dependencies.py`.
-- `backend/routers/` — `auth.py` and `specs.py` routers defining HTTP endpoints.
-- `backend/validation/` — `validator.py` and `diff_utils.py` that implement validation rules and diff logic.
+- [`backend/main.py`](backend/main.py:1) — app instantiation and router registration.
+- [`backend/models.py`](backend/models.py:1) — ORM models or DB-layer structures used to persist specs and users.
+- [`backend/schemas.py`](backend/schemas.py:1) — Pydantic models for request/response validation.
+- [`backend/database.py`](backend/database.py:1) — database connection and session management.
+- [`backend/auth/`](backend/auth:1) — authentication helpers: [`backend/auth/jwt.py`](backend/auth/jwt.py:1), `oauth.py`, and `dependencies.py`.
+- [`backend/routers/`](backend/routers:1) — `auth.py` and `specs.py` routers defining HTTP endpoints (notable: [`backend/routers/auth.py`](backend/routers/auth.py:1) contains API key and short-JWT flows).
+- [`backend/validation/`](backend/validation:1) — `validator.py` and `diff_utils.py` that implement validation rules and diff logic.
+- [`backend/mcp/`](backend/mcp:1) — optional MCP server implementations; see [`backend/mcp/server.py`](backend/mcp/server.py:1) for an example.
 
 Run locally (development)
 
@@ -24,20 +25,29 @@ Run locally (development)
 
 Authentication
 
-- JWT handling: token creation/verification in `backend/auth/jwt.py`.
-- Dependency injection: `backend/auth/dependencies.py` defines `get_current_user` and other helpers used by routers.
-- OAuth: flows implemented in `backend/auth/oauth.py`, which interacts with upstream OAuth providers.
+- JWT handling: token creation/verification in [`backend/auth/jwt.py`](backend/auth/jwt.py:1).
+- Dependency injection: [`backend/auth/dependencies.py`](backend/auth/dependencies.py:1) defines `get_current_user` and other helpers used by routers.
+- OAuth: flows implemented in [`backend/auth/oauth.py`](backend/auth/oauth.py:1), which interacts with upstream OAuth providers.
+- API key / short JWT flows: The auth router includes endpoints to create/list/revoke API keys and to exchange a raw API key for a short-lived JWT. See [`backend/routers/auth.py`](backend/routers/auth.py:1).
+
+MCP server notes
+
+- The repository contains an example MCP server under [`backend/mcp/server.py`](backend/mcp/server.py:1). The example demonstrates:
+  - Declaring tools that the agent can call via MCP.
+  - Verifying incoming JWTs with a `JWTVerifier` so MCP tools can be called only by authenticated clients.
+  - A helper flow to obtain short-lived JWTs from the auth service using a configured `MCP_REFRESH_TOKEN` and `AUTH_SERVICE_URL`.
+- Ensure the auth service exposes a compatible exchange endpoint if the MCP helper is to use refresh-token-based exchange; alternatively, adapt the MCP helper to call the existing API-key-based exchange endpoints.
 
 Validation and diff
 
-- `backend/validation/validator.py` exposes validation functions that run a set of rules against spec content and return structured findings.
-- `backend/validation/diff_utils.py` computes structured diffs between spec versions or arbitrary payloads. The frontend displays diffs using a `DiffDrawer` component.
+- [`backend/validation/validator.py`](backend/validation/validator.py:1) exposes validation functions that run a set of rules against spec content and return structured findings.
+- [`backend/validation/diff_utils.py`](backend/validation/diff_utils.py:1) computes structured diffs between spec versions or arbitrary payloads. The frontend displays diffs using a `DiffDrawer` component.
 
 Database
 
-- See `backend/database.py` for connection setup and usage. Switch DB by updating configuration and environment variables.
+- See [`backend/database.py`](backend/database.py:1) for connection setup and usage. Switch DB by updating configuration and environment variables.
 
 Extending backend
 
-- Add new routes under `backend/routers/` and corresponding schemas in `backend/schemas.py`.
-- New validators: create modules under `backend/validation/` and register them where `validator.py` aggregates checks.
+- Add new routes under [`backend/routers/`](backend/routers:1) and corresponding schemas in [`backend/schemas.py`](backend/schemas.py:1).
+- New validators: create modules under [`backend/validation/`](backend/validation:1) and register them where `validator.py` aggregates checks.
