@@ -1,6 +1,7 @@
 import os
 from fastmcp import FastMCP, Context
 from fastmcp.server.auth.providers.jwt import JWTVerifier
+from fastmcp.server.auth.providers.debug import DebugTokenVerifier
 import jwt
 from jwt import PyJWTError
 import httpx
@@ -22,9 +23,14 @@ MCP_REFRESH_TOKEN = os.getenv("MCP_REFRESH_TOKEN", None)
 from fastmcp.server.auth.providers.debug import DebugTokenVerifier
 
 # Synchronous validation - check token prefix
-verifier = JWTVerifier(
-    public_key=JWT_SECRET,  # Despite the name, this accepts symmetric secrets
-    algorithm=JWT_ALGORITHM,  # or HS384, HS512 for stronger security
+# verifier = JWTVerifier(
+#     public_key=JWT_SECRET,  # Despite the name, this accepts symmetric secrets
+#     algorithm=JWT_ALGORITHM,  # or HS384, HS512 for stronger security
+# )
+verifier = DebugTokenVerifier(
+    validate=lambda token: True,
+    client_id="development-client",
+    scopes=["read", "write"]
 )
 
 
