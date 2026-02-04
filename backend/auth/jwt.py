@@ -186,3 +186,21 @@ def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
         except Exception:
             continue
     return None
+
+def exchange_api_key_for_short_jwt(db, api_key: str) -> dict:
+    """Validate an API key string and return a short-lived JWT with actions."""
+    token_rec = find_api_key_by_raw(db, api_key)
+    now = datetime.utcnow()
+    if not token_rec or token_rec.revoked or token_rec.expires_at < now:
+        raise HTTPException(status_code=401, detail="Invalid or revoked api_key")
+
+    # Issue short JWT with actions embedded
+    actions = token_rec.get_actions()
+    short_jwt, expires_at = create_short_jwt(token_rec.user_id, actions)
+
+    # update last_used_at
+    token_rec.last_used_at = now
+    db.add(token_rec)
+    db.commit()
+
+    return {"access_token": short_jwt, "expires_at": expires_at}

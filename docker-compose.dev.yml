@@ -33,7 +33,7 @@ services:
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - DEV_DEBUG=0
+      - DEV_DEBUG=1
 
 # Usage (local dev):
 # docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
