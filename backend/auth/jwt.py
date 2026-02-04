@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 import uuid
 import json
 import secrets
+from database import SessionLocal
 
 # Hashing
 from passlib.context import CryptContext
@@ -187,20 +188,25 @@ def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
             continue
     return None
 
-def exchange_api_key_for_short_jwt(db, api_key: str) -> dict:
+
+def exchange_api_key_for_short_jwt(api_key: str) -> dict:
     """Validate an API key string and return a short-lived JWT with actions."""
-    token_rec = find_api_key_by_raw(db, api_key)
-    now = datetime.utcnow()
-    if not token_rec or token_rec.revoked or token_rec.expires_at < now:
-        raise HTTPException(status_code=401, detail="Invalid or revoked api_key")
+    db = SessionLocal()
+    try:
+        token_rec = find_api_key_by_raw(db, api_key)
+        now = datetime.utcnow()
+        if not token_rec or token_rec.revoked or token_rec.expires_at < now:
+            raise HTTPException(status_code=401, detail="Invalid or revoked api_key")
 
-    # Issue short JWT with actions embedded
-    actions = token_rec.get_actions()
-    short_jwt, expires_at = create_short_jwt(token_rec.user_id, actions)
+        # Issue short JWT with actions embedded
+        actions = token_rec.get_actions()
+        short_jwt, expires_at = create_short_jwt(token_rec.user_id, actions)
 
-    # update last_used_at
-    token_rec.last_used_at = now
-    db.add(token_rec)
-    db.commit()
+        # update last_used_at
+        token_rec.last_used_at = now
+        db.add(token_rec)
+        db.commit()
 
-    return {"access_token": short_jwt, "expires_at": expires_at}
+        return {"access_token": short_jwt, "expires_at": expires_at}
+    finally:
+        db.close()
