@@ -3,10 +3,11 @@ from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_request
 from functools import wraps
 from fastmcp.server.context import Context
-from auth.jwt import exchange_api_key_for_short_jwt
+from auth.jwt import exchange_api_key_for_short_jwt, verify_short_jwt
 from auth.redis_client import get_redis
 
-def get_authenticated_user() -> dict:
+
+def get_short_jwt_from_request() -> dict:
     request = get_http_request()
 
     if request:
@@ -31,10 +32,18 @@ def get_authenticated_user() -> dict:
     return short_jwt
 
 
+def validate_short_jwt(short_jwt: str) -> dict:
+    try:
+        payload = verify_short_jwt(short_jwt)
+        return payload
+    except Exception as e:
+        raise PermissionError("Invalid or expired token") from e
+
+
 def require_auth(tool_fn):
     @wraps(tool_fn)
     async def wrapper(*args, **kwargs):
-        user = get_authenticated_user()
+        validate_short_jwt(get_short_jwt_from_request())
 
         if inspect.iscoroutinefunction(tool_fn):
             return await tool_fn(*args, **kwargs)
@@ -50,18 +59,18 @@ mcp = FastMCP(name="My MCP Server")
 @mcp.tool
 @require_auth
 def greet() -> str:
-    user = get_authenticated_user()
+    user = validate_short_jwt(get_short_jwt_from_request())
     return f"Hello, {user.get('access_token', 'Guest')}!"
 
 
 @mcp.tool
 @require_auth
-def who_am_i(ctx: Context) -> str:
+def who_am_i(ctx: Context) -> dict:
     """
     Returns information about the authenticated user
     """
     # ctx.request_context.request.headers.get("authorization")
-    user = get_authenticated_user()
+    user = validate_short_jwt(get_short_jwt_from_request())
     return user
 
 
