@@ -39,32 +39,40 @@ def validate_short_jwt(short_jwt: str) -> dict:
     except Exception as e:
         raise PermissionError("Invalid or expired token") from e
 
+def user_can_perform_actions(user: dict, actions: list[str]) -> bool:
+    user_actions = user.get("actions", [])
+    return any(action in user_actions for action in actions)
 
-def require_auth(tool_fn):
-    @wraps(tool_fn)
-    async def wrapper(*args, **kwargs):
-        validate_short_jwt(get_short_jwt_from_request())
+def require_auth(actions: list[str] = None):
+    def decorator(tool_fn):
+        @wraps(tool_fn)
+        async def wrapper(*args, **kwargs):
+            user = validate_short_jwt(get_short_jwt_from_request())
 
-        if inspect.iscoroutinefunction(tool_fn):
-            return await tool_fn(*args, **kwargs)
-        else:
-            return tool_fn(*args, **kwargs)
+            if actions and not user_can_perform_actions(user, actions):
+                raise PermissionError("User does not belong to required actions")
 
-    return wrapper
+            if inspect.iscoroutinefunction(tool_fn):
+                return await tool_fn(*args, **kwargs)
+            else:
+                return tool_fn(*args, **kwargs)
+
+        return wrapper
+    return decorator
 
 
 mcp = FastMCP(name="My MCP Server")
 
 
-@mcp.tool
-@require_auth
+@mcp.tool()
+@require_auth()
 def greet() -> str:
     user = validate_short_jwt(get_short_jwt_from_request())
     return f"Hello, {user.get('access_token', 'Guest')}!"
 
 
 @mcp.tool
-@require_auth
+@require_auth(actions=["admin", "user"])
 def who_am_i(ctx: Context) -> dict:
     """
     Returns information about the authenticated user
