@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User, AuthToken
 from .jwt import verify_token
+from auth.redis_client import redis_client
+from datetime import datetime
 
 # Security scheme for Swagger UI
 security = HTTPBearer()
@@ -32,6 +34,23 @@ async def get_current_user(
     """
     token = credentials.credentials
 
+    # Try Redis cache for short JWTs
+    key = f"short_jwt:{token}"
+    try:
+        cached_user_id = redis_client.get(key)
+    except Exception:
+        cached_user_id = None
+
+    if cached_user_id:
+        try:
+            user_id = int(cached_user_id)
+        except Exception:
+            user_id = None
+        if user_id is not None:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                return user
+
     # Verify and decode token
     token_data = verify_token(token)
 
@@ -49,7 +68,6 @@ async def get_current_user(
         .filter(AuthToken.jti == jti, AuthToken.revoked == False)
         .first()
     )
-    from datetime import datetime
 
     if not token_rec or token_rec.expires_at < datetime.utcnow():
         raise HTTPException(
@@ -57,6 +75,30 @@ async def get_current_user(
             detail="Token revoked or expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # If short token, cache user id in Redis to speed up subsequent auth
+    try:
+        if token_data.get("token_type") == "short":
+            exp = token_data.get("exp")
+            ttl = None
+            if exp is not None:
+                try:
+                    if isinstance(exp, (int, float)):
+                        ttl = int(int(exp) - datetime.utcnow().timestamp())
+                    else:
+                        # assume datetime-like
+                        ttl = int((exp - datetime.utcnow()).total_seconds())
+                except Exception:
+                    ttl = None
+            if ttl and ttl > 0:
+                try:
+                    redis_client.setex(key, ttl, str(token_data["user_id"]))
+                except Exception:
+                    # Don't let Redis failures block authentication
+                    pass
+    except Exception:
+        # Defensive: any unexpected error should not block authentication
+        pass
 
     # Get user from database
     user = db.query(User).filter(User.id == token_data["user_id"]).first()

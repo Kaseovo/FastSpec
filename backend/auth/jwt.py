@@ -189,7 +189,7 @@ def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
     return None
 
 
-def exchange_api_key_for_short_jwt(api_key: str) -> dict:
+def exchange_api_key_for_short_jwt(api_key: str) -> tuple[str, datetime]:
     """Validate an API key string and return a short-lived JWT with actions."""
     db = SessionLocal()
     try:
@@ -207,6 +207,6 @@ def exchange_api_key_for_short_jwt(api_key: str) -> dict:
         db.add(token_rec)
         db.commit()
 
-        return {"access_token": short_jwt, "expires_at": expires_at}
+        return short_jwt, expires_at
     finally:
         db.close()

@@ -4,6 +4,7 @@ from fastmcp.server.dependencies import get_http_request
 from functools import wraps
 from fastmcp.server.context import Context
 from auth.jwt import exchange_api_key_for_short_jwt
+from auth.redis_client import get_redis
 
 def get_authenticated_user() -> dict:
     request = get_http_request()
@@ -16,10 +17,16 @@ def get_authenticated_user() -> dict:
     if not token:
         raise PermissionError("Missing auth token")
 
-    short_jwt = exchange_api_key_for_short_jwt(token)
+    redis_client = get_redis()
+    if redis_client and not redis_client.exists(token):
+        short_jwt, expires_at = exchange_api_key_for_short_jwt(token)
 
-    if not short_jwt:
-        raise PermissionError("Invalid or expired token")
+        if not short_jwt:
+            raise PermissionError("Invalid or expired token")
+
+        redis_client.set(token, short_jwt, exat=expires_at)
+    else:
+        short_jwt = redis_client.get(token)
 
     return short_jwt
 
@@ -49,7 +56,7 @@ def greet() -> str:
 
 @mcp.tool
 @require_auth
-def who_am_i(ctx: Context) -> dict:
+def who_am_i(ctx: Context) -> str:
     """
     Returns information about the authenticated user
     """

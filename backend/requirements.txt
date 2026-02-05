@@ -11,3 +11,4 @@ passlib[bcrypt]
 httpx
 itsdangerous
 fastmcp==3.0.0b1
+redis>=4.5.0
