@@ -5,7 +5,52 @@ from functools import wraps
 from fastmcp.server.context import Context
 from auth.jwt import exchange_api_key_for_short_jwt, verify_short_jwt
 from auth.redis_client import get_redis
+from fastmcp.server.middleware import Middleware, MiddlewareContext
+from fastmcp.exceptions import ToolError
+from fastmcp.tools import Tool
 
+
+def check_tool(tool: Tool, user: dict) -> bool:
+    if "authentication" not in tool.tags:
+        return True
+    else:
+        if all(action in user.get("actions", []) for action in tool.meta.get("actions", [])):
+            return True
+    
+    return False
+
+
+class LoggingMiddleware(Middleware):
+    user = None
+
+    async def on_list_tools(self, context: MiddlewareContext, call_next):
+        tools = await call_next(context)  # This is a list of FastMCP Tool objects
+
+        # You can inspect metadata like tool.tags or tool.meta here
+        # Filter out tools with "private" tag
+        filtered_tools = []
+        for tool in tools:
+            if check_tool(tool, self.user):
+                filtered_tools.append(tool)
+
+        # Return modified list
+        return filtered_tools
+    
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        if context.fastmcp_context:
+            tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
+            if not check_tool(tool, self.user):
+                raise ToolError("Tool not found")
+
+        return await call_next(context)
+    
+    async def on_message(self, context: MiddlewareContext, call_next):
+        print(f"→ {context.method}")
+        self.user = validate_short_jwt(get_short_jwt_from_request())
+        print(self.user)
+        result = await call_next(context)
+        print(f"← {context.method}")
+        return result
 
 def get_short_jwt_from_request() -> dict:
     request = get_http_request()
@@ -62,17 +107,15 @@ def require_auth(actions: list[str] = None):
 
 
 mcp = FastMCP(name="My MCP Server")
-
+mcp.add_middleware(LoggingMiddleware())
 
 @mcp.tool()
-@require_auth()
 def greet() -> str:
     user = validate_short_jwt(get_short_jwt_from_request())
     return f"Hello, {user.get('access_token', 'Guest')}!"
 
 
-@mcp.tool
-@require_auth(actions=["admin", "user"])
+@mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
 def who_am_i(ctx: Context) -> dict:
     """
     Returns information about the authenticated user
@@ -81,6 +124,7 @@ def who_am_i(ctx: Context) -> dict:
     user = validate_short_jwt(get_short_jwt_from_request())
     return user
 
+# mcp.disable(tags={"authentication"})
 
 if __name__ == "__main__":
     mcp.run(transport="http", host="0.0.0.0", port=9000, path="/")
