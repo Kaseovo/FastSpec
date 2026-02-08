@@ -25,7 +25,7 @@
       "name": "MCP Server",
       "type": "python",
       "request": "launch",
-      "program": "mcp/server.py",
+      "program": "fastmcp_server/server.py",
       "args": [
         "--reload"
       ],
