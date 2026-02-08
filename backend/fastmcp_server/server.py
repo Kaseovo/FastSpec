@@ -1,8 +1,9 @@
 from fastmcp import FastMCP
-from fastmcp_server.middleware import LoggingMiddleware
+from fastmcp_server.middleware import LoggingMiddleware, AuthenticationMiddleware
 
 mcp = FastMCP(name="My MCP Server")
 mcp.add_middleware(LoggingMiddleware())
+mcp.add_middleware(AuthenticationMiddleware())
 
 @mcp.tool()
 def greet() -> str:
