@@ -29,7 +29,6 @@ class AuthenticationMiddleware(Middleware):
                 extra = fctx.extra
             except Exception:
                 return None
-        print(f"ftx extra: {extra}")
         return extra
 
     def _get_user_from_extra(self, context: MiddlewareContext):
