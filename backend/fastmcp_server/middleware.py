@@ -5,9 +5,10 @@ from fastmcp_server.authentication import check_tool, get_short_jwt_from_request
 
 class LoggingMiddleware(Middleware):
     async def on_message(self, context: MiddlewareContext, call_next):
-        print(f"→ {context.method}")
+        name = getattr(context.message, 'name') if hasattr(context.message, 'name') else ''
+        print(f"→ {context.method} {name}")
         result = await call_next(context)
-        print(f"← {context.method}")
+        print(f"← {context.method} {name}")
         return result
     
 class AuthenticationMiddleware(Middleware):
@@ -44,15 +45,20 @@ class AuthenticationMiddleware(Middleware):
         extra["user"] = user
         return True
 
+    def get_user(self, context: MiddlewareContext):
+        user = self._get_user_from_extra(context)
+
+        if user is None:
+            user = validate_short_jwt(get_short_jwt_from_request())
+            self._set_user_in_extra(context, user)
+            
+        return user
+    
     async def on_list_tools(self, context: MiddlewareContext, call_next):
         tools = await call_next(context)  # This is a list of FastMCP Tool objects
 
         # Ensure we have a request-scoped user in the mutable extra dict
-        user = self._get_user_from_extra(context)
-        if user is None:
-            user = validate_short_jwt(get_short_jwt_from_request())
-            self._set_user_in_extra(context, user)
-
+        user = self.get_user(context)
         # You can inspect metadata like tool.tags or tool.meta here
         # Filter out tools with "private" tag
         filtered_tools = []
@@ -67,20 +73,9 @@ class AuthenticationMiddleware(Middleware):
         if context.fastmcp_context:
             tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
 
-            user = self._get_user_from_extra(context)
-            if user is None:
-                user = validate_short_jwt(get_short_jwt_from_request())
-                self._set_user_in_extra(context, user)
+            user = self.get_user(context)
 
             if not check_tool(tool, user):
                 raise ToolError("Tool not found")
 
         return await call_next(context)
-    
-    async def on_message(self, context: MiddlewareContext, call_next):
-        # Validate once per request and store in the request-scoped extra dict
-        user = validate_short_jwt(get_short_jwt_from_request())
-        self._set_user_in_extra(context, user)
-        print(user)
-        result = await call_next(context)
-        return result
