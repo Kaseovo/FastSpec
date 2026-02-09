@@ -6,9 +6,22 @@ from fastmcp_server.authentication import check_tool, get_short_jwt_from_request
 class LoggingMiddleware(Middleware):
     async def on_message(self, context: MiddlewareContext, call_next):
         name = getattr(context.message, 'name') if hasattr(context.message, 'name') else ''
-        print(f"→ {context.method} {name}")
+        # Log incoming user input (attempt common attributes, fallback to repr)
+        try:
+            user_input = getattr(context.message, 'content', None) or getattr(context.message, 'text', None) or repr(context.message)
+        except Exception:
+            user_input = repr(context.message)
+            
+        print(f"→ {context.method} {name} : {user_input}")
         result = await call_next(context)
-        print(f"← {context.method} {name}")
+
+        # Log outgoing output
+        try:
+            user_output = result
+        except Exception:
+            user_output = repr(result)
+
+        print(f"← {context.method} {name} : {user_output}")
         return result
     
 class AuthenticationMiddleware(Middleware):
