@@ -1,17 +1,27 @@
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.exceptions import ToolError
-from fastmcp_server.authentication import check_tool, get_short_jwt_from_request, validate_short_jwt
+from fastmcp_server.authentication import (
+    check_tool,
+    get_short_jwt_from_request,
+    validate_short_jwt,
+)
 
 
 class LoggingMiddleware(Middleware):
     async def on_message(self, context: MiddlewareContext, call_next):
-        name = getattr(context.message, 'name') if hasattr(context.message, 'name') else ''
+        name = (
+            getattr(context.message, "name") if hasattr(context.message, "name") else ""
+        )
         # Log incoming user input (attempt common attributes, fallback to repr)
         try:
-            user_input = getattr(context.message, 'content', None) or getattr(context.message, 'text', None) or repr(context.message)
+            user_input = (
+                getattr(context.message, "content", None)
+                or getattr(context.message, "text", None)
+                or repr(context.message)
+            )
         except Exception:
             user_input = repr(context.message)
-            
+
         print(f"→ {context.method} {name} : {user_input}")
         result = await call_next(context)
 
@@ -23,7 +33,8 @@ class LoggingMiddleware(Middleware):
 
         print(f"← {context.method} {name} : {user_output}")
         return result
-    
+
+
 class AuthenticationMiddleware(Middleware):
     """Request-safe authentication middleware.
 
@@ -64,9 +75,9 @@ class AuthenticationMiddleware(Middleware):
         if user is None:
             user = validate_short_jwt(get_short_jwt_from_request())
             self._set_user_in_extra(context, user)
-            
+
         return user
-    
+
     async def on_list_tools(self, context: MiddlewareContext, call_next):
         tools = await call_next(context)  # This is a list of FastMCP Tool objects
 
@@ -81,12 +92,12 @@ class AuthenticationMiddleware(Middleware):
 
         # Return modified list
         return filtered_tools
-    
+
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         if context.fastmcp_context:
-            tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
-
+            # Ensure the request-scoped user is set on the fastmcp_context.extra
             user = self.get_user(context)
+            tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
 
             if not check_tool(tool, user):
                 raise ToolError("Tool not found")
