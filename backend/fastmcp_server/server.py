@@ -2,7 +2,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp_server.middleware import LoggingMiddleware, AuthenticationMiddleware
 from fastmcp.exceptions import ToolError
-from fastmcp_server.authentication import get_short_jwt_from_request, validate_short_jwt, get_current_user
+from fastmcp_server.authentication import get_current_user, TokenPayload
 from database import SessionLocal
 from models import OpenAPISpec
 import json
@@ -18,22 +18,21 @@ def greet() -> str:
 
 
 @mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
-def who_am_i() -> dict:
+def who_am_i(user: TokenPayload = Depends(get_current_user)) -> dict:
     """
     Returns information about the authenticated user
     """
-    # ctx.request_context.request.headers.get("authorization")
-    return {"test": "data"}
+    return {"sub": user.sub, "actions": user.actions, "token_type": user.token_type, "exp": user.exp, "iat": user.iat}
 
 
 @mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
-def get_saved_specs_for_user(user: dict = Depends(get_current_user)) -> list:
+def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> list:
     """
     Returns a list of OpenAPI specs saved by the authenticated user
     """
 
     # See how can improve that
-    user_id = int(user.get("sub"))
+    user_id = int(user.sub)
 
     db = SessionLocal()
     try:

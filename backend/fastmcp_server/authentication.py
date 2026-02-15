@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from typing import List, Dict, Any, Optional
 from fastmcp.tools import Tool
 from fastmcp.server.dependencies import get_http_request
 from auth.jwt import exchange_api_key_for_short_jwt, verify_short_jwt
@@ -41,18 +43,50 @@ def get_short_jwt_from_request() -> str:
     return short_jwt
 
 
-def validate_short_jwt(short_jwt: str) -> dict:
+@dataclass
+class TokenPayload:
+    sub: str
+    actions: List[str]
+    token_type: str
+    exp: int
+    iat: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "sub": self.sub,
+            "actions": self.actions,
+            "token_type": self.token_type,
+            "exp": self.exp,
+            "iat": self.iat,
+        }
+
+    # Provide dict-like access for backward compatibility with existing callers
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
+        if hasattr(self, key):
+            return getattr(self, key)
+        return default
+
+
+def validate_short_jwt(short_jwt: str) -> TokenPayload:
     try:
         payload = verify_short_jwt(short_jwt)
-        return payload
+        return TokenPayload(
+            sub=payload.get("sub"),
+            actions=payload.get("actions", []),
+            token_type=payload.get("token_type"),
+            exp=payload.get("exp"),
+            iat=payload.get("iat"),
+        )
     except Exception as e:
         raise PermissionError("Invalid or expired token") from e
 
-def user_can_perform_actions(user: dict, actions: list[str]) -> bool:
-    user_actions = user.get("actions", [])
+
+def user_can_perform_actions(user: TokenPayload, actions: list[str]) -> bool:
+    user_actions = user.actions
     return any(action in user_actions for action in actions)
 
-def get_current_user() -> dict:
+
+def get_current_user() -> TokenPayload:
     """
     Dependency function to get the current authenticated user based on the short JWT in the request. This can be used in tool functions with Depends(get_current_user) to access the authenticated user's information.  
     """
