@@ -62,6 +62,36 @@ def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> 
     finally:
         db.close()
 
+@mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
+def get_spec_details(spec_id: int, user: TokenPayload = Depends(get_current_user)) -> dict:
+    """
+    Returns the details of a specific OpenAPI spec saved by the authenticated user
+    """
+
+    user_id = int(user.sub)
+
+    db = SessionLocal()
+    try:
+        spec = db.query(OpenAPISpec).filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == user_id).first()
+
+        if not spec:
+            raise ToolError("Spec not found or access denied")
+
+        return {
+            "id": spec.id,
+            "name": spec.name,
+            "title": spec.title,
+            "version": spec.version,
+            "created_at": spec.created_at.isoformat() if spec.created_at else None,
+            "updated_at": spec.updated_at.isoformat() if spec.updated_at else None,
+            "content": json.loads(spec.spec_json) if spec.spec_json else None,
+        }
+    except ToolError:
+        raise
+    except Exception as e:
+        raise ToolError(f"Database error: {e}")
+    finally:
+        db.close()
 
 # mcp.disable(tags={"authentication"})
 
