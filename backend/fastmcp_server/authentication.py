@@ -2,6 +2,7 @@ from fastmcp.tools import Tool
 from fastmcp.server.dependencies import get_http_request
 from auth.jwt import exchange_api_key_for_short_jwt, verify_short_jwt
 from auth.redis_client import get_redis
+from fastmcp.exceptions import ToolError
 
 
 def check_tool(tool: Tool, user: dict) -> bool:
@@ -50,3 +51,17 @@ def validate_short_jwt(short_jwt: str) -> dict:
 def user_can_perform_actions(user: dict, actions: list[str]) -> bool:
     user_actions = user.get("actions", [])
     return any(action in user_actions for action in actions)
+
+def get_current_user() -> dict:
+    """
+    Dependency function to get the current authenticated user based on the short JWT in the request. This can be used in tool functions with Depends(get_current_user) to access the authenticated user's information.  
+    """
+    try:
+        short_jwt = get_short_jwt_from_request()
+        payload = validate_short_jwt(short_jwt)
+    except PermissionError as e:
+        raise ToolError(str(e))
+    except Exception as e:
+        raise ToolError(f"Authentication error: {e}")
+
+    return payload

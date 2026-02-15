@@ -1,7 +1,8 @@
 from fastmcp import FastMCP
+from fastmcp.dependencies import Depends
 from fastmcp_server.middleware import LoggingMiddleware, AuthenticationMiddleware
 from fastmcp.exceptions import ToolError
-from fastmcp_server.authentication import get_short_jwt_from_request, validate_short_jwt
+from fastmcp_server.authentication import get_short_jwt_from_request, validate_short_jwt, get_current_user
 from database import SessionLocal
 from models import OpenAPISpec
 import json
@@ -26,21 +27,13 @@ def who_am_i() -> dict:
 
 
 @mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
-def get_saved_specs_for_user() -> list:
-    """Return saved OpenAPI specs for the authenticated user.
-
-    Authentication: reads Authorization header (Bearer token). Supports API key exchange -> short JWT and short JWT validation via existing utilities.
+def get_saved_specs_for_user(user: dict = Depends(get_current_user)) -> list:
+    """
+    Returns a list of OpenAPI specs saved by the authenticated user
     """
 
     # See how can improve that
-    try:
-        short_jwt = get_short_jwt_from_request()
-        payload = validate_short_jwt(short_jwt)
-        user_id = int(payload.get("sub"))
-    except PermissionError as e:
-        raise ToolError(str(e))
-    except Exception as e:
-        raise ToolError(f"Authentication error: {e}")
+    user_id = int(user.get("sub"))
 
     db = SessionLocal()
     try:
@@ -53,18 +46,12 @@ def get_saved_specs_for_user() -> list:
 
         result = []
         for s in specs:
-            try:
-                spec_json = json.loads(s.spec_json)
-            except Exception:
-                spec_json = {}
             result.append(
                 {
                     "id": s.id,
                     "name": s.name,
                     "title": s.title,
                     "version": s.version,
-                    "spec_json": spec_json,
-                    "user_id": s.user_id,
                     "created_at": s.created_at.isoformat() if s.created_at else None,
                     "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                 }
