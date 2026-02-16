@@ -93,7 +93,5 @@ def get_spec_details(spec_id: int, user: TokenPayload = Depends(get_current_user
     finally:
         db.close()
 
-# mcp.disable(tags={"authentication"})
-
 if __name__ == "__main__":
     mcp.run(transport="http", host="0.0.0.0", port=9000, path="/")
