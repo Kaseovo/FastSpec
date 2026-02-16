@@ -99,32 +99,26 @@
               </p>
             </div>
 
-            <div
-              class="control-row"
-              style="
-                margin-top: 12px;
-                display: flex;
-                gap: 8px;
-                align-items: center;
-              "
-            >
+            <div class="control-row row-controls" style="margin-top: 12px">
               <label style="font-size: 12px; color: #6b7280">Base</label>
-              <select v-model="baseVersion" aria-label="Base version">
-                <option v-for="v in versions" :key="v.id" :value="v.id">
-                  {{ v.version }}{{ v.is_published ? " (published)" : "" }}
-                </option>
-              </select>
+              <Select
+                v-model="baseVersion"
+                :options="versionOptions"
+                optionLabel="label"
+                optionValue="value"
+                aria-label="Base version"
+                placeholder="Select base"
+              />
 
               <label style="font-size: 12px; color: #6b7280">Compare</label>
-              <select v-model="compareVersion" aria-label="Compare version">
-                <option
-                  v-for="v in versions"
-                  :key="v.id + '-cmp'"
-                  :value="v.id"
-                >
-                  {{ v.version }}{{ v.is_published ? " (published)" : "" }}
-                </option>
-              </select>
+              <Select
+                v-model="compareVersion"
+                :options="versionOptions"
+                optionLabel="label"
+                optionValue="value"
+                aria-label="Compare version"
+                placeholder="Select compare"
+              />
 
               <Button
                 label="Compare"
@@ -133,6 +127,10 @@
                 :loading="comparing"
                 @click="runCompare"
               />
+            </div>
+
+            <div v-if="compareError" class="inline-error" role="alert">
+              {{ compareError }}
             </div>
           </div>
         </div>
@@ -148,8 +146,9 @@
 </template>
 
 <script>
-import { ref, onMounted, watch, inject } from "vue";
+import { ref, onMounted, watch, inject, computed } from "vue";
 import Button from "primevue/button";
+import Select from "primevue/select";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
 import ConfirmDialog from "primevue/confirmdialog";
@@ -167,6 +166,7 @@ export default {
   name: "SpecList",
   components: {
     Button,
+    Select,
     Message,
     ProgressSpinner,
     ConfirmDialog,
@@ -205,6 +205,13 @@ export default {
     const compareVersion = ref(null);
     const comparing = ref(false);
     const compareError = ref(null);
+
+    const versionOptions = computed(() =>
+      versions.value.map((v) => ({
+        label: `${v.version}${v.is_published ? " (published)" : ""}`,
+        value: v.id,
+      }))
+    );
 
     const toggleExpand = (id) => {
       if (expanded.value.has(id)) {
@@ -332,6 +339,7 @@ export default {
       comparing,
       compareError,
       runCompare,
+      versionOptions,
     };
   },
 };
@@ -429,6 +437,19 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.version-controls .row-controls {
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.row-controls label {
+  margin: 0 4px;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .inline-error {

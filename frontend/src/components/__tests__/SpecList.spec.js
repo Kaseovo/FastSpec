@@ -44,6 +44,7 @@ describe("SpecList - version history read-only", () => {
       global: {
         components: {
           Button: { template: "<button />" },
+          Select: { template: "<select />" },
           Drawer: { template: "<div><slot /></div>" },
           ProgressSpinner: { template: "<div />" },
           Message: { template: "<div />" },
@@ -61,7 +62,7 @@ describe("SpecList - version history read-only", () => {
     // wait for listSpecVersions promise
     await new Promise((r) => setImmediate(r));
 
-    // history should expose compare selectors
+    // history should expose compare selectors (Select stub renders a <select>)
     expect(wrapper.findAll("select").length).toBe(2);
 
     // run compare and verify API called with preselected versions
