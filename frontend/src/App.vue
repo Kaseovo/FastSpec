@@ -43,14 +43,7 @@
           dataKey="value"
         >
           <template #option="slotProps">
-            <span
-              v-tooltip="
-                slotProps.option.value === 'changes' && !isAuthenticated
-                  ? 'Changes are only available for authenticated users'
-                  : null
-              "
-              class="flex align-items-center gap-2"
-            >
+            <span class="flex align-items-center gap-2">
               <i :class="slotProps.option.icon" />
               {{ slotProps.option.label }}
             </span>
@@ -77,11 +70,6 @@
             :show-validate="true"
             @update:modelValue="updatePreview"
           />
-        </template>
-
-        <template v-else-if="viewMode === 'changes'">
-          <!-- Use DiffDrawer component in inline mode (panel) -->
-          <DiffDrawer :diff="specDiff" :spec="parsedSpec" inline />
         </template>
 
         <template v-else-if="viewMode === 'preview'">
@@ -127,10 +115,9 @@
 </template>
 
 <script>
-import { ref, computed, provide, onMounted, watch } from "vue";
+import { ref, computed, provide, onMounted } from "vue";
 import Message from "primevue/message";
 import Button from "primevue/button";
-import Drawer from "primevue/drawer";
 import Dialog from "primevue/dialog";
 import Toast from "primevue/toast";
 import SelectButton from "primevue/selectbutton";
@@ -140,7 +127,6 @@ import EditorPanel from "./components/EditorPanel.vue";
 import FormEditor from "./components/FormEditor.vue";
 import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
-import DiffDrawer from "./components/DiffDrawer.vue";
 import LoginPage from "./components/LoginPage.vue";
 import TokenManager from "./components/TokenManager.vue";
 import { validateSpec, createSpec, updateSpec } from "./api/specs";
@@ -155,7 +141,6 @@ export default {
   components: {
     Message,
     Button,
-    Drawer,
     Dialog,
     Toast,
     Tag,
@@ -166,7 +151,6 @@ export default {
     FormEditor,
     PreviewPanel,
     SaveDialog,
-    DiffDrawer,
     LoginPage,
     TokenManager,
   },
@@ -185,7 +169,6 @@ export default {
     const initialSpec = ref(getDefaultSpec()); // Track initial state for diff
     const showSaveDialog = ref(false);
     const showLoginDialog = ref(false);
-    const specDiff = ref({ info: null, added: [], modified: [], removed: [] });
     const alert = ref({ show: false, message: "", type: "info" });
     const specListKey = ref(0);
     const viewMode = ref("split"); // 'form', 'code', or 'split'
@@ -194,125 +177,10 @@ export default {
     const viewModeOptions = computed(() => [
       { label: "Form", value: "form", icon: "pi pi-list" },
       { label: "Code", value: "code", icon: "pi pi-code" },
-      {
-        label: "Changes",
-        value: "changes",
-        icon: "pi pi-history",
-        disabled: !isAuthenticated.value,
-      },
       { label: "Preview", value: "preview", icon: "pi pi-eye" },
     ]);
 
     const showTokenDialog = ref(false);
-
-    // Inline diff UI state
-    const copying = ref(false);
-    const diffSearch = ref("");
-
-    const sectionKeys = [
-      "summary",
-      "infoAdded",
-      "infoModified",
-      "infoRemoved",
-      "schemaAdded",
-      "schemaModified",
-      "schemaRemoved",
-      "added",
-      "modified",
-      "removed",
-    ];
-
-    const expandedSections = ref({});
-    const initExpanded = () => {
-      sectionKeys.forEach((k) => {
-        if (k === "summary") expandedSections.value[k] = true;
-        else expandedSections.value[k] = !!specDiff.value[k]?.length;
-      });
-    };
-    initExpanded();
-
-    watch(
-      () => specDiff.value,
-      () => {
-        initExpanded();
-      },
-      { deep: true }
-    );
-
-    const showAlert = (message, type = "info") => {
-      alert.value = { show: true, message, type };
-      setTimeout(() => {
-        alert.value.show = false;
-      }, 5000);
-    };
-
-    const toggleSection = (key) => {
-      expandedSections.value[key] = !expandedSections.value[key];
-    };
-
-    const hasChanges = computed(() => {
-      const d = specDiff.value || {};
-      return (
-        (d.infoAdded?.length || 0) +
-          (d.infoModified?.length || 0) +
-          (d.infoRemoved?.length || 0) +
-          (d.added?.length || 0) +
-          (d.modified?.length || 0) +
-          (d.removed?.length || 0) +
-          (d.schemaAdded?.length || 0) +
-          (d.schemaModified?.length || 0) +
-          (d.schemaRemoved?.length || 0) >
-        0
-      );
-    });
-
-    const summary = computed(() => {
-      const d = specDiff.value || {};
-      return {
-        added:
-          (d.infoAdded?.length || 0) +
-          (d.added?.length || 0) +
-          (d.schemaAdded?.length || 0),
-        modified:
-          (d.infoModified?.length || 0) +
-          (d.modified?.length || 0) +
-          (d.schemaModified?.length || 0),
-        removed:
-          (d.infoRemoved?.length || 0) +
-          (d.removed?.length || 0) +
-          (d.schemaRemoved?.length || 0),
-      };
-    });
-
-    const copyAsMarkdown = async () => {
-      copying.value = true;
-      try {
-        const markdown = generateMarkdownReport(specDiff.value);
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(markdown);
-        } else {
-          const textArea = document.createElement("textarea");
-          textArea.value = markdown;
-          textArea.style.position = "fixed";
-          textArea.style.left = "-999999px";
-          textArea.style.top = "-999999px";
-          document.body.appendChild(textArea);
-          textArea.focus();
-          textArea.select();
-          try {
-            document.execCommand("copy");
-          } finally {
-            textArea.remove();
-          }
-        }
-        showAlert("Changes copied as markdown to clipboard", "success");
-      } catch (error) {
-        console.error("Copy failed:", error);
-        showAlert("Failed to copy changes", "error");
-      } finally {
-        copying.value = false;
-      }
-    };
 
     // OpenAPI file helpers
     const copyingFile = ref(false);
@@ -392,6 +260,13 @@ export default {
       fetchOpenApiFile();
     });
 
+    const showAlert = (message, type = "info") => {
+      alert.value = { show: true, message, type };
+      setTimeout(() => {
+        alert.value.show = false;
+      }, 5000);
+    };
+
     const closeAlert = () => {
       alert.value.show = false;
     };
@@ -399,9 +274,9 @@ export default {
     const updatePreview = () => {
       try {
         parsedSpec.value = JSON.parse(specContent.value);
-        // Compute diff against initial state
-        specDiff.value = compareSpecs(initialSpec.value, parsedSpec.value);
-        checkForChanges();
+        // Compute diff against initial state (used only for determining unsaved changes)
+        const diff = compareSpecs(initialSpec.value, parsedSpec.value);
+        checkForChanges(diff);
         scheduleAutoSave();
       } catch (e) {
         // Invalid JSON - preview will handle error display
@@ -411,23 +286,23 @@ export default {
     const updateFromForm = (formSpec) => {
       parsedSpec.value = formSpec;
       specContent.value = JSON.stringify(formSpec, null, 2);
-      specDiff.value = compareSpecs(initialSpec.value, parsedSpec.value);
-      checkForChanges();
+      const diff = compareSpecs(initialSpec.value, parsedSpec.value);
+      checkForChanges(diff);
       scheduleAutoSave();
     };
 
-    const checkForChanges = () => {
-      const diff = specDiff.value;
+    const checkForChanges = (diff = null) => {
+      const d = diff || compareSpecs(initialSpec.value, parsedSpec.value);
       hasUnsavedChanges.value = !!(
-        diff.infoAdded?.length ||
-        diff.infoModified?.length ||
-        diff.infoRemoved?.length ||
-        diff.added?.length ||
-        diff.modified?.length ||
-        diff.removed?.length ||
-        diff.schemaAdded?.length ||
-        diff.schemaModified?.length ||
-        diff.schemaRemoved?.length
+        d.infoAdded?.length ||
+        d.infoModified?.length ||
+        d.infoRemoved?.length ||
+        d.added?.length ||
+        d.modified?.length ||
+        d.removed?.length ||
+        d.schemaAdded?.length ||
+        d.schemaModified?.length ||
+        d.schemaRemoved?.length
       );
     };
 
@@ -560,7 +435,6 @@ export default {
 
         showSaveDialog.value = false;
         specListKey.value++;
-        specDiff.value = { info: null, added: [], modified: [], removed: [] };
       } catch (error) {
         if (error.response?.status === 409) {
           const detail = error.response.data?.detail;
@@ -729,10 +603,6 @@ export default {
       viewMode.value = viewMode.value === "preview" ? "code" : "preview";
     };
 
-    const toggleDiff = () => {
-      viewMode.value = viewMode.value === "changes" ? "code" : "changes";
-    };
-
     function getDefaultSpec() {
       return {
         openapi: "3.0.0",
@@ -752,7 +622,6 @@ export default {
     provide("validateCurrentSpec", validateCurrentSpec);
     provide("loadTemplate", loadTemplate);
     provide("togglePreview", togglePreview);
-    provide("toggleDiff", toggleDiff);
     provide("viewMode", viewMode);
     // Provide the spec list key ref so children can watch it.
     // Parent increments specListKey.value after save to trigger a refresh in SpecList.
@@ -767,7 +636,6 @@ export default {
       showSaveDialog,
       showLoginDialog,
       showTokenDialog,
-      specDiff,
       alert,
       viewMode,
       viewModeOptions,
@@ -777,17 +645,10 @@ export default {
       updateFromForm,
       loadSpec,
       saveSpec,
-      // Inline changes UI helpers
-      copying,
-      copyAsMarkdown,
-      summary,
-      hasChanges,
-      expandedSections,
-      toggleSection,
-      diffSearch,
       // OpenAPI file helpers
       fetchOpenApiFile,
       openapiFileRaw,
+      openapiBaseline,
       openapiFileDiff,
       openapiFileHasChanges,
       formattedOpenapiFileDiff,
