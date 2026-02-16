@@ -64,18 +64,63 @@ Specs endpoints (mounted at `/specs`)
   - For `json` format: returns structured diff (see `backend/validation/diff_utils.py` for schema).
   - For `markdown` format: returns `markdown` string with a human-readable report.
 
+- Versions and comparison endpoints
+
+- GET /specs/{spec_id}/versions
+  - Returns: List of `SpecVersionResponse` ordered by `created_at` descending.
+  - Auth: same as GET /specs/{spec_id} (read access).
+  - Example response:
+
+```json
+[
+  {
+    "id": "uuid-1",
+    "spec_id": 1,
+    "version": "1.0.0",
+    "created_at": "2026-02-01T12:00:00Z",
+    "is_published": true,
+    "content": { "paths": {} }
+  }
+]
+```
+
+- POST /specs/{spec_id}/versions
+  - Body: `SpecVersionCreate` ({"version": "1.0.0", "content": {...}, "metadata": {...}})
+  - Validates uniqueness of (spec_id, version). On conflict returns 409.
+  - On success returns 201 with `SpecVersionResponse`.
+
+- GET /specs/{spec_id}/versions/{version_or_id}
+  - `version_or_id` may be a UUID id or a version string such as "1.0.0". The server will try to parse as UUID and fall back to version string lookup.
+  - Returns `SpecVersionResponse`.
+
+- DELETE /specs/{spec_id}/versions/{version_or_id}
+  - Deletes the specified version. Only allowed by the creator of the version or the spec owner.
+  - If the version is the last published version and the spec has a live pointer, deletion is forbidden unless caller has admin rights (403).
+  - On success returns 204 No Content.
+
+- POST /specs/{spec_id}/compare
+  - Body: {"base": "<id-or-version>", "compare": "<id-or-version>"}
+  - Returns JSON: {"base": SpecVersionResponse, "compare": SpecVersionResponse, "diff": {...}}
+  - Uses `compare_specs(base.content, compare.content)` from `backend/validation/diff_utils.py` to compute the diff.
+
+- POST /specs/{spec_id}/versions/{version_or_id}/publish
+  - Marks the version as published (`is_published=true`) and updates the spec's `version` pointer to this version.
+  - Auth: spec owner or version creator.
+  - Returns `SpecVersionResponse`.
+
 Error responses
 
 - 400 Bad Request: invalid input or validation failures. The body includes `errors` and `warnings` where applicable.
 - 401 Unauthorized: missing/invalid token.
+- 403 Forbidden: permission denied (e.g., trying to delete a published live version without admin rights).
 - 404 Not Found: resource not found or not owned by user.
 
 Schemas reference
 
-- `backend/schemas.py` contains Pydantic schemas used by these endpoints (OpenAPISpecCreate, OpenAPISpecUpdate, OpenAPISpecResponse, ValidationResponse, DiffResponse, MarkdownDiffResponse).
+- `backend/schemas.py` contains Pydantic schemas used by these endpoints (OpenAPISpecCreate, OpenAPISpecUpdate, OpenAPISpecResponse, ValidationResponse, SpecVersionCreate, SpecVersionResponse, DiffResponse, MarkdownDiffResponse).
 
 Implementation notes
 
 - Authentication is enforced via FastAPI dependencies (`get_current_user`) declared in `backend/auth/dependencies.py`.
-- Validation uses `openapi-spec-validator` and additional basic checks in `backend/validation/validator.py` before running full validation.
-- Diff and markdown generation are implemented in `backend/validation/diff_utils.py` and are used by the `/specs/{id}/diff` endpoint.
+- Version comparison uses `backend/validation/diff_utils.compare_specs` which returns a structured JSON diff used by the `/specs/{id}/compare` endpoint.
+- Create/publish/delete operations use DB transactions and handle unique constraint violations (returning 409 on conflict).

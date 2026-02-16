@@ -52,12 +52,20 @@ export const createSpec = async (data) => {
 };
 
 export const updateSpec = async (id, data) => {
-  const response = await api.put(`//${id}`, data);
+  // Ensure we send a version field required by backend. If caller passed a
+  // versionChoice (from SaveDialog), map it into the payload.version field.
+  const payload = { ...data };
+  if (!payload.version && payload.versionChoice) {
+    payload.version = payload.versionChoice.version;
+    delete payload.versionChoice;
+  }
+
+  const response = await api.put(`/${id}`, payload);
   return response.data;
 };
 
 export const deleteSpec = async (id) => {
-  await api.delete(`//${id}`);
+  await api.delete(`/${id}`);
 };
 
 export const validateSpec = async (spec_json) => {
@@ -69,6 +77,37 @@ export const fetchDiff = async (id, format = "json") => {
   const response = await api.get(`/${id}/diff`, {
     params: { format },
   });
+  return response.data;
+};
+
+// Spec versions endpoints
+export const listSpecVersions = async (specId) => {
+  const response = await api.get(`/${specId}/versions`);
+  return response.data;
+};
+
+export const createSpecVersion = async (specId, payload) => {
+  // payload: { version: string, content: object, metadata?: object }
+  const response = await api.post(`/${specId}/versions`, payload);
+  return response.data;
+};
+
+export const getSpecVersion = async (specId, versionOrId) => {
+  const response = await api.get(`/${specId}/versions/${versionOrId}`);
+  return response.data;
+};
+
+export const deleteSpecVersion = async (specId, versionOrId) => {
+  await api.delete(`/${specId}/versions/${versionOrId}`);
+};
+
+export const compareSpecVersions = async (specId, base, compare) => {
+  const response = await api.post(`/${specId}/compare`, { base, compare });
+  return response.data; // { base, compare, diff }
+};
+
+export const publishSpecVersion = async (specId, versionOrId) => {
+  const response = await api.post(`/${specId}/versions/${versionOrId}/publish`);
   return response.data;
 };
 

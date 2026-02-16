@@ -16,6 +16,31 @@
           class="w-full"
         />
       </div>
+
+      <div class="form-group" v-if="specId">
+        <label for="version-select">Version</label>
+        <select
+          id="version-select"
+          v-model="selectedVersion"
+          class="w-full p-inputtext"
+        >
+          <option value="__create_new">Create new version...</option>
+          <option v-for="v in versions" :key="v.id" :value="v.version">
+            {{ v.version }} <span v-if="v.is_published">(published)</span>
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group" v-if="showNewVersionInput">
+        <label for="new-version">New version</label>
+        <InputText
+          id="new-version"
+          v-model="newVersion"
+          class="w-full"
+          :placeholder="suggestedVersion"
+        />
+        <div v-if="errorMsg" class="inline-error">{{ errorMsg }}</div>
+      </div>
     </div>
 
     <template #footer>
@@ -26,10 +51,11 @@
 </template>
 
 <script>
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
+import { listSpecVersions } from "../api/specs";
 
 export default {
   name: "SaveDialog",
@@ -47,10 +73,32 @@ export default {
       type: String,
       default: "",
     },
+    specId: {
+      // optional: when provided the dialog will fetch versions for this spec
+      type: [Number, String],
+      default: null,
+    },
   },
   emits: ["update:visible", "save", "spec-saved"],
   setup(props, { emit }) {
     const name = ref("");
+    const versions = ref([]);
+    const selectedVersion = ref("__create_new");
+    const newVersion = ref("");
+    const errorMsg = ref("");
+
+    const showNewVersionInput = computed(
+      () => selectedVersion.value === "__create_new"
+    );
+
+    const suggestedVersion = computed(() => {
+      // Suggest next patch version based on latest version string if available
+      const v = versions.value[0]?.version;
+      if (!v) return "1.0.0";
+      const parts = v.split(".").map((p) => parseInt(p, 10) || 0);
+      parts[2] = (parts[2] || 0) + 1;
+      return parts.join(".");
+    });
 
     watch(
       () => props.specName,
@@ -61,9 +109,24 @@ export default {
 
     watch(
       () => props.visible,
-      (newVisible) => {
+      async (newVisible) => {
         if (newVisible) {
           name.value = props.specName;
+          errorMsg.value = "";
+          // Load versions lazily when dialog opens and specId is provided
+          if (props.specId) {
+            try {
+              versions.value = await listSpecVersions(props.specId);
+              // default to latest published or first
+              const published = versions.value.find((v) => v.is_published);
+              selectedVersion.value = published
+                ? published.version
+                : versions.value[0]?.version || "__create_new";
+            } catch (e) {
+              console.error("Failed to load versions", e);
+              versions.value = [];
+            }
+          }
         }
       }
     );
@@ -73,24 +136,33 @@ export default {
     };
 
     const save = () => {
-      if (name.value.trim()) {
-        // Notify parent to perform the actual save API call (create/update).
-        // Parent listens for "save" and will run the API; we emit it so the save flow starts.
-        emit("save", name.value.trim());
-
-        // Also emit a higher-level 'spec-saved' event with the saved spec payload.
-        // This is used by the parent to trigger a sidebar refresh (incrementing the refresh ref).
-        // Emitting here is safe: it only notifies parents and does not change routing or global state.
-        // Note: payload is minimal here (name) because the dialog only knows the spec name;
-        // the parent will replace/augment this with the full saved spec response if needed.
-        emit("spec-saved", { name: name.value.trim() });
-
-        close();
+      if (!name.value.trim()) {
+        errorMsg.value = "Name is required";
+        return;
       }
+
+      // Prepare version choice to inform parent how to proceed
+      const versionChoice = showNewVersionInput.value
+        ? {
+            action: "create",
+            version: newVersion.value.trim() || suggestedVersion.value,
+          }
+        : { action: "use", version: selectedVersion.value };
+
+      // Emit save payload with name + versionChoice
+      emit("save", { name: name.value.trim(), versionChoice });
+      emit("spec-saved", { name: name.value.trim() });
+      close();
     };
 
     return {
       name,
+      versions,
+      selectedVersion,
+      newVersion,
+      suggestedVersion,
+      errorMsg,
+      showNewVersionInput,
       close,
       save,
     };
@@ -115,5 +187,10 @@ export default {
 
 .w-full {
   width: 100%;
+}
+
+.inline-error {
+  color: #b91c1c;
+  margin-top: 8px;
 }
 </style>

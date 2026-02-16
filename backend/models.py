@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     UniqueConstraint,
     Boolean,
+    JSON,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -23,8 +24,6 @@ class User(Base):
     """User model for authentication"""
 
     __tablename__ = "users"
-    # Composite unique constraint ensures uniqueness of email per provider
-    # This allows the same email to exist across different OIDC providers
     __table_args__ = (UniqueConstraint("email", "provider", name="uix_email_provider"),)
 
     id = Column(Integer, primary_key=True, index=True)
@@ -38,20 +37,16 @@ class User(Base):
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
-    # Session version for fast revocation of short-lived tokens
     session_version = Column(Integer, nullable=False, server_default="0", default=0)
 
-    # Relationship to specs
     specs = relationship(
         "OpenAPISpec", back_populates="owner", cascade="all, delete-orphan"
     )
 
-    # Relationship to access/auth tokens
     auth_tokens = relationship(
         "AuthToken", back_populates="user", cascade="all, delete-orphan"
     )
 
-    # Relationship to API keys
     api_keys = relationship(
         "APIKey", back_populates="user", cascade="all, delete-orphan"
     )
@@ -77,11 +72,51 @@ class OpenAPISpec(Base):
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
-    # Relationship to user
     owner = relationship("User", back_populates="specs")
+
+    # Relationship to versions (one-to-many), ordered by created_at desc
+    versions = relationship(
+        "SpecVersion",
+        back_populates="spec",
+        cascade="all, delete-orphan",
+        order_by="SpecVersion.created_at.desc()",
+    )
 
     def __repr__(self):
         return f"<OpenAPISpec {self.name} ({self.title} v{self.version})>"
+
+
+class SpecVersion(Base):
+    """Versioned snapshot of an OpenAPI spec"""
+
+    __tablename__ = "spec_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "spec_id", "version", name="uix_spec_versions_spec_id_version"
+        ),
+    )
+
+    # Use String UUID representation to align with other UUID-like ids used elsewhere
+    id = Column(
+        String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
+    )
+    spec_id = Column(
+        Integer, ForeignKey("openapi_specs.id"), nullable=False, index=True
+    )
+    version = Column(String(50), nullable=False)
+    content = Column(JSON, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    meta = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_published = Column(
+        Boolean, nullable=False, server_default="false", default=False
+    )
+
+    spec = relationship("OpenAPISpec", back_populates="versions")
+    creator = relationship("User", foreign_keys=[created_by])
+
+    def __repr__(self):
+        return f"<SpecVersion {self.id} spec_id={self.spec_id} version={self.version}>"
 
 
 class AuthToken(Base):

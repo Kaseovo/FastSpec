@@ -33,6 +33,14 @@
               aria-label="Toggle details"
             />
             <Button
+              icon="pi pi-history"
+              text
+              rounded
+              @click.stop="openHistory(spec)"
+              aria-label="Open version history"
+              title="Version history"
+            />
+            <Button
               icon="pi pi-trash"
               severity="danger"
               text
@@ -67,6 +75,74 @@
       </div>
     </div>
 
+    <Drawer
+      :visible="historyOpen"
+      @update:visible="(v) => (historyOpen = v)"
+      position="right"
+      :style="{ width: '60vw' }"
+    >
+      <template #header>
+        <div class="drawer-header">
+          <h3>Version history - {{ historySpec?.name }}</h3>
+        </div>
+      </template>
+
+      <div style="padding: 16px">
+        <div v-if="versionsLoading">Loading versions...</div>
+        <div v-else>
+          <div v-if="versions.length === 0">No versions available</div>
+
+          <div v-else class="version-controls">
+            <div class="control-row">
+              <p style="margin: 0">
+                Select two versions to compare within this panel.
+              </p>
+            </div>
+
+            <div
+              class="control-row"
+              style="
+                margin-top: 12px;
+                display: flex;
+                gap: 8px;
+                align-items: center;
+              "
+            >
+              <label style="font-size: 12px; color: #6b7280">Base</label>
+              <select v-model="baseVersion" aria-label="Base version">
+                <option v-for="v in versions" :key="v.id" :value="v.id">
+                  {{ v.version }}{{ v.is_published ? " (published)" : "" }}
+                </option>
+              </select>
+
+              <label style="font-size: 12px; color: #6b7280">Compare</label>
+              <select v-model="compareVersion" aria-label="Compare version">
+                <option
+                  v-for="v in versions"
+                  :key="v.id + '-cmp'"
+                  :value="v.id"
+                >
+                  {{ v.version }}{{ v.is_published ? " (published)" : "" }}
+                </option>
+              </select>
+
+              <Button
+                label="Compare"
+                icon="pi pi-search"
+                class="p-button-outlined"
+                :loading="comparing"
+                @click="runCompare"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 18px">
+          <DiffDrawer :diff="historyDiff" :spec="historySpec" inline />
+        </div>
+      </div>
+    </Drawer>
+
     <ConfirmDialog></ConfirmDialog>
   </div>
 </template>
@@ -77,8 +153,15 @@ import Button from "primevue/button";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
 import ConfirmDialog from "primevue/confirmdialog";
+import Drawer from "primevue/drawer";
 import { useConfirm } from "primevue/useconfirm";
-import { fetchSpecs, deleteSpec } from "../api/specs";
+import {
+  fetchSpecs,
+  deleteSpec,
+  listSpecVersions,
+  compareSpecVersions,
+} from "../api/specs";
+import DiffDrawer from "./DiffDrawer.vue";
 
 export default {
   name: "SpecList",
@@ -87,6 +170,8 @@ export default {
     Message,
     ProgressSpinner,
     ConfirmDialog,
+    Drawer,
+    DiffDrawer,
   },
   props: {
     selectedId: {
@@ -102,6 +187,24 @@ export default {
     const confirm = useConfirm();
     const refreshSpecList = inject("refreshSpecList");
     const expanded = ref(new Set());
+
+    // History drawer state
+    const historyOpen = ref(false);
+    const historySpec = ref(null);
+    const versions = ref([]);
+    const versionsLoading = ref(false);
+    const historyDiff = ref({
+      info: null,
+      added: [],
+      modified: [],
+      removed: [],
+    });
+
+    // version compare controls
+    const baseVersion = ref(null);
+    const compareVersion = ref(null);
+    const comparing = ref(false);
+    const compareError = ref(null);
 
     const toggleExpand = (id) => {
       if (expanded.value.has(id)) {
@@ -158,6 +261,50 @@ export default {
       });
     };
 
+    const openHistory = async (spec) => {
+      historySpec.value = spec;
+      historyOpen.value = true;
+      versionsLoading.value = true;
+      try {
+        versions.value = await listSpecVersions(spec.id);
+        if (versions.value && versions.value.length > 0) {
+          // pre-select sensible defaults: older as base, newer as compare
+          baseVersion.value =
+            versions.value[1]?.id || versions.value[0]?.id || null;
+          compareVersion.value =
+            versions.value[0]?.id || versions.value[1]?.id || null;
+        }
+      } catch (err) {
+        console.error("Failed to load versions:", err);
+        versions.value = [];
+      } finally {
+        versionsLoading.value = false;
+      }
+    };
+
+    const runCompare = async () => {
+      compareError.value = null;
+      if (!historySpec.value || !baseVersion.value || !compareVersion.value) {
+        compareError.value = "Please select both versions to compare";
+        return;
+      }
+      comparing.value = true;
+      try {
+        const res = await compareSpecVersions(
+          historySpec.value.id,
+          baseVersion.value,
+          compareVersion.value
+        );
+        // API returns { base, compare, diff }
+        historyDiff.value = res.diff || res;
+      } catch (err) {
+        console.error("Compare failed:", err);
+        compareError.value = "Failed to compare versions";
+      } finally {
+        comparing.value = false;
+      }
+    };
+
     onMounted(loadSpecs);
 
     // Watch for refresh trigger
@@ -172,6 +319,19 @@ export default {
       expanded,
       toggleExpand,
       formatRelativeTime,
+      // history
+      historyOpen,
+      historySpec,
+      versions,
+      versionsLoading,
+      historyDiff,
+      openHistory,
+      // compare controls
+      baseVersion,
+      compareVersion,
+      comparing,
+      compareError,
+      runCompare,
     };
   },
 };
@@ -265,22 +425,15 @@ export default {
   color: #374151;
 }
 
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.3s ease;
+.version-controls .control-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.expand-enter-from,
-.expand-leave-to {
-  opacity: 0;
-  max-height: 0;
-  overflow: hidden;
-}
-
-.expand-enter-to,
-.expand-leave-from {
-  opacity: 1;
-  max-height: 200px;
+.inline-error {
+  color: #b91c1c;
+  margin-top: 8px;
 }
 
 /* Responsive design */

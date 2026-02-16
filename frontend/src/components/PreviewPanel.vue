@@ -2,7 +2,39 @@
   <div class="preview-panel">
     <div class="panel-header">
       <h3>Swagger Preview</h3>
+      <div class="header-controls">
+        <div v-if="spec?.id" class="version-compare">
+          <label>Base</label>
+          <select v-model="baseVersion" class="p-inputtext">
+            <option
+              v-for="v in versions"
+              :key="v.id + '-base'"
+              :value="v.version"
+            >
+              {{ v.version }}{{ v.is_published ? " (published)" : "" }}
+            </option>
+          </select>
+          <label>Compare</label>
+          <select v-model="compareVersion" class="p-inputtext">
+            <option
+              v-for="v in versions"
+              :key="v.id + '-cmp'"
+              :value="v.version"
+            >
+              {{ v.version }}{{ v.is_published ? " (published)" : "" }}
+            </option>
+          </select>
+          <Button
+            class="p-button-sm"
+            :loading="comparing"
+            label="Compare"
+            icon="pi pi-exchange"
+            @click="runCompare"
+          />
+        </div>
+      </div>
     </div>
+
     <div class="panel-content">
       <div v-if="error" class="error-message">
         <Message severity="error">
@@ -10,6 +42,16 @@
           <p>{{ error.message }}</p>
         </Message>
       </div>
+
+      <div v-if="versionsLoading" class="loading">
+        <ProgressSpinner />
+        <div style="margin-left: 8px">Loading versions...</div>
+      </div>
+
+      <div v-if="diffResult" style="margin-bottom: 12px">
+        <DiffDrawer :diff="diffResult" :spec="spec" inline />
+      </div>
+
       <div v-if="loading" class="loading">
         <ProgressSpinner />
       </div>
@@ -27,12 +69,18 @@
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
+import Button from "primevue/button";
+import { listSpecVersions, compareSpecVersions } from "../api/specs";
+import DiffDrawer from "./DiffDrawer.vue";
+import { adaptBackendDiff } from "../utils/diffUtils";
 
 export default {
   name: "PreviewPanel",
   components: {
     Message,
     ProgressSpinner,
+    Button,
+    DiffDrawer,
   },
   props: {
     spec: {
@@ -47,6 +95,84 @@ export default {
     const containerKey = ref(0);
     let swaggerUI = null;
     let updateTimeout = null;
+
+    // Version compare state
+    const versions = ref([]);
+    const versionsLoading = ref(false);
+    const baseVersion = ref(null);
+    const compareVersion = ref(null);
+    const comparing = ref(false);
+    const diffResult = ref(null);
+
+    const loadVersions = async () => {
+      if (!props.spec?.id) return;
+      versionsLoading.value = true;
+      try {
+        versions.value = await listSpecVersions(props.spec.id);
+        if (versions.value && versions.value.length > 0) {
+          // Prefer published versions where possible: choose latest published as compare
+          // and the previous published as base. Fallback to list ordering when needed.
+          const published = versions.value.filter((v) => v.is_published);
+
+          if (published.length >= 2) {
+            compareVersion.value = published[0].version;
+            baseVersion.value = published[1].version;
+          } else if (published.length === 1) {
+            compareVersion.value = published[0].version;
+            // pick the next available older version from the main list
+            const idx = versions.value.findIndex(
+              (v) => v.version === published[0].version
+            );
+            const baseIdx = idx + 1 < versions.value.length ? idx + 1 : 0;
+            baseVersion.value =
+              versions.value[baseIdx]?.version || versions.value[0].version;
+          } else {
+            // no published versions known - fall back to first (latest) and last (previous)
+            compareVersion.value =
+              versions.value[0]?.version ||
+              versions.value[versions.value.length - 1]?.version;
+            baseVersion.value =
+              versions.value[versions.value.length - 1]?.version ||
+              versions.value[0]?.version;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load versions:", e);
+        versions.value = [];
+      } finally {
+        versionsLoading.value = false;
+      }
+    };
+
+    const runCompare = async () => {
+      if (!props.spec?.id || !baseVersion.value || !compareVersion.value)
+        return;
+      // Prevent comparing identical versions
+      if (baseVersion.value === compareVersion.value) {
+        diffResult.value = null;
+        return;
+      }
+      comparing.value = true;
+      error.value = null;
+      try {
+        const res = await compareSpecVersions(
+          props.spec.id,
+          baseVersion.value,
+          compareVersion.value
+        );
+        // adapt backend payload to diff object
+        const diff = adaptBackendDiff(res);
+        diffResult.value = diff;
+      } catch (e) {
+        console.error("Compare failed:", e);
+        error.value = {
+          title: "Failed to compare versions",
+          message: e.message || String(e),
+        };
+      } finally {
+        comparing.value = false;
+      }
+    };
 
     const loadSwaggerUI = async () => {
       if (window.SwaggerUIBundle) {
@@ -182,6 +308,15 @@ export default {
     };
 
     onMounted(async () => {
+      await loadVersions();
+      // Trigger initial compare if defaults were set
+      if (baseVersion.value && compareVersion.value) {
+        try {
+          await runCompare();
+        } catch (e) {
+          // runCompare handles errors
+        }
+      }
       await nextTick();
       await updatePreview();
     });
@@ -192,13 +327,42 @@ export default {
       }
     });
 
-    watch(() => props.spec, updatePreview, { deep: true });
+    watch(
+      () => props.spec,
+      async () => {
+        await loadVersions();
+        await updatePreview();
+      },
+      { deep: true }
+    );
+
+    // When either version selector changes, trigger a compare automatically
+    watch(
+      () => [baseVersion.value, compareVersion.value],
+      async ([newBase, newCompare], [oldBase, oldCompare]) => {
+        if (versionsLoading.value) return;
+        if (!newBase || !newCompare) return;
+        if (newBase === oldBase && newCompare === oldCompare) return;
+        try {
+          await runCompare();
+        } catch (e) {
+          // no-op
+        }
+      }
+    );
 
     return {
       swaggerContainer,
       error,
       loading,
       containerKey,
+      versions,
+      versionsLoading,
+      baseVersion,
+      compareVersion,
+      comparing,
+      runCompare,
+      diffResult,
     };
   },
 };
@@ -217,6 +381,9 @@ export default {
 .panel-header {
   padding: 15px;
   border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .panel-header h3 {
@@ -235,6 +402,17 @@ export default {
   padding: 10px;
 }
 
+.version-compare {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.version-compare label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
 .error-message,
 .loading {
   padding: 20px;
@@ -245,16 +423,5 @@ export default {
 
 .error-message p {
   margin-top: 10px;
-}
-</style>
-
-<style>
-/* Global Swagger UI overrides */
-.swagger-ui .topbar {
-  display: none;
-}
-
-.swagger-ui .info {
-  margin: 20px 0;
 }
 </style>

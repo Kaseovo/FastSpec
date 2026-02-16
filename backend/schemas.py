@@ -92,8 +92,12 @@ class OpenAPISpecCreate(OpenAPISpecBase):
 
 
 class OpenAPISpecUpdate(BaseModel):
-    """Schema for updating a spec"""
+    """Schema for updating a spec. Requires the base version the client is
+    updating from to enable optimistic concurrency control."""
 
+    # version is required and must be provided by clients to ensure they are
+    # updating against the latest published version
+    version: str = Field(..., min_length=1, max_length=50)
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     spec_json: Optional[Dict[str, Any]] = None
 
@@ -136,3 +140,24 @@ class MarkdownDiffResponse(BaseModel):
     """Schema for markdown diff response"""
 
     markdown: str
+
+
+# Spec Versioning Schemas
+class SpecVersionCreate(BaseModel):
+    version: str
+    content: Dict[str, Any]
+    meta: Optional[Dict[str, Any]] = None
+
+
+class SpecVersionResponse(BaseModel):
+    id: str
+    spec_id: int
+    version: str
+    content: Dict[str, Any]
+    created_by: Optional[int] = None
+    meta: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    is_published: bool
+
+    class Config:
+        from_attributes = True

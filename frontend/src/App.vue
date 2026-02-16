@@ -453,14 +453,24 @@ export default {
           const updated = await updateSpec(currentSpec.value.id, {
             name: currentSpec.value.name,
             spec_json,
+            // include current live version as base for optimistic check
+            version: currentSpec.value.version,
           });
           currentSpec.value = updated;
           initialSpec.value = JSON.parse(JSON.stringify(spec_json));
           hasUnsavedChanges.value = false;
           showAlert("Auto-saved ✓", "success");
         } catch (error) {
-          // Silent fail for auto-save
-          console.error("Auto-save failed:", error);
+          // If conflict on auto-save, inform the user
+          if (error.response?.status === 409) {
+            const detail = error.response.data?.detail;
+            const msg = detail?.message
+              ? `${detail.message}: expected ${detail.expected}, provided ${detail.provided}`
+              : "Version conflict during auto-save";
+            showAlert(msg, "error");
+          } else {
+            console.error("Auto-save failed:", error);
+          }
         }
       }, 3000);
     };
@@ -500,19 +510,34 @@ export default {
       showSaveDialog.value = true;
     };
 
-    const saveSpec = async (name) => {
+    const saveSpec = async (payloadOrName) => {
       if (!isAuthenticated.value) {
         showAlert("Authentication required to save specifications", "error");
         return;
       }
+
+      // Support older calls that passed only the name string
+      const isString = typeof payloadOrName === "string";
+      const name = isString ? payloadOrName : payloadOrName.name;
+      const versionChoice = !isString ? payloadOrName.versionChoice : null;
+
       try {
         const spec_json = JSON.parse(specContent.value);
 
         if (currentSpec.value) {
           // Update existing
+          // If user chose to create a new version, ensure spec_json.info.version
+          // matches the requested new version so backend will create the version
+          if (versionChoice && versionChoice.action === "create") {
+            spec_json.info = spec_json.info || {};
+            spec_json.info.version = versionChoice.version;
+          }
+
+          // Provide base version for optimistic concurrency check (current live)
           const updated = await updateSpec(currentSpec.value.id, {
             name,
             spec_json,
+            version: currentSpec.value.version,
           });
           currentSpec.value = updated;
           initialSpec.value = JSON.parse(JSON.stringify(spec_json)); // Update baseline
@@ -520,6 +545,12 @@ export default {
           showAlert("Spec updated successfully!", "success");
         } else {
           // Create new
+          // If a version choice is provided, set it on the spec_json
+          if (versionChoice && versionChoice.action === "create") {
+            spec_json.info = spec_json.info || {};
+            spec_json.info.version = versionChoice.version;
+          }
+
           const created = await createSpec({ name, spec_json });
           currentSpec.value = created;
           initialSpec.value = JSON.parse(JSON.stringify(spec_json)); // Update baseline
@@ -531,7 +562,15 @@ export default {
         specListKey.value++;
         specDiff.value = { info: null, added: [], modified: [], removed: [] };
       } catch (error) {
-        showAlert(error.response?.data?.detail || error.message, "error");
+        if (error.response?.status === 409) {
+          const detail = error.response.data?.detail;
+          const msg = detail?.message
+            ? `${detail.message}: expected ${detail.expected}, provided ${detail.provided}`
+            : "Version conflict";
+          showAlert(msg, "error");
+        } else {
+          showAlert(error.response?.data?.detail || error.message, "error");
+        }
       }
     };
 

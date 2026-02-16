@@ -27,7 +27,7 @@ function compareSchemas(oldSchema, newSchema) {
     changes.requiredChanged = true;
     changes.requiredAdded = newRequired.filter((r) => !oldRequired.includes(r));
     changes.requiredRemoved = oldRequired.filter(
-      (r) => !newRequired.includes(r)
+      (r) => !newRequired.includes(r),
     );
   }
 
@@ -349,10 +349,10 @@ export function compareSpecs(original, current) {
 
             // Create maps for easier comparison
             const oldParamMap = new Map(
-              oldParams.map((p) => [p.name + p.in, p])
+              oldParams.map((p) => [p.name + p.in, p]),
             );
             const newParamMap = new Map(
-              newParams.map((p) => [p.name + p.in, p])
+              newParams.map((p) => [p.name + p.in, p]),
             );
 
             // Find added and modified parameters
@@ -385,7 +385,7 @@ export function compareSpecs(original, current) {
               paramChanges.modified.length > 0
             ) {
               changes.push(
-                `Parameters: ${paramChanges.added.length} added, ${paramChanges.modified.length} modified, ${paramChanges.removed.length} removed`
+                `Parameters: ${paramChanges.added.length} added, ${paramChanges.modified.length} modified, ${paramChanges.removed.length} removed`,
               );
               details.parameters = paramChanges;
             }
@@ -510,4 +510,15 @@ export function compareSpecs(original, current) {
   }
 
   return diff;
+}
+
+/**
+ * Adapter for backend compare payloads. Backend returns { base, compare, diff }
+ * while some code may pass the raw diff object. This returns the diff object
+ * in either case.
+ */
+export function adaptBackendDiff(payload) {
+  if (!payload) return {};
+  if (payload.diff) return payload.diff;
+  return payload;
 }
