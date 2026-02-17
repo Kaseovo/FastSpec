@@ -2,14 +2,6 @@
   <div class="form-editor">
     <div class="form-header">
       <h3>Form Editor</h3>
-      <Button
-        icon="pi pi-sync"
-        text
-        rounded
-        v-tooltip.top="'Sync with JSON'"
-        @click="syncWithJson"
-        :disabled="!hasChanges"
-      />
     </div>
 
     <div class="form-content">
@@ -1468,11 +1460,34 @@ export default {
       { immediate: true, deep: true }
     );
 
-    // Watch for form changes
+    // Watch for form changes and emit updates to parent on every deep change
     watch(
       formData,
-      () => {
+      (newVal) => {
         hasChanges.value = true;
+        try {
+          const cleaned = JSON.parse(JSON.stringify(newVal));
+          if (cleaned.info) {
+            if (
+              cleaned.info.contact &&
+              !cleaned.info.contact.name &&
+              !cleaned.info.contact.email
+            ) {
+              delete cleaned.info.contact;
+            }
+            if (
+              cleaned.info.license &&
+              !cleaned.info.license.name &&
+              !cleaned.info.license.url
+            ) {
+              delete cleaned.info.license;
+            }
+          }
+          emit("update:modelValue", cleaned);
+        } catch (e) {
+          // Fallback: emit raw value if cloning fails
+          emit("update:modelValue", newVal);
+        }
       },
       { deep: true }
     );
@@ -1501,29 +1516,7 @@ export default {
       return httpMethods.filter((m) => !existingMethods.includes(m));
     });
 
-    const syncWithJson = () => {
-      // Clean up empty fields
-      const cleaned = JSON.parse(JSON.stringify(formData.value));
-
-      // Remove empty contact/license
-      if (
-        cleaned.info.contact &&
-        !cleaned.info.contact.name &&
-        !cleaned.info.contact.email
-      ) {
-        delete cleaned.info.contact;
-      }
-      if (
-        cleaned.info.license &&
-        !cleaned.info.license.name &&
-        !cleaned.info.license.url
-      ) {
-        delete cleaned.info.license;
-      }
-
-      emit("update:modelValue", cleaned);
-      hasChanges.value = false;
-    };
+    // syncWithJson removed: deep watcher now emits updates automatically
 
     const addServer = () => {
       formData.value.servers.push({ url: "", description: "" });
@@ -2074,7 +2067,6 @@ export default {
       availableMethodsForPath,
       availableSchemas,
       currentMethodData,
-      syncWithJson,
       addServer,
       removeServer,
       addPath,
