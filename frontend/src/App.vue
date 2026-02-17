@@ -57,6 +57,8 @@
           @spec-selected="loadSpec"
           :selected-id="currentSpec?.id"
         />
+
+        <!-- Render the FormEditor for explicit 'form' view -->
         <template v-if="viewMode === 'form'">
           <FormEditor
             :model-value="parsedSpec"
@@ -171,7 +173,7 @@ export default {
     const showLoginDialog = ref(false);
     const alert = ref({ show: false, message: "", type: "info" });
     const specListKey = ref(0);
-    const viewMode = ref("split"); // 'form', 'code', or 'split'
+    const viewMode = ref("form"); // 'form', 'code', or 'preview'
     const hasUnsavedChanges = ref(false);
     const autoSaveTimer = ref(null);
     const viewModeOptions = computed(() => [
@@ -359,6 +361,7 @@ export default {
       specContent.value = JSON.stringify(spec.spec_json, null, 2);
       initialSpec.value = JSON.parse(JSON.stringify(spec.spec_json)); // Deep clone
       hasUnsavedChanges.value = false;
+      viewMode.value = "form";
       updatePreview();
     };
 

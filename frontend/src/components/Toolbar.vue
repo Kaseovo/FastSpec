@@ -64,7 +64,7 @@ export default {
     const loadTemplate = inject("loadTemplate");
     const togglePreview = inject("togglePreview");
     const toggleDiff = inject("toggleDiff");
-    const viewMode = inject("viewMode", ref("split"));
+    const viewMode = inject("viewMode", ref("form"));
     const showTokenDialog = inject("showTokenDialog");
 
     const createBlank = () => {
