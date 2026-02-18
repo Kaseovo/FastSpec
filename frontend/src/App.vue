@@ -286,8 +286,11 @@ export default {
     };
 
     const updateFromForm = (formSpec) => {
+      // Prevent unnecessary updates to avoid recursive loop
+      const newContent = JSON.stringify(formSpec, null, 2);
+      if (specContent.value === newContent) return;
       parsedSpec.value = formSpec;
-      specContent.value = JSON.stringify(formSpec, null, 2);
+      specContent.value = newContent;
       const diff = compareSpecs(initialSpec.value, parsedSpec.value);
       checkForChanges(diff);
       scheduleAutoSave();
