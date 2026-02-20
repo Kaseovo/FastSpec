@@ -1,6 +1,7 @@
 <template>
   <div class="sidebar">
     <h3>Saved Specs</h3>
+    <!-- Removed unused selectedSpec/selectedVersion global dropdown -->
     <div v-if="loading" class="loading">
       <ProgressSpinner style="width: 30px; height: 30px" />
     </div>
@@ -48,6 +49,26 @@
               @click.stop="confirmDelete(spec)"
             />
           </div>
+        </div>
+        <div
+          style="
+            margin: 8px 0 0 0;
+            font-size: 13px;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <span>Version</span>
+          <Select
+            v-model="spec.selectedVersion"
+            :options="spec.versionOptions"
+            optionLabel="label"
+            optionValue="value"
+            style="min-width: 110px"
+            @change="onSpecVersionChange(spec)()"
+          />
         </div>
         <transition name="expand">
           <div v-if="expanded.has(spec.id)" class="spec-details">
@@ -159,6 +180,7 @@ import {
   deleteSpec,
   listSpecVersions,
   compareSpecVersions,
+  getSpecVersion,
 } from "../api/specs";
 import DiffDrawer from "./DiffDrawer.vue";
 
@@ -175,7 +197,7 @@ export default {
   },
   props: {
     selectedId: {
-      type: Number,
+      type: [Number, String],
       default: null,
     },
   },
@@ -187,6 +209,8 @@ export default {
     const confirm = useConfirm();
     const refreshSpecList = inject("refreshSpecList");
     const expanded = ref(new Set());
+
+    // Removed unused selectedSpec/selectedVersion global dropdown
 
     // History drawer state
     const historyOpen = ref(false);
@@ -213,6 +237,33 @@ export default {
       }))
     );
 
+    // For version dropdown below pi-history
+    const updateVersionDropdown = async (spec) => {
+      if (!spec) {
+        versionDropdownOptions.value = [];
+        selectedVersion.value = null;
+        return;
+      }
+      const vers = await listSpecVersions(spec.id);
+      versionDropdownOptions.value = vers.map((v) => ({
+        label: `${v.version}${v.is_published ? " (published)" : ""}`,
+        value: v.id,
+      }));
+      // Default to current version
+      selectedVersion.value =
+        vers.find((v) => v.version === spec.version)?.id || vers[0]?.id;
+    };
+
+    const onVersionChange = async () => {
+      if (!selectedSpec.value || !selectedVersion.value) return;
+      // Load the selected version and emit as selected
+      const versionData = await getSpecVersion(
+        selectedSpec.value.id,
+        selectedVersion.value
+      );
+      emit("spec-selected", { ...selectedSpec.value, ...versionData });
+    };
+
     const toggleExpand = (id) => {
       if (expanded.value.has(id)) {
         expanded.value.delete(id);
@@ -234,11 +285,34 @@ export default {
       return "Just now";
     };
 
+    // Per-spec version dropdown
+    const updateSpecVersions = async (spec) => {
+      if (!spec) return;
+      const vers = await listSpecVersions(spec.id);
+      spec.versionOptions = vers.map((v) => ({
+        label: `${v.version}${v.is_published ? " (published)" : ""}`,
+        value: v.id,
+      }));
+      spec.selectedVersion =
+        vers.find((v) => v.version === spec.version)?.id || vers[0]?.id;
+    };
+
+    const onSpecVersionChange = (spec) => async () => {
+      if (!spec.selectedVersion) return;
+      const versionData = await getSpecVersion(spec.id, spec.selectedVersion);
+      // Ensure the selectedId is updated to match the version's id for highlighting
+      emit("spec-selected", { ...spec, ...versionData, id: spec.id });
+    };
+
     const loadSpecs = async () => {
       loading.value = true;
       error.value = null;
       try {
-        specs.value = await fetchSpecs();
+        const fetched = await fetchSpecs();
+        for (const spec of fetched) {
+          await updateSpecVersions(spec);
+        }
+        specs.value = fetched;
       } catch (err) {
         error.value = "Failed to load specs";
         console.error(err);
@@ -247,8 +321,14 @@ export default {
       }
     };
 
-    const selectSpec = (spec) => {
-      emit("spec-selected", spec);
+    const selectSpec = async (spec) => {
+      // Always fetch the selected version if available
+      if (spec.selectedVersion) {
+        const versionData = await getSpecVersion(spec.id, spec.selectedVersion);
+        emit("spec-selected", { ...spec, ...versionData });
+      } else {
+        emit("spec-selected", spec);
+      }
     };
 
     const confirmDelete = (spec) => {
@@ -312,7 +392,9 @@ export default {
       }
     };
 
-    onMounted(loadSpecs);
+    onMounted(async () => {
+      await loadSpecs();
+    });
 
     // Watch for refresh trigger
     watch(refreshSpecList, loadSpecs);
@@ -326,6 +408,7 @@ export default {
       expanded,
       toggleExpand,
       formatRelativeTime,
+      onSpecVersionChange,
       // history
       historyOpen,
       historySpec,

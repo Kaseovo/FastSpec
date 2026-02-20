@@ -360,9 +360,23 @@ export default {
       if (autoSaveTimer.value) {
         clearTimeout(autoSaveTimer.value);
       }
-      currentSpec.value = spec;
-      specContent.value = JSON.stringify(spec.spec_json, null, 2);
-      initialSpec.value = JSON.parse(JSON.stringify(spec.spec_json)); // Deep clone
+      // Prefer fetched version if present
+      if (spec.content) {
+        // If this is a version fetch, 'content' is present (from getSpecVersion)
+        currentSpec.value = spec;
+        specContent.value = JSON.stringify(spec.content, null, 2);
+        initialSpec.value = JSON.parse(JSON.stringify(spec.content));
+      } else if (spec.spec_json) {
+        // If this is a normal fetch, spec_json is present
+        currentSpec.value = spec;
+        specContent.value = JSON.stringify(spec.spec_json, null, 2);
+        initialSpec.value = JSON.parse(JSON.stringify(spec.spec_json)); // Deep clone
+      } else {
+        // Fallback
+        currentSpec.value = spec;
+        specContent.value = JSON.stringify(getDefaultSpec(), null, 2);
+        initialSpec.value = JSON.parse(JSON.stringify(getDefaultSpec()));
+      }
       hasUnsavedChanges.value = false;
       viewMode.value = "form";
       updatePreview();
