@@ -322,10 +322,19 @@ export default {
     };
 
     const selectSpec = async (spec) => {
-      // Always fetch the selected version if available
-      if (spec.selectedVersion) {
-        const versionData = await getSpecVersion(spec.id, spec.selectedVersion);
-        emit("spec-selected", { ...spec, ...versionData });
+      // Always fetch the selected version if available, or use already selected version if no new version is picked
+      let versionId = spec.selectedVersion;
+      if (!versionId && spec.versionOptions && spec.versionOptions.length > 0) {
+        // Try to find the version id matching the current spec.version
+        const found = spec.versionOptions.find((v) =>
+          v.label.startsWith(spec.version)
+        );
+        versionId = found ? found.value : spec.versionOptions[0].value;
+      }
+      if (versionId) {
+        const versionData = await getSpecVersion(spec.id, versionId);
+        // Ensure the selected spec object is updated with the correct version fields, just like onSpecVersionChange
+        emit("spec-selected", { ...spec, ...versionData, id: spec.id });
       } else {
         emit("spec-selected", spec);
       }
