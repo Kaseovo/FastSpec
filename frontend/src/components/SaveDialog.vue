@@ -127,9 +127,12 @@ export default {
                 const found = versions.value.find(
                   (v) => v.version === props.currentVersion
                 );
-                selectedVersion.value = found ? found.version : (versions.value[0]?.version || "__create_new");
+                selectedVersion.value = found
+                  ? found.version
+                  : versions.value[0]?.version || "__create_new";
               } else {
-                selectedVersion.value = versions.value[0]?.version || "__create_new";
+                selectedVersion.value =
+                  versions.value[0]?.version || "__create_new";
               }
             } catch (e) {
               console.error("Failed to load versions", e);
@@ -153,7 +156,8 @@ export default {
       // Prepare version choice to inform parent how to proceed
       let versionChoice;
       if (showNewVersionInput.value) {
-        const createdVersion = newVersion.value.trim() || suggestedVersion.value;
+        const createdVersion =
+          newVersion.value.trim() || suggestedVersion.value;
         versionChoice = { action: "create", version: createdVersion };
         // After save, select the new version
         selectedVersion.value = createdVersion;
@@ -163,7 +167,10 @@ export default {
 
       // Emit save payload with name + versionChoice
       emit("save", { name: name.value.trim(), versionChoice });
-      emit("spec-saved", { name: name.value.trim(), version: versionChoice.version });
+      emit("spec-saved", {
+        name: name.value.trim(),
+        version: versionChoice.version,
+      });
       close();
     };
 

@@ -321,8 +321,15 @@ export default {
         // Optionally, auto-select the first spec as active in the UI
         if (fetched.length > 0 && fetched[0].versionOptions?.length > 0) {
           const firstSpec = fetched[0];
-          const versionData = await getSpecVersion(firstSpec.id, firstSpec.selectedVersion);
-          emit("spec-selected", { ...firstSpec, ...versionData, id: firstSpec.id });
+          const versionData = await getSpecVersion(
+            firstSpec.id,
+            firstSpec.selectedVersion
+          );
+          emit("spec-selected", {
+            ...firstSpec,
+            ...versionData,
+            id: firstSpec.id,
+          });
         }
       } catch (err) {
         error.value = "Failed to load specs";
