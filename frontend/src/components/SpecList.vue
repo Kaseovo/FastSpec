@@ -18,7 +18,6 @@
         <div class="spec-header">
           <div class="spec-info">
             <h4>{{ spec.name }}</h4>
-            <p>{{ spec.title }} v{{ spec.version }}</p>
           </div>
           <div class="spec-actions">
             <Button
