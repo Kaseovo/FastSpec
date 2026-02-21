@@ -289,11 +289,11 @@ export default {
       if (!spec) return;
       const vers = await listSpecVersions(spec.id);
       spec.versionOptions = vers.map((v) => ({
-        label: `${v.version}${v.is_published ? " (published)" : ""}`,
+        label: `${v.version}`,
         value: v.id,
       }));
-      spec.selectedVersion =
-        vers.find((v) => v.version === spec.version)?.id || vers[0]?.id;
+      // Always preselect the latest version (first returned by API)
+      spec.selectedVersion = vers[0]?.id || null;
     };
 
     const onSpecVersionChange = (spec) => async () => {
@@ -312,6 +312,18 @@ export default {
           await updateSpecVersions(spec);
         }
         specs.value = fetched;
+        // Always select and emit the latest version for each spec
+        for (const spec of fetched) {
+          if (spec.versionOptions?.length > 0) {
+            spec.selectedVersion = spec.versionOptions[0].value;
+          }
+        }
+        // Optionally, auto-select the first spec as active in the UI
+        if (fetched.length > 0 && fetched[0].versionOptions?.length > 0) {
+          const firstSpec = fetched[0];
+          const versionData = await getSpecVersion(firstSpec.id, firstSpec.selectedVersion);
+          emit("spec-selected", { ...firstSpec, ...versionData, id: firstSpec.id });
+        }
       } catch (err) {
         error.value = "Failed to load specs";
         console.error(err);

@@ -122,16 +122,14 @@ export default {
           if (props.specId) {
             try {
               versions.value = await listSpecVersions(props.specId);
-              // Preselect currentVersion if provided and exists in list
+              // Always select the latest version (first returned by API) if no currentVersion is provided
               if (props.currentVersion) {
                 const found = versions.value.find(
                   (v) => v.version === props.currentVersion
                 );
-                selectedVersion.value = found ? found.version : "__create_new";
+                selectedVersion.value = found ? found.version : (versions.value[0]?.version || "__create_new");
               } else {
-                // default to first version or create new
-                selectedVersion.value =
-                  versions.value[0]?.version || "__create_new";
+                selectedVersion.value = versions.value[0]?.version || "__create_new";
               }
             } catch (e) {
               console.error("Failed to load versions", e);
@@ -153,16 +151,19 @@ export default {
       }
 
       // Prepare version choice to inform parent how to proceed
-      const versionChoice = showNewVersionInput.value
-        ? {
-            action: "create",
-            version: newVersion.value.trim() || suggestedVersion.value,
-          }
-        : { action: "use", version: selectedVersion.value };
+      let versionChoice;
+      if (showNewVersionInput.value) {
+        const createdVersion = newVersion.value.trim() || suggestedVersion.value;
+        versionChoice = { action: "create", version: createdVersion };
+        // After save, select the new version
+        selectedVersion.value = createdVersion;
+      } else {
+        versionChoice = { action: "use", version: selectedVersion.value };
+      }
 
       // Emit save payload with name + versionChoice
       emit("save", { name: name.value.trim(), versionChoice });
-      emit("spec-saved", { name: name.value.trim() });
+      emit("spec-saved", { name: name.value.trim(), version: versionChoice.version });
       close();
     };
 
