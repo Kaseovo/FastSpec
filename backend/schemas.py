@@ -157,7 +157,6 @@ class SpecVersionResponse(BaseModel):
     created_by: Optional[int] = None
     meta: Optional[Dict[str, Any]] = None
     created_at: datetime
-    is_published: bool
 
     class Config:
         from_attributes = True

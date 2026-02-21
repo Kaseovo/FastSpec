@@ -1,3 +1,5 @@
+from fastapi import Body
+
 """
 API routes for OpenAPI specifications
 """
@@ -404,7 +406,6 @@ def _serialize_version(version: SpecVersion) -> Dict[str, Any]:
         "created_by": version.created_by,
         "meta": version.meta,
         "created_at": version.created_at,
-        "is_published": bool(version.is_published),
     }
 
 
@@ -496,7 +497,7 @@ async def create_version(
 
     try:
         db.add(new_version)
-        db.flush()
+        db.commit()
         db.refresh(new_version)
     except IntegrityError as e:
         logger.warning("SpecVersion unique constraint violated: %s", e)
@@ -657,4 +658,40 @@ async def publish_version(
         )
 
     # refresh may not be available on simple sessions in tests; return serialized version
+    return _serialize_version(ver)
+
+
+@router.put("/{spec_id}/versions/{version_id}", response_model=SpecVersionResponse)
+async def update_version(
+    spec_id: int,
+    version_id: str,
+    payload: SpecVersionCreate = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update an existing version for a spec."""
+    spec = _resolve_spec_or_404(db, spec_id, current_user)
+    ver = _resolve_version(db, spec_id, version_id)
+    if not ver:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Spec version not found"
+        )
+    if not _check_can_modify_version(current_user, spec, ver):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not allowed to edit this version",
+        )
+    # Validate payload
+    if not payload.version or not isinstance(payload.content, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload"
+        )
+    # Update fields
+    ver.version = payload.version
+    ver.content = payload.content
+    if payload.meta is not None:
+        ver.meta = payload.meta
+    db.add(ver)
+    db.commit()
+    db.refresh(ver)
     return _serialize_version(ver)

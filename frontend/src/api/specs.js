@@ -1,3 +1,8 @@
+export const updateSpecVersion = async (specId, versionId, payload) => {
+  // payload: { version: string, content: object, metadata?: object }
+  const response = await api.put(`/${specId}/versions/${versionId}`, payload);
+  return response.data;
+};
 import axios from "axios";
 import { useAuth } from "../stores/auth";
 

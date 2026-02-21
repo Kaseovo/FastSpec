@@ -26,7 +26,7 @@
         >
           <option value="__create_new">Create new version...</option>
           <option v-for="v in versions" :key="v.id" :value="v.version">
-            {{ v.version }} <span v-if="v.is_published">(published)</span>
+            {{ v.version }}
           </option>
         </select>
       </div>
@@ -78,6 +78,11 @@ export default {
       type: [Number, String],
       default: null,
     },
+    currentVersion: {
+      // the version string to preselect when dialog opens
+      type: String,
+      default: null,
+    },
   },
   emits: ["update:visible", "save", "spec-saved"],
   setup(props, { emit }) {
@@ -117,11 +122,17 @@ export default {
           if (props.specId) {
             try {
               versions.value = await listSpecVersions(props.specId);
-              // default to latest published or first
-              const published = versions.value.find((v) => v.is_published);
-              selectedVersion.value = published
-                ? published.version
-                : versions.value[0]?.version || "__create_new";
+              // Preselect currentVersion if provided and exists in list
+              if (props.currentVersion) {
+                const found = versions.value.find(
+                  (v) => v.version === props.currentVersion
+                );
+                selectedVersion.value = found ? found.version : "__create_new";
+              } else {
+                // default to first version or create new
+                selectedVersion.value =
+                  versions.value[0]?.version || "__create_new";
+              }
             } catch (e) {
               console.error("Failed to load versions", e);
               versions.value = [];

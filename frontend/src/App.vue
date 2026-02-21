@@ -87,6 +87,8 @@
       :visible="showSaveDialog"
       @update:visible="showSaveDialog = $event"
       :spec-name="currentSpec?.name || ''"
+      :spec-id="currentSpec?.id || null"
+      :current-version="currentSpec?.version || null"
       @save="saveSpec"
     />
 
@@ -317,42 +319,9 @@ export default {
         clearTimeout(autoSaveTimer.value);
       }
 
-      // Only auto-save if user is authenticated and has a current spec
-      if (
-        !isAuthenticated.value ||
-        !currentSpec.value ||
-        !hasUnsavedChanges.value
-      ) {
-        return;
-      }
-
-      // Schedule auto-save after 3 seconds of inactivity
-      autoSaveTimer.value = setTimeout(async () => {
-        try {
-          const spec_json = JSON.parse(specContent.value);
-          const updated = await updateSpec(currentSpec.value.id, {
-            name: currentSpec.value.name,
-            spec_json,
-            // include current live version as base for optimistic check
-            version: currentSpec.value.version,
-          });
-          currentSpec.value = updated;
-          initialSpec.value = JSON.parse(JSON.stringify(spec_json));
-          hasUnsavedChanges.value = false;
-          showAlert("Auto-saved ✓", "success");
-        } catch (error) {
-          // If conflict on auto-save, inform the user
-          if (error.response?.status === 409) {
-            const detail = error.response.data?.detail;
-            const msg = detail?.message
-              ? `${detail.message}: expected ${detail.expected}, provided ${detail.provided}`
-              : "Version conflict during auto-save";
-            showAlert(msg, "error");
-          } else {
-            console.error("Auto-save failed:", error);
-          }
-        }
-      }, 3000);
+      // Auto-save disabled: Only save when user clicks Save
+      // No PUT request will be sent automatically on form/code changes
+      // Save logic is handled in saveSpec()
     };
 
     const loadSpec = (spec) => {
@@ -411,7 +380,6 @@ export default {
         return;
       }
 
-      // Support older calls that passed only the name string
       const isString = typeof payloadOrName === "string";
       const name = isString ? payloadOrName : payloadOrName.name;
       const versionChoice = !isString ? payloadOrName.versionChoice : null;
@@ -419,38 +387,70 @@ export default {
       try {
         const spec_json = JSON.parse(specContent.value);
 
-        if (currentSpec.value) {
-          // Update existing
-          // If user chose to create a new version, ensure spec_json.info.version
-          // matches the requested new version so backend will create the version
-          if (versionChoice && versionChoice.action === "create") {
-            spec_json.info = spec_json.info || {};
-            spec_json.info.version = versionChoice.version;
-          }
-
-          // Provide base version for optimistic concurrency check (current live)
-          const updated = await updateSpec(currentSpec.value.id, {
-            name,
-            spec_json,
-            version: currentSpec.value.version,
-          });
-          currentSpec.value = updated;
-          initialSpec.value = JSON.parse(JSON.stringify(spec_json)); // Update baseline
-          hasUnsavedChanges.value = false;
-          showAlert("Spec updated successfully!", "success");
-        } else {
-          // Create new
-          // If a version choice is provided, set it on the spec_json
-          if (versionChoice && versionChoice.action === "create") {
-            spec_json.info = spec_json.info || {};
-            spec_json.info.version = versionChoice.version;
-          }
-
+        // New spec (no currentSpec)
+        if (!currentSpec.value) {
+          // Do not modify spec_json.info.version
           const created = await createSpec({ name, spec_json });
           currentSpec.value = created;
-          initialSpec.value = JSON.parse(JSON.stringify(spec_json)); // Update baseline
+          initialSpec.value = JSON.parse(JSON.stringify(spec_json));
           hasUnsavedChanges.value = false;
           showAlert("Spec created successfully!", "success");
+        } else {
+          // Existing spec: versioning logic
+          const specId = currentSpec.value.id;
+          // If user chose to create a new version
+          if (versionChoice && versionChoice.action === "create") {
+            // Do not modify spec_json.info.version
+            const { createSpecVersion } = await import("./api/specs");
+            const created = await createSpecVersion(specId, {
+              version: versionChoice.version,
+              content: spec_json,
+            });
+            currentSpec.value = created;
+            initialSpec.value = JSON.parse(JSON.stringify(spec_json));
+            hasUnsavedChanges.value = false;
+            showAlert("Spec version created successfully!", "success");
+          } else if (versionChoice && versionChoice.action === "use") {
+            // PUT /api/specs/{id}/versions/{version_id}
+            // Do not modify spec_json.info.version
+            const { updateSpecVersion, listSpecVersions } = await import(
+              "./api/specs"
+            );
+            // Find versionId for the selected version
+            const versions = await listSpecVersions(specId);
+            const targetVersion = versions.find(
+              (v) => v.version === versionChoice.version
+            );
+            if (!targetVersion) throw new Error("Version not found");
+            const updated = await updateSpecVersion(specId, targetVersion.id, {
+              version: versionChoice.version,
+              content: spec_json,
+            });
+            currentSpec.value = updated;
+            initialSpec.value = JSON.parse(JSON.stringify(spec_json));
+            hasUnsavedChanges.value = false;
+            showAlert("Spec version updated successfully!", "success");
+          } else {
+            // Default: update current version (PUT /api/specs/{id}/versions/{version_id})
+            const { updateSpecVersion, listSpecVersions } = await import(
+              "./api/specs"
+            );
+            const currentVersion = currentSpec.value.version;
+            // Do not modify spec_json.info.version
+            const versions = await listSpecVersions(specId);
+            const targetVersion = versions.find(
+              (v) => v.version === currentVersion
+            );
+            if (!targetVersion) throw new Error("Current version not found");
+            const updated = await updateSpecVersion(specId, targetVersion.id, {
+              version: currentVersion,
+              content: spec_json,
+            });
+            currentSpec.value = updated;
+            initialSpec.value = JSON.parse(JSON.stringify(spec_json));
+            hasUnsavedChanges.value = false;
+            showAlert("Spec version updated successfully!", "success");
+          }
         }
 
         showSaveDialog.value = false;
