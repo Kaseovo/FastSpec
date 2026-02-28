@@ -1,0 +1,28 @@
+{
+	"mcpServers": {
+		"github": {
+			"command": "docker",
+			"args": [
+				"run",
+				"-i",
+				"--rm",
+				"-e",
+				"GITHUB_PERSONAL_ACCESS_TOKEN",
+				"-e",
+				"GITHUB_TOOLSETS",
+				"-e",
+				"GITHUB_READ_ONLY",
+				"ghcr.io/github/github-mcp-server"
+			],
+			"env": {
+				"GITHUB_PERSONAL_ACCESS_TOKEN": "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",
+				"GITHUB_TOOLSETS": "",
+				"GITHUB_READ_ONLY": "0"
+			},
+			"alwaysAllow": [
+				"issue_write",
+				"get_label"
+			]
+		}
+	}
+}
