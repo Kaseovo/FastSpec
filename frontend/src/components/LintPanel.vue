@@ -14,7 +14,10 @@
     </div>
 
     <div v-else-if="!results" class="lint-empty">
-      <i class="pi pi-search" style="font-size: 2rem; color: var(--p-text-muted-color)" />
+      <i
+        class="pi pi-search"
+        style="font-size: 2rem; color: var(--p-text-muted-color)"
+      />
       <p>Run the linter to see quality feedback for this spec.</p>
       <Button label="Run Lint" icon="pi pi-play" @click="$emit('run-lint')" />
     </div>
@@ -22,8 +25,11 @@
     <template v-else>
       <!-- Score bar -->
       <div class="lint-score-bar">
+        <span class="score-text">Score:</span>
         <div class="score-label">
-          <span class="score-value" :class="scoreClass">{{ results.score }}</span>
+          <span class="score-value" :class="scoreClass">{{
+            results.score
+          }}</span>
           <span class="score-unit">/ 100</span>
         </div>
         <div class="score-track">
@@ -53,7 +59,9 @@
       <!-- Result list -->
       <div v-if="filteredResults.length === 0" class="lint-no-results">
         <i class="pi pi-check-circle" style="color: var(--p-green-500)" />
-        <span>No {{ activeFilter ? activeFilter + ' ' : '' }}issues found.</span>
+        <span
+          >No {{ activeFilter ? activeFilter + " " : "" }}issues found.</span
+        >
       </div>
 
       <div v-else class="lint-results">
@@ -69,8 +77,11 @@
             <div class="result-message">{{ result.message }}</div>
             <div class="result-meta">
               <code class="result-code">{{ result.code }}</code>
-              <span v-if="result.path && result.path.length" class="result-path">
-                {{ result.path.join(' › ') }}
+              <span
+                v-if="result.path && result.path.length"
+                class="result-path"
+              >
+                {{ result.path.join(" › ") }}
               </span>
               <span
                 v-if="result.range && result.range.start"
@@ -118,11 +129,11 @@ export default {
     const activeFilter = ref(null);
 
     const severities = [
-      { key: null,     label: "All",      icon: "⚪" },
-      { key: "error", label: "Errors",   icon: "🔴" },
-      { key: "warn",  label: "Warnings", icon: "🟠" },
-      { key: "info",  label: "Info",     icon: "🔵" },
-      { key: "hint",  label: "Hints",    icon: "💡" },
+      { key: null, label: "All", icon: "⚪" },
+      { key: "error", label: "Errors", icon: "🔴" },
+      { key: "warn", label: "Warnings", icon: "🟠" },
+      { key: "info", label: "Info", icon: "🔵" },
+      { key: "hint", label: "Hints", icon: "💡" },
     ];
 
     const toggleFilter = (key) => {
@@ -149,7 +160,14 @@ export default {
       return map[sev] ?? "⚪";
     };
 
-    return { activeFilter, severities, toggleFilter, filteredResults, scoreClass, severityIcon };
+    return {
+      activeFilter,
+      severities,
+      toggleFilter,
+      filteredResults,
+      scoreClass,
+      severityIcon,
+    };
   },
 };
 </script>
@@ -216,12 +234,24 @@ export default {
   border-radius: 4px;
   transition: width 0.4s ease;
 }
-.score-good         { color: #22c55e; }
-.score-warn         { color: #f97316; }
-.score-bad          { color: #ef4444; }
-.score-fill.score-good { background: #22c55e; }
-.score-fill.score-warn { background: #f97316; }
-.score-fill.score-bad  { background: #ef4444; }
+.score-good {
+  color: #22c55e;
+}
+.score-warn {
+  color: #f97316;
+}
+.score-bad {
+  color: #ef4444;
+}
+.score-fill.score-good {
+  background: #22c55e;
+}
+.score-fill.score-warn {
+  background: #f97316;
+}
+.score-fill.score-bad {
+  background: #ef4444;
+}
 
 /* Summary pills */
 .lint-summary {
@@ -242,12 +272,24 @@ export default {
   background: var(--p-surface-card, #fff);
   transition: border-color 0.15s, background 0.15s;
 }
-.severity-pill:hover               { opacity: 0.85; }
-.severity-pill.active              { border-color: currentColor; }
-.severity-pill.error               { color: #ef4444; }
-.severity-pill.warn                { color: #f97316; }
-.severity-pill.info                { color: #3b82f6; }
-.severity-pill.hint                { color: #a855f7; }
+.severity-pill:hover {
+  opacity: 0.85;
+}
+.severity-pill.active {
+  border-color: currentColor;
+}
+.severity-pill.error {
+  color: #ef4444;
+}
+.severity-pill.warn {
+  color: #f97316;
+}
+.severity-pill.info {
+  color: #3b82f6;
+}
+.severity-pill.hint {
+  color: #a855f7;
+}
 .pill-count {
   background: currentColor;
   color: #fff;
@@ -280,14 +322,31 @@ export default {
   cursor: pointer;
   transition: background 0.1s;
 }
-.lint-result-item:hover             { background: var(--p-surface-hover, #f1f5f9); }
-.lint-result-item.error             { border-left-color: #ef4444; }
-.lint-result-item.warn              { border-left-color: #f97316; }
-.lint-result-item.info              { border-left-color: #3b82f6; }
-.lint-result-item.hint              { border-left-color: #a855f7; }
+.lint-result-item:hover {
+  background: var(--p-surface-hover, #f1f5f9);
+}
+.lint-result-item.error {
+  border-left-color: #ef4444;
+}
+.lint-result-item.warn {
+  border-left-color: #f97316;
+}
+.lint-result-item.info {
+  border-left-color: #3b82f6;
+}
+.lint-result-item.hint {
+  border-left-color: #a855f7;
+}
 
-.result-icon { font-size: 1rem; line-height: 1.5; flex-shrink: 0; }
-.result-body { flex: 1; min-width: 0; }
+.result-icon {
+  font-size: 1rem;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+.result-body {
+  flex: 1;
+  min-width: 0;
+}
 .result-message {
   font-size: 0.875rem;
   color: var(--p-text-color, #212529);
@@ -307,6 +366,16 @@ export default {
   border-radius: 3px;
   font-family: monospace;
 }
-.result-path { font-family: monospace; }
-.result-line { font-style: italic; }
+.result-path {
+  font-family: monospace;
+}
+.result-line {
+  font-style: italic;
+}
+.score-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-right: 8px;
+  color: var(--p-text-muted-color, #6c757d);
+}
 </style>
