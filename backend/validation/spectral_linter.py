@@ -52,6 +52,7 @@ def _build_command(spec_path: str, ruleset: str) -> List[str]:
             "./spectral.oas.yaml",
             "--format",
             "json",
+            "--quiet"
         ]
     else:
          logger.warning(

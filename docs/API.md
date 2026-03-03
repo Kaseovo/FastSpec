@@ -124,3 +124,34 @@ Implementation notes
 - Authentication is enforced via FastAPI dependencies (`get_current_user`) declared in `backend/auth/dependencies.py`.
 - Version comparison uses `backend/validation/diff_utils.compare_specs` which returns a structured JSON diff used by the `/specs/{id}/compare` endpoint.
 - Create/publish/delete operations use DB transactions and handle unique constraint violations (returning 409 on conflict).
+
+## Lint endpoints
+
+- POST /lint/{spec_id}
+  - Query params:
+    - `version` (string, required): The spec version to lint
+    - `ruleset` (string, optional): Spectral ruleset identifier or URL (default: spectral:oas)
+  - Auth: Requires JWT via dependency `get_current_user`.
+  - Returns: `{ score, summary, results }` for the specified spec version
+  - Errors:
+    - 404 if spec or version not found or not owned by user
+  - Example:
+    ```http
+    POST /lint/6e7976e1-facb-4dd5-8f98-5dabc0a15b41?version=1.0.0&ruleset=spectral:oas
+    Authorization: Bearer <token>
+    ```
+
+- POST /lint
+  - Body: `{ spec_json: object, ruleset?: string }`
+  - Auth: Requires JWT via dependency `get_current_user`.
+  - Returns: `{ score, summary, results }` for the provided spec JSON
+  - Example:
+    ```http
+    POST /lint
+    Content-Type: application/json
+    Authorization: Bearer <token>
+    {
+      "spec_json": { ... },
+      "ruleset": "spectral:oas"
+    }
+    ```

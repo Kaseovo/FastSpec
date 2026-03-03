@@ -149,9 +149,14 @@ export const fetchOpenApi = async () => {
  * POST /api/lint/{specId}?ruleset=spectral:oas
  * Returns: { score, summary, results }
  */
-export const lintSpecById = async (specId, ruleset = "spectral:oas") => {
+export const lintSpecById = async (
+  specId,
+  version,
+  ruleset = "spectral:oas",
+) => {
+  if (!version) throw new Error("Version is required for linting");
   const response = await lintApi.post(`/${specId}`, null, {
-    params: { ruleset },
+    params: { version, ruleset },
   });
   return response.data;
 };

@@ -148,7 +148,13 @@ import SaveDialog from "./components/SaveDialog.vue";
 import LoginPage from "./components/LoginPage.vue";
 import TokenManager from "./components/TokenManager.vue";
 import LintPanel from "./components/LintPanel.vue";
-import { validateSpec, createSpec, updateSpec, lintSpec, lintSpecById } from "./api/specs";
+import {
+  validateSpec,
+  createSpec,
+  updateSpec,
+  lintSpec,
+  lintSpecById,
+} from "./api/specs";
 import { compareSpecs } from "./utils/diffUtils";
 import { generateMarkdownReport } from "./utils/markdownGenerator";
 import { useAuth } from "./stores/auth";
@@ -195,24 +201,24 @@ export default {
     const hasUnsavedChanges = ref(false);
     const autoSaveTimer = ref(null);
     const viewModeOptions = computed(() => [
-      { label: "Form",    value: "form",    icon: "pi pi-list" },
-      { label: "Code",    value: "code",    icon: "pi pi-code" },
+      { label: "Form", value: "form", icon: "pi pi-list" },
+      { label: "Code", value: "code", icon: "pi pi-code" },
       { label: "Preview", value: "preview", icon: "pi pi-eye" },
-      { label: "Lint",    value: "lint",    icon: "pi pi-search" },
+      { label: "Lint", value: "lint", icon: "pi pi-search" },
     ]);
 
     // ── Template refs ────────────────────────────────────────────────────────
     const editorPanelRef = ref(null);
 
     // ── Lint state ───────────────────────────────────────────────────────────
-    const lintResults  = ref(null);   // full LintResponse object
-    const lintLoading  = ref(false);
-    const lintError    = ref(null);
-    const lintScore    = computed(() => lintResults.value?.score ?? null);
+    const lintResults = ref(null); // full LintResponse object
+    const lintLoading = ref(false);
+    const lintError = ref(null);
+    const lintScore = computed(() => lintResults.value?.score ?? null);
 
     const runLint = async () => {
-      lintLoading.value  = true;
-      lintError.value    = null;
+      lintLoading.value = true;
+      lintError.value = null;
       try {
         let specJson;
         try {
@@ -222,9 +228,12 @@ export default {
           return;
         }
 
-        if (currentSpec.value?.id) {
+        if (currentSpec.value?.id && currentSpec.value?.version) {
           // Prefer stored-spec lint so Spectral can resolve $ref paths from file
-          lintResults.value = await lintSpecById(currentSpec.value.id);
+          lintResults.value = await lintSpecById(
+            currentSpec.value.id,
+            currentSpec.value.version
+          );
         } else {
           lintResults.value = await lintSpec(specJson);
         }
@@ -714,9 +723,9 @@ export default {
     provide("refreshSpecList", specListKey);
     provide("showTokenDialog", () => (showTokenDialog.value = true));
     // Lint context for Toolbar
-    provide("lintScore",   lintScore);
+    provide("lintScore", lintScore);
     provide("lintLoading", lintLoading);
-    provide("runLint",     runLint);
+    provide("runLint", runLint);
 
     return {
       isAuthenticated,

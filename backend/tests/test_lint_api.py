@@ -184,12 +184,24 @@ def test_lint_by_spec_id(db_session):
     db_session.commit()
     db_session.refresh(spec)
 
+    # Create a versioned snapshot
+    from models import SpecVersion
+
+    spec_version = SpecVersion(
+        spec_id=spec.id,
+        version="1.0.0",
+        content=VALID_SPEC,
+        created_by=user.id,
+    )
+    db_session.add(spec_version)
+    db_session.commit()
+
     app.dependency_overrides[get_current_user] = lambda: user
 
     with patch(
         "routers.lint.run_spectral", side_effect=_mock_spectral(SPECTRAL_NO_ISSUES)
     ):
-        resp = client.post(f"/lint/{spec.id}")
+        resp = client.post(f"/lint/{spec.id}?version=1.0.0")
 
     assert resp.status_code == 200
     assert resp.json()["score"] == 100

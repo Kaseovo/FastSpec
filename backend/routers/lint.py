@@ -6,6 +6,7 @@ import json
 import logging
 from typing import Optional
 from uuid import UUID
+from models import SpecVersion
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -49,6 +50,10 @@ def _do_lint(spec_json: dict, ruleset: str) -> LintResponse:
 )
 async def lint_spec_by_id(
     spec_id: str,
+    version: str = Query(
+        ...,  # required
+        description="Version of the spec to lint (required)",
+    ),
     ruleset: str = Query(
         default="spectral:oas",
         description="Spectral ruleset identifier or URL",
@@ -67,7 +72,18 @@ async def lint_spec_by_id(
             detail=f"Spec with id {spec_id} not found",
         )
 
-    spec_json = json.loads(spec.spec_json)
+    spec_version = (
+        db.query(SpecVersion)
+        .filter(SpecVersion.spec_id == spec.id, SpecVersion.version == version)
+        .first()
+    )
+    if not spec_version:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Version {version} for spec {spec_id} not found",
+        )
+
+    spec_json = spec_version.content
     return _do_lint(spec_json, ruleset)
 
 
