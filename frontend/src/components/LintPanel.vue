@@ -118,6 +118,7 @@ export default {
     const activeFilter = ref(null);
 
     const severities = [
+      { key: null,     label: "All",      icon: "⚪" },
       { key: "error", label: "Errors",   icon: "🔴" },
       { key: "warn",  label: "Warnings", icon: "🟠" },
       { key: "info",  label: "Info",     icon: "🔵" },
