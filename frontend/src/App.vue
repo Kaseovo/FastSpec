@@ -68,8 +68,10 @@
 
         <template v-else-if="viewMode === 'code'">
           <EditorPanel
+            ref="editorPanelRef"
             v-model="specContent"
             :show-validate="true"
+            :lint-results="lintResults"
             @update:modelValue="updatePreview"
           />
         </template>
@@ -78,6 +80,18 @@
           <!-- Full-width Preview view: render PreviewPanel as drawer did -->
           <div class="preview-full">
             <PreviewPanel :spec="parsedSpec" />
+          </div>
+        </template>
+
+        <template v-else-if="viewMode === 'lint'">
+          <div class="lint-full">
+            <LintPanel
+              :results="lintResults"
+              :loading="lintLoading"
+              :error="lintError"
+              @run-lint="runLint"
+              @go-to-line="handleGoToLine"
+            />
           </div>
         </template>
       </div>
@@ -133,7 +147,8 @@ import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
 import LoginPage from "./components/LoginPage.vue";
 import TokenManager from "./components/TokenManager.vue";
-import { validateSpec, createSpec, updateSpec } from "./api/specs";
+import LintPanel from "./components/LintPanel.vue";
+import { validateSpec, createSpec, updateSpec, lintSpec, lintSpecById } from "./api/specs";
 import { compareSpecs } from "./utils/diffUtils";
 import { generateMarkdownReport } from "./utils/markdownGenerator";
 import { useAuth } from "./stores/auth";
@@ -157,6 +172,7 @@ export default {
     SaveDialog,
     LoginPage,
     TokenManager,
+    LintPanel,
   },
   setup() {
     // Initialize authentication
@@ -179,10 +195,57 @@ export default {
     const hasUnsavedChanges = ref(false);
     const autoSaveTimer = ref(null);
     const viewModeOptions = computed(() => [
-      { label: "Form", value: "form", icon: "pi pi-list" },
-      { label: "Code", value: "code", icon: "pi pi-code" },
+      { label: "Form",    value: "form",    icon: "pi pi-list" },
+      { label: "Code",    value: "code",    icon: "pi pi-code" },
       { label: "Preview", value: "preview", icon: "pi pi-eye" },
+      { label: "Lint",    value: "lint",    icon: "pi pi-search" },
     ]);
+
+    // ── Template refs ────────────────────────────────────────────────────────
+    const editorPanelRef = ref(null);
+
+    // ── Lint state ───────────────────────────────────────────────────────────
+    const lintResults  = ref(null);   // full LintResponse object
+    const lintLoading  = ref(false);
+    const lintError    = ref(null);
+    const lintScore    = computed(() => lintResults.value?.score ?? null);
+
+    const runLint = async () => {
+      lintLoading.value  = true;
+      lintError.value    = null;
+      try {
+        let specJson;
+        try {
+          specJson = JSON.parse(specContent.value);
+        } catch {
+          lintError.value = "Cannot lint: the editor contains invalid JSON.";
+          return;
+        }
+
+        if (currentSpec.value?.id) {
+          // Prefer stored-spec lint so Spectral can resolve $ref paths from file
+          lintResults.value = await lintSpecById(currentSpec.value.id);
+        } else {
+          lintResults.value = await lintSpec(specJson);
+        }
+      } catch (err) {
+        lintError.value =
+          err.response?.data?.detail ?? err.message ?? "Lint failed";
+      } finally {
+        lintLoading.value = false;
+      }
+    };
+
+    const handleGoToLine = (result) => {
+      // Switch to code view so markers are visible, then scroll
+      viewMode.value = "code";
+      // Use nextTick to wait for EditorPanel to mount if switching views
+      import("vue").then(({ nextTick }) => {
+        nextTick(() => {
+          editorPanelRef.value?.goToLine(result);
+        });
+      });
+    };
 
     const showTokenDialog = ref(false);
 
@@ -455,6 +518,9 @@ export default {
 
         showSaveDialog.value = false;
         specListKey.value++;
+
+        // Auto-run lint after a successful save (non-blocking)
+        runLint().catch(() => {});
       } catch (error) {
         if (error.response?.status === 409) {
           const detail = error.response.data?.detail;
@@ -647,6 +713,10 @@ export default {
     // Parent increments specListKey.value after save to trigger a refresh in SpecList.
     provide("refreshSpecList", specListKey);
     provide("showTokenDialog", () => (showTokenDialog.value = true));
+    // Lint context for Toolbar
+    provide("lintScore",   lintScore);
+    provide("lintLoading", lintLoading);
+    provide("runLint",     runLint);
 
     return {
       isAuthenticated,
@@ -665,6 +735,13 @@ export default {
       updateFromForm,
       loadSpec,
       saveSpec,
+      // Lint
+      editorPanelRef,
+      lintResults,
+      lintLoading,
+      lintError,
+      runLint,
+      handleGoToLine,
       // OpenAPI file helpers
       fetchOpenApiFile,
       openapiFileRaw,
@@ -769,6 +846,16 @@ body {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
   overflow: auto;
   max-height: calc(100vh - 420px);
+}
+
+.preview-full,
+.lint-full {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: white;
 }
 
 @media (max-width: 1200px) {

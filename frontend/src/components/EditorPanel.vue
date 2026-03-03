@@ -19,11 +19,19 @@
 </template>
 
 <script>
-import { ref, onMounted, watch, inject } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, inject } from "vue";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import Button from "primevue/button";
+
+// Spectral severity (int) → Monaco MarkerSeverity
+const SPECTRAL_TO_MONACO_SEVERITY = {
+  error: monaco.MarkerSeverity.Error,
+  warn:  monaco.MarkerSeverity.Warning,
+  info:  monaco.MarkerSeverity.Info,
+  hint:  monaco.MarkerSeverity.Hint,
+};
 
 export default {
   name: "EditorPanel",
@@ -39,6 +47,14 @@ export default {
       type: Boolean,
       default: false,
     },
+    /**
+     * Lint results from the backend: { score, summary, results[] }
+     * When set, Monaco markers (squiggles) are applied automatically.
+     */
+    lintResults: {
+      type: Object,
+      default: null,
+    },
   },
   emits: ["update:modelValue"],
   setup(props, { emit }) {
@@ -46,13 +62,54 @@ export default {
     let editor = null;
     const validateCurrentSpec = inject("validateCurrentSpec");
 
+    // ── Monaco markers ──────────────────────────────────────────────────────
+    function applyLintMarkers(results) {
+      if (!editor) return;
+      const model = editor.getModel();
+      if (!model) return;
+
+      if (!results || !results.results || results.results.length === 0) {
+        monaco.editor.setModelMarkers(model, "spectral", []);
+        return;
+      }
+
+      const markers = results.results.map((r) => {
+        const startLine   = (r.range?.start?.line   ?? 0) + 1; // Spectral is 0-based
+        const startCol    = (r.range?.start?.character ?? 0) + 1;
+        const endLine     = (r.range?.end?.line     ?? startLine - 1) + 1;
+        const endCol      = (r.range?.end?.character ?? startCol) + 1;
+
+        return {
+          severity : SPECTRAL_TO_MONACO_SEVERITY[r.severity] ?? monaco.MarkerSeverity.Warning,
+          message  : `[${r.code}] ${r.message}`,
+          startLineNumber: startLine,
+          startColumn    : startCol,
+          endLineNumber  : endLine,
+          endColumn      : endCol,
+          source         : "Spectral",
+        };
+      });
+
+      monaco.editor.setModelMarkers(model, "spectral", markers);
+    }
+
+    /**
+     * Scroll Monaco to the line reported by a lint result.
+     * Call this from the parent via a provide/inject or emitted event.
+     */
+    function goToLine(result) {
+      if (!editor || !result?.range?.start) return;
+      const line = (result.range.start.line ?? 0) + 1;
+      editor.revealLineInCenter(line);
+      editor.setPosition({ lineNumber: line, column: (result.range.start.character ?? 0) + 1 });
+      editor.focus();
+    }
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
     onMounted(() => {
-      // Configure Monaco Editor worker
       self.MonacoEnvironment = {
         getWorker(_, label) {
-          if (label === "json") {
-            return new jsonWorker();
-          }
+          if (label === "json") return new jsonWorker();
           return new editorWorker();
         },
       };
@@ -70,6 +127,16 @@ export default {
       editor.onDidChangeModelContent(() => {
         emit("update:modelValue", editor.getValue());
       });
+
+      // Apply markers if lint results were passed before mount
+      if (props.lintResults) applyLintMarkers(props.lintResults);
+    });
+
+    onBeforeUnmount(() => {
+      if (editor) {
+        editor.dispose();
+        editor = null;
+      }
     });
 
     watch(
@@ -81,10 +148,17 @@ export default {
       }
     );
 
+    // Re-apply markers whenever lint results change
+    watch(
+      () => props.lintResults,
+      (newResults) => applyLintMarkers(newResults),
+      { deep: true }
+    );
+
     return {
       editorContainer,
       validateCurrentSpec,
-      showValidate: props.showValidate,
+      goToLine,
     };
   },
 };

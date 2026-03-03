@@ -59,12 +59,14 @@ async def list_specs(
         }
         result.append(spec_dict)
 
+    import logging
+    logging.warning(f"Spec IDs: {[spec['id'] for spec in result]} (type: {[type(spec['id']) for spec in result]})")
     return result
 
 
 @router.get("/{spec_id}", response_model=OpenAPISpecResponse)
 async def get_spec(
-    spec_id: int,
+    spec_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -161,7 +163,7 @@ async def create_spec(
 
 @router.put("/{spec_id}", response_model=OpenAPISpecResponse)
 async def update_spec(
-    spec_id: int,
+    spec_id: str,
     spec_data: OpenAPISpecUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -291,7 +293,7 @@ async def update_spec(
 
 @router.delete("/{spec_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_spec(
-    spec_id: int,
+    spec_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -340,7 +342,7 @@ async def validate_spec(spec_json: dict):
 
 @router.get("/{spec_id}/diff")
 async def get_spec_diff(
-    spec_id: int,
+    spec_id: str,
     format: str = Query("json", regex="^(json|markdown)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -384,7 +386,7 @@ async def get_spec_diff(
 # --- Helpers for spec versions ---
 
 
-def _resolve_spec_or_404(db: Session, spec_id: int, current_user: User) -> OpenAPISpec:
+def _resolve_spec_or_404(db: Session, spec_id: str, current_user: User) -> OpenAPISpec:
     spec = (
         db.query(OpenAPISpec)
         .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
@@ -410,7 +412,7 @@ def _serialize_version(version: SpecVersion) -> Dict[str, Any]:
 
 
 def _resolve_version(
-    db: Session, spec_id: int, version_or_id: str
+    db: Session, spec_id: str, version_or_id: str
 ) -> Optional[SpecVersion]:
     # Try UUID/id first
     try:
@@ -450,10 +452,11 @@ def _check_can_modify_version(
 # --- Versioning endpoints ---
 @router.get("/{spec_id}/versions", response_model=List[SpecVersionResponse])
 async def list_versions(
-    spec_id: int,
+    spec_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    print(f"[DEBUG] Incoming spec_id: {spec_id} (type: {type(spec_id)})")
     """Return list of versions for a spec ordered by created_at desc"""
     spec = _resolve_spec_or_404(db, spec_id, current_user)
 
@@ -473,7 +476,7 @@ async def list_versions(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_version(
-    spec_id: int,
+    spec_id: str,
     payload: SpecVersionCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -516,7 +519,7 @@ async def create_version(
 
 @router.get("/{spec_id}/versions/{version_or_id}", response_model=SpecVersionResponse)
 async def get_version(
-    spec_id: int,
+    spec_id: str,
     version_or_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -537,7 +540,7 @@ async def get_version(
     "/{spec_id}/versions/{version_or_id}", status_code=status.HTTP_204_NO_CONTENT
 )
 async def delete_version(
-    spec_id: int,
+    spec_id: str,
     version_or_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -581,7 +584,7 @@ async def delete_version(
 
 @router.post("/{spec_id}/compare")
 async def compare_versions(
-    spec_id: int,
+    spec_id: str,
     body: Dict[str, str],
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -619,7 +622,7 @@ async def compare_versions(
     "/{spec_id}/versions/{version_or_id}/publish", response_model=SpecVersionResponse
 )
 async def publish_version(
-    spec_id: int,
+    spec_id: str,
     version_or_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -663,7 +666,7 @@ async def publish_version(
 
 @router.put("/{spec_id}/versions/{version_id}", response_model=SpecVersionResponse)
 async def update_version(
-    spec_id: int,
+    spec_id: str,
     version_id: str,
     payload: SpecVersionCreate = Body(...),
     current_user: User = Depends(get_current_user),

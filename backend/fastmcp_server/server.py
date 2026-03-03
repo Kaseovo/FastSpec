@@ -63,7 +63,7 @@ def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> 
         db.close()
 
 @mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
-def get_spec_details(spec_id: int, user: TokenPayload = Depends(get_current_user)) -> dict:
+def get_spec_details(spec_id: str, user: TokenPayload = Depends(get_current_user)) -> dict:
     """
     Returns the details of a specific OpenAPI spec saved by the authenticated user
     """

@@ -112,7 +112,7 @@ class OpenAPISpecUpdate(BaseModel):
 class OpenAPISpecResponse(BaseModel):
     """Schema for spec response"""
 
-    id: int
+    id: str
     name: str
     title: str
     version: str
@@ -151,7 +151,7 @@ class SpecVersionCreate(BaseModel):
 
 class SpecVersionResponse(BaseModel):
     id: str
-    spec_id: int
+    spec_id: str
     version: str
     content: Dict[str, Any]
     created_by: Optional[int] = None
@@ -160,3 +160,54 @@ class SpecVersionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Lint / Spectral Schemas
+
+
+class LintRange(BaseModel):
+    """Source range (line/character) for a lint result"""
+
+    line: Optional[int] = None
+    character: Optional[int] = None
+
+
+class LintRangeSpan(BaseModel):
+    """Start and optional end of a source range"""
+
+    start: Optional[LintRange] = None
+    end: Optional[LintRange] = None
+
+
+class LintResult(BaseModel):
+    """A single Spectral lint result"""
+
+    code: str
+    message: str
+    severity: str  # 'error' | 'warn' | 'info' | 'hint'
+    path: List[Any] = []
+    range: Optional[LintRangeSpan] = None
+
+
+class LintSummary(BaseModel):
+    """Count of results by severity"""
+
+    error: int = 0
+    warn: int = 0
+    info: int = 0
+    hint: int = 0
+
+
+class LintResponse(BaseModel):
+    """Full lint response returned by POST /lint endpoints"""
+
+    score: int = Field(..., ge=0, le=100, description="Quality score 0–100")
+    summary: LintSummary
+    results: List[LintResult] = []
+
+
+class LintRequest(BaseModel):
+    """Request body for ad-hoc POST /lint"""
+
+    spec_json: Dict[str, Any]
+    ruleset: Optional[str] = "spectral:oas"

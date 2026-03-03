@@ -1,12 +1,8 @@
-export const updateSpecVersion = async (specId, versionId, payload) => {
-  // payload: { version: string, content: object, metadata?: object }
-  const response = await api.put(`/${specId}/versions/${versionId}`, payload);
-  return response.data;
-};
 import axios from "axios";
 import { useAuth } from "../stores/auth";
 
 const API_BASE = "/api/specs";
+const LINT_BASE = "/api/lint";
 
 // Create axios instance
 const api = axios.create({
@@ -35,6 +31,30 @@ api.interceptors.response.use(
       const { clearAuth } = useAuth();
       clearAuth();
       // Redirect to login page
+      window.location.href = "/";
+    }
+    return Promise.reject(error);
+  },
+);
+
+// Separate axios instance for lint endpoints
+const lintApi = axios.create({ baseURL: LINT_BASE });
+lintApi.interceptors.request.use(
+  (config) => {
+    const { token } = useAuth();
+    if (token.value) {
+      config.headers.Authorization = `Bearer ${token.value}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+lintApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const { clearAuth } = useAuth();
+      clearAuth();
       window.location.href = "/";
     }
     return Promise.reject(error);
@@ -119,5 +139,29 @@ export const publishSpecVersion = async (specId, versionOrId) => {
 // Fetch the public OpenAPI file served from the frontend (Vite public folder)
 export const fetchOpenApi = async () => {
   const response = await axios.get("/openapi.json");
+  return response.data;
+};
+
+// ── Lint endpoints ────────────────────────────────────────────────────────────
+
+/**
+ * Lint a stored spec by its database ID.
+ * POST /api/lint/{specId}?ruleset=spectral:oas
+ * Returns: { score, summary, results }
+ */
+export const lintSpecById = async (specId, ruleset = "spectral:oas") => {
+  const response = await lintApi.post(`/${specId}`, null, {
+    params: { ruleset },
+  });
+  return response.data;
+};
+
+/**
+ * Lint an ad-hoc spec JSON without saving it.
+ * POST /api/lint
+ * Returns: { score, summary, results }
+ */
+export const lintSpec = async (specJson, ruleset = "spectral:oas") => {
+  const response = await lintApi.post("", { spec_json: specJson, ruleset });
   return response.data;
 };

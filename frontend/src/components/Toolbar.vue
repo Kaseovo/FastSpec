@@ -4,6 +4,23 @@
       <div class="toolbar-left">
         <Button label="New" icon="pi pi-plus" @click="showNewDialog = true" />
         <Button label="Save" icon="pi pi-save" @click="openSaveDialog" />
+
+        <!-- Lint button + score badge -->
+        <Button
+          label="Lint"
+          icon="pi pi-search"
+          severity="secondary"
+          :loading="lintLoading"
+          @click="runLint"
+        />
+        <div
+          v-if="lintScore !== null"
+          class="lint-score-badge"
+          :class="scoreBadgeClass"
+          :title="`Spectral quality score: ${lintScore}/100`"
+        >
+          {{ lintScore }}
+        </div>
       </div>
 
       <!-- User Profile Section -->
@@ -43,7 +60,7 @@
 </template>
 
 <script>
-import { inject, ref } from "vue";
+import { inject, ref, computed } from "vue";
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
 import UserProfile from "./UserProfile.vue";
@@ -67,6 +84,18 @@ export default {
     const viewMode = inject("viewMode", ref("form"));
     const showTokenDialog = inject("showTokenDialog");
 
+    // Lint state (injected from App.vue)
+    const lintScore   = inject("lintScore",   ref(null));
+    const lintLoading = inject("lintLoading",  ref(false));
+    const runLint     = inject("runLint",      () => {});
+
+    const scoreBadgeClass = computed(() => {
+      if (lintScore.value === null) return "";
+      if (lintScore.value >= 80) return "score-good";
+      if (lintScore.value >= 50) return "score-warn";
+      return "score-bad";
+    });
+
     const createBlank = () => {
       newSpec();
       showNewDialog.value = false;
@@ -87,6 +116,10 @@ export default {
       createBlank,
       createFromTemplate,
       showTokenDialog,
+      lintScore,
+      lintLoading,
+      runLint,
+      scoreBadgeClass,
     };
   },
   methods: {
@@ -109,6 +142,7 @@ export default {
 
 .toolbar-left {
   display: flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
@@ -118,6 +152,24 @@ export default {
   align-items: center;
   gap: 12px;
 }
+
+/* Score badge */
+.lint-score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  padding: 0 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fff;
+  cursor: default;
+}
+.lint-score-badge.score-good { background: #22c55e; }
+.lint-score-badge.score-warn { background: #f97316; }
+.lint-score-badge.score-bad  { background: #ef4444; }
 
 .new-spec-options {
   display: grid;

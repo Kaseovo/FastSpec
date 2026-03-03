@@ -3,6 +3,7 @@ FastAPI main application for FastSpec
 """
 
 import os
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -10,6 +11,7 @@ from contextlib import asynccontextmanager
 
 from database import engine, Base
 from routers import specs, auth
+from routers import lint
 
 # ensure SHORT_LIVED_JWT_EXP_SECONDS is read and available via env
 _ = int(os.getenv("SHORT_LIVED_JWT_EXP_SECONDS", "30000"))
@@ -52,6 +54,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(specs.router, prefix="/specs", tags=["specs"])
+app.include_router(lint.router, prefix="/lint", tags=["lint"])
 
 
 @app.get("/health")

@@ -60,7 +60,9 @@ class OpenAPISpec(Base):
 
     __tablename__ = "openapi_specs"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
+    )
     name = Column(String(255), index=True, nullable=False)
     title = Column(String(255), nullable=False)
     version = Column(String(50), nullable=False)
