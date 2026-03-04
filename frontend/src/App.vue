@@ -462,7 +462,8 @@ export default {
         // New spec (no currentSpec)
         if (!currentSpec.value) {
           // Do not modify spec_json.info.version
-          const created = await createSpec({ name, spec_json });
+          const version = payloadOrName?.version_choice?.version || spec_json.info.version || "1.0.0";
+          const created = await createSpec({ name, version, spec_json });
           currentSpec.value = created;
           initialSpec.value = JSON.parse(JSON.stringify(spec_json));
           hasUnsavedChanges.value = false;

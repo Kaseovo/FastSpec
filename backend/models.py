@@ -103,17 +103,16 @@ class SpecVersion(Base):
         String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
     )
     spec_id = Column(
-        Integer, ForeignKey("openapi_specs.id"), nullable=False, index=True
+        String(36), ForeignKey("openapi_specs.id"), nullable=False, index=True
     )
     version = Column(String(50), nullable=False)
     content = Column(JSON, nullable=False)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     meta = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_published = Column(
         Boolean, nullable=False, server_default="false", default=False
     )
-
     spec = relationship("OpenAPISpec", back_populates="versions")
     creator = relationship("User", foreign_keys=[created_by])
 

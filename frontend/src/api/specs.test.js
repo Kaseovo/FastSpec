@@ -65,21 +65,19 @@ describe("specs API client", () => {
     expect(res.is_published).toBe(true);
   });
 
-  test("updateSpec sends version when provided via payload", async () => {
+  test("updateSpec sends name and version", async () => {
     const payload = {
       name: "S",
-      spec_json: { info: { version: "1.0.1" } },
-      version: "1.0.0",
+      version: "1.0.1",
     };
-    mock
-      .onPut("/api/specs/1", payload)
-      .reply(200, {
-        id: 1,
-        name: "S",
-        version: "1.0.1",
-        spec_json: payload.spec_json,
-      });
+    mock.onPut("/api/specs/1", payload).reply(200, {
+      id: 1,
+      name: "S",
+      version: "1.0.1",
+      spec_json: { info: { version: "1.0.1" } },
+    });
     const res = await updateSpec(1, payload);
+    expect(res.name).toBe("S");
     expect(res.version).toBe("1.0.1");
   });
 });

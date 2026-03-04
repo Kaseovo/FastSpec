@@ -27,6 +27,32 @@ def _create_user(session):
     return user
 
 
+def test_create_spec_creates_initial_version(db_session):
+    user = _create_user(db_session)
+    app.dependency_overrides[get_current_user] = lambda: user
+
+    payload = {
+        "name": "spec-init",
+        "title": "Spec Init",
+        "spec_json": {"info": {"version": "3.0.0"}, "paths": {}},
+    }
+    resp = client.post("/specs?version=3.0.0", json=payload)
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    assert data["name"] == "spec-init"
+    assert data["initial_version"]["version"] == "3.0.0"
+    assert data["initial_version"]["is_published"] is True
+    # Check DB for version
+    spec_id = data["id"]
+    version = (
+        db_session.query(SpecVersion)
+        .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == "3.0.0")
+        .first()
+    )
+    assert version is not None
+    assert version.is_published is True
+
+
 def test_update_spec_with_matching_version_creates_new_version(db_session):
     # Setup user and spec with published version
     user = _create_user(db_session)
@@ -60,18 +86,16 @@ def test_update_spec_with_matching_version_creates_new_version(db_session):
         "version": "1.0.0",
         "spec_json": {"info": {"version": "1.0.1"}, "paths": {}},
     }
-    resp = client.put(f"/specs/{spec.id}", json=payload)
+    resp = client.put(f"/specs/{spec.id}", json={"name": "spec1-renamed"})
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    assert data["version"] == "1.0.1"
+    assert data["name"] == "spec1-renamed"
 
-    # New version entry should exist
-    new_ver = (
-        db_session.query(SpecVersion)
-        .filter(SpecVersion.spec_id == spec.id, SpecVersion.version == "1.0.1")
-        .first()
+    # Spec name should be updated
+    updated_spec = (
+        db_session.query(OpenAPISpec).filter(OpenAPISpec.id == spec.id).first()
     )
-    assert new_ver is not None
+    assert updated_spec.name == "spec1-renamed"
 
 
 def test_update_spec_with_conflicting_version_returns_409(db_session):

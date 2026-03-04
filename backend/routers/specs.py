@@ -60,7 +60,10 @@ async def list_specs(
         result.append(spec_dict)
 
     import logging
-    logging.warning(f"Spec IDs: {[spec['id'] for spec in result]} (type: {[type(spec['id']) for spec in result]})")
+
+    logging.warning(
+        f"Spec IDs: {[spec['id'] for spec in result]} (type: {[type(spec['id']) for spec in result]})"
+    )
     return result
 
 
@@ -100,11 +103,23 @@ async def get_spec(
 )
 async def create_spec(
     spec_data: OpenAPISpecCreate,
+    version: str = Query(..., description="Version for the spec"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new OpenAPI specification"""
+    """Create a new OpenAPI specification and its initial version"""
     spec_json = spec_data.spec_json
+
+    # Enforce version query param
+    if not version:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Version query parameter is required",
+        )
+    # Overwrite version in spec_json
+    if "info" not in spec_json:
+        spec_json["info"] = {}
+    spec_json["info"]["version"] = version
 
     # Validate the spec
     is_valid, errors, warnings = validate_openapi_spec(spec_json)
@@ -144,10 +159,21 @@ async def create_spec(
         spec_json=json.dumps(spec_json),
         user_id=current_user.id,
     )
-
     db.add(new_spec)
     db.commit()
     db.refresh(new_spec)
+
+    # Create initial version for this spec
+    initial_version = SpecVersion(
+        spec_id=new_spec.id,
+        version=version,
+        content=spec_json,
+        created_by=current_user.id,
+        is_published=True,
+    )
+    db.add(initial_version)
+    db.commit()
+    db.refresh(initial_version)
 
     return {
         "id": new_spec.id,
@@ -158,6 +184,14 @@ async def create_spec(
         "user_id": new_spec.user_id,
         "created_at": new_spec.created_at,
         "updated_at": new_spec.updated_at,
+        "initial_version": {
+            "id": initial_version.id,
+            "version": initial_version.version,
+            "content": initial_version.content,
+            "created_by": initial_version.created_by,
+            "created_at": initial_version.created_at,
+            "is_published": initial_version.is_published,
+        },
     }
 
 
@@ -168,117 +202,42 @@ async def update_spec(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update an existing OpenAPI specification.
-
-    This endpoint requires the client to provide the base `version` they are
-    updating from. The server validates that the provided version matches the
-    latest published version (from SpecVersion) or the spec's current pointer.
-    If validation fails a 409 Conflict is returned. On success, when updating
-    spec_json a new SpecVersion entry is created for the new content.
-    """
+    """Update only the name of an existing OpenAPI specification."""
     spec = (
         db.query(OpenAPISpec)
         .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
         .first()
     )
-
     if not spec:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Spec with id {spec_id} not found",
         )
-
-    # Resolve latest published version from spec_versions table; fallback to spec.version
-    latest_published = (
-        db.query(SpecVersion)
-        .filter(SpecVersion.spec_id == spec_id, SpecVersion.is_published == True)
-        .order_by(SpecVersion.created_at.desc())
+    # Only allow name update
+    if spec_data.name is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only 'name' field can be updated via this endpoint",
+        )
+    new_name = spec_data.name
+    # Check if new name already exists for this user
+    existing = (
+        db.query(OpenAPISpec)
+        .filter(
+            OpenAPISpec.name == new_name,
+            OpenAPISpec.id != spec_id,
+            OpenAPISpec.user_id == current_user.id,
+        )
         .first()
     )
-    expected_version = latest_published.version if latest_published else spec.version
-
-    # Require version from client (OpenAPISpecUpdate now enforces this) and validate
-    if spec_data.version != expected_version:
+    if existing:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "message": "Version conflict",
-                "expected": expected_version,
-                "provided": spec_data.version,
-            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Spec with name '{new_name}' already exists",
         )
-
-    # Validate if spec_json is being updated
-    if spec_data.spec_json is not None:
-        spec_json = spec_data.spec_json
-        is_valid, errors, warnings = validate_openapi_spec(spec_json)
-        if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "message": "Invalid OpenAPI specification",
-                    "errors": [
-                        {"field": e.field, "message": e.message} for e in errors
-                    ],
-                    "warnings": warnings,
-                },
-            )
-
-        # Store current spec as previous version before updating
-        spec.previous_spec_json = spec.spec_json
-
-        # Update spec_json and extract title/version
-        spec.spec_json = json.dumps(spec_json)
-        spec.title = spec_json.get("info", {}).get("title", spec.title)
-        new_version_str = spec_json.get("info", {}).get("version", spec.version)
-        spec.version = new_version_str
-
-        # Create a new SpecVersion entry for this update
-        new_version = SpecVersion(
-            spec_id=spec_id,
-            version=new_version_str,
-            content=spec_json,
-            created_by=current_user.id,
-        )
-        try:
-            db.add(new_version)
-            db.flush()
-            db.refresh(new_version)
-        except IntegrityError as e:
-            logger.warning("SpecVersion unique constraint violated on update: %s", e)
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Version already exists for this spec",
-            )
-        except Exception as e:
-            logger.exception("Error creating spec version during update: %s", e)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-            )
-
-    # Update name if provided
-    if spec_data.name is not None:
-        new_name = spec_data.name
-        # Check if new name already exists for this user
-        existing = (
-            db.query(OpenAPISpec)
-            .filter(
-                OpenAPISpec.name == new_name,
-                OpenAPISpec.id != spec_id,
-                OpenAPISpec.user_id == current_user.id,
-            )
-            .first()
-        )
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Spec with name '{new_name}' already exists",
-            )
-        spec.name = new_name
-
+    spec.name = new_name
     db.commit()
     db.refresh(spec)
-
     return {
         "id": spec.id,
         "name": spec.name,
@@ -456,7 +415,6 @@ async def list_versions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    print(f"[DEBUG] Incoming spec_id: {spec_id} (type: {type(spec_id)})")
     """Return list of versions for a spec ordered by created_at desc"""
     spec = _resolve_spec_or_404(db, spec_id, current_user)
 
@@ -466,8 +424,13 @@ async def list_versions(
         .order_by(SpecVersion.created_at.desc())
         .all()
     )
+    print(
+        f"[DEBUG] Retrieved versions for spec_id={spec_id}: {[v.version for v in versions]}"
+    )
 
-    return [_serialize_version(v) for v in versions]
+    serialized = [_serialize_version(v) for v in versions]
+    print(f"[DEBUG] Serialized versions: {serialized}")
+    return serialized
 
 
 @router.post(
@@ -503,7 +466,7 @@ async def create_version(
         db.commit()
         db.refresh(new_version)
     except IntegrityError as e:
-        logger.warning("SpecVersion unique constraint violated: %s", e)
+        print(f"[DEBUG] SpecVersion unique constraint violated: {e}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Version already exists for this spec",
@@ -517,49 +480,56 @@ async def create_version(
     return _serialize_version(new_version)
 
 
-@router.get("/{spec_id}/versions/{version_or_id}", response_model=SpecVersionResponse)
+@router.get("/{spec_id}/versions/{version_id}", response_model=SpecVersionResponse)
 async def get_version(
     spec_id: str,
-    version_or_id: str,
+    version_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Fetch a specific version by id or version string"""
+    """Fetch a specific version by version string only"""
     spec = _resolve_spec_or_404(db, spec_id, current_user)
-
-    ver = _resolve_version(db, spec_id, version_or_id)
+    # Accept both version string and UUID for compatibility
+    from uuid import UUID
+    try:
+        # Try to interpret version_id as UUID
+        uuid_obj = UUID(version_id)
+        ver = db.query(SpecVersion).filter(SpecVersion.id == str(uuid_obj), SpecVersion.spec_id == spec_id).first()
+    except ValueError:
+        # Fallback to version string
+        ver = db.query(SpecVersion).filter(SpecVersion.spec_id == spec_id, SpecVersion.version == version_id).first()
     if not ver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Spec version not found"
         )
-
     return _serialize_version(ver)
 
 
 @router.delete(
-    "/{spec_id}/versions/{version_or_id}", status_code=status.HTTP_204_NO_CONTENT
+    "/{spec_id}/versions/{version_id}", status_code=status.HTTP_204_NO_CONTENT
 )
 async def delete_version(
     spec_id: str,
-    version_or_id: str,
+    version_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a version. Only creator or spec owner may delete. Prevent deleting last published unless admin."""
+    """Delete a version by version string only."""
     spec = _resolve_spec_or_404(db, spec_id, current_user)
-
-    ver = _resolve_version(db, spec_id, version_or_id)
+    ver = (
+        db.query(SpecVersion)
+        .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == version_id)
+        .first()
+    )
     if not ver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Spec version not found"
         )
-
     if not _check_can_modify_version(current_user, spec, ver):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to delete this version",
         )
-
     # If this is the last published version and spec has live pointer (spec.version == ver.version), disallow unless owner
     if (
         ver.is_published
@@ -570,7 +540,6 @@ async def delete_version(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot delete published live version",
         )
-
     try:
         db.delete(ver)
     except Exception as e:
@@ -578,7 +547,6 @@ async def delete_version(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-
     return None
 
 
@@ -619,23 +587,25 @@ async def compare_versions(
 
 
 @router.post(
-    "/{spec_id}/versions/{version_or_id}/publish", response_model=SpecVersionResponse
+    "/{spec_id}/versions/{version_id}/publish", response_model=SpecVersionResponse
 )
 async def publish_version(
     spec_id: str,
-    version_or_id: str,
+    version_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Mark a version as published and set spec's current pointer to this version"""
     spec = _resolve_spec_or_404(db, spec_id, current_user)
-
-    ver = _resolve_version(db, spec_id, version_or_id)
+    ver = (
+        db.query(SpecVersion)
+        .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == version_id)
+        .first()
+    )
     if not ver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Spec version not found"
         )
-
     # Only spec owner (or creator if same) may publish. No admin model available.
     if current_user.id != spec.user_id and (
         not ver.created_by or current_user.id != ver.created_by
@@ -644,7 +614,6 @@ async def publish_version(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to publish this version",
         )
-
     try:
         # mark all other versions is_published=False (simple approach)
         db.query(SpecVersion).filter(SpecVersion.spec_id == spec_id).update(
@@ -659,7 +628,6 @@ async def publish_version(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-
     # refresh may not be available on simple sessions in tests; return serialized version
     return _serialize_version(ver)
 

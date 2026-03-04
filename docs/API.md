@@ -29,11 +29,12 @@ Specs endpoints (mounted at `/specs`)
   - Returns: `OpenAPISpecResponse` for the given spec id (404 if not found or not owned by user).
 
 - POST /specs
-  - Body: `OpenAPISpecCreate` (name: string, spec_json: JSON object).
-  - Validates spec using `validate_openapi_spec` from `backend/validation/validator.py`. If invalid, returns 400 with structured errors.
-  - If name already exists for the user, returns 400.
-  - On success: 201 Created with `OpenAPISpecResponse`.
-  - Example request body:
+- Body: `OpenAPISpecCreate` (name: string, spec_json: JSON object).
+- Validates spec using `validate_openapi_spec` from `backend/validation/validator.py`. If invalid, returns 400 with structured errors.
+- If name already exists for the user, returns 400.
+- On success: 201 Created with `OpenAPISpecResponse` and creates the initial version for the spec automatically (no separate call required).
+- Response includes `initial_version` field with details of the created version.
+- Example request body:
 
 ```json
 {

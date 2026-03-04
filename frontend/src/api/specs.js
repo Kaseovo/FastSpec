@@ -72,7 +72,14 @@ export const fetchSpec = async (id) => {
 };
 
 export const createSpec = async (data) => {
-  const response = await api.post("/", data);
+  // Accept version from modal (versionChoice) if not directly provided
+  let version = data.version;
+  if (!version) throw new Error("Version is required to create a spec");
+  const payload = { ...data, version };
+  if (payload.versionChoice) delete payload.versionChoice;
+  const response = await api.post("/", payload, {
+    params: { version },
+  });
   return response.data;
 };
 
@@ -85,7 +92,9 @@ export const updateSpec = async (id, data) => {
     delete payload.versionChoice;
   }
 
-  const response = await api.put(`/${id}`, payload);
+  // Only allow name and version update
+  const updatePayload = { name: payload.name, version: payload.version };
+  const response = await api.put(`/${id}`, updatePayload);
   return response.data;
 };
 
@@ -117,13 +126,13 @@ export const createSpecVersion = async (specId, payload) => {
   return response.data;
 };
 
-export const getSpecVersion = async (specId, versionOrId) => {
-  const response = await api.get(`/${specId}/versions/${versionOrId}`);
+export const getSpecVersion = async (specId, versionId) => {
+  const response = await api.get(`/${specId}/versions/${versionId}`);
   return response.data;
 };
 
-export const deleteSpecVersion = async (specId, versionOrId) => {
-  await api.delete(`/${specId}/versions/${versionOrId}`);
+export const deleteSpecVersion = async (specId, versionId) => {
+  await api.delete(`/${specId}/versions/${versionId}`);
 };
 
 export const compareSpecVersions = async (specId, base, compare) => {
@@ -131,8 +140,8 @@ export const compareSpecVersions = async (specId, base, compare) => {
   return response.data; // { base, compare, diff }
 };
 
-export const publishSpecVersion = async (specId, versionOrId) => {
-  const response = await api.post(`/${specId}/versions/${versionOrId}/publish`);
+export const publishSpecVersion = async (specId, versionId) => {
+  const response = await api.post(`/${specId}/versions/${versionId}/publish`);
   return response.data;
 };
 
