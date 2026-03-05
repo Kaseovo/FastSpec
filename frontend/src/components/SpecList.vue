@@ -12,7 +12,13 @@
       <div
         v-for="spec in specs"
         :key="spec.id"
-        :class="['spec-card', { active: spec.id === selectedId }]"
+        :class="[
+          'spec-card',
+          {
+            active: spec.id === selectedId,
+            changed: spec.id === selectedId && hasUnsavedChanges,
+          },
+        ]"
         @click="selectSpec(spec)"
       >
         <div class="spec-header">
@@ -76,12 +82,7 @@
             </div>
           </span>
         </div>
-        <span
-          v-if="
-            spec.id === '__unsaved' ||
-            (spec.id === selectedId && hasUnsavedChanges)
-          "
-          class="unsaved-badge"
+        <span v-if="spec.id === '__unsaved'" class="unsaved-badge"
           >Unsaved</span
         >
         <transition name="expand">
@@ -593,6 +594,11 @@ export default {
 .spec-card.active {
   border-left: 4px solid #2563eb;
   background: #f0f9ff;
+}
+
+.spec-card.changed {
+  border-left: 4px solid #fbbf24;
+  background: #fffbeb;
 }
 
 .spec-header {
