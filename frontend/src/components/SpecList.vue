@@ -60,22 +60,30 @@
             align-items: center;
             gap: 8px;
           "
+          v-if="spec.id !== '__unsaved'"
         >
           <span>Version</span>
-          <span v-if="spec.id === '__unsaved'" class="unsaved-badge"
-            >Unsaved</span
-          >
-          <span v-else>
-            <Select
-              v-model="spec.selectedVersion"
-              :options="spec.versionOptions"
-              optionLabel="label"
-              optionValue="value"
-              style="min-width: 110px"
-              @change="onSpecVersionChange(spec)()"
-            />
+          <span>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <Select
+                v-model="spec.selectedVersion"
+                :options="spec.versionOptions"
+                optionLabel="label"
+                optionValue="value"
+                style="min-width: 110px"
+                @change="onSpecVersionChange(spec)()"
+              />
+            </div>
           </span>
         </div>
+        <span
+          v-if="
+            spec.id === '__unsaved' ||
+            (spec.id === selectedId && hasUnsavedChanges)
+          "
+          class="unsaved-badge"
+          >Unsaved</span
+        >
         <transition name="expand">
           <div v-if="expanded.has(spec.id)" class="spec-details">
             <div class="detail-row">
@@ -532,6 +540,8 @@ export default {
       compareError,
       runCompare,
       versionOptions,
+      // expose unsaved flag for template to render "Unsaved" badges
+      hasUnsavedChanges,
       selectedId,
     };
   },
@@ -660,6 +670,7 @@ export default {
   display: block;
   width: fit-content;
   margin: 0 auto;
+  margin-top: 8px;
 }
 
 /* Responsive design */
