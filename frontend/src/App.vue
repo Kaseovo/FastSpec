@@ -55,7 +55,7 @@
         <SpecList
           v-if="isAuthenticated"
           @spec-selected="loadSpec"
-          :selected-id="currentSpec?.id"
+          :selected-id="selectedSpecId"
         />
 
         <!-- Render the FormEditor for explicit 'form' view -->
@@ -128,15 +128,17 @@
       <TokenManager />
     </Dialog>
 
+    <ConfirmDialog />
     <Toast />
   </div>
 </template>
 
 <script>
-import { ref, computed, provide, onMounted } from "vue";
+import { ref, computed, provide, onMounted, watch } from "vue";
 import Message from "primevue/message";
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
+import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
 import SelectButton from "primevue/selectbutton";
 import Toolbar from "./components/Toolbar.vue";
@@ -167,6 +169,7 @@ export default {
     Message,
     Button,
     Dialog,
+    ConfirmDialog,
     Toast,
     Tag,
     SelectButton,
@@ -200,6 +203,14 @@ export default {
     const viewMode = ref("form"); // 'form', 'code', or 'preview'
     const hasUnsavedChanges = ref(false);
     const autoSaveTimer = ref(null);
+
+    // Temporary unsaved spec object to show as a card in SpecList
+    const unsavedSpec = ref(null);
+    // Compute selected spec id: prefer persisted currentSpec, otherwise select temporary unsaved card
+    const selectedSpecId = computed(
+      () => currentSpec.value?.id ?? (unsavedSpec.value ? "__unsaved" : null)
+    );
+
     const viewModeOptions = computed(() => [
       { label: "Form", value: "form", icon: "pi pi-list" },
       { label: "Code", value: "code", icon: "pi pi-code" },
@@ -418,6 +429,10 @@ export default {
         specContent.value = JSON.stringify(getDefaultSpec(), null, 2);
         initialSpec.value = JSON.parse(JSON.stringify(getDefaultSpec()));
       }
+      // Clear transient unsavedSpec if the user explicitly selected a persisted spec
+      if (spec.id !== "__unsaved") {
+        unsavedSpec.value = null;
+      }
       hasUnsavedChanges.value = false;
       viewMode.value = "form";
       updatePreview();
@@ -433,6 +448,15 @@ export default {
       specContent.value = JSON.stringify(defaultSpec, null, 2);
       initialSpec.value = JSON.parse(JSON.stringify(defaultSpec)); // Deep clone
       hasUnsavedChanges.value = false;
+      // Set temporary unsavedSpec so SpecList shows a temporary card
+      unsavedSpec.value = {
+        id: "__unsaved",
+        name: "Untitled Spec",
+        spec_json: defaultSpec,
+        version: defaultSpec.info?.version || "1.0.0",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
       updatePreview();
     };
 
@@ -458,15 +482,19 @@ export default {
 
       try {
         const spec_json = JSON.parse(specContent.value);
-
         // New spec (no currentSpec)
-        if (!currentSpec.value) {
+        if (!currentSpec.value || currentSpec.value.id === "__unsaved") {
           // Do not modify spec_json.info.version
-          const version = payloadOrName?.version_choice?.version || spec_json.info.version || "1.0.0";
+          const version =
+            payloadOrName?.version_choice?.version ||
+            spec_json.info.version ||
+            "1.0.0";
           const created = await createSpec({ name, version, spec_json });
           currentSpec.value = created;
           initialSpec.value = JSON.parse(JSON.stringify(spec_json));
           hasUnsavedChanges.value = false;
+          // Clear transient unsaved spec after successful creation
+          unsavedSpec.value = null;
           showAlert("Spec created successfully!", "success");
         } else {
           // Existing spec: versioning logic
@@ -691,6 +719,15 @@ export default {
       };
       specContent.value = JSON.stringify(templateSpec, null, 2);
       initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
+      // also set unsavedSpec so it appears in the list
+      unsavedSpec.value = {
+        id: "__unsaved",
+        name: templateSpec.info?.title || "Untitled Spec",
+        spec_json: templateSpec,
+        version: templateSpec.info?.version || "1.0.0",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
       updatePreview();
       showAlert("Template loaded with sample endpoints", "success");
     };
@@ -723,6 +760,20 @@ export default {
     // Parent increments specListKey.value after save to trigger a refresh in SpecList.
     provide("refreshSpecList", specListKey);
     provide("showTokenDialog", () => (showTokenDialog.value = true));
+    // Provide transient unsaved spec and selected id
+    provide("unsavedSpec", unsavedSpec);
+    // Provide unsaved-state and discard helper so children can confirm discarding transient spec
+    provide("hasUnsavedChanges", hasUnsavedChanges);
+    const discardUnsaved = () => {
+      unsavedSpec.value = null;
+      hasUnsavedChanges.value = false;
+    };
+    provide("discardUnsaved", discardUnsaved);
+    provide("selectedSpecId", selectedSpecId);
+    // Quick debug: log selectedSpecId changes
+    watch(selectedSpecId, (v) => console.log("selectedSpecId changed:", v), {
+      immediate: true,
+    });
     // Lint context for Toolbar
     provide("lintScore", lintScore);
     provide("lintLoading", lintLoading);
@@ -733,6 +784,7 @@ export default {
       currentSpec,
       specContent,
       parsedSpec,
+      selectedSpecId,
       showSaveDialog,
       showLoginDialog,
       showTokenDialog,

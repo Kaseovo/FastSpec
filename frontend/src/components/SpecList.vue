@@ -31,6 +31,7 @@
               @click.stop="toggleExpand(spec.id)"
               :aria-expanded="expanded.has(spec.id)"
               aria-label="Toggle details"
+              v-if="spec.id !== '__unsaved'"
             />
             <Button
               icon="pi pi-history"
@@ -39,6 +40,7 @@
               @click.stop="openHistory(spec)"
               aria-label="Open version history"
               title="Version history"
+              v-if="spec.id !== '__unsaved'"
             />
             <Button
               icon="pi pi-trash"
@@ -60,14 +62,19 @@
           "
         >
           <span>Version</span>
-          <Select
-            v-model="spec.selectedVersion"
-            :options="spec.versionOptions"
-            optionLabel="label"
-            optionValue="value"
-            style="min-width: 110px"
-            @change="onSpecVersionChange(spec)()"
-          />
+          <span v-if="spec.id === '__unsaved'" class="unsaved-badge"
+            >Unsaved</span
+          >
+          <span v-else>
+            <Select
+              v-model="spec.selectedVersion"
+              :options="spec.versionOptions"
+              optionLabel="label"
+              optionValue="value"
+              style="min-width: 110px"
+              @change="onSpecVersionChange(spec)()"
+            />
+          </span>
         </div>
         <transition name="expand">
           <div v-if="expanded.has(spec.id)" class="spec-details">
@@ -160,8 +167,6 @@
         </div>
       </div>
     </Drawer>
-
-    <ConfirmDialog></ConfirmDialog>
   </div>
 </template>
 
@@ -171,7 +176,6 @@ import Button from "primevue/button";
 import Select from "primevue/select";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
-import ConfirmDialog from "primevue/confirmdialog";
 import Drawer from "primevue/drawer";
 import { useConfirm } from "primevue/useconfirm";
 import {
@@ -190,7 +194,6 @@ export default {
     Select,
     Message,
     ProgressSpinner,
-    ConfirmDialog,
     Drawer,
     DiffDrawer,
   },
@@ -206,10 +209,14 @@ export default {
     const loading = ref(false);
     const error = ref(null);
     const confirm = useConfirm();
+    const confirmOpen = ref(false);
     const refreshSpecList = inject("refreshSpecList");
+    // Inject unsaved transient spec from parent so we can render a temporary card
+    const unsavedSpec = inject("unsavedSpec", ref(null));
+    // Inject unsaved state and discard helper from parent (App.vue)
+    const hasUnsavedChanges = inject("hasUnsavedChanges", ref(false));
+    const discardUnsaved = inject("discardUnsaved", () => {});
     const expanded = ref(new Set());
-
-    // Removed unused selectedSpec/selectedVersion global dropdown
 
     // History drawer state
     const historyOpen = ref(false);
@@ -243,6 +250,8 @@ export default {
         selectedVersion.value = null;
         return;
       }
+      // Do not try to fetch versions for transient unsaved spec
+      if (spec.id === "__unsaved") return;
       const vers = await listSpecVersions(spec.id);
       versionDropdownOptions.value = vers.map((v) => ({
         label: `${v.version}${v.is_published ? " (published)" : ""}`,
@@ -287,6 +296,12 @@ export default {
     // Per-spec version dropdown
     const updateSpecVersions = async (spec) => {
       if (!spec) return;
+      if (spec.id === "__unsaved") {
+        // Prepopulate minimal fields for unsaved spec
+        spec.versionOptions = [];
+        spec.selectedVersion = null;
+        return;
+      }
       const vers = await listSpecVersions(spec.id);
       spec.versionOptions = vers.map((v) => ({
         label: `${v.version}`,
@@ -311,7 +326,12 @@ export default {
         for (const spec of fetched) {
           await updateSpecVersions(spec);
         }
-        specs.value = fetched;
+        // Prepend transient unsavedSpec if present
+        if (unsavedSpec.value) {
+          specs.value = [unsavedSpec.value, ...fetched];
+        } else {
+          specs.value = fetched;
+        }
         // Always select and emit the latest version for each spec
         for (const spec of fetched) {
           if (spec.versionOptions?.length > 0) {
@@ -319,8 +339,11 @@ export default {
           }
         }
         // Optionally, auto-select the first spec as active in the UI
-        if (fetched.length > 0 && fetched[0].versionOptions?.length > 0) {
-          const firstSpec = fetched[0];
+        if (
+          specs.value.length > 0 &&
+          specs.value[0].versionOptions?.length > 0
+        ) {
+          const firstSpec = specs.value[0];
           const versionData = await getSpecVersion(
             firstSpec.id,
             firstSpec.selectedVersion
@@ -330,6 +353,12 @@ export default {
             ...versionData,
             id: firstSpec.id,
           });
+        } else if (
+          specs.value.length > 0 &&
+          specs.value[0].id === "__unsaved"
+        ) {
+          // If the top item is the unsaved transient spec, emit it so editor loads it
+          emit("spec-selected", specs.value[0]);
         }
       } catch (err) {
         error.value = "Failed to load specs";
@@ -339,7 +368,13 @@ export default {
       }
     };
 
-    const selectSpec = async (spec) => {
+    const proceedSelect = async (spec) => {
+      // If this is the transient unsaved card, emit it directly
+      if (spec.id === "__unsaved") {
+        emit("spec-selected", spec);
+        return;
+      }
+
       // Always fetch the selected version if available, or use already selected version if no new version is picked
       let versionId = spec.selectedVersion;
       if (!versionId && spec.versionOptions && spec.versionOptions.length > 0) {
@@ -358,7 +393,50 @@ export default {
       }
     };
 
+    const selectSpec = async (spec) => {
+      // If selecting a persisted spec while there's a transient unsaved spec with changes, confirm discard
+      if (
+        spec.id !== "__unsaved" &&
+        unsavedSpec.value &&
+        hasUnsavedChanges.value
+      ) {
+        if (!confirmOpen.value) {
+          confirmOpen.value = true;
+          confirm.require({
+            message: `You have unsaved changes. Discard them and open "${spec.name}"?`,
+            header: "Discard unsaved changes?",
+            icon: "pi pi-exclamation-triangle",
+            acceptClass: "p-button-danger",
+            accept: async () => {
+              try {
+                discardUnsaved();
+                // loadSpecs will re-run due to watch(unsavedSpec) but call to ensure UI updates promptly
+                await loadSpecs();
+                await proceedSelect(spec);
+              } catch (err) {
+                console.error("Failed during discard/select:", err);
+              } finally {
+                confirmOpen.value = false;
+              }
+            },
+            reject: () => {
+              // no-op
+              confirmOpen.value = false;
+            },
+          });
+        }
+        return;
+      }
+
+      await proceedSelect(spec);
+    };
+
     const confirmDelete = (spec) => {
+      if (spec.id === "__unsaved") {
+        // For transient unsaved spec, just discard without confirmation
+        discardUnsaved();
+        return;
+      }
       confirm.require({
         message: `Are you sure you want to delete "${spec.name}"?`,
         header: "Confirm Deletion",
@@ -423,8 +501,12 @@ export default {
       await loadSpecs();
     });
 
-    // Watch for refresh trigger
+    // Re-load when parent requests a refresh or when transient unsavedSpec changes
     watch(refreshSpecList, loadSpecs);
+    watch(unsavedSpec, loadSpecs);
+
+    // Normalize prop into a computed so template comparisons are reliable
+    const selectedId = computed(() => props.selectedId);
 
     return {
       specs,
@@ -450,6 +532,7 @@ export default {
       compareError,
       runCompare,
       versionOptions,
+      selectedId,
     };
   },
 };
@@ -565,6 +648,18 @@ export default {
 .inline-error {
   color: #b91c1c;
   margin-top: 8px;
+}
+
+.unsaved-badge {
+  background: #fbbf24;
+  color: #1f2937;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 12px;
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
 }
 
 /* Responsive design */

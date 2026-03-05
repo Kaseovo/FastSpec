@@ -51,6 +51,9 @@ describe("SpecList - version history read-only", () => {
           ConfirmDialog: { template: "<div />" },
           DiffDrawer: { template: '<div :diff="{}" />' },
         },
+        provide: {
+          refreshSpecList: { value: 0 },
+        },
       },
     });
 
@@ -72,5 +75,49 @@ describe("SpecList - version history read-only", () => {
       "v1",
       "v2",
     );
+  });
+
+  test("renders transient unsaved card when provided and emits on select", async () => {
+    // provide a transient unsaved spec
+    const unsaved = {
+      id: "__unsaved",
+      name: "Untitled Spec",
+      spec_json: {
+        openapi: "3.0.0",
+        info: { title: "Untitled Spec", version: "1.0.0" },
+      },
+      version: "1.0.0",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const wrapper = mount(SpecList, {
+      global: {
+        components: {
+          Button: { template: "<button />" },
+          Select: { template: "<select />" },
+          Drawer: { template: "<div><slot /></div>" },
+          ProgressSpinner: { template: "<div />" },
+          Message: { template: "<div />" },
+          ConfirmDialog: { template: "<div />" },
+          DiffDrawer: { template: '<div :diff="{}" />' },
+        },
+        provide: {
+          refreshSpecList: { value: 0 },
+          unsavedSpec: { value: unsaved },
+        },
+      },
+    });
+
+    await new Promise((r) => setImmediate(r));
+
+    // transient unsaved should be first in the list
+    expect(wrapper.vm.specs[0].id).toBe("__unsaved");
+    // clicking the transient item should emit spec-selected with the transient spec
+    await wrapper.findAll(".spec-card")[0].trigger("click");
+    expect(wrapper.emitted()["spec-selected"]).toBeTruthy();
+    const emitted = wrapper.emitted()["spec-selected"][0][0];
+    expect(emitted.id).toBe("__unsaved");
+    expect(emitted.spec_json).toBeDefined();
   });
 });

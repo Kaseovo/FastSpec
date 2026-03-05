@@ -119,7 +119,7 @@ export default {
           name.value = props.specName;
           errorMsg.value = "";
           // Load versions lazily when dialog opens and specId is provided
-          if (props.specId) {
+          if (props.specId && props.specId !== "__unsaved") {
             try {
               versions.value = await listSpecVersions(props.specId);
               // Always select the latest version (first returned by API) if no currentVersion is provided

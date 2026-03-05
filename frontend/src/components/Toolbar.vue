@@ -65,6 +65,7 @@ import Button from "primevue/button";
 import Dialog from "primevue/dialog";
 import UserProfile from "./UserProfile.vue";
 import { useAuth } from "../stores/auth";
+import { useConfirm } from "primevue/useconfirm";
 
 export default {
   name: "Toolbar",
@@ -84,10 +85,19 @@ export default {
     const viewMode = inject("viewMode", ref("form"));
     const showTokenDialog = inject("showTokenDialog");
 
+    // Unsaved helpers injected from App.vue
+    const hasUnsavedChanges = inject("hasUnsavedChanges", ref(false));
+    const discardUnsaved = inject("discardUnsaved", () => {});
+
     // Lint state (injected from App.vue)
-    const lintScore   = inject("lintScore",   ref(null));
-    const lintLoading = inject("lintLoading",  ref(false));
-    const runLint     = inject("runLint",      () => {});
+    const lintScore = inject("lintScore", ref(null));
+    const lintLoading = inject("lintLoading", ref(false));
+    const runLint = inject("runLint", () => {});
+
+    const confirm = useConfirm();
+
+    // Guard to avoid opening multiple confirm dialogs (re-entrancy)
+    const confirmOpen = ref(false);
 
     const scoreBadgeClass = computed(() => {
       if (lintScore.value === null) return "";
@@ -97,11 +107,57 @@ export default {
     });
 
     const createBlank = () => {
+      // If there are unsaved changes, confirm discard first
+      if (hasUnsavedChanges.value) {
+        if (!confirmOpen.value) {
+          confirmOpen.value = true;
+          confirm.require({
+            message: `You have unsaved changes. Discard them and create a new blank spec?`,
+            header: "Discard unsaved changes?",
+            icon: "pi pi-exclamation-triangle",
+            acceptClass: "p-button-danger",
+            accept: () => {
+              discardUnsaved();
+              newSpec();
+              showNewDialog.value = false;
+              confirmOpen.value = false;
+            },
+            reject: () => {
+              // close the guard so future confirms can open
+              confirmOpen.value = false;
+            },
+          });
+        }
+        return;
+      }
+
       newSpec();
       showNewDialog.value = false;
     };
 
     const createFromTemplate = () => {
+      if (hasUnsavedChanges.value) {
+        if (!confirmOpen.value) {
+          confirmOpen.value = true;
+          confirm.require({
+            message: `You have unsaved changes. Discard them and create a new spec from template?`,
+            header: "Discard unsaved changes?",
+            icon: "pi pi-exclamation-triangle",
+            acceptClass: "p-button-danger",
+            accept: () => {
+              discardUnsaved();
+              loadTemplate();
+              showNewDialog.value = false;
+              confirmOpen.value = false;
+            },
+            reject: () => {
+              confirmOpen.value = false;
+            },
+          });
+        }
+        return;
+      }
+
       loadTemplate();
       showNewDialog.value = false;
     };
@@ -167,9 +223,15 @@ export default {
   color: #fff;
   cursor: default;
 }
-.lint-score-badge.score-good { background: #22c55e; }
-.lint-score-badge.score-warn { background: #f97316; }
-.lint-score-badge.score-bad  { background: #ef4444; }
+.lint-score-badge.score-good {
+  background: #22c55e;
+}
+.lint-score-badge.score-warn {
+  background: #f97316;
+}
+.lint-score-badge.score-bad {
+  background: #ef4444;
+}
 
 .new-spec-options {
   display: grid;
