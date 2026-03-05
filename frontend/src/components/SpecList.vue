@@ -16,7 +16,9 @@
           'spec-card',
           {
             active: spec.id === selectedId,
-            changed: spec.id === selectedId && hasUnsavedChanges,
+            changed:
+              (spec.id === selectedId && hasUnsavedChanges) ||
+              spec.id === '__unsaved',
           },
         ]"
         @click="selectSpec(spec)"
@@ -403,11 +405,18 @@ export default {
     };
 
     const selectSpec = async (spec) => {
+      console.log(
+        "Selecting spec:",
+        spec,
+        "Unsaved changes?",
+        hasUnsavedChanges.value,
+        "Unsaved spec:",
+        unsavedSpec.value
+      );
       // If selecting a persisted spec while there's a transient unsaved spec with changes, confirm discard
       if (
-        spec.id !== "__unsaved" &&
-        unsavedSpec.value &&
-        hasUnsavedChanges.value
+        hasUnsavedChanges.value ||
+        (unsavedSpec.value && unsavedSpec.value.id === "__unsaved")
       ) {
         if (!confirmOpen.value) {
           confirmOpen.value = true;
