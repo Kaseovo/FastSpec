@@ -441,6 +441,10 @@ export default {
               // no-op
               confirmOpen.value = false;
             },
+            onHide: () => {
+              // Ensure guard is reset when dialog closes by any means
+              confirmOpen.value = false;
+            },
           });
         }
         return;

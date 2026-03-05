@@ -126,6 +126,10 @@ export default {
               // close the guard so future confirms can open
               confirmOpen.value = false;
             },
+            onHide: () => {
+              // in case the dialog is closed by other means (e.g. escape key), reset the guard
+              confirmOpen.value = false;
+            },
           });
         }
         return;
@@ -151,6 +155,9 @@ export default {
               confirmOpen.value = false;
             },
             reject: () => {
+              confirmOpen.value = false;
+            },
+            onHide: () => {
               confirmOpen.value = false;
             },
           });
