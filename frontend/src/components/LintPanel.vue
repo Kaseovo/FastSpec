@@ -132,7 +132,7 @@ export default {
       { key: null, label: "All", icon: "⚪" },
       { key: "error", label: "Errors", icon: "🔴" },
       { key: "warn", label: "Warnings", icon: "🟠" },
-      { key: "info", label: "Info", icon: "🔵" },
+      { key: "info", label: "Info", icon: "🟢" },
       { key: "hint", label: "Hints", icon: "💡" },
     ];
 
@@ -285,10 +285,10 @@ export default {
   color: #f97316;
 }
 .severity-pill.info {
-  color: #3b82f6;
+  color: #1ca227;
 }
 .severity-pill.hint {
-  color: #a855f7;
+  color: #444644;
 }
 .pill-count {
   background: currentColor;
