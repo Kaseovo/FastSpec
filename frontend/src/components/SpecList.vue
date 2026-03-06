@@ -151,7 +151,7 @@
               <label style="font-size: 12px; color: #6b7280">Compare</label>
               <Select
                 v-model="compareVersion"
-                :options="versionOptions"
+                :options="compareOptions"
                 optionLabel="label"
                 optionValue="value"
                 aria-label="Compare version"
@@ -252,6 +252,16 @@ export default {
         label: `${v.version}${v.is_published ? " (published)" : ""}`,
         value: v.id,
       }))
+    );
+
+    // Compare options exclude the selected base so the same version cannot be chosen
+    const compareOptions = computed(() =>
+      versions.value
+        .filter((v) => v.id !== baseVersion.value)
+        .map((v) => ({
+          label: `${v.version}${v.is_published ? " (published)" : ""}`,
+          value: v.id,
+        }))
     );
 
     // For version dropdown below pi-history
@@ -502,6 +512,11 @@ export default {
         compareError.value = "Please select both versions to compare";
         return;
       }
+      // Prevent identical comparisons
+      if (baseVersion.value === compareVersion.value) {
+        compareError.value = "Please select two different versions";
+        return;
+      }
       comparing.value = true;
       try {
         const res = await compareSpecVersions(
@@ -526,6 +541,15 @@ export default {
     // Re-load when parent requests a refresh or when transient unsavedSpec changes
     watch(refreshSpecList, loadSpecs);
     watch(unsavedSpec, loadSpecs);
+
+    // Ensure compareVersion is never equal to baseVersion by auto-adjusting when base changes
+    watch(baseVersion, (newBase) => {
+      if (!newBase) return;
+      if (compareVersion.value === newBase) {
+        const alt = versions.value.find((v) => v.id !== newBase);
+        compareVersion.value = alt ? alt.id : null;
+      }
+    });
 
     // Normalize prop into a computed so template comparisons are reliable
     const selectedId = computed(() => props.selectedId);
@@ -554,6 +578,7 @@ export default {
       compareError,
       runCompare,
       versionOptions,
+      compareOptions,
       // expose unsaved flag for template to render "Unsaved" badges
       hasUnsavedChanges,
       selectedId,

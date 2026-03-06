@@ -17,7 +17,7 @@
           <label>Compare</label>
           <select v-model="compareVersion" class="p-inputtext">
             <option
-              v-for="v in versions"
+              v-for="v in compareOptions"
               :key="v.id + '-cmp'"
               :value="v.version"
             >
@@ -66,7 +66,14 @@
 </template>
 
 <script>
-import { ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import {
+  ref,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  computed,
+} from "vue";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
 import Button from "primevue/button";
@@ -103,6 +110,10 @@ export default {
     const compareVersion = ref(null);
     const comparing = ref(false);
     const diffResult = ref(null);
+
+    const compareOptions = computed(() =>
+      versions.value.filter((v) => v.version !== baseVersion.value)
+    );
 
     const loadVersions = async () => {
       if (!props.spec?.id) return;
@@ -351,6 +362,15 @@ export default {
       }
     );
 
+    // Ensure compareVersion is never equal to baseVersion by auto-adjusting
+    watch(baseVersion, (newBase) => {
+      if (!newBase) return;
+      if (compareVersion.value === newBase) {
+        const alt = versions.value.find((v) => v.version !== newBase);
+        compareVersion.value = alt ? alt.version : null;
+      }
+    });
+
     return {
       swaggerContainer,
       error,
@@ -363,6 +383,7 @@ export default {
       comparing,
       runCompare,
       diffResult,
+      compareOptions,
     };
   },
 };
