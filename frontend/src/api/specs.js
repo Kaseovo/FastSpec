@@ -131,6 +131,11 @@ export const getSpecVersion = async (specId, versionId) => {
   return response.data;
 };
 
+export const updateSpecVersion = async (specId, versionId, payload) => {
+  const response = await api.put(`/${specId}/versions/${versionId}`, payload);
+  return response.data;
+};
+
 export const deleteSpecVersion = async (specId, versionId) => {
   await api.delete(`/${specId}/versions/${versionId}`);
 };
