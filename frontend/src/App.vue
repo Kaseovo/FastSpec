@@ -242,7 +242,7 @@ export default {
         if (currentSpec.value?.id && currentSpec.value?.version) {
           // Prefer stored-spec lint so Spectral can resolve $ref paths from file
           lintResults.value = await lintSpecById(
-            currentSpec.value.id,
+            currentSpec.value.spec_id,
             currentSpec.value.version
           );
         } else {
@@ -547,7 +547,12 @@ export default {
               version: currentVersion,
               content: spec_json,
             });
-            currentSpec.value = updated;
+            // Avoid replacing the top-level currentSpec with the SpecVersion object returned by the API
+            if (!currentSpec.value) currentSpec.value = { id: specId };
+            currentSpec.value.version = updated.version;
+            if (updated.content) currentSpec.value.spec_json = updated.content;
+            if (updated.created_at)
+              currentSpec.value.updated_at = updated.created_at;
             initialSpec.value = JSON.parse(JSON.stringify(spec_json));
             hasUnsavedChanges.value = false;
             showAlert("Spec version updated successfully!", "success");
