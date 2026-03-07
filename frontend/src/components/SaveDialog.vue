@@ -72,11 +72,122 @@
           {{ compareError }}
         </div>
 
-        <DiffDrawer
-          :diff="diffResult"
-          :spec="baseSpec || draftContent"
-          inline
-        />
+        <!-- Overview sections with expandable details -->
+        <div class="overview-section">
+          <!-- Changes Overview -->
+          <div class="overview-item" style="margin-bottom: 12px">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+              "
+            >
+              <div style="font-weight: 600">Changes Overview</div>
+              <div style="color: #666; font-size: 12px">
+                Click to expand details
+              </div>
+            </div>
+
+            <Accordion>
+              <AccordionTab header="Details">
+                <div
+                  style="
+                    height: calc(80vh - 300px);
+                    overflow: auto;
+                    padding-right: 8px;
+                  "
+                >
+                  <DiffDrawer
+                    :diff="diffResult"
+                    :spec="baseSpec || draftContent"
+                    inline
+                  />
+                </div>
+              </AccordionTab>
+            </Accordion>
+          </div>
+
+          <!-- Lint Overview -->
+          <div class="overview-item">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 8px;
+              "
+            >
+              <div style="font-weight: 600">Lint Overview</div>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <div
+                  v-if="lintResult && lintResult.score !== undefined"
+                  style="display: flex; align-items: center; gap: 6px"
+                >
+                  <strong>Score:</strong>
+                  <Tag :value="lintResult.score.toFixed(2)" severity="info" />
+                </div>
+                <div v-else-if="linting">Running lint...</div>
+              </div>
+            </div>
+
+            <Accordion>
+              <AccordionTab
+                :header="`Issues (${
+                  lintResult && lintResult.results
+                    ? lintResult.results.length
+                    : 0
+                })`"
+              >
+                <div class="lint-panel">
+                  <div v-if="lintError" class="inline-error">
+                    {{ lintError }}
+                  </div>
+
+                  <div v-else-if="lintResult">
+                    <div
+                      v-if="lintResult.summary"
+                      style="margin-bottom: 8px; color: #555"
+                    >
+                      {{ lintResult.summary }}
+                    </div>
+
+                    <div v-if="lintResult.results && lintResult.results.length">
+                      <ul class="lint-list">
+                        <li v-for="(r, idx) in lintResult.results" :key="idx">
+                          <div>
+                            <strong>{{
+                              r.code || r.rule || r.ruleId || "rule"
+                            }}</strong
+                            >: {{ r.message || r.description || r.msg }}
+                          </div>
+                          <div
+                            v-if="r.path"
+                            style="color: #666; font-size: 12px"
+                          >
+                            {{
+                              Array.isArray(r.path) ? r.path.join(".") : r.path
+                            }}
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                    <div
+                      v-else-if="
+                        !lintResult.results || !lintResult.results.length
+                      "
+                      style="color: #666"
+                    >
+                      No issues found.
+                    </div>
+                  </div>
+
+                  <div v-else-if="linting">Running lint...</div>
+                </div>
+              </AccordionTab>
+            </Accordion>
+          </div>
+        </div>
       </div>
       <template #footer>
         <Button label="Back" severity="secondary" @click="closeFullCompare" />
@@ -84,7 +195,7 @@
           label="Confirm and Save"
           severity="danger"
           @click="confirmSave"
-          :loading="comparing"
+          :loading="comparing || linting"
         />
       </template>
     </Dialog>
@@ -97,7 +208,14 @@ import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import Tag from "primevue/tag";
-import { listSpecVersions, compareDraftWithVersion } from "../api/specs";
+import SelectButton from "primevue/selectbutton";
+import Accordion from "primevue/accordion";
+import AccordionTab from "primevue/accordiontab";
+import {
+  listSpecVersions,
+  compareDraftWithVersion,
+  lintSpec,
+} from "../api/specs";
 import DiffDrawer from "./DiffDrawer.vue";
 
 export default {
@@ -107,6 +225,10 @@ export default {
     Button,
     InputText,
     DiffDrawer,
+    Tag,
+    SelectButton,
+    Accordion,
+    AccordionTab,
   },
   props: {
     visible: {
@@ -159,6 +281,18 @@ export default {
     const compareError = ref("");
     const baseSpec = ref(null);
 
+    // Lint state for draft
+    const linting = ref(false);
+    const lintResult = ref(null);
+    const lintError = ref("");
+
+    // View mode for full compare dialog (changes | lint)
+    const viewMode = ref("changes");
+    const viewOptions = [
+      { label: "Changes", value: "changes" },
+      { label: "Lint", value: "lint" },
+    ];
+
     watch(
       () => props.specName,
       (newName) => {
@@ -175,6 +309,8 @@ export default {
           compareError.value = "";
           diffResult.value = null;
           baseSpec.value = null;
+          lintResult.value = null;
+          lintError.value = "";
 
           // Load versions lazily when dialog opens and specId is provided
           if (props.specId && props.specId !== "__unsaved") {
@@ -204,9 +340,27 @@ export default {
                   // ignore; compareDraft sets compareError
                 }
               }
+
+              // Always run lint for the draft when dialog opens so user sees score
+              if (props.draftContent) {
+                try {
+                  await runLint();
+                } catch (e) {
+                  // runLint sets lintError
+                }
+              }
             } catch (e) {
               console.error("Failed to load versions", e);
               versions.value = [];
+            }
+          } else {
+            // No specId (new/unsaved) — still run lint on draft
+            if (props.draftContent) {
+              try {
+                await runLint();
+              } catch (e) {
+                // ignore
+              }
             }
           }
         }
@@ -245,6 +399,24 @@ export default {
       }
     };
 
+    const runLint = async () => {
+      if (!props.draftContent) return;
+      linting.value = true;
+      lintError.value = "";
+      lintResult.value = null;
+      try {
+        // lintSpec expects raw spec JSON object
+        const res = await lintSpec(props.draftContent);
+        lintResult.value = res;
+      } catch (err) {
+        console.error("Lint failed:", err);
+        lintError.value =
+          err.response?.data?.detail || err.message || "Lint failed";
+      } finally {
+        linting.value = false;
+      }
+    };
+
     // Full-compare modal controls
     const showFullCompare = ref(false);
     const openFullCompare = async () => {
@@ -252,6 +424,8 @@ export default {
       if (!diffResult.value) {
         await compareDraft();
       }
+      // Run lint before showing so user sees score/errors
+      await runLint();
       showFullCompare.value = true;
     };
     const closeFullCompare = () => {
@@ -259,6 +433,9 @@ export default {
     };
 
     const confirmSave = async () => {
+      // Run lint one more time before saving so state is fresh
+      await runLint();
+
       // Close full compare and perform save
       showFullCompare.value = false;
       save();
@@ -312,6 +489,14 @@ export default {
       openFullCompare,
       closeFullCompare,
       confirmSave,
+      // lint
+      linting,
+      lintResult,
+      lintError,
+      // view mode
+      viewMode,
+      viewOptions,
+      runLint,
     };
   },
 };
@@ -349,5 +534,14 @@ export default {
 
 .diff-preview {
   margin-top: 12px;
+}
+
+.lint-list {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.lint-list li {
+  margin-bottom: 8px;
 }
 </style>

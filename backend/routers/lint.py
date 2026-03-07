@@ -102,3 +102,41 @@ async def lint_spec_adhoc(
 ) -> LintResponse:
     ruleset = body.ruleset or "spectral:oas"
     return _do_lint(body.spec_json, ruleset)
+
+
+@router.post(
+    "/{spec_id}/lint-draft",
+    response_model=LintResponse,
+    summary="Lint an unsaved draft for an existing spec",
+    description=(
+        "Runs Stoplight Spectral against a draft OpenAPI spec provided in the request body. "
+        "The `spec_id` is used only to confirm the user has access to the spec; the draft is not stored."
+    ),
+)
+async def lint_draft(
+    spec_id: str,
+    body: LintRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> LintResponse:
+    # Ensure the referenced spec exists and belongs to the user
+    spec = (
+        db.query(OpenAPISpec)
+        .filter(OpenAPISpec.id == str(spec_id), OpenAPISpec.user_id == current_user.id)
+        .first()
+    )
+    if not spec:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Spec with id {spec_id} not found",
+        )
+
+    # Basic payload validation
+    if not isinstance(body.spec_json, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="spec_json must be a JSON object",
+        )
+
+    ruleset = body.ruleset or "spectral:oas"
+    return _do_lint(body.spec_json, ruleset)

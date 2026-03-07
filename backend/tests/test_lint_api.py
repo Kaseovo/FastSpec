@@ -207,6 +207,32 @@ def test_lint_by_spec_id(db_session):
     assert resp.json()["score"] == 100
 
 
+def test_lint_draft_for_spec(db_session):
+    user = _make_user(db_session)
+    spec = OpenAPISpec(
+        name="draft-spec",
+        title="Draft API",
+        version="1.0.0",
+        spec_json=json.dumps(VALID_SPEC),
+        user_id=user.id,
+    )
+    db_session.add(spec)
+    db_session.commit()
+    db_session.refresh(spec)
+
+    app.dependency_overrides[get_current_user] = lambda: user
+
+    with patch(
+        "routers.lint.run_spectral", side_effect=_mock_spectral(SPECTRAL_NO_ISSUES)
+    ):
+        resp = client.post(
+            f"/lint/{spec.id}/lint-draft", json={"spec_json": VALID_SPEC}
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["score"] == 100
+
+
 def test_lint_by_spec_id_not_found(db_session):
     user = _make_user(db_session)
     app.dependency_overrides[get_current_user] = lambda: user
