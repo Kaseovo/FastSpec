@@ -103,6 +103,7 @@
       :spec-name="currentSpec?.name || ''"
       :spec-id="currentSpec?.id || null"
       :current-version="currentSpec?.version || null"
+      :draft-content="parsedSpec"
       @save="saveSpec"
     />
 

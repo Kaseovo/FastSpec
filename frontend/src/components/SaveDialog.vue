@@ -1,53 +1,94 @@
 <template>
-  <Dialog
-    :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
-    modal
-    header="Save Specification"
-    :style="{ width: '450px' }"
-  >
-    <div class="dialog-content">
-      <div class="form-group">
-        <label for="spec-name">Specification Name</label>
-        <InputText
-          id="spec-name"
-          v-model="name"
-          placeholder="Enter a unique name..."
-          class="w-full"
-        />
+  <div>
+    <Dialog
+      :visible="visible"
+      @update:visible="$emit('update:visible', $event)"
+      modal
+      header="Save Specification"
+      :style="{ width: '600px' }"
+    >
+      <div class="dialog-content">
+        <div class="form-group">
+          <label for="spec-name">Specification Name</label>
+          <InputText
+            id="spec-name"
+            v-model="name"
+            placeholder="Enter a unique name..."
+            class="w-full"
+          />
+        </div>
+
+        <div class="form-group" v-if="specId">
+          <label for="version-select">Version</label>
+          <select
+            id="version-select"
+            v-model="selectedVersion"
+            class="w-full p-inputtext"
+          >
+            <option value="__create_new">Create new version...</option>
+            <option v-for="v in versions" :key="v.id" :value="v.version">
+              {{ v.version }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group" v-if="showNewVersionInput">
+          <label for="new-version">New version</label>
+          <InputText
+            id="new-version"
+            v-model="newVersion"
+            class="w-full"
+            :placeholder="suggestedVersion"
+          />
+          <div v-if="errorMsg" class="inline-error">{{ errorMsg }}</div>
+        </div>
       </div>
 
-      <div class="form-group" v-if="specId">
-        <label for="version-select">Version</label>
-        <select
-          id="version-select"
-          v-model="selectedVersion"
-          class="w-full p-inputtext"
+      <template #footer>
+        <Button label="Cancel" severity="secondary" @click="close" />
+        <Button
+          label="Compare & Confirm"
+          class="p-button-secondary"
+          @click="openFullCompare"
+          :loading="comparing"
+        />
+      </template>
+    </Dialog>
+
+    <!-- Full comparison + confirmation dialog -->
+    <Dialog
+      :visible="showFullCompare"
+      @update:visible="(v) => (showFullCompare = v)"
+      modal
+      header="Changes Overview — Confirm Save"
+      :style="{ width: '90vw', height: '80vh' }"
+    >
+      <div style="height: calc(80vh - 120px); overflow: auto">
+        <div
+          v-if="compareError"
+          class="inline-error"
+          style="margin-bottom: 8px"
         >
-          <option value="__create_new">Create new version...</option>
-          <option v-for="v in versions" :key="v.id" :value="v.version">
-            {{ v.version }}
-          </option>
-        </select>
-      </div>
+          {{ compareError }}
+        </div>
 
-      <div class="form-group" v-if="showNewVersionInput">
-        <label for="new-version">New version</label>
-        <InputText
-          id="new-version"
-          v-model="newVersion"
-          class="w-full"
-          :placeholder="suggestedVersion"
+        <DiffDrawer
+          :diff="diffResult"
+          :spec="baseSpec || draftContent"
+          inline
         />
-        <div v-if="errorMsg" class="inline-error">{{ errorMsg }}</div>
       </div>
-    </div>
-
-    <template #footer>
-      <Button label="Cancel" severity="secondary" @click="close" />
-      <Button label="Save" @click="save" />
-    </template>
-  </Dialog>
+      <template #footer>
+        <Button label="Back" severity="secondary" @click="closeFullCompare" />
+        <Button
+          label="Confirm and Save"
+          severity="danger"
+          @click="confirmSave"
+          :loading="comparing"
+        />
+      </template>
+    </Dialog>
+  </div>
 </template>
 
 <script>
@@ -55,7 +96,9 @@ import { ref, watch, computed } from "vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
-import { listSpecVersions } from "../api/specs";
+import Tag from "primevue/tag";
+import { listSpecVersions, compareDraftWithVersion } from "../api/specs";
+import DiffDrawer from "./DiffDrawer.vue";
 
 export default {
   name: "SaveDialog",
@@ -63,6 +106,7 @@ export default {
     Dialog,
     Button,
     InputText,
+    DiffDrawer,
   },
   props: {
     visible: {
@@ -83,6 +127,11 @@ export default {
       type: String,
       default: null,
     },
+    // current editor draft content (parsed JSON)
+    draftContent: {
+      type: Object,
+      default: null,
+    },
   },
   emits: ["update:visible", "save", "spec-saved"],
   setup(props, { emit }) {
@@ -97,13 +146,18 @@ export default {
     );
 
     const suggestedVersion = computed(() => {
-      // Suggest next patch version based on latest version string if available
       const v = versions.value[0]?.version;
       if (!v) return "1.0.0";
       const parts = v.split(".").map((p) => parseInt(p, 10) || 0);
       parts[2] = (parts[2] || 0) + 1;
       return parts.join(".");
     });
+
+    // Compare state
+    const comparing = ref(false);
+    const diffResult = ref(null);
+    const compareError = ref("");
+    const baseSpec = ref(null);
 
     watch(
       () => props.specName,
@@ -118,11 +172,14 @@ export default {
         if (newVisible) {
           name.value = props.specName;
           errorMsg.value = "";
+          compareError.value = "";
+          diffResult.value = null;
+          baseSpec.value = null;
+
           // Load versions lazily when dialog opens and specId is provided
           if (props.specId && props.specId !== "__unsaved") {
             try {
               versions.value = await listSpecVersions(props.specId);
-              // Always select the latest version (first returned by API) if no currentVersion is provided
               if (props.currentVersion) {
                 const found = versions.value.find(
                   (v) => v.version === props.currentVersion
@@ -134,6 +191,19 @@ export default {
                 selectedVersion.value =
                   versions.value[0]?.version || "__create_new";
               }
+
+              // Auto-run compare when dialog opens if we have draft content
+              if (
+                props.draftContent &&
+                selectedVersion.value &&
+                selectedVersion.value !== "__create_new"
+              ) {
+                try {
+                  await compareDraft();
+                } catch (e) {
+                  // ignore; compareDraft sets compareError
+                }
+              }
             } catch (e) {
               console.error("Failed to load versions", e);
               versions.value = [];
@@ -144,7 +214,54 @@ export default {
     );
 
     const close = () => {
+      // Ensure full compare modal is closed as well
+      if (showFullCompare.value) showFullCompare.value = false;
       emit("update:visible", false);
+    };
+
+    const compareDraft = async () => {
+      if (!props.specId || !selectedVersion.value || !props.draftContent)
+        return;
+      comparing.value = true;
+      compareError.value = "";
+      diffResult.value = null;
+      baseSpec.value = null;
+      try {
+        const res = await compareDraftWithVersion(
+          props.specId,
+          selectedVersion.value,
+          props.draftContent,
+          { format: "structured" }
+        );
+        // Response expected: { base, compare, diff } or { base, compare, markdown }
+        if (res.base?.content) baseSpec.value = res.base.content;
+        diffResult.value = res.diff || res;
+      } catch (err) {
+        console.error("Compare failed:", err);
+        compareError.value =
+          err.response?.data?.detail || err.message || "Compare failed";
+      } finally {
+        comparing.value = false;
+      }
+    };
+
+    // Full-compare modal controls
+    const showFullCompare = ref(false);
+    const openFullCompare = async () => {
+      // Ensure we have a diff before opening
+      if (!diffResult.value) {
+        await compareDraft();
+      }
+      showFullCompare.value = true;
+    };
+    const closeFullCompare = () => {
+      showFullCompare.value = false;
+    };
+
+    const confirmSave = async () => {
+      // Close full compare and perform save
+      showFullCompare.value = false;
+      save();
     };
 
     const save = () => {
@@ -184,6 +301,17 @@ export default {
       showNewVersionInput,
       close,
       save,
+      // compare
+      comparing,
+      diffResult,
+      compareError,
+      compareDraft,
+      baseSpec,
+      // full compare controls
+      showFullCompare,
+      openFullCompare,
+      closeFullCompare,
+      confirmSave,
     };
   },
 };
@@ -211,5 +339,15 @@ export default {
 .inline-error {
   color: #b91c1c;
   margin-top: 8px;
+}
+
+.compare-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diff-preview {
+  margin-top: 12px;
 }
 </style>
