@@ -165,6 +165,13 @@
                 :loading="comparing"
                 @click="runCompare"
               />
+              <Button
+                label="Compare draft"
+                icon="pi pi-file"
+                class="p-button-outlined"
+                :loading="comparingDraft"
+                @click="runCompareWithDraft"
+              />
             </div>
 
             <div v-if="compareError" class="inline-error" role="alert">
@@ -194,6 +201,7 @@ import {
   deleteSpec,
   listSpecVersions,
   compareSpecVersions,
+  compareDraftWithVersion,
   getSpecVersion,
 } from "../api/specs";
 import DiffDrawer from "./DiffDrawer.vue";
@@ -228,6 +236,8 @@ export default {
     const hasUnsavedChanges = inject("hasUnsavedChanges", ref(false));
     const discardUnsaved = inject("discardUnsaved", () => {});
     const expanded = ref(new Set());
+    // Access current editor parsed spec for draft comparisons (provided by App.vue)
+    const getCurrentEditorSpec = inject("getCurrentEditorSpec", () => null);
 
     // History drawer state
     const historyOpen = ref(false);
@@ -245,6 +255,7 @@ export default {
     const baseVersion = ref(null);
     const compareVersion = ref(null);
     const comparing = ref(false);
+    const comparingDraft = ref(false);
     const compareError = ref(null);
 
     const versionOptions = computed(() =>
@@ -534,6 +545,36 @@ export default {
       }
     };
 
+    const runCompareWithDraft = async () => {
+      compareError.value = null;
+      if (!historySpec.value || !baseVersion.value) {
+        compareError.value =
+          "Please select a base version to compare with the draft";
+        return;
+      }
+      const draft = getCurrentEditorSpec ? getCurrentEditorSpec() : null;
+      if (!draft || typeof draft !== "object") {
+        compareError.value =
+          "No valid draft available in the editor to compare";
+        return;
+      }
+      comparingDraft.value = true;
+      try {
+        const res = await compareDraftWithVersion(
+          historySpec.value.id,
+          baseVersion.value,
+          draft,
+          {}
+        );
+        historyDiff.value = res.diff || res;
+      } catch (err) {
+        console.error("Draft compare failed:", err);
+        compareError.value = "Failed to compare draft with version";
+      } finally {
+        comparingDraft.value = false;
+      }
+    };
+
     onMounted(async () => {
       await loadSpecs();
     });
@@ -582,6 +623,8 @@ export default {
       // expose unsaved flag for template to render "Unsaved" badges
       hasUnsavedChanges,
       selectedId,
+      // expose draft-compare helper for history drawer when user selects a stored spec to compare with the current editor
+      runCompareWithDraft,
     };
   },
 };

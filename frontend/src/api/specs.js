@@ -145,6 +145,27 @@ export const compareSpecVersions = async (specId, base, compare) => {
   return response.data; // { base, compare, diff }
 };
 
+/**
+ * Compare an unsaved draft (provided inline) against a stored base version.
+ * POST /api/specs/{specId}/compare with { base, compare_content, options }
+ * Returns: { base, compare, diff } or { base, compare, markdown }
+ */
+export const compareDraftWithVersion = async (
+  specId,
+  baseVersionId,
+  draftContent,
+  options = {},
+) => {
+  const payload = {
+    base: baseVersionId,
+    compare_content: draftContent,
+    options,
+  };
+  const response = await api.post(`/${specId}/compare`, payload);
+  return response.data;
+};
+
+// --
 export const publishSpecVersion = async (specId, versionId) => {
   const response = await api.post(`/${specId}/versions/${versionId}/publish`);
   return response.data;

@@ -491,13 +491,22 @@ async def get_version(
     spec = _resolve_spec_or_404(db, spec_id, current_user)
     # Accept both version string and UUID for compatibility
     from uuid import UUID
+
     try:
         # Try to interpret version_id as UUID
         uuid_obj = UUID(version_id)
-        ver = db.query(SpecVersion).filter(SpecVersion.id == str(uuid_obj), SpecVersion.spec_id == spec_id).first()
+        ver = (
+            db.query(SpecVersion)
+            .filter(SpecVersion.id == str(uuid_obj), SpecVersion.spec_id == spec_id)
+            .first()
+        )
     except ValueError:
         # Fallback to version string
-        ver = db.query(SpecVersion).filter(SpecVersion.spec_id == spec_id, SpecVersion.version == version_id).first()
+        ver = (
+            db.query(SpecVersion)
+            .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == version_id)
+            .first()
+        )
     if not ver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Spec version not found"
@@ -553,35 +562,81 @@ async def delete_version(
 @router.post("/{spec_id}/compare")
 async def compare_versions(
     spec_id: str,
-    body: Dict[str, str],
+    body: Dict[str, Any],
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Compare two versions specified by id or version string"""
+    """Compare a stored base against either another stored version or an unsaved draft provided inline."""
     spec = _resolve_spec_or_404(db, spec_id, current_user)
 
     base_key = body.get("base")
     compare_key = body.get("compare")
-    if not base_key or not compare_key:
+    compare_content = body.get("compare_content")
+    options = body.get("options", {}) or {}
+
+    if not base_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Both 'base' and 'compare' are required",
+            detail="'base' is required",
         )
 
-    base_ver = _resolve_version(db, spec_id, base_key)
-    compare_ver = _resolve_version(db, spec_id, compare_key)
+    # Resolve base version: support special tokens 'live' or 'latest'
+    base_ver = None
+    if base_key in ("live", "latest"):
+        base_ver = (
+            db.query(SpecVersion)
+            .filter(SpecVersion.spec_id == spec_id, SpecVersion.is_published == True)
+            .order_by(SpecVersion.created_at.desc())
+            .first()
+        )
+    else:
+        base_ver = _resolve_version(db, spec_id, base_key)
 
-    if not base_ver or not compare_ver:
+    if not base_ver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="One or both versions not found",
+            detail="Base version not found",
         )
 
-    diff = compare_specs(base_ver.content, compare_ver.content)
+    # If inline compare_content provided, compare against draft
+    if compare_content is not None:
+        if not isinstance(compare_content, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="compare_content must be a JSON object",
+            )
+        diff = compare_specs(base_ver.content, compare_content)
+        compare_serialized = {"id": None, "is_draft": True}
+    else:
+        # Compare two stored versions; require compare key
+        if not compare_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Either 'compare' or 'compare_content' is required",
+            )
+        compare_ver = _resolve_version(db, spec_id, compare_key)
+        if not compare_ver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Compare version not found",
+            )
+        diff = compare_specs(base_ver.content, compare_ver.content)
+        compare_serialized = _serialize_version(compare_ver)
 
+    # Format handling
+    fmt = options.get("format", "structured")
+    if fmt == "markdown":
+        markdown = generate_markdown_report(diff)
+        return {
+            "base": _serialize_version(base_ver),
+            "compare": compare_serialized,
+            "markdown": markdown,
+        }
+
+    # Default: structured JSON diff
     return {
         "base": _serialize_version(base_ver),
-        "compare": _serialize_version(compare_ver),
+        "compare": compare_serialized,
         "diff": diff,
     }
 

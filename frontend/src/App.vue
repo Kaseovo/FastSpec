@@ -775,6 +775,10 @@ export default {
     };
     provide("discardUnsaved", discardUnsaved);
     provide("selectedSpecId", selectedSpecId);
+    +(
+      // Allow child components to access the current editor parsed spec for draft comparisons
+      (+provide("getCurrentEditorSpec", () => parsedSpec.value))
+    );
     // Quick debug: log selectedSpecId changes
     watch(selectedSpecId, (v) => console.log("selectedSpecId changed:", v), {
       immediate: true,
