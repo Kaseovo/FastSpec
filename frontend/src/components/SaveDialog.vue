@@ -48,7 +48,7 @@
         <Button label="Cancel" severity="secondary" @click="close" />
         <Button
           label="Compare & Confirm"
-          class="p-button-secondary"
+          class="p-button-success"
           @click="openFullCompare"
           :loading="comparing"
         />
@@ -60,7 +60,7 @@
       :visible="showFullCompare"
       @update:visible="(v) => (showFullCompare = v)"
       modal
-      header="Changes Overview — Confirm Save"
+      header="Overview — Confirm Save"
       :style="{ width: '90vw', height: '80vh' }"
     >
       <div style="height: calc(80vh - 120px); overflow: auto">
@@ -134,8 +134,8 @@
       <template #footer>
         <Button label="Back" severity="secondary" @click="closeFullCompare" />
         <Button
-          label="Confirm and Save"
-          severity="danger"
+          label="Confirm & Save"
+          severity="success"
           @click="confirmSave"
           :loading="comparing || linting"
         />
