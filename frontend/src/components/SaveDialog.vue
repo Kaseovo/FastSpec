@@ -74,6 +74,51 @@
 
         <!-- Overview sections with expandable details -->
         <div class="overview-section">
+          <!-- Recap row: concise summaries above details -->
+          <div class="overview-recap" style="margin-bottom: 12px">
+            <div style="display: flex; gap: 12px">
+              <div
+                style="
+                  flex: 1;
+                  background: var(--p-surface-card, #fff);
+                  padding: 12px;
+                  border-radius: 8px;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+                "
+              >
+                <div style="font-weight: 600">Changes</div>
+                <div
+                  style="
+                    margin-top: 8px;
+                    color: var(--p-text-muted-color, #6c757d);
+                  "
+                >
+                  {{ changesSummary }}
+                </div>
+              </div>
+
+              <div
+                style="
+                  flex: 1;
+                  background: var(--p-surface-card, #fff);
+                  padding: 12px;
+                  border-radius: 8px;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+                "
+              >
+                <div style="font-weight: 600">Lint</div>
+                <div
+                  style="
+                    margin-top: 8px;
+                    color: var(--p-text-muted-color, #6c757d);
+                  "
+                >
+                  {{ lintSummary }}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Changes Overview -->
           <div class="overview-item" style="margin-bottom: 12px">
             <div
@@ -86,22 +131,25 @@
               <div style="font-weight: 600">Changes Overview</div>
             </div>
 
-            <Accordion>
-              <AccordionTab header="Details">
-                <div
-                  style="
-                    height: calc(80vh - 300px);
-                    overflow: auto;
-                    padding-right: 8px;
-                  "
-                >
-                  <DiffDrawer
-                    :diff="diffResult"
-                    :spec="baseSpec || draftContent"
-                    inline
-                  />
-                </div>
-              </AccordionTab>
+            <Accordion :multiple="true" :activeIndex="[-1]">
+              <AccordionPanel>
+                <AccordionHeader>Details</AccordionHeader>
+                <AccordionContent>
+                  <div
+                    style="
+                      height: calc(80vh - 300px);
+                      overflow: auto;
+                      padding-right: 8px;
+                    "
+                  >
+                    <DiffDrawer
+                      :diff="diffResult"
+                      :spec="baseSpec || draftContent"
+                      inline
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionPanel>
             </Accordion>
           </div>
 
@@ -118,15 +166,18 @@
               <div style="font-weight: 600">Lint Overview</div>
             </div>
 
-            <Accordion>
-              <AccordionTab header="Details">
-                <LintPanel
-                  :results="lintResult"
-                  :loading="linting"
-                  :error="lintError"
-                  @run-lint="runLint"
-                />
-              </AccordionTab>
+            <Accordion :multiple="true" :activeIndex="[-1]">
+              <AccordionPanel>
+                <AccordionHeader>Details</AccordionHeader>
+                <AccordionContent>
+                  <LintPanel
+                    :results="lintResult"
+                    :loading="linting"
+                    :error="lintError"
+                    @run-lint="runLint"
+                  />
+                </AccordionContent>
+              </AccordionPanel>
             </Accordion>
           </div>
         </div>
@@ -152,7 +203,9 @@ import InputText from "primevue/inputtext";
 import Tag from "primevue/tag";
 import SelectButton from "primevue/selectbutton";
 import Accordion from "primevue/accordion";
-import AccordionTab from "primevue/accordiontab";
+import AccordionPanel from "primevue/accordionpanel";
+import AccordionHeader from "primevue/accordionheader";
+import AccordionContent from "primevue/accordioncontent";
 import {
   listSpecVersions,
   compareDraftWithVersion,
@@ -172,7 +225,9 @@ export default {
     Tag,
     SelectButton,
     Accordion,
-    AccordionTab,
+    AccordionPanel,
+    AccordionHeader,
+    AccordionContent,
   },
   props: {
     visible: {
@@ -412,6 +467,169 @@ export default {
       close();
     };
 
+    const changesSummary = computed(() => {
+      // always compute explicit counts (show zeros)
+      let added = 0;
+      let removed = 0;
+      let modified = 0;
+
+      if (!diffResult.value) {
+        return `${added} added · ${removed} removed · ${modified} modified`;
+      }
+
+      // If server provided stats, use them (coerce to number)
+      if (diffResult.value?.stats) {
+        const s = diffResult.value.stats;
+        added = Number(s.added) || 0;
+        removed = Number(s.removed) || 0;
+        modified = Number(s.modified) || 0;
+      } else if (Array.isArray(diffResult.value)) {
+        // Try to infer counts from an array of diff entries
+        diffResult.value.forEach((item) => {
+          const opRaw = (
+            item?.op ||
+            item?.action ||
+            item?.kind ||
+            item?.change ||
+            item?.operation ||
+            item?.type ||
+            ""
+          )
+            .toString()
+            .toLowerCase();
+          const op = opRaw.trim();
+          if (["n", "add", "added", "create"].includes(op)) added++;
+          else if (["d", "delete", "deleted", "remove", "removed"].includes(op))
+            removed++;
+          else if (
+            ["e", "edit", "update", "updated", "modify", "modified"].includes(
+              op
+            )
+          )
+            modified++;
+          else if (item && typeof item === "object") {
+            // best-effort heuristics
+            if (item.hasOwnProperty("added") || item.hasOwnProperty("new"))
+              added++;
+            else if (
+              item.hasOwnProperty("removed") ||
+              item.hasOwnProperty("old")
+            )
+              removed++;
+            else modified++;
+          }
+        });
+      } else if (
+        typeof diffResult.value === "object" &&
+        diffResult.value !== null
+      ) {
+        // Fallback: handle structured diff objects where keys are arrays
+        // Example format (preferred):
+        // { added: [], modified: [], removed: [], infoAdded: [], infoModified: [], infoRemoved: [], serverAdded: [], serverModified: [], serverRemoved: [], schemaAdded: [], schemaModified: [], schemaRemoved: [] }
+        const r = diffResult.value;
+
+        const countVal = (v) => {
+          if (Array.isArray(v)) return v.length;
+          if (typeof v === "number") return v;
+          if (typeof v === "string" && /^\d+$/.test(v)) return Number(v);
+          return 0;
+        };
+
+        // Prefer explicit structured counts by summing known keys
+        const sumKeys = (keys) =>
+          keys.reduce(
+            (acc, k) => acc + countVal(r[k] ?? r[k.toLowerCase()] ?? 0),
+            0
+          );
+
+        // compute added/removed/modified using the authoritative grouped keys
+        added = sumKeys([
+          "added",
+          "infoAdded",
+          "serverAdded",
+          "schemaAdded",
+          "additions",
+        ]);
+        removed = sumKeys([
+          "removed",
+          "infoRemoved",
+          "serverRemoved",
+          "schemaRemoved",
+          "deletions",
+        ]);
+        modified = sumKeys([
+          "modified",
+          "infoModified",
+          "serverModified",
+          "schemaModified",
+          "edits",
+        ]);
+
+        // Ensure we include infoAdded/infoModified etc. in modified/added semantics per user request
+        // Users expect added = added + infoAdded + serverAdded + schemaAdded
+        added =
+          countVal(r.added) +
+          countVal(r.infoAdded) +
+          countVal(r.serverAdded) +
+          countVal(r.schemaAdded);
+        modified =
+          countVal(r.modified) +
+          countVal(r.infoModified) +
+          countVal(r.serverModified) +
+          countVal(r.schemaModified);
+        removed =
+          countVal(r.removed) +
+          countVal(r.infoRemoved) +
+          countVal(r.serverRemoved) +
+          countVal(r.schemaRemoved);
+
+        // If none of the structured keys were present (counts still zero), fall back to scanning any keys
+        if (added === 0 && removed === 0 && modified === 0) {
+          Object.entries(r).forEach(([k, v]) => {
+            const key = String(k).toLowerCase();
+            if (
+              key.endsWith("added") ||
+              key === "added" ||
+              key.includes("add")
+            ) {
+              added += countVal(v);
+            } else if (
+              key.endsWith("removed") ||
+              key === "removed" ||
+              key.includes("remove") ||
+              key.includes("delet")
+            ) {
+              removed += countVal(v);
+            } else if (
+              key.endsWith("modified") ||
+              key === "modified" ||
+              key.includes("modif") ||
+              key.includes("edit")
+            ) {
+              modified += countVal(v);
+            }
+          });
+        }
+      }
+
+      // Always return explicit numeric counts
+      return `${added} added · ${modified} modified · ${removed} removed`;
+    });
+
+    const lintSummary = computed(() => {
+      if (!lintResult.value) return "No lint run";
+      const score = lintResult.value.score ?? null;
+      const totalIssues =
+        (lintResult.value.summary &&
+          Object.values(lintResult.value.summary).reduce(
+            (a, b) => a + (b || 0),
+            0
+          )) ||
+        0;
+      if (score !== null) return `Score: ${score}/100 · ${totalIssues} issues`;
+      return `${totalIssues} issues`;
+    });
+
     return {
       name,
       versions,
@@ -441,6 +659,9 @@ export default {
       viewMode,
       viewOptions,
       runLint,
+      // summaries
+      changesSummary,
+      lintSummary,
     };
   },
 };
