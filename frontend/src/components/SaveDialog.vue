@@ -84,9 +84,6 @@
               "
             >
               <div style="font-weight: 600">Changes Overview</div>
-              <div style="color: #666; font-size: 12px">
-                Click to expand details
-              </div>
             </div>
 
             <Accordion>
@@ -119,71 +116,16 @@
               "
             >
               <div style="font-weight: 600">Lint Overview</div>
-              <div style="display: flex; align-items: center; gap: 8px">
-                <div
-                  v-if="lintResult && lintResult.score !== undefined"
-                  style="display: flex; align-items: center; gap: 6px"
-                >
-                  <strong>Score:</strong>
-                  <Tag :value="lintResult.score.toFixed(2)" severity="info" />
-                </div>
-                <div v-else-if="linting">Running lint...</div>
-              </div>
             </div>
 
             <Accordion>
-              <AccordionTab
-                :header="`Issues (${
-                  lintResult && lintResult.results
-                    ? lintResult.results.length
-                    : 0
-                })`"
-              >
-                <div class="lint-panel">
-                  <div v-if="lintError" class="inline-error">
-                    {{ lintError }}
-                  </div>
-
-                  <div v-else-if="lintResult">
-                    <div
-                      v-if="lintResult.summary"
-                      style="margin-bottom: 8px; color: #555"
-                    >
-                      {{ lintResult.summary }}
-                    </div>
-
-                    <div v-if="lintResult.results && lintResult.results.length">
-                      <ul class="lint-list">
-                        <li v-for="(r, idx) in lintResult.results" :key="idx">
-                          <div>
-                            <strong>{{
-                              r.code || r.rule || r.ruleId || "rule"
-                            }}</strong
-                            >: {{ r.message || r.description || r.msg }}
-                          </div>
-                          <div
-                            v-if="r.path"
-                            style="color: #666; font-size: 12px"
-                          >
-                            {{
-                              Array.isArray(r.path) ? r.path.join(".") : r.path
-                            }}
-                          </div>
-                        </li>
-                      </ul>
-                    </div>
-                    <div
-                      v-else-if="
-                        !lintResult.results || !lintResult.results.length
-                      "
-                      style="color: #666"
-                    >
-                      No issues found.
-                    </div>
-                  </div>
-
-                  <div v-else-if="linting">Running lint...</div>
-                </div>
+              <AccordionTab header="Details">
+                <LintPanel
+                  :results="lintResult"
+                  :loading="linting"
+                  :error="lintError"
+                  @run-lint="runLint"
+                />
               </AccordionTab>
             </Accordion>
           </div>
@@ -217,6 +159,7 @@ import {
   lintSpec,
 } from "../api/specs";
 import DiffDrawer from "./DiffDrawer.vue";
+import LintPanel from "./LintPanel.vue";
 
 export default {
   name: "SaveDialog",
@@ -225,6 +168,7 @@ export default {
     Button,
     InputText,
     DiffDrawer,
+    LintPanel,
     Tag,
     SelectButton,
     Accordion,
