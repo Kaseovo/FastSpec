@@ -74,48 +74,30 @@
 
         <!-- Overview sections with expandable details -->
         <div class="overview-section">
-          <!-- Recap row: concise summaries above details -->
-          <div class="overview-recap" style="margin-bottom: 12px">
-            <div style="display: flex; gap: 12px">
-              <div
-                style="
-                  flex: 1;
-                  background: var(--p-surface-card, #fff);
-                  padding: 12px;
-                  border-radius: 8px;
-                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-                "
-              >
-                <div style="font-weight: 600">Changes</div>
-                <div
-                  style="
-                    margin-top: 8px;
-                    color: var(--p-text-muted-color, #6c757d);
-                  "
-                >
-                  {{ changesSummary }}
-                </div>
+          <!-- Compact recap strip: shows small counts/icons + view buttons -->
+          <div class="recap-strip" style="margin-bottom: 12px; display:flex; gap:12px; align-items:center;">
+            <div class="recap-item changes" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--p-surface-card,#fff); border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+              <span class="recap-icon" aria-hidden="true">🔀</span>
+              <div style="display:flex; flex-direction:column;">
+                <span style="font-weight:600; font-size:14px">Changes</span>
+                <span class="recap-value" style="color:var(--p-text-muted-color,#6c757d); font-size:13px">{{ changesSummary }}</span>
               </div>
+              <button class="p-button p-component p-button-text view-btn" :class="{ active: showChangesView }" style="margin-left:12px;" @click.prevent="togglePanel('changes')" :aria-controls="'changes-panel'" :aria-expanded="showChangesView">{{ showChangesView ? 'Hide' : 'View' }}</button>
+            </div>
 
-              <div
-                style="
-                  flex: 1;
-                  background: var(--p-surface-card, #fff);
-                  padding: 12px;
-                  border-radius: 8px;
-                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-                "
-              >
-                <div style="font-weight: 600">Lint</div>
-                <div
-                  style="
-                    margin-top: 8px;
-                    color: var(--p-text-muted-color, #6c757d);
-                  "
-                >
-                  {{ lintSummary }}
-                </div>
+            <div class="recap-item lint" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--p-surface-card,#fff); border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+              <span class="recap-icon" aria-hidden="true">✅</span>
+              <div style="display:flex; flex-direction:column;">
+                <span style="font-weight:600; font-size:14px">Lint</span>
+                <span class="recap-value" style="color:var(--p-text-muted-color,#6c757d); font-size:13px">{{ lintSummary }}</span>
               </div>
+              <button class="p-button p-component p-button-text view-btn" :class="{ active: showLintView }" style="margin-left:12px;" @click.prevent="togglePanel('lint')" :aria-controls="'lint-panel'" :aria-expanded="showLintView">{{ showLintView ? 'Hide' : 'View' }}</button>
+            </div>
+
+            <div style="margin-left:auto; font-size:12px; color:var(--p-text-muted-color,#6c757d)">
+              <span v-if="comparing">Comparing…</span>
+              <span v-else-if="linting">Linting…</span>
+              <span v-else>Ready</span>
             </div>
           </div>
 
@@ -131,26 +113,13 @@
               <div style="font-weight: 600">Changes Overview</div>
             </div>
 
-            <Accordion :multiple="true" :activeIndex="[-1]">
-              <AccordionPanel>
-                <AccordionHeader>Details</AccordionHeader>
-                <AccordionContent>
-                  <div
-                    style="
-                      height: calc(80vh - 300px);
-                      overflow: auto;
-                      padding-right: 8px;
-                    "
-                  >
-                    <DiffDrawer
-                      :diff="diffResult"
-                      :spec="baseSpec || draftContent"
-                      inline
-                    />
-                  </div>
-                </AccordionContent>
-              </AccordionPanel>
-            </Accordion>
+          <div v-if="showChangesView" id="changes-panel-body" style="height: calc(80vh - 300px); overflow: auto; padding-right: 8px;">
+            <DiffDrawer
+              :diff="diffResult"
+              :spec="baseSpec || draftContent"
+              inline
+            />
+          </div>
           </div>
 
           <!-- Lint Overview -->
@@ -166,19 +135,14 @@
               <div style="font-weight: 600">Lint Overview</div>
             </div>
 
-            <Accordion :multiple="true" :activeIndex="[-1]">
-              <AccordionPanel>
-                <AccordionHeader>Details</AccordionHeader>
-                <AccordionContent>
-                  <LintPanel
-                    :results="lintResult"
-                    :loading="linting"
-                    :error="lintError"
-                    @run-lint="runLint"
-                  />
-                </AccordionContent>
-              </AccordionPanel>
-            </Accordion>
+          <div v-if="showLintView" id="lint-panel-body" style="max-height: calc(80vh - 300px); overflow: auto;">
+            <LintPanel
+              :results="lintResult"
+              :loading="linting"
+              :error="lintError"
+              @run-lint="runLint"
+            />
+          </div>
           </div>
         </div>
       </div>
@@ -196,16 +160,12 @@
 </template>
 
 <script>
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, nextTick } from "vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import Tag from "primevue/tag";
 import SelectButton from "primevue/selectbutton";
-import Accordion from "primevue/accordion";
-import AccordionPanel from "primevue/accordionpanel";
-import AccordionHeader from "primevue/accordionheader";
-import AccordionContent from "primevue/accordioncontent";
 import {
   listSpecVersions,
   compareDraftWithVersion,
@@ -224,10 +184,6 @@ export default {
     LintPanel,
     Tag,
     SelectButton,
-    Accordion,
-    AccordionPanel,
-    AccordionHeader,
-    AccordionContent,
   },
   props: {
     visible: {
@@ -256,6 +212,11 @@ export default {
   },
   emits: ["update:visible", "save", "spec-saved"],
   setup(props, { emit }) {
+    // Inline view flags for the previously-collapsible sections
+    const showChangesView = ref(false);
+    const showLintView = ref(false);
+
+
     const name = ref("");
     const versions = ref([]);
     const selectedVersion = ref("__create_new");
@@ -273,6 +234,9 @@ export default {
       parts[2] = (parts[2] || 0) + 1;
       return parts.join(".");
     });
+
+    // (replaced accordions with inline views)
+    
 
     // Compare state
     const comparing = ref(false);
@@ -372,6 +336,68 @@ export default {
       emit("update:visible", false);
     };
 
+    async function focusPanel(panel) {
+      // Keep existing behavior: always open modal and show requested panel
+      if (!showFullCompare.value) {
+        showFullCompare.value = true;
+        await nextTick();
+      }
+
+      // Ensure target panel is visible
+      if (panel === 'changes') {
+        showChangesView.value = true;
+        showLintView.value = false;
+      } else if (panel === 'lint') {
+        showLintView.value = true;
+        showChangesView.value = false;
+      }
+
+      await nextTick();
+
+      const id = panel === 'changes' ? 'changes-panel-body' : 'lint-panel-body';
+      const el = document.getElementById(id);
+      if (el && el.scrollIntoView) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const btn = el.querySelector("button, a, [tabindex]:not([tabindex='-1'])");
+        if (btn) btn.focus();
+      }
+    }
+
+    // Toggle view when user clicks the compact "View" button: open modal and show, or hide if already visible
+    async function togglePanel(panel) {
+      // If modal is closed, open and show the requested panel
+      if (!showFullCompare.value) {
+        showFullCompare.value = true;
+        await nextTick();
+        if (panel === 'changes') {
+          showChangesView.value = true;
+          showLintView.value = false;
+        } else if (panel === 'lint') {
+          showLintView.value = true;
+          showChangesView.value = false;
+        }
+        return;
+      }
+
+      // If modal open and the requested panel is already visible, hide it
+      if (panel === 'changes') {
+        if (showChangesView.value) {
+          showChangesView.value = false;
+        } else {
+          showChangesView.value = true;
+          showLintView.value = false;
+        }
+      } else if (panel === 'lint') {
+        if (showLintView.value) {
+          showLintView.value = false;
+        } else {
+          showLintView.value = true;
+          showChangesView.value = false;
+        }
+      }
+      await nextTick();
+    }
+
     const compareDraft = async () => {
       if (!props.specId || !selectedVersion.value || !props.draftContent)
         return;
@@ -429,6 +455,8 @@ export default {
     };
     const closeFullCompare = () => {
       showFullCompare.value = false;
+      showChangesView.value = false;
+      showLintView.value = false;
     };
 
     const confirmSave = async () => {
@@ -662,6 +690,11 @@ export default {
       // summaries
       changesSummary,
       lintSummary,
+      // expose refs and helpers used by template
+      focusPanel,
+      togglePanel,
+      showChangesView,
+      showLintView,
     };
   },
 };
@@ -699,6 +732,14 @@ export default {
 
 .diff-preview {
   margin-top: 12px;
+}
+
+.view-btn.active {
+  background: var(--p-primary-600, #0d6efd);
+  color: white;
+  border-radius: 6px;
+  padding: 6px 10px;
+  transition: background 0.15s ease;
 }
 
 .lint-list {
