@@ -75,29 +75,55 @@
         <!-- Overview sections with expandable details -->
         <div class="overview-section">
           <!-- Compact recap strip: shows small counts/icons + view buttons -->
-          <div class="recap-strip" style="margin-bottom: 12px; display:flex; gap:12px; align-items:center;">
-            <div class="recap-item changes" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--p-surface-card,#fff); border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
-              <span class="recap-icon" aria-hidden="true">🔀</span>
-              <div style="display:flex; flex-direction:column;">
-                <span style="font-weight:600; font-size:14px">Changes</span>
-                <span class="recap-value" style="color:var(--p-text-muted-color,#6c757d); font-size:13px">{{ changesSummary }}</span>
+          <div
+            class="recap-strip"
+            style="
+              margin-bottom: 12px;
+              display: flex;
+              gap: 12px;
+              align-items: center;
+            "
+          >
+            <div class="recap-item changes">
+              <div class="recap-left">
+                <span class="recap-icon" aria-hidden="true">🔀</span>
+                <div class="recap-text">
+                  <span class="recap-title">Changes</span>
+                  <span class="recap-value">{{ changesSummary }}</span>
+                </div>
               </div>
-              <button class="p-button p-component p-button-text view-btn" :class="{ active: showChangesView }" style="margin-left:12px;" @click.prevent="togglePanel('changes')" :aria-controls="'changes-panel'" :aria-expanded="showChangesView">{{ showChangesView ? 'Hide' : 'View' }}</button>
+              <div class="recap-actions">
+                <button
+                  class="p-button p-component p-button-text view-btn"
+                  :class="{ active: showChangesView }"
+                  @click.prevent="togglePanel('changes')"
+                  :aria-controls="'changes-panel'"
+                  :aria-expanded="showChangesView"
+                >
+                  {{ showChangesView ? "Hide" : "View" }}
+                </button>
+              </div>
             </div>
 
-            <div class="recap-item lint" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--p-surface-card,#fff); border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
-              <span class="recap-icon" aria-hidden="true">✅</span>
-              <div style="display:flex; flex-direction:column;">
-                <span style="font-weight:600; font-size:14px">Lint</span>
-                <span class="recap-value" style="color:var(--p-text-muted-color,#6c757d); font-size:13px">{{ lintSummary }}</span>
+            <div class="recap-item lint">
+              <div class="recap-left">
+                <span class="recap-icon" aria-hidden="true">🔎</span>
+                <div class="recap-text">
+                  <span class="recap-title">Lint</span>
+                  <span class="recap-value">{{ lintSummary }}</span>
+                </div>
               </div>
-              <button class="p-button p-component p-button-text view-btn" :class="{ active: showLintView }" style="margin-left:12px;" @click.prevent="togglePanel('lint')" :aria-controls="'lint-panel'" :aria-expanded="showLintView">{{ showLintView ? 'Hide' : 'View' }}</button>
-            </div>
-
-            <div style="margin-left:auto; font-size:12px; color:var(--p-text-muted-color,#6c757d)">
-              <span v-if="comparing">Comparing…</span>
-              <span v-else-if="linting">Linting…</span>
-              <span v-else>Ready</span>
+              <div class="recap-actions">
+                <button
+                  class="p-button p-component p-button-text view-btn"
+                  :class="{ active: showLintView }"
+                  @click.prevent="togglePanel('lint')"
+                  :aria-controls="'lint-panel'"
+                  :aria-expanded="showLintView"
+                >
+                  {{ showLintView ? "Hide" : "View" }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -110,16 +136,26 @@
                 justify-content: space-between;
               "
             >
-              <div style="font-weight: 600">Changes Overview</div>
+              <div v-if="showChangesView" style="font-weight: 600">
+                Changes Overview
+              </div>
             </div>
 
-          <div v-if="showChangesView" id="changes-panel-body" style="height: calc(80vh - 300px); overflow: auto; padding-right: 8px;">
-            <DiffDrawer
-              :diff="diffResult"
-              :spec="baseSpec || draftContent"
-              inline
-            />
-          </div>
+            <div
+              v-if="showChangesView"
+              id="changes-panel-body"
+              style="
+                height: calc(80vh - 300px);
+                overflow: auto;
+                padding-right: 8px;
+              "
+            >
+              <DiffDrawer
+                :diff="diffResult"
+                :spec="baseSpec || draftContent"
+                inline
+              />
+            </div>
           </div>
 
           <!-- Lint Overview -->
@@ -132,17 +168,23 @@
                 margin-bottom: 8px;
               "
             >
-              <div style="font-weight: 600">Lint Overview</div>
+              <div v-if="showLintView" style="font-weight: 600">
+                Lint Overview
+              </div>
             </div>
 
-          <div v-if="showLintView" id="lint-panel-body" style="max-height: calc(80vh - 300px); overflow: auto;">
-            <LintPanel
-              :results="lintResult"
-              :loading="linting"
-              :error="lintError"
-              @run-lint="runLint"
-            />
-          </div>
+            <div
+              v-if="showLintView"
+              id="lint-panel-body"
+              style="max-height: calc(80vh - 300px); overflow: auto"
+            >
+              <LintPanel
+                :results="lintResult"
+                :loading="linting"
+                :error="lintError"
+                @run-lint="runLint"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -216,6 +258,10 @@ export default {
     const showChangesView = ref(false);
     const showLintView = ref(false);
 
+    // Hide titles by default until their sections are opened
+    // Initially show lint overview per user request
+    showChangesView.value = false;
+    showLintView.value = false;
 
     const name = ref("");
     const versions = ref([]);
@@ -236,7 +282,6 @@ export default {
     });
 
     // (replaced accordions with inline views)
-    
 
     // Compare state
     const comparing = ref(false);
@@ -344,21 +389,23 @@ export default {
       }
 
       // Ensure target panel is visible
-      if (panel === 'changes') {
+      if (panel === "changes") {
         showChangesView.value = true;
         showLintView.value = false;
-      } else if (panel === 'lint') {
+      } else if (panel === "lint") {
         showLintView.value = true;
         showChangesView.value = false;
       }
 
       await nextTick();
 
-      const id = panel === 'changes' ? 'changes-panel-body' : 'lint-panel-body';
+      const id = panel === "changes" ? "changes-panel-body" : "lint-panel-body";
       const el = document.getElementById(id);
       if (el && el.scrollIntoView) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const btn = el.querySelector("button, a, [tabindex]:not([tabindex='-1'])");
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const btn = el.querySelector(
+          "button, a, [tabindex]:not([tabindex='-1'])"
+        );
         if (btn) btn.focus();
       }
     }
@@ -369,10 +416,10 @@ export default {
       if (!showFullCompare.value) {
         showFullCompare.value = true;
         await nextTick();
-        if (panel === 'changes') {
+        if (panel === "changes") {
           showChangesView.value = true;
           showLintView.value = false;
-        } else if (panel === 'lint') {
+        } else if (panel === "lint") {
           showLintView.value = true;
           showChangesView.value = false;
         }
@@ -380,14 +427,14 @@ export default {
       }
 
       // If modal open and the requested panel is already visible, hide it
-      if (panel === 'changes') {
+      if (panel === "changes") {
         if (showChangesView.value) {
           showChangesView.value = false;
         } else {
           showChangesView.value = true;
           showLintView.value = false;
         }
-      } else if (panel === 'lint') {
+      } else if (panel === "lint") {
         if (showLintView.value) {
           showLintView.value = false;
         } else {
@@ -740,6 +787,78 @@ export default {
   border-radius: 6px;
   padding: 6px 10px;
   transition: background 0.15s ease;
+}
+
+/* Recap strip improvements */
+.recap-strip {
+  display: flex;
+  gap: 12px;
+}
+.recap-item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--p-surface-card, #fff);
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+.recap-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.recap-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 16px;
+}
+.recap-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.recap-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+.recap-value {
+  color: var(--p-text-muted-color, #6c757d);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+.recap-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.recap-badge {
+  background: var(--p-primary-600, #0d6efd);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+}
+.recap-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.18s ease, transform 0.12s ease;
+}
+.view-btn {
+  padding: 4px 8px;
+  border-radius: 6px;
 }
 
 .lint-list {
