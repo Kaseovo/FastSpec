@@ -4,6 +4,7 @@ JWT token utilities for authentication
 
 from datetime import datetime, timedelta
 from typing import Optional
+from config import JWT_SECRET_KEY, JWT_ALGORITHM
 import os
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
@@ -18,11 +19,6 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # JWT Configuration
-JWT_SIGNING_KEY = os.getenv(
-    "JWT_SIGNING_KEY",
-    os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key-change-in-production"),
-)
-ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "3600"))
 API_KEY_TTL_DAYS = int(os.getenv("API_KEY_TTL_DAYS", "30"))
 SHORT_JWT_TTL_SECONDS = int(os.getenv("SHORT_JWT_TTL_SECONDS", "300"))
@@ -44,7 +40,7 @@ def create_access_token(user_id: int, email: str, db_session=None) -> str:
         "exp": expire,
         "iat": now,
     }
-    encoded_jwt = jwt.encode(to_encode, JWT_SIGNING_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
     # Persist token if db_session provided
     if db_session is not None:
@@ -77,7 +73,7 @@ def verify_token(token: str) -> dict:
     )
 
     try:
-        payload = jwt.decode(token, JWT_SIGNING_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         user_id: str = payload.get("sub")
         email: str = payload.get("email")
         jti: str = payload.get("jti")
@@ -145,7 +141,7 @@ def create_short_jwt(user_id: int, actions: list[str]) -> (str, datetime):
         "exp": exp,
         "iat": now,
     }
-    token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm=ALGORITHM)
+    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return token, exp
 
 
@@ -157,7 +153,7 @@ def verify_short_jwt(token: str) -> dict:
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, JWT_SIGNING_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
     except JWTError:
         raise credentials_exception
 

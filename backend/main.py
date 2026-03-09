@@ -2,6 +2,8 @@
 FastAPI main application for FastSpec
 """
 
+from config import JWT_SECRET_KEY
+
 import os
 import sys
 from fastapi import FastAPI
@@ -36,9 +38,7 @@ app = FastAPI(
 # Session middleware for OAuth (required by Authlib)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv(
-        "JWT_SECRET_KEY", "your-super-secret-jwt-key-change-in-production"
-    ),
+    secret_key=JWT_SECRET_KEY,
 )
 
 # CORS middleware
@@ -61,37 +61,3 @@ app.include_router(lint.router, prefix="/lint", tags=["lint"])
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
-
-
-@app.get("/openapi.json")
-async def get_openapi():
-    """Serve OpenAPI spec with logging"""
-    import logging
-
-    try:
-        spec = app.openapi()
-        logging.info(f"OpenAPI spec keys: {list(spec.keys())}")
-        logging.info(f"Has openapi: {'openapi' in spec}")
-        if "openapi" in spec:
-            logging.info(f"OpenAPI version: {spec['openapi']}")
-        else:
-            logging.warning("OpenAPI spec missing 'openapi' field")
-        return spec
-    except Exception as e:
-        logging.error(f"Error generating OpenAPI spec: {e}")
-        return {"error": str(e)}
-
-
-@app.get("/debug/openapi")
-async def debug_openapi():
-    """Debug endpoint to return OpenAPI spec"""
-    try:
-        spec = app.openapi()
-        return {
-            "openapi_version": app.openapi_version,
-            "spec_keys": list(spec.keys()),
-            "has_openapi": "openapi" in spec,
-            "spec": spec,
-        }
-    except Exception as e:
-        return {"error": str(e), "type": type(e).__name__}
