@@ -64,10 +64,14 @@ async def get_current_user(
         )
 
     token_rec = (
-        db.query(AuthToken).filter(AuthToken.jti == jti, not AuthToken.revoked).first()
+        db.query(AuthToken)
+        .filter(AuthToken.jti == jti, AuthToken.revoked == False)
+        .first()
     )
 
-    if not token_rec or token_rec.expires_at < datetime.now(timezone.utc):
+    if not token_rec or token_rec.expires_at.replace(
+        tzinfo=timezone.utc
+    ) < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token revoked or expired",
@@ -84,7 +88,14 @@ async def get_current_user(
                     if isinstance(exp, (int, float)):
                         ttl = int(int(exp) - datetime.now(timezone.utc).timestamp())
                     else:
-                        # assume datetime-like
+                        # assume datetime-like; normalize tz to UTC if naive
+                        try:
+                            if getattr(exp, "tzinfo", None) is None:
+                                exp = exp.replace(tzinfo=timezone.utc)
+                            else:
+                                exp = exp.astimezone(timezone.utc)
+                        except Exception:
+                            pass
                         ttl = int((exp - datetime.now(timezone.utc)).total_seconds())
                 except Exception:
                     ttl = None

@@ -172,7 +172,7 @@ def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
     now = datetime.now(timezone.utc)
     candidates = (
         db_session.query(APIKey)
-        .filter(not APIKey.revoked, APIKey.expires_at >= now)
+        .filter(APIKey.revoked == False, APIKey.expires_at >= now)
         .all()
     )
     for rec in candidates:

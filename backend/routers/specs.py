@@ -423,12 +423,7 @@ async def list_versions(
         .order_by(SpecVersion.created_at.desc())
         .all()
     )
-    print(
-        f"[DEBUG] Retrieved versions for spec_id={spec_id}: {[v.version for v in versions]}"
-    )
-
     serialized = [_serialize_version(v) for v in versions]
-    print(f"[DEBUG] Serialized versions: {serialized}")
     return serialized
 
 
@@ -465,7 +460,6 @@ async def create_version(
         db.commit()
         db.refresh(new_version)
     except IntegrityError as e:
-        print(f"[DEBUG] SpecVersion unique constraint violated: {e}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Version already exists for this spec",
