@@ -3,14 +3,13 @@ Authentication routes for OAuth2 and JWT
 """
 
 import os
-from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
-import json
 
 from database import get_db
 from models import User, AuthToken, APIKey
@@ -23,8 +22,6 @@ from auth.oauth import oauth, get_google_user_info, get_github_user_info
 from auth.jwt import (
     create_access_token,
     verify_token,
-    generate_api_key,
-    hash_api_key,
     find_api_key_by_raw,
     create_short_jwt,
     create_api_key,
@@ -59,7 +56,7 @@ async def exchange_api_key(
     """Validate an API key string and return a short-lived JWT with actions."""
     api_key_raw = payload.api_key
     token_rec = find_api_key_by_raw(db, api_key_raw)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if not token_rec or token_rec.revoked or token_rec.expires_at < now:
         raise HTTPException(status_code=401, detail="Invalid or revoked api_key")
 
@@ -103,7 +100,7 @@ async def list_api_keys(
         .all()
     )
     result = []
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for t in tokens:
         if t.expires_at < now:
             continue
@@ -134,7 +131,7 @@ async def create_api_key_route(
 
 
 @router.delete("/refresh/{id}")
-async def revoke_api_key(
+async def refresh_api_key(
     id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

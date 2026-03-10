@@ -9,7 +9,7 @@ from database import get_db
 from models import User, AuthToken
 from .jwt import verify_token
 from auth.redis_client import redis_client
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Security scheme for Swagger UI
 security = HTTPBearer()
@@ -64,12 +64,10 @@ async def get_current_user(
         )
 
     token_rec = (
-        db.query(AuthToken)
-        .filter(AuthToken.jti == jti, AuthToken.revoked == False)
-        .first()
+        db.query(AuthToken).filter(AuthToken.jti == jti, not AuthToken.revoked).first()
     )
 
-    if not token_rec or token_rec.expires_at < datetime.utcnow():
+    if not token_rec or token_rec.expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token revoked or expired",
@@ -84,10 +82,10 @@ async def get_current_user(
             if exp is not None:
                 try:
                     if isinstance(exp, (int, float)):
-                        ttl = int(int(exp) - datetime.utcnow().timestamp())
+                        ttl = int(int(exp) - datetime.now(timezone.utc).timestamp())
                     else:
                         # assume datetime-like
-                        ttl = int((exp - datetime.utcnow()).total_seconds())
+                        ttl = int((exp - datetime.now(timezone.utc)).total_seconds())
                 except Exception:
                     ttl = None
             if ttl and ttl > 0:

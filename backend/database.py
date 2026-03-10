@@ -7,6 +7,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
+# Ensure models are imported so tables are created via Base.metadata.create_all
+# Importing here avoids circular imports elsewhere when creating tables on startup
+from models import User, OpenAPISpec, SpecVersion, AuthToken, APIKey
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:////app/data/fastspec.db")
 
 engine = create_engine(
@@ -17,11 +21,6 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
-
-
-# Ensure models are imported so tables are created via Base.metadata.create_all
-# Importing here avoids circular imports elsewhere when creating tables on startup
-from models import User, OpenAPISpec, SpecVersion, AuthToken, APIKey
 
 # Ensure the imported model classes are referenced so linters don't mark them as
 # unused — we rely on importing these symbols to register tables on Base.metadata.

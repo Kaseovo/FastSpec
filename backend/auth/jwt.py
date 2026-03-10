@@ -2,7 +2,7 @@
 JWT token utilities for authentication
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from config import JWT_SECRET_KEY, JWT_ALGORITHM
 import os
@@ -12,6 +12,7 @@ import uuid
 import json
 import secrets
 from database import SessionLocal
+from models import User, AuthToken, APIKey
 
 # Hashing
 from passlib.context import CryptContext
@@ -23,15 +24,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "
 API_KEY_TTL_DAYS = int(os.getenv("API_KEY_TTL_DAYS", "30"))
 SHORT_JWT_TTL_SECONDS = int(os.getenv("SHORT_JWT_TTL_SECONDS", "300"))
 
-from models import User, AuthToken, APIKey
-
 
 def create_access_token(user_id: int, email: str, db_session=None) -> str:
     """
     Create a JWT access token for a user
     """
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    now = datetime.utcnow()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    now = datetime.now(timezone.utc)
     jti = uuid.uuid4().hex
     to_encode = {
         "sub": str(user_id),
@@ -108,12 +107,12 @@ def verify_api_key_raw(raw: str, token_hash: str) -> bool:
 
 def create_api_key(
     db_session, user: User, actions: list[str]
-) -> (str, APIKey, datetime):
+) -> tuple[str, APIKey, datetime]:
     """Create and persist a new API key (stored as a hashed APIKey record).
 
     Returns (raw_api_key_plaintext, api_key_record, expires_at)
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     raw = generate_api_key()
     hashed = hash_api_key(raw)
     expires_at = now + timedelta(days=API_KEY_TTL_DAYS)
@@ -130,9 +129,9 @@ def create_api_key(
     return raw, rt, expires_at
 
 
-def create_short_jwt(user_id: int, actions: list[str]) -> (str, datetime):
+def create_short_jwt(user_id: int, actions: list[str]) -> tuple[str, datetime]:
     """Create a short-lived JWT containing the provided actions and token_type="short"."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     exp = now + timedelta(seconds=SHORT_JWT_TTL_SECONDS)
     payload = {
         "sub": str(user_id),
@@ -170,10 +169,10 @@ def verify_short_jwt(token: str) -> dict:
 
 def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
     # Since we store only hashes, we must check all non-revoked non-expired tokens for the user
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     candidates = (
         db_session.query(APIKey)
-        .filter(APIKey.revoked == False, APIKey.expires_at >= now)
+        .filter(not APIKey.revoked, APIKey.expires_at >= now)
         .all()
     )
     for rec in candidates:
@@ -190,7 +189,7 @@ def exchange_api_key_for_short_jwt(api_key: str) -> tuple[str, datetime]:
     db = SessionLocal()
     try:
         token_rec = find_api_key_by_raw(db, api_key)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if not token_rec or token_rec.revoked or token_rec.expires_at < now:
             raise HTTPException(status_code=401, detail="Invalid or revoked api_key")
 

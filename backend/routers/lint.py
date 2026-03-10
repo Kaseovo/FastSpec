@@ -2,10 +2,7 @@
 Lint endpoints – run Stoplight Spectral against stored or ad-hoc OpenAPI specs.
 """
 
-import json
 import logging
-from typing import Optional
-from uuid import UUID
 from models import SpecVersion
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status

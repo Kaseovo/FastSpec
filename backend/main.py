@@ -5,7 +5,6 @@ FastAPI main application for FastSpec
 from config import JWT_SECRET_KEY
 
 import os
-import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
