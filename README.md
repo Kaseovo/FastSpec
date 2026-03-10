@@ -31,7 +31,7 @@ A modern full-stack application for creating, editing, validating, and managing 
 
 ### Development Setup
 
-> **⚠️ Authentication Required**: FastSpec now requires OAuth2 authentication. See [`AUTHENTICATION_SETUP.md`](AUTHENTICATION_SETUP.md:1) for quick setup.
+> **⚠️ Authentication Required**: FastSpec now requires OAuth2 authentication. See [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) for setup and configuration.
 
 1. **Clone the repository:**
 
@@ -42,7 +42,7 @@ A modern full-stack application for creating, editing, validating, and managing 
 
 2. **Set up authentication** (Required - 5 minutes):
 
-   Follow the [Authentication Setup Guide](AUTHENTICATION_SETUP.md) to:
+   Follow the [Authentication Guide](docs/AUTHENTICATION.md) to:
    - Get OAuth credentials from Google and GitHub
    - Configure environment variables
    - Run database migration
@@ -121,36 +121,49 @@ npm run dev
 ```
 FastSpec/
 ├── backend/                  # FastAPI backend
-│   ├── main.py              # FastAPI application
-│   ├── database.py          # Database configuration
-│   ├── models.py            # SQLAlchemy models
-│   ├── schemas.py           # Pydantic schemas
-│   └── routers/             # API route handlers
-│       └── specs.py         # OpenAPI spec endpoints
-├── frontend/                # Vue.js frontend
+│   ├── main.py               # FastAPI application entry
+│   ├── database.py           # Database configuration
+│   ├── models.py             # SQLAlchemy models
+│   ├── schemas.py            # Pydantic schemas
+│   ├── routers/              # API route handlers
+│   │   ├── auth.py
+│   │   ├── lint.py
+│   │   └── specs.py
+│   ├── auth/                 # authentication helpers (jwt, oauth, dependencies)
+│   │   ├── __init__.py
+│   │   ├── jwt.py
+│   │   ├── oauth.py
+│   │   └── dependencies.py
+│   ├── validation/           # OpenAPI validation and diff utilities
+│   │   ├── __init__.py
+│   │   ├── validator.py
+│   │   └── diff_utils.py
+│   └── fastmcp_server/       # MCP server integration
+│       ├── __init__.py
+│       ├── server.py
+│       └── authentication.py
+├── frontend/                 # Vue.js frontend
 │   ├── src/
-│   │   ├── App.vue          # Main application component
-│   │   ├── main.js          # Application entry point
-│   │   ├── components/      # Vue components
-│   │   │   ├── Toolbar.vue
-│   │   │   ├── SpecList.vue
-│   │   │   ├── EditorPanel.vue
-│   │   │   ├── PreviewPanel.vue
-│   │   │   │   └── SaveDialog.vue
-│   │   └── api/             # API client
-│   │       └── specs.js
-│   ├── package.json         # Frontend dependencies
-│   └── vite.config.js       # Vite configuration
-├── validator.py             # OpenAPI validation logic
-├── diff_utils.py            # Spec comparison utilities
-├── requirements.txt         # Python dependencies
-└── fastspec.db             # SQLite database
-
-Legacy Django files (can be removed):
-├── fastspec/               # Old Django project
-├── specs/                  # Old Django app
-└── manage.py              # Old Django management
+│   │   ├── App.vue
+│   │   ├── main.js
+│   │   ├── components/       # Vue components
+│   │   ├── api/              # API client (auth.js, specs.js)
+│   │   ├── stores/           # Pinia/Vuex stores (e.g. auth.js)
+│   │   └── utils/            # frontend utilities (diffUtils.js, markdownGenerator.js)
+│   ├── package.json
+│   └── vite.config.js
+├── docs/                     # Project documentation
+├── docker-compose.yml
+├── docker-compose.dev.yml
+├── .env.example
+└── ...
 ```
+
+Notes:
+
+- validator.py and diff_utils.py live under `backend/validation/` (not at repository root).
+- Frontend stores live under `frontend/src/stores/` and utilities under `frontend/src/utils/`.
+- Authentication helpers are in `backend/auth/` and MCP server code is in `backend/fastmcp_server/`.
 
 ## API Endpoints
 
@@ -183,7 +196,7 @@ Legacy Django files (can be removed):
 
 ## Environment Variables
 
-Create a `.env` file (see `.env.example` or [`AUTHENTICATION_SETUP.md`](AUTHENTICATION_SETUP.md:1)):
+Create a `.env` file (see `.env.example` or [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1)):
 
 ```env
 # JWT Configuration
@@ -208,7 +221,7 @@ FRONTEND_URL=http://localhost:3000
 CORS_ORIGINS=http://localhost:3000
 ```
 
-**Required for authentication** - See setup guide for obtaining OAuth credentials.
+**Required for authentication** - See authentication docs for obtaining OAuth credentials.
 
 ## Production Deployment
 
@@ -293,10 +306,10 @@ DATABASE_URL=postgresql://user:password@localhost/fastspec
 ## Testing
 
 ```bash
-# Backend tests (when added)
+# Backend tests
 pytest
 
-# Frontend tests (when added)
+# Frontend tests
 cd frontend && npm test
 ```
 
@@ -337,13 +350,9 @@ npm install
 
 ## Migration from Django
 
-This project was migrated from Django to FastAPI + Vue.js. The old Django code is in:
+This project was migrated from Django to FastAPI + Vue.js. Legacy Django code has been removed from the repository.
 
-- `fastspec/` (Django settings)
-- `specs/` (Django app)
-- `manage.py` (Django CLI)
-
-These can be safely removed once migration is confirmed working.
+If you find any remaining Django artifacts, please open issue AM-11 to track their removal.
 
 ## Developer Documentation
 
@@ -361,7 +370,7 @@ These files provide implementation details, setup steps, and architectural conte
 
 ## Authentication Documentation
 
-- **Quick Start**: [`AUTHENTICATION_SETUP.md`](AUTHENTICATION_SETUP.md:1) - 5-minute setup guide
+- **Quick Start**: [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) - quick setup and configuration
 - **Full Documentation**: [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) - Complete authentication guide
 - **Security**: See authentication docs for production best practices
 
@@ -375,7 +384,7 @@ Pull requests welcome! Please ensure code follows project conventions.
 
 ## Need Help?
 
-1. Check [`AUTHENTICATION_SETUP.md`](AUTHENTICATION_SETUP.md:1) for quick setup
+1. Check [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) for quick setup
 2. Review [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) for detailed info
 3. Check API documentation at http://localhost:8000/docs
 4. Open an issue on GitHub
