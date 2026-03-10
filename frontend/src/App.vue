@@ -135,7 +135,7 @@
 </template>
 
 <script>
-import { ref, computed, provide, onMounted, watch } from "vue";
+import { ref, computed, provide, onMounted, nextTick } from "vue";
 import Message from "primevue/message";
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
@@ -151,18 +151,15 @@ import SaveDialog from "./components/SaveDialog.vue";
 import LoginPage from "./components/LoginPage.vue";
 import TokenManager from "./components/TokenManager.vue";
 import LintPanel from "./components/LintPanel.vue";
-import {
-  validateSpec,
-  createSpec,
-  updateSpec,
-  lintSpec,
-  lintSpecById,
-} from "./api/specs";
-import { compareSpecs } from "./utils/diffUtils";
-import { generateMarkdownReport } from "./utils/markdownGenerator";
-import { useAuthStore } from "./stores/auth";
-import { fetchOpenApi } from "./api/specs";
 import Tag from "primevue/tag";
+import { useAuthStore } from "./stores/auth";
+import { lintSpec, lintSpecById, validateSpec } from "./api/specs";
+
+// composables
+import { useSpecEditor } from "./composables/useSpecEditor";
+import { useSpecSave } from "./composables/useSpecSave";
+import { useSpecDiff } from "./composables/useSpecDiff";
+import { useAlerts } from "./composables/useAlerts";
 
 export default {
   name: "App",
@@ -188,46 +185,30 @@ export default {
     const auth = useAuthStore();
     const isAuthenticated = computed(() => auth.isAuthenticated);
 
-    // Initialize auth from localStorage on mount
-    onMounted(() => {
-      auth.initAuth();
-      fetchOpenApiFile();
+    const alerts = useAlerts();
+    const editor = useSpecEditor();
+    const diff = useSpecDiff();
+    const saver = useSpecSave({
+      isAuthenticatedRef: isAuthenticated,
+      specContentRef: editor.specContent,
+      currentSpecRef: editor.currentSpec,
+      initialSpecRef: editor.initialSpec,
+      showAlert: alerts.showAlert,
     });
 
-    const currentSpec = ref(null);
-    const specContent = ref(JSON.stringify(getDefaultSpec(), null, 2));
-    const parsedSpec = ref(getDefaultSpec());
-    const initialSpec = ref(getDefaultSpec()); // Track initial state for diff
-    const showSaveDialog = ref(false);
-    const showLoginDialog = ref(false);
-    const alert = ref({ show: false, message: "", type: "info" });
-    const specListKey = ref(0);
-    const viewMode = ref("form"); // 'form', 'code', or 'preview'
-    const hasUnsavedChanges = ref(false);
-    const autoSaveTimer = ref(null);
-
-    // Temporary unsaved spec object to show as a card in SpecList
-    const unsavedSpec = ref(null);
-    // Compute selected spec id: prefer persisted currentSpec, otherwise select temporary unsaved card
-    const selectedSpecId = computed(
-      () => currentSpec.value?.id ?? (unsavedSpec.value ? "__unsaved" : null)
-    );
-
-    const viewModeOptions = computed(() => [
+    const viewMode = ref("form");
+    const viewModeOptions = ref([
       { label: "Form", value: "form", icon: "pi pi-list" },
       { label: "Code", value: "code", icon: "pi pi-code" },
       { label: "Preview", value: "preview", icon: "pi pi-eye" },
       { label: "Lint", value: "lint", icon: "pi pi-search" },
     ]);
 
-    // ── Template refs ────────────────────────────────────────────────────────
     const editorPanelRef = ref(null);
 
-    // ── Lint state ───────────────────────────────────────────────────────────
-    const lintResults = ref(null); // full LintResponse object
+    const lintResults = ref(null);
     const lintLoading = ref(false);
     const lintError = ref(null);
-    const lintScore = computed(() => lintResults.value?.score ?? null);
 
     const runLint = async () => {
       lintLoading.value = true;
@@ -235,17 +216,16 @@ export default {
       try {
         let specJson;
         try {
-          specJson = JSON.parse(specContent.value);
+          specJson = JSON.parse(editor.specContent.value);
         } catch {
           lintError.value = "Cannot lint: the editor contains invalid JSON.";
           return;
         }
 
-        if (currentSpec.value?.id && currentSpec.value?.version) {
-          // Prefer stored-spec lint so Spectral can resolve $ref paths from file
+        if (editor.currentSpec.value?.id && editor.currentSpec.value?.version) {
           lintResults.value = await lintSpecById(
-            currentSpec.value.spec_id,
-            currentSpec.value.version
+            editor.currentSpec.value.id,
+            editor.currentSpec.value.version
           );
         } else {
           lintResults.value = await lintSpec(specJson);
@@ -259,355 +239,35 @@ export default {
     };
 
     const handleGoToLine = (result) => {
-      // Switch to code view so markers are visible, then scroll
       viewMode.value = "code";
-      // Use nextTick to wait for EditorPanel to mount if switching views
-      import("vue").then(({ nextTick }) => {
-        nextTick(() => {
-          editorPanelRef.value?.goToLine(result);
-        });
+      nextTick(() => {
+        editorPanelRef.value?.goToLine(result);
       });
     };
 
+    const specListKey = ref(0);
+    const showLoginDialog = ref(false);
     const showTokenDialog = ref(false);
 
-    // OpenAPI file helpers
-    const copyingFile = ref(false);
-    const openapiFileRaw = ref("");
-    const openapiBaseline = ref(null);
-    const openapiFileDiff = ref({});
-
-    const fetchOpenApiFile = async () => {
+    const saveSpec = async (payload) => {
       try {
-        const data = await fetchOpenApi();
-        openapiFileRaw.value = JSON.stringify(data, null, 2);
-        if (!openapiBaseline.value) {
-          openapiBaseline.value = JSON.parse(JSON.stringify(data));
-        }
-        openapiFileDiff.value = compareSpecs(openapiBaseline.value || {}, data);
-      } catch (err) {
-        console.error("Failed fetching openapi.json", err);
-        showAlert("Failed to fetch openapi.json", "error");
-      }
-    };
-
-    const openapiFileHasChanges = computed(() => {
-      const d = openapiFileDiff.value || {};
-      return (
-        (d.infoAdded?.length || 0) +
-          (d.infoModified?.length || 0) +
-          (d.infoRemoved?.length || 0) +
-          (d.added?.length || 0) +
-          (d.modified?.length || 0) +
-          (d.removed?.length || 0) +
-          (d.schemaAdded?.length || 0) +
-          (d.schemaModified?.length || 0) +
-          (d.schemaRemoved?.length || 0) >
-        0
-      );
-    });
-
-    const formattedOpenapiFileDiff = computed(() => {
-      try {
-        return generateMarkdownReport(openapiFileDiff.value || {});
-      } catch (e) {
-        return JSON.stringify(openapiFileDiff.value || {}, null, 2);
-      }
-    });
-
-    const copyOpenapiFileDiff = async () => {
-      copyingFile.value = true;
-      try {
-        const md = formattedOpenapiFileDiff.value;
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(md);
-        } else {
-          const t = document.createElement("textarea");
-          t.value = md;
-          t.style.position = "fixed";
-          t.style.left = "-999999px";
-          t.style.top = "-999999px";
-          document.body.appendChild(t);
-          t.focus();
-          t.select();
-          try {
-            document.execCommand("copy");
-          } finally {
-            t.remove();
-          }
-        }
-        showAlert("OpenAPI file diff copied", "success");
-      } catch (err) {
-        console.error(err);
-        showAlert("Failed to copy file diff", "error");
-      } finally {
-        copyingFile.value = false;
-      }
-    };
-
-    const showAlert = (message, type = "info") => {
-      alert.value = { show: true, message, type };
-      setTimeout(() => {
-        alert.value.show = false;
-      }, 5000);
-    };
-
-    const closeAlert = () => {
-      alert.value.show = false;
-    };
-
-    const updatePreview = () => {
-      try {
-        parsedSpec.value = JSON.parse(specContent.value);
-        // Compute diff against initial state (used only for determining unsaved changes)
-        const diff = compareSpecs(initialSpec.value, parsedSpec.value);
-        checkForChanges(diff);
-        scheduleAutoSave();
-      } catch (e) {
-        // Invalid JSON - preview will handle error display
-      }
-    };
-
-    const updateFromForm = (formSpec) => {
-      // Prevent unnecessary updates to avoid recursive loop
-      const newContent = JSON.stringify(formSpec, null, 2);
-      if (specContent.value === newContent) return;
-      parsedSpec.value = formSpec;
-      specContent.value = newContent;
-      const diff = compareSpecs(initialSpec.value, parsedSpec.value);
-      checkForChanges(diff);
-      scheduleAutoSave();
-    };
-
-    const checkForChanges = (diff = null) => {
-      const d = diff || compareSpecs(initialSpec.value, parsedSpec.value);
-      hasUnsavedChanges.value = !!(
-        d.infoAdded?.length ||
-        d.infoModified?.length ||
-        d.infoRemoved?.length ||
-        d.added?.length ||
-        d.modified?.length ||
-        d.removed?.length ||
-        d.schemaAdded?.length ||
-        d.schemaModified?.length ||
-        d.schemaRemoved?.length
-      );
-    };
-
-    const scheduleAutoSave = () => {
-      // Clear existing timer
-      if (autoSaveTimer.value) {
-        clearTimeout(autoSaveTimer.value);
-      }
-
-      // Auto-save disabled: Only save when user clicks Save
-      // No PUT request will be sent automatically on form/code changes
-      // Save logic is handled in saveSpec()
-    };
-
-    const loadSpec = (spec) => {
-      // Clear auto-save timer when loading a new spec
-      if (autoSaveTimer.value) {
-        clearTimeout(autoSaveTimer.value);
-      }
-      // Prefer fetched version if present
-      if (spec.content) {
-        // If this is a version fetch, 'content' is present (from getSpecVersion)
-        currentSpec.value = spec;
-        specContent.value = JSON.stringify(spec.content, null, 2);
-        initialSpec.value = JSON.parse(JSON.stringify(spec.content));
-      } else if (spec.spec_json) {
-        // If this is a normal fetch, spec_json is present
-        currentSpec.value = spec;
-        specContent.value = JSON.stringify(spec.spec_json, null, 2);
-        initialSpec.value = JSON.parse(JSON.stringify(spec.spec_json)); // Deep clone
-      } else {
-        // Fallback
-        currentSpec.value = spec;
-        specContent.value = JSON.stringify(getDefaultSpec(), null, 2);
-        initialSpec.value = JSON.parse(JSON.stringify(getDefaultSpec()));
-      }
-      // Clear transient unsavedSpec if the user explicitly selected a persisted spec
-      if (spec.id !== "__unsaved") {
-        unsavedSpec.value = null;
-      }
-      hasUnsavedChanges.value = false;
-      viewMode.value = "form";
-      updatePreview();
-    };
-
-    const newSpec = () => {
-      // Clear auto-save timer when creating a new spec
-      if (autoSaveTimer.value) {
-        clearTimeout(autoSaveTimer.value);
-      }
-      currentSpec.value = null;
-      const defaultSpec = getDefaultSpec();
-      specContent.value = JSON.stringify(defaultSpec, null, 2);
-      initialSpec.value = JSON.parse(JSON.stringify(defaultSpec)); // Deep clone
-      hasUnsavedChanges.value = false;
-      // Set temporary unsavedSpec so SpecList shows a temporary card
-      unsavedSpec.value = {
-        id: "__unsaved",
-        name: "Untitled Spec",
-        spec_json: defaultSpec,
-        version: defaultSpec.info?.version || "1.0.0",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      updatePreview();
-    };
-
-    const openSaveDialog = () => {
-      // Check authentication before saving
-      if (!isAuthenticated.value) {
-        showAlert("Please sign in to save your specifications", "warn");
-        showLoginDialog.value = true;
-        return;
-      }
-      showSaveDialog.value = true;
-    };
-
-    const saveSpec = async (payloadOrName) => {
-      if (!isAuthenticated.value) {
-        showAlert("Authentication required to save specifications", "error");
-        return;
-      }
-
-      const isString = typeof payloadOrName === "string";
-      const name = isString ? payloadOrName : payloadOrName.name;
-      const versionChoice = !isString ? payloadOrName.versionChoice : null;
-
-      try {
-        const spec_json = JSON.parse(specContent.value);
-        // New spec (no currentSpec)
-        if (!currentSpec.value || currentSpec.value.id === "__unsaved") {
-          // Do not modify spec_json.info.version
-          const version =
-            payloadOrName?.version_choice?.version ||
-            spec_json.info.version ||
-            "1.0.0";
-          const created = await createSpec({ name, version, spec_json });
-          currentSpec.value = created;
-          initialSpec.value = JSON.parse(JSON.stringify(spec_json));
-          hasUnsavedChanges.value = false;
-          // Clear transient unsaved spec after successful creation
-          unsavedSpec.value = null;
-          showAlert("Spec created successfully!", "success");
-        } else {
-          // Existing spec: versioning logic
-          const specId = currentSpec.value.id;
-          // If user chose to create a new version
-          if (versionChoice && versionChoice.action === "create") {
-            // Do not modify spec_json.info.version
-            const { createSpecVersion } = await import("./api/specs");
-            const created = await createSpecVersion(specId, {
-              version: versionChoice.version,
-              content: spec_json,
-            });
-            currentSpec.value = created;
-            initialSpec.value = JSON.parse(JSON.stringify(spec_json));
-            hasUnsavedChanges.value = false;
-            showAlert("Spec version created successfully!", "success");
-          } else if (versionChoice && versionChoice.action === "use") {
-            // PUT /api/specs/{id}/versions/{version_id}
-            // Do not modify spec_json.info.version
-            const { updateSpecVersion, listSpecVersions } = await import(
-              "./api/specs"
-            );
-            // Find versionId for the selected version
-            const versions = await listSpecVersions(specId);
-            const targetVersion = versions.find(
-              (v) => v.version === versionChoice.version
-            );
-            if (!targetVersion) throw new Error("Version not found");
-            const updated = await updateSpecVersion(specId, targetVersion.id, {
-              version: versionChoice.version,
-              content: spec_json,
-            });
-            currentSpec.value = updated;
-            initialSpec.value = JSON.parse(JSON.stringify(spec_json));
-            hasUnsavedChanges.value = false;
-            showAlert("Spec version updated successfully!", "success");
-          } else {
-            // Default: update current version (PUT /api/specs/{id}/versions/{version_id})
-            const { updateSpecVersion, listSpecVersions } = await import(
-              "./api/specs"
-            );
-            const currentVersion = currentSpec.value.version;
-            // Do not modify spec_json.info.version
-            const versions = await listSpecVersions(specId);
-            const targetVersion = versions.find(
-              (v) => v.version === currentVersion
-            );
-            if (!targetVersion) throw new Error("Current version not found");
-            const updated = await updateSpecVersion(specId, targetVersion.id, {
-              version: currentVersion,
-              content: spec_json,
-            });
-            // Avoid replacing the top-level currentSpec with the SpecVersion object returned by the API
-            if (!currentSpec.value) currentSpec.value = { id: specId };
-            currentSpec.value.version = updated.version;
-            if (updated.content) currentSpec.value.spec_json = updated.content;
-            if (updated.created_at)
-              currentSpec.value.updated_at = updated.created_at;
-            initialSpec.value = JSON.parse(JSON.stringify(spec_json));
-            hasUnsavedChanges.value = false;
-            showAlert("Spec version updated successfully!", "success");
-          }
-        }
-
-        showSaveDialog.value = false;
+        await saver.saveSpec(payload);
         specListKey.value++;
-
-        // Auto-run lint after a successful save (non-blocking)
+        // Non-blocking lint run
         runLint().catch(() => {});
-      } catch (error) {
-        if (error.response?.status === 409) {
-          const detail = error.response.data?.detail;
-          const msg = detail?.message
-            ? `${detail.message}: expected ${detail.expected}, provided ${detail.provided}`
-            : "Version conflict";
-          showAlert(msg, "error");
-        } else {
-          showAlert(error.response?.data?.detail || error.message, "error");
-        }
-      }
-    };
-
-    const validateCurrentSpec = async () => {
-      try {
-        const spec_json = JSON.parse(specContent.value);
-        const result = await validateSpec(spec_json);
-
-        if (result.valid) {
-          // Format the JSON and update the editor
-          specContent.value = JSON.stringify(spec_json, null, 2);
-          showAlert("✓ Specification is valid!", "success");
-        } else {
-          let message = "✗ Validation errors:\n";
-          result.errors.forEach((err) => {
-            message += `\n• ${err.field}: ${err.message}`;
-          });
-          showAlert(message, "error");
-        }
-      } catch (error) {
-        showAlert("Invalid JSON", "error");
+      } catch (e) {
+        // saver shows alerts
       }
     };
 
     const loadTemplate = () => {
-      currentSpec.value = null;
       const templateSpec = {
         openapi: "3.0.0",
         info: {
           title: "Sample API",
           version: "1.0.0",
           description: "A sample API with common endpoints",
-          contact: {
-            name: "API Support",
-            email: "support@example.com",
-          },
+          contact: { name: "API Support", email: "support@example.com" },
         },
         servers: [
           {
@@ -628,9 +288,7 @@ export default {
                     "application/json": {
                       schema: {
                         type: "array",
-                        items: {
-                          $ref: "#/components/schemas/User",
-                        },
+                        items: { $ref: "#/components/schemas/User" },
                       },
                     },
                   },
@@ -645,17 +303,11 @@ export default {
                 required: true,
                 content: {
                   "application/json": {
-                    schema: {
-                      $ref: "#/components/schemas/User",
-                    },
+                    schema: { $ref: "#/components/schemas/User" },
                   },
                 },
               },
-              responses: {
-                201: {
-                  description: "User created",
-                },
-              },
+              responses: { 201: { description: "User created" } },
             },
           },
           "/users/{id}": {
@@ -668,9 +320,7 @@ export default {
                   name: "id",
                   in: "path",
                   required: true,
-                  schema: {
-                    type: "integer",
-                  },
+                  schema: { type: "integer" },
                 },
               ],
               responses: {
@@ -678,15 +328,11 @@ export default {
                   description: "Successful response",
                   content: {
                     "application/json": {
-                      schema: {
-                        $ref: "#/components/schemas/User",
-                      },
+                      schema: { $ref: "#/components/schemas/User" },
                     },
                   },
                 },
-                404: {
-                  description: "User not found",
-                },
+                404: { description: "User not found" },
               },
             },
           },
@@ -697,33 +343,20 @@ export default {
               type: "object",
               required: ["id", "email"],
               properties: {
-                id: {
-                  type: "integer",
-                  description: "User ID",
-                },
-                email: {
-                  type: "string",
-                  format: "email",
-                  description: "User email address",
-                },
-                name: {
-                  type: "string",
-                  description: "User full name",
-                },
-                createdAt: {
-                  type: "string",
-                  format: "date-time",
-                  description: "Account creation timestamp",
-                },
+                id: { type: "integer" },
+                email: { type: "string", format: "email" },
+                name: { type: "string" },
+                createdAt: { type: "string", format: "date-time" },
               },
             },
           },
         },
       };
-      specContent.value = JSON.stringify(templateSpec, null, 2);
-      initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
-      // also set unsavedSpec so it appears in the list
-      unsavedSpec.value = {
+
+      editor.currentSpec.value = null;
+      editor.specContent.value = JSON.stringify(templateSpec, null, 2);
+      editor.initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
+      editor.unsavedSpec.value = {
         id: "__unsaved",
         name: templateSpec.info?.title || "Untitled Spec",
         spec_json: templateSpec,
@@ -731,94 +364,95 @@ export default {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      updatePreview();
-      showAlert("Template loaded with sample endpoints", "success");
+      editor.updatePreview();
+      alerts.showAlert("Template loaded with sample endpoints", "success");
     };
 
     const togglePreview = () => {
       viewMode.value = viewMode.value === "preview" ? "code" : "preview";
     };
 
-    function getDefaultSpec() {
-      return {
-        openapi: "3.0.0",
-        info: {
-          title: "My API",
-          version: "1.0.0",
-          description: "API Description",
-        },
-        servers: [{ url: "https://api.example.com" }],
-        paths: {},
-      };
-    }
+    onMounted(() => {
+      auth.initAuth();
+      diff.fetchOpenApiFile().catch(() => {});
+    });
 
-    // Provide methods to child components
-    provide("newSpec", newSpec);
-    provide("openSaveDialog", openSaveDialog);
-    provide("validateCurrentSpec", validateCurrentSpec);
+    // provide grouped composables
+    provide("specEditor", editor);
+    provide("specSave", saver);
+    provide("specDiff", diff);
+    provide("alerts", alerts);
+
+    // legacy provides
+    provide("newSpec", editor.newSpec);
+    provide("openSaveDialog", saver.openSaveDialog);
+    provide("validateCurrentSpec", async () => {
+      try {
+        const spec_json = JSON.parse(editor.specContent.value);
+        const result = await validateSpec(spec_json);
+        if (result.valid)
+          alerts.showAlert("✓ Specification is valid!", "success");
+        else alerts.showAlert("Validation failed", "error");
+      } catch (e) {
+        alerts.showAlert("Invalid JSON", "error");
+      }
+    });
     provide("loadTemplate", loadTemplate);
     provide("togglePreview", togglePreview);
     provide("viewMode", viewMode);
-    // Provide the spec list key ref so children can watch it.
-    // Parent increments specListKey.value after save to trigger a refresh in SpecList.
     provide("refreshSpecList", specListKey);
     provide("showTokenDialog", () => (showTokenDialog.value = true));
-    // Provide transient unsaved spec and selected id
-    provide("unsavedSpec", unsavedSpec);
-    // Provide unsaved-state and discard helper so children can confirm discarding transient spec
-    provide("hasUnsavedChanges", hasUnsavedChanges);
-    const discardUnsaved = () => {
-      unsavedSpec.value = null;
-      hasUnsavedChanges.value = false;
-    };
-    provide("discardUnsaved", discardUnsaved);
-    provide("selectedSpecId", selectedSpecId);
-    +(
-      // Allow child components to access the current editor parsed spec for draft comparisons
-      (+provide("getCurrentEditorSpec", () => parsedSpec.value))
-    );
-    // Quick debug: log selectedSpecId changes
-    watch(selectedSpecId, (v) => console.log("selectedSpecId changed:", v), {
-      immediate: true,
+    provide("unsavedSpec", editor.unsavedSpec);
+    provide("hasUnsavedChanges", editor.hasUnsavedChanges);
+    provide("discardUnsaved", () => {
+      editor.unsavedSpec.value = null;
+      editor.hasUnsavedChanges.value = false;
     });
-    // Lint context for Toolbar
-    provide("lintScore", lintScore);
+    const selectedSpecId = computed(
+      () =>
+        editor.currentSpec.value?.id ??
+        (editor.unsavedSpec.value ? "__unsaved" : null)
+    );
+    provide("selectedSpecId", selectedSpecId);
+    provide("getCurrentEditorSpec", () => editor.parsedSpec.value);
+    provide(
+      "lintScore",
+      computed(() => lintResults.value?.score ?? null)
+    );
     provide("lintLoading", lintLoading);
     provide("runLint", runLint);
 
     return {
       isAuthenticated,
-      currentSpec,
-      specContent,
-      parsedSpec,
+      currentSpec: editor.currentSpec,
+      specContent: editor.specContent,
+      parsedSpec: editor.parsedSpec,
       selectedSpecId,
-      showSaveDialog,
+      showSaveDialog: saver.showSaveDialog,
       showLoginDialog,
       showTokenDialog,
-      alert,
+      alert: alerts.alert,
       viewMode,
       viewModeOptions,
-      showAlert,
-      closeAlert,
-      updatePreview,
-      updateFromForm,
-      loadSpec,
+      showAlert: alerts.showAlert,
+      closeAlert: alerts.closeAlert,
+      updatePreview: editor.updatePreview,
+      updateFromForm: editor.updateFromForm,
+      loadSpec: editor.loadSpec,
       saveSpec,
-      // Lint
       editorPanelRef,
       lintResults,
       lintLoading,
       lintError,
       runLint,
       handleGoToLine,
-      // OpenAPI file helpers
-      fetchOpenApiFile,
-      openapiFileRaw,
-      openapiBaseline,
-      openapiFileDiff,
-      openapiFileHasChanges,
-      formattedOpenapiFileDiff,
-      copyOpenapiFileDiff,
+      fetchOpenApiFile: diff.fetchOpenApiFile,
+      openapiFileRaw: diff.openapiFileRaw,
+      openapiBaseline: diff.openapiBaseline,
+      openapiFileDiff: diff.openapiFileDiff,
+      openapiFileHasChanges: diff.openapiFileHasChanges,
+      formattedOpenapiFileDiff: diff.formattedOpenapiFileDiff,
+      copyOpenapiFileDiff: diff.copyOpenapiFileDiff,
     };
   },
 };
