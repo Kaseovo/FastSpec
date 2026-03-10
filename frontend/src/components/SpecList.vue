@@ -275,35 +275,6 @@ export default {
         }))
     );
 
-    // For version dropdown below pi-history
-    const updateVersionDropdown = async (spec) => {
-      if (!spec) {
-        versionDropdownOptions.value = [];
-        selectedVersion.value = null;
-        return;
-      }
-      // Do not try to fetch versions for transient unsaved spec
-      if (spec.id === "__unsaved") return;
-      const vers = await listSpecVersions(spec.id);
-      versionDropdownOptions.value = vers.map((v) => ({
-        label: `${v.version}${v.is_published ? " (published)" : ""}`,
-        value: v.id,
-      }));
-      // Default to current version
-      selectedVersion.value =
-        vers.find((v) => v.version === spec.version)?.id || vers[0]?.id;
-    };
-
-    const onVersionChange = async () => {
-      if (!selectedSpec.value || !selectedVersion.value) return;
-      // Load the selected version and emit as selected
-      const versionData = await getSpecVersion(
-        selectedSpec.value.id,
-        selectedVersion.value
-      );
-      emit("spec-selected", { ...selectedSpec.value, ...versionData });
-    };
-
     const toggleExpand = (id) => {
       if (expanded.value.has(id)) {
         expanded.value.delete(id);
