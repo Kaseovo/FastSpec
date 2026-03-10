@@ -191,6 +191,7 @@ export default {
     // Initialize auth from localStorage on mount
     onMounted(() => {
       auth.initAuth();
+      fetchOpenApiFile();
     });
 
     const currentSpec = ref(null);
@@ -343,10 +344,6 @@ export default {
         copyingFile.value = false;
       }
     };
-
-    onMounted(() => {
-      fetchOpenApiFile();
-    });
 
     const showAlert = (message, type = "info") => {
       alert.value = { show: true, message, type };
