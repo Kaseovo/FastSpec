@@ -3,10 +3,11 @@ Tests for the /lint endpoints (POST /lint/{spec_id} and POST /lint).
 """
 
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from main import app
 from database import SessionLocal
@@ -27,7 +28,7 @@ def db_session():
         session.close()
 
 
-def _make_user(session: "Session") -> User:
+def _make_user(session: Session) -> User:
     user = User(
         email=f"lint_test_{id(session)}@example.com",
         provider="test",

@@ -1,10 +1,8 @@
-from fastapi import Body
-
 """
 API routes for OpenAPI specifications
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List, Dict, Any, Optional
@@ -416,7 +414,8 @@ async def list_versions(
     db: Session = Depends(get_db),
 ):
     """Return list of versions for a spec ordered by created_at desc"""
-    spec = _resolve_spec_or_404(db, spec_id, current_user)
+    # Ensure spec exists and user has access; we don't need the returned object here
+    _resolve_spec_or_404(db, spec_id, current_user)
 
     versions = (
         db.query(SpecVersion)
@@ -445,7 +444,7 @@ async def create_version(
     db: Session = Depends(get_db),
 ):
     """Create a new version for a spec"""
-    spec = _resolve_spec_or_404(db, spec_id, current_user)
+    _resolve_spec_or_404(db, spec_id, current_user)
 
     # Validate basic payload
     if not payload.version or not isinstance(payload.content, dict):
@@ -488,7 +487,7 @@ async def get_version(
     db: Session = Depends(get_db),
 ):
     """Fetch a specific version by version string only"""
-    spec = _resolve_spec_or_404(db, spec_id, current_user)
+    _resolve_spec_or_404(db, spec_id, current_user)
     # Accept both version string and UUID for compatibility
     from uuid import UUID
 
@@ -567,7 +566,7 @@ async def compare_versions(
     db: Session = Depends(get_db),
 ):
     """Compare a stored base against either another stored version or an unsaved draft provided inline."""
-    spec = _resolve_spec_or_404(db, spec_id, current_user)
+    _resolve_spec_or_404(db, spec_id, current_user)
 
     base_key = body.get("base")
     compare_key = body.get("compare")
@@ -585,7 +584,7 @@ async def compare_versions(
     if base_key in ("live", "latest"):
         base_ver = (
             db.query(SpecVersion)
-            .filter(SpecVersion.spec_id == spec_id, SpecVersion.is_published == True)
+            .filter(SpecVersion.spec_id == spec_id, SpecVersion.is_published)
             .order_by(SpecVersion.created_at.desc())
             .first()
         )
