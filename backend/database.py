@@ -21,7 +21,11 @@ Base = declarative_base()
 
 # Ensure models are imported so tables are created via Base.metadata.create_all
 # Importing here avoids circular imports elsewhere when creating tables on startup
-from models import *  # noqa: F401,F403
+from models import User, OpenAPISpec, SpecVersion, AuthToken, APIKey
+
+# Ensure the imported model classes are referenced so linters don't mark them as
+# unused — we rely on importing these symbols to register tables on Base.metadata.
+_ = (User, OpenAPISpec, SpecVersion, AuthToken, APIKey)
 
 
 def get_db():
@@ -33,6 +37,5 @@ def get_db():
         db.close()
 
 
-# Create tables at module import time so startup creates needed tables
-# This is a simple create_all approach; no migration system is used intentionally
-Base.metadata.create_all(bind=engine)
+# Table creation is handled during application startup (in main.lifespan) to
+# avoid duplicate initialization and ordering issues.
