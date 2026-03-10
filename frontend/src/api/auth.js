@@ -1,10 +1,5 @@
-/**
- * Authentication API client
- * Handles OAuth flows and user authentication
- */
-
 import axios from "axios";
-import { useAuth } from "../stores/auth";
+import { useAuthStore } from "../stores/auth";
 
 const API_BASE = "/auth"; // Backend API base URL TODO: Move to config
 
@@ -48,8 +43,8 @@ export const logout = async () => {
 // Helper to build auth headers using the auth store
 const getAuthHeaders = () => {
   try {
-    const { token } = useAuth();
-    const t = token.value;
+    const auth = useAuthStore();
+    const t = auth.token;
     return t ? { Authorization: `Bearer ${t}` } : {};
   } catch (e) {
     return {};

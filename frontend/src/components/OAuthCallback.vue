@@ -21,7 +21,7 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import ProgressSpinner from "primevue/progressspinner";
 import Button from "primevue/button";
-import { useAuth } from "../stores/auth";
+import { useAuthStore } from "../stores/auth";
 import { getCurrentUser } from "../api/auth";
 
 export default {
@@ -32,7 +32,7 @@ export default {
   },
   setup() {
     const router = useRouter();
-    const { setAuth, setLoading } = useAuth();
+    const auth = useAuthStore();
     const error = ref(null);
 
     const redirectToLogin = () => {
@@ -41,7 +41,7 @@ export default {
 
     const handleCallback = async () => {
       try {
-        setLoading(true);
+        auth.setLoading(true);
 
         // Get token from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -62,7 +62,7 @@ export default {
         const user = await getCurrentUser(token);
 
         // Store auth data
-        setAuth(token, user);
+        auth.setAuth(token, user);
 
         // Redirect to main app
         window.location.href = "/";
@@ -71,7 +71,7 @@ export default {
         error.value =
           err.response?.data?.detail || err.message || "Authentication failed";
       } finally {
-        setLoading(false);
+        auth.setLoading(false);
       }
     };
 

@@ -160,7 +160,7 @@ import {
 } from "./api/specs";
 import { compareSpecs } from "./utils/diffUtils";
 import { generateMarkdownReport } from "./utils/markdownGenerator";
-import { useAuth } from "./stores/auth";
+import { useAuthStore } from "./stores/auth";
 import { fetchOpenApi } from "./api/specs";
 import Tag from "primevue/tag";
 
@@ -185,12 +185,12 @@ export default {
     LintPanel,
   },
   setup() {
-    // Initialize authentication
-    const { isAuthenticated, initAuth } = useAuth();
+    const auth = useAuthStore();
+    const isAuthenticated = computed(() => auth.isAuthenticated);
 
     // Initialize auth from localStorage on mount
     onMounted(() => {
-      initAuth();
+      auth.initAuth();
     });
 
     const currentSpec = ref(null);

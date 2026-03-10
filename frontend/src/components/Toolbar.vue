@@ -64,7 +64,7 @@ import { inject, ref, computed } from "vue";
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
 import UserProfile from "./UserProfile.vue";
-import { useAuth } from "../stores/auth";
+import { useAuthStore } from "../stores/auth";
 import { useConfirm } from "primevue/useconfirm";
 
 export default {
@@ -75,7 +75,8 @@ export default {
     UserProfile,
   },
   setup() {
-    const { isAuthenticated } = useAuth();
+    const auth = useAuthStore();
+    const isAuthenticated = computed(() => auth.isAuthenticated);
     const showNewDialog = ref(false);
     const newSpec = inject("newSpec");
     const openSaveDialog = inject("openSaveDialog");

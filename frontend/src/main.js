@@ -1,4 +1,5 @@
 import { createApp } from "vue";
+import { createPinia } from "pinia";
 import PrimeVue from "primevue/config";
 import ConfirmationService from "primevue/confirmationservice";
 import ToastService from "primevue/toastservice";
@@ -17,6 +18,7 @@ const isCallback = urlParams.has("token") || urlParams.has("error");
 const rootComponent = isCallback ? OAuthCallback : App;
 
 const app = createApp(rootComponent);
+app.use(createPinia());
 app.use(PrimeVue, {
   theme: {
     preset: Aura,

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useAuth } from "../stores/auth";
+import { useAuthStore } from "../stores/auth";
 
 const API_BASE = "/api/specs";
 const LINT_BASE = "/api/lint";
@@ -12,9 +12,9 @@ const api = axios.create({
 // Request interceptor to add JWT token
 api.interceptors.request.use(
   (config) => {
-    const { token } = useAuth();
-    if (token.value) {
-      config.headers.Authorization = `Bearer ${token.value}`;
+    const auth = useAuthStore();
+    if (auth.token) {
+      config.headers.Authorization = `Bearer ${auth.token}`;
     }
     return config;
   },
@@ -28,8 +28,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const { clearAuth } = useAuth();
-      clearAuth();
+      const auth = useAuthStore();
+      auth.clearAuth();
       // Redirect to login page
       window.location.href = "/";
     }
@@ -41,9 +41,9 @@ api.interceptors.response.use(
 const lintApi = axios.create({ baseURL: LINT_BASE });
 lintApi.interceptors.request.use(
   (config) => {
-    const { token } = useAuth();
-    if (token.value) {
-      config.headers.Authorization = `Bearer ${token.value}`;
+    const auth = useAuthStore();
+    if (auth.token) {
+      config.headers.Authorization = `Bearer ${auth.token}`;
     }
     return config;
   },
@@ -53,8 +53,8 @@ lintApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const { clearAuth } = useAuth();
-      clearAuth();
+      const auth = useAuthStore();
+      auth.clearAuth();
       window.location.href = "/";
     }
     return Promise.reject(error);

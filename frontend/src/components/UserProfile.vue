@@ -42,7 +42,7 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import Button from "primevue/button";
 import Menu from "primevue/menu";
-import { useAuth } from "../stores/auth";
+import { useAuthStore } from "../stores/auth";
 import { logout as apiLogout } from "../api/auth";
 
 export default {
@@ -53,7 +53,8 @@ export default {
   },
   setup() {
     const router = useRouter();
-    const { user, clearAuth } = useAuth();
+    const auth = useAuthStore();
+    const user = computed(() => auth.user);
     const menu = ref();
 
     const providerIcon = computed(() => {
@@ -93,7 +94,7 @@ export default {
       } catch (error) {
         console.error("Logout error:", error);
       } finally {
-        clearAuth();
+        auth.clearAuth();
         window.location.href = "/";
       }
     };
