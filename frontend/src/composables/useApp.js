@@ -77,6 +77,8 @@ export function useApp() {
   const saveSpec = async (payload) => {
     try {
       await saver.saveSpec(payload);
+      // Clear transient unsaved spec so the UI selects the persisted spec
+      editor.unsavedSpec.value = null;
       specListKey.value++;
       // Non-blocking lint run
       runLint().catch(() => {});
