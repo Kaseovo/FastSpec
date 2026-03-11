@@ -326,36 +326,64 @@ export default {
       error.value = null;
       try {
         const fetched = await fetchSpecs();
-        for (const spec of fetched) {
-          await updateSpecVersions(spec);
-        }
+
+        // Fetch versions in parallel to avoid N+1 sequential calls.
+        // Use Promise.allSettled so a single failing spec versions fetch doesn't block others.
+        const versionFetchPromises = fetched.map((spec) =>
+          updateSpecVersions(spec).catch((err) => {
+            console.error(`Failed to load versions for spec ${spec.id}:`, err);
+            // Ensure spec has sensible defaults on failure so UI can still render
+            spec.versionOptions = [];
+            spec.selectedVersion = null;
+          })
+        );
+        await Promise.allSettled(versionFetchPromises);
+
         // Prepend transient unsavedSpec if present
         if (unsavedSpec.value) {
           specs.value = [unsavedSpec.value, ...fetched];
         } else {
           specs.value = fetched;
         }
-        // Always select and emit the latest version for each spec
+
+        // Always select the latest version for each spec if available
         for (const spec of fetched) {
           if (spec.versionOptions?.length > 0) {
             spec.selectedVersion = spec.versionOptions[0].value;
+          } else {
+            spec.selectedVersion = null;
           }
         }
+
         // Optionally, auto-select the first spec as active in the UI
         if (
           specs.value.length > 0 &&
           specs.value[0].versionOptions?.length > 0
         ) {
           const firstSpec = specs.value[0];
-          const versionData = await getSpecVersion(
-            firstSpec.id,
-            firstSpec.selectedVersion
-          );
-          emit("spec-selected", {
-            ...firstSpec,
-            ...versionData,
-            id: firstSpec.id,
-          });
+          if (firstSpec.selectedVersion) {
+            try {
+              const versionData = await getSpecVersion(
+                firstSpec.id,
+                firstSpec.selectedVersion
+              );
+              emit("spec-selected", {
+                ...firstSpec,
+                ...versionData,
+                id: firstSpec.id,
+              });
+            } catch (err) {
+              console.error(
+                `Failed to load selected version for first spec ${firstSpec.id}:`,
+                err
+              );
+              // Emit spec without full version data so editor can still load metadata
+              emit("spec-selected", firstSpec);
+            }
+          } else {
+            // No selectedVersion available (versions fetch may have failed)
+            emit("spec-selected", firstSpec);
+          }
         } else if (
           specs.value.length > 0 &&
           specs.value[0].id === "__unsaved"

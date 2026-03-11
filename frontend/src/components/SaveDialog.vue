@@ -446,7 +446,14 @@ export default {
     }
 
     const compareDraft = async () => {
-      if (!props.specId || !selectedVersion.value || !props.draftContent)
+      // Do not attempt to compare when there is no stored spec to compare against
+      // The sentinel value "__unsaved" means the spec isn't persisted yet.
+      if (
+        !props.specId ||
+        props.specId === "__unsaved" ||
+        !selectedVersion.value ||
+        !props.draftContent
+      )
         return;
       comparing.value = true;
       compareError.value = "";
