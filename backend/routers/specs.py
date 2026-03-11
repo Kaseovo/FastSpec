@@ -23,6 +23,7 @@ from schemas import (
 from auth.dependencies import get_current_user
 from validation.validator import validate_openapi_spec
 from validation.diff_utils import compare_specs, generate_markdown_report
+from services.spec_service import SpecService
 
 
 router = APIRouter()
@@ -35,34 +36,8 @@ async def list_specs(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """List all OpenAPI specifications for the current user"""
-    specs = (
-        db.query(OpenAPISpec)
-        .filter(OpenAPISpec.user_id == current_user.id)
-        .order_by(OpenAPISpec.created_at.desc())
-        .all()
-    )
-
-    # Convert spec_json from string to dict
-    result = []
-    for spec in specs:
-        spec_dict = {
-            "id": spec.id,
-            "name": spec.name,
-            "title": spec.title,
-            "version": spec.version,
-            "spec_json": json.loads(spec.spec_json),
-            "user_id": spec.user_id,
-            "created_at": spec.created_at,
-            "updated_at": spec.updated_at,
-        }
-        result.append(spec_dict)
-
-    import logging
-
-    logging.warning(
-        f"Spec IDs: {[spec['id'] for spec in result]} (type: {[type(spec['id']) for spec in result]})"
-    )
-    return result
+    service = SpecService(db)
+    return service.list_specs(current_user)
 
 
 @router.get("/{spec_id}", response_model=OpenAPISpecResponse)
@@ -72,28 +47,8 @@ async def get_spec(
     db: Session = Depends(get_db),
 ):
     """Get a specific OpenAPI specification by ID"""
-    spec = (
-        db.query(OpenAPISpec)
-        .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
-        .first()
-    )
-
-    if not spec:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Spec with id {spec_id} not found",
-        )
-
-    return {
-        "id": spec.id,
-        "name": spec.name,
-        "title": spec.title,
-        "version": spec.version,
-        "spec_json": json.loads(spec.spec_json),
-        "user_id": spec.user_id,
-        "created_at": spec.created_at,
-        "updated_at": spec.updated_at,
-    }
+    service = SpecService(db)
+    return service.get_spec(current_user, spec_id)
 
 
 @router.post(
@@ -106,91 +61,8 @@ async def create_spec(
     db: Session = Depends(get_db),
 ):
     """Create a new OpenAPI specification and its initial version"""
-    spec_json = spec_data.spec_json
-
-    # Enforce version query param
-    if not version:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Version query parameter is required",
-        )
-    # Overwrite version in spec_json
-    if "info" not in spec_json:
-        spec_json["info"] = {}
-    spec_json["info"]["version"] = version
-
-    # Validate the spec
-    is_valid, errors, warnings = validate_openapi_spec(spec_json)
-    if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "message": "Invalid OpenAPI specification",
-                "errors": [{"field": e.field, "message": e.message} for e in errors],
-                "warnings": warnings,
-            },
-        )
-
-    # Check if name already exists for this user
-    existing = (
-        db.query(OpenAPISpec)
-        .filter(
-            OpenAPISpec.name == spec_data.name, OpenAPISpec.user_id == current_user.id
-        )
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Spec with name '{spec_data.name}' already exists",
-        )
-
-    # Extract title and version from spec_json
-    title = spec_json.get("info", {}).get("title", "Untitled")
-    version = spec_json.get("info", {}).get("version", "1.0.0")
-
-    # Create new spec with user ownership
-    new_spec = OpenAPISpec(
-        name=spec_data.name,
-        title=title,
-        version=version,
-        spec_json=json.dumps(spec_json),
-        user_id=current_user.id,
-    )
-    db.add(new_spec)
-    db.commit()
-    db.refresh(new_spec)
-
-    # Create initial version for this spec
-    initial_version = SpecVersion(
-        spec_id=new_spec.id,
-        version=version,
-        content=spec_json,
-        created_by=current_user.id,
-        is_published=True,
-    )
-    db.add(initial_version)
-    db.commit()
-    db.refresh(initial_version)
-
-    return {
-        "id": new_spec.id,
-        "name": new_spec.name,
-        "title": new_spec.title,
-        "version": new_spec.version,
-        "spec_json": spec_json,
-        "user_id": new_spec.user_id,
-        "created_at": new_spec.created_at,
-        "updated_at": new_spec.updated_at,
-        "initial_version": {
-            "id": initial_version.id,
-            "version": initial_version.version,
-            "content": initial_version.content,
-            "created_by": initial_version.created_by,
-            "created_at": initial_version.created_at,
-            "is_published": initial_version.is_published,
-        },
-    }
+    service = SpecService(db)
+    return service.create_spec(current_user, spec_data, version)
 
 
 @router.put("/{spec_id}", response_model=OpenAPISpecResponse)
@@ -201,51 +73,8 @@ async def update_spec(
     db: Session = Depends(get_db),
 ):
     """Update only the name of an existing OpenAPI specification."""
-    spec = (
-        db.query(OpenAPISpec)
-        .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
-        .first()
-    )
-    if not spec:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Spec with id {spec_id} not found",
-        )
-    # Only allow name update
-    if spec_data.name is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only 'name' field can be updated via this endpoint",
-        )
-    new_name = spec_data.name
-    # Check if new name already exists for this user
-    existing = (
-        db.query(OpenAPISpec)
-        .filter(
-            OpenAPISpec.name == new_name,
-            OpenAPISpec.id != spec_id,
-            OpenAPISpec.user_id == current_user.id,
-        )
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Spec with name '{new_name}' already exists",
-        )
-    spec.name = new_name
-    db.commit()
-    db.refresh(spec)
-    return {
-        "id": spec.id,
-        "name": spec.name,
-        "title": spec.title,
-        "version": spec.version,
-        "spec_json": json.loads(spec.spec_json),
-        "user_id": spec.user_id,
-        "created_at": spec.created_at,
-        "updated_at": spec.updated_at,
-    }
+    service = SpecService(db)
+    return service.update_spec(current_user, spec_id, spec_data)
 
 
 @router.delete("/{spec_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -255,22 +84,8 @@ async def delete_spec(
     db: Session = Depends(get_db),
 ):
     """Delete an OpenAPI specification"""
-    spec = (
-        db.query(OpenAPISpec)
-        .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
-        .first()
-    )
-
-    if not spec:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Spec with id {spec_id} not found",
-        )
-
-    db.delete(spec)
-    db.commit()
-
-    return None
+    service = SpecService(db)
+    return service.delete_spec(current_user, spec_id)
 
 
 @router.post("/validate", response_model=ValidationResponse)
