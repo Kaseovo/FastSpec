@@ -9,6 +9,12 @@
       <Message severity="error">{{ error }}</Message>
     </div>
     <div v-else class="spec-list">
+      <div v-if="loading" class="loading">
+        - <ProgressSpinner style="width: 30px; height: 30px" /> -
+      </div>
+      <div v-if="loading" class="loading">
+        + <ProgressSpinner class="spinner-small" /> +
+      </div>
       <div
         v-for="spec in specs"
         :key="spec.id"
@@ -59,26 +65,16 @@
             />
           </div>
         </div>
-        <div
-          style="
-            margin: 8px 0 0 0;
-            font-size: 13px;
-            color: #6b7280;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          "
-          v-if="spec.id !== '__unsaved'"
-        >
+        <div class="version-row" v-if="spec.id !== '__unsaved'">
           <span>Version</span>
           <span>
-            <div style="display: flex; align-items: center; gap: 8px">
+            <div class="version-select-row">
               <Select
                 v-model="spec.selectedVersion"
                 :options="spec.versionOptions"
                 optionLabel="label"
                 optionValue="value"
-                style="min-width: 110px"
+                class="version-select"
                 @change="onSpecVersionChange(spec)()"
               />
             </div>
@@ -117,7 +113,8 @@
       :visible="historyOpen"
       @update:visible="(v) => (historyOpen = v)"
       position="right"
-      :style="{ width: '60vw' }"
+      class="history-drawer"
+      :style="{ width: '80rem' }"
     >
       <template #header>
         <div class="drawer-header">
@@ -125,20 +122,20 @@
         </div>
       </template>
 
-      <div style="padding: 16px">
+      <div class="drawer-body">
         <div v-if="versionsLoading">Loading versions...</div>
         <div v-else>
           <div v-if="versions.length === 0">No versions available</div>
 
           <div v-else class="version-controls">
             <div class="control-row">
-              <p style="margin: 0">
+              <p class="compare-instructions">
                 Select two versions to compare within this panel.
               </p>
             </div>
 
-            <div class="control-row row-controls" style="margin-top: 12px">
-              <label style="font-size: 12px; color: #6b7280">Base</label>
+            <div class="control-row row-controls controls-with-top">
+              <label class="control-label">Base</label>
               <Select
                 v-model="baseVersion"
                 :options="versionOptions"
@@ -148,7 +145,7 @@
                 placeholder="Select base"
               />
 
-              <label style="font-size: 12px; color: #6b7280">Compare</label>
+              <label class="control-label">Compare</label>
               <Select
                 v-model="compareVersion"
                 :options="compareOptions"
@@ -180,7 +177,7 @@
           </div>
         </div>
 
-        <div style="margin-top: 18px">
+        <div class="diff-area">
           <DiffDrawer :diff="historyDiff" :spec="historySpec" inline />
         </div>
       </div>
@@ -648,7 +645,12 @@ export default {
 .empty {
   text-align: center;
   padding: 20px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
+}
+
+.spinner-small {
+  width: 30px !important;
+  height: 30px !important;
 }
 
 .spec-list {
@@ -738,7 +740,52 @@ export default {
 .row-controls label {
   margin: 0 4px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
+}
+
+.controls-with-top {
+  margin-top: 12px;
+}
+
+.control-label {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.compare-instructions {
+  margin: 0;
+}
+
+.version-row {
+  margin: 8px 0 0 0;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version-select {
+  min-width: 110px;
+}
+
+.history-drawer {
+  width: 80rem;
+  max-width: 80rem;
+}
+
+.drawer-body {
+  padding: 16px;
+}
+
+.diff-area {
+  margin-top: 18px;
 }
 
 .inline-error {

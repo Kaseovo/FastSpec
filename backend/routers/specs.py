@@ -114,7 +114,7 @@ async def validate_spec(spec_json: dict):
 @router.get("/{spec_id}/diff")
 async def get_spec_diff(
     spec_id: str,
-    format: str = Query("json", regex="^(json|markdown)$"),
+    output_format: str = Query("json", pattern="^(json|markdown)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -122,7 +122,7 @@ async def get_spec_diff(
     Get the diff between current and previous version of a specification
 
     Query params:
-    - format: 'json' (default) or 'markdown'
+    - output_format: 'json' (default) or 'markdown'
     """
     spec = (
         db.query(OpenAPISpec)
@@ -144,7 +144,7 @@ async def get_spec_diff(
 
     diff = compare_specs(spec.spec_json, spec.previous_spec_json)
 
-    if format == "markdown":
+    if output_format == "markdown":
         markdown = generate_markdown_report(diff)
         return {"markdown": markdown}
 
