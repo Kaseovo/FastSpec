@@ -149,6 +149,8 @@ class APIKey(Base):
     id = Column(
         String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
     )
+    # Short non-secret prefix used for lookup (nullable until migration completes)
+    key_prefix = Column(String(16), index=True, nullable=True)
     token_hash = Column(String(255), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     actions = Column(Text, nullable=False, default="[]")

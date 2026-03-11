@@ -116,8 +116,11 @@ def create_api_key(
     raw = generate_api_key()
     hashed = hash_api_key(raw)
     expires_at = now + timedelta(days=API_KEY_TTL_DAYS)
+    # deterministic non-secret prefix for fast lookup
+    prefix = raw[:12]
 
     rt = APIKey(
+        key_prefix=prefix,
         token_hash=hashed,
         user_id=user.id,
         actions=json.dumps(actions or []),
@@ -168,14 +171,43 @@ def verify_short_jwt(token: str) -> dict:
 
 
 def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
-    # Since we store only hashes, we must check all non-revoked non-expired tokens for the user
+    """Find API key by raw plaintext value.
+
+    Fast path: use key_prefix (first 12 chars) to find candidate and run a single
+    hash verification. Fall back to scanning rows with NULL key_prefix for
+    pre-migration keys.
+    """
     now = datetime.now(timezone.utc)
-    candidates = (
+    prefix = raw[:12]
+
+    # Primary fast-path: lookup by prefix
+    candidate = (
         db_session.query(APIKey)
-        .filter(APIKey.revoked == False, APIKey.expires_at >= now)
+        .filter(
+            APIKey.key_prefix == prefix,
+            APIKey.revoked == False,
+            APIKey.expires_at >= now,
+        )
+        .first()
+    )
+    if candidate:
+        try:
+            if verify_api_key_raw(raw, candidate.token_hash):
+                return candidate
+        except Exception:
+            pass
+
+    # Fallback for pre-migration rows where key_prefix is NULL: scan only those
+    candidates_null_prefix = (
+        db_session.query(APIKey)
+        .filter(
+            APIKey.key_prefix == None,
+            APIKey.revoked == False,
+            APIKey.expires_at >= now,
+        )
         .all()
     )
-    for rec in candidates:
+    for rec in candidates_null_prefix:
         try:
             if verify_api_key_raw(raw, rec.token_hash):
                 return rec

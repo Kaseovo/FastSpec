@@ -102,13 +102,19 @@ async def list_api_keys(
     result = []
     now = datetime.now(timezone.utc)
     for t in tokens:
-        if t.expires_at < now:
+        exp = t.expires_at
+        if not exp:
+            continue
+        # normalize naive datetimes returned by some DB drivers to UTC-aware
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < now:
             continue
         result.append(
             {
                 "id": t.id,
                 "actions": t.get_actions(),
-                "expires_at": t.expires_at,
+                "expires_at": exp,
                 "revoked": t.revoked,
                 "created_at": t.created_at,
                 "last_used_at": t.last_used_at,
