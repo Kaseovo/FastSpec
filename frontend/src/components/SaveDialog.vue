@@ -51,6 +51,7 @@
           class="p-button-success"
           @click="openFullCompare"
           :loading="comparing"
+          :disabled="!!errorMsg"
         />
       </template>
     </Dialog>
@@ -195,6 +196,7 @@
           severity="success"
           @click="confirmSave"
           :loading="comparing || linting"
+          :disabled="!!errorMsg"
         />
       </template>
     </Dialog>
@@ -212,6 +214,7 @@ import {
   listSpecVersions,
   compareDraftWithVersion,
   lintSpec,
+  fetchSpecs,
 } from "../api/specs";
 import DiffDrawer from "./DiffDrawer.vue";
 import LintPanel from "./LintPanel.vue";
@@ -265,6 +268,7 @@ export default {
 
     const name = ref("");
     const versions = ref([]);
+    const existingSpecs = ref([]);
     const selectedVersion = ref("__create_new");
     const newVersion = ref("");
     const errorMsg = ref("");
@@ -308,6 +312,25 @@ export default {
       }
     );
 
+    // Live-validate the name against fetched existing specs and update error message
+    watch(name, (val) => {
+      errorMsg.value = "";
+      if (!val || !val.trim()) return;
+      const dup = existingSpecs.value.find(
+        (s) =>
+          s.name &&
+          s.name.toString().trim().toLowerCase() === val.trim().toLowerCase()
+      );
+      if (
+        dup &&
+        (props.specId === null ||
+          props.specId === "__unsaved" ||
+          String(dup.id) !== String(props.specId))
+      ) {
+        errorMsg.value = "A spec with this name already exists";
+      }
+    });
+
     watch(
       () => props.visible,
       async (newVisible) => {
@@ -319,6 +342,19 @@ export default {
           baseSpec.value = null;
           lintResult.value = null;
           lintError.value = "";
+
+          // Load existing spec names to validate uniqueness on save
+          existingSpecs.value = [];
+          try {
+            const fetched = await fetchSpecs();
+            existingSpecs.value = (fetched || []).map((s) => ({
+              id: s.id,
+              name: s.name,
+            }));
+          } catch (e) {
+            // non-blocking; we'll still allow user to save if fetch fails
+            existingSpecs.value = [];
+          }
 
           // Load versions lazily when dialog opens and specId is provided
           if (props.specId && props.specId !== "__unsaved") {
@@ -525,6 +561,23 @@ export default {
     const save = () => {
       if (!name.value.trim()) {
         errorMsg.value = "Name is required";
+        return;
+      }
+
+      // Check for duplicate name (case-insensitive) against fetched specs
+      const dup = existingSpecs.value.find(
+        (s) =>
+          s.name &&
+          s.name.toString().trim().toLowerCase() ===
+            name.value.trim().toLowerCase()
+      );
+      if (
+        dup &&
+        (props.specId === null ||
+          props.specId === "__unsaved" ||
+          String(dup.id) !== String(props.specId))
+      ) {
+        errorMsg.value = "A spec with this name already exists";
         return;
       }
 
