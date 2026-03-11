@@ -2,7 +2,7 @@
 Pydantic schemas for FastSpec API
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
@@ -38,8 +38,7 @@ class UserResponse(UserBase):
     provider: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
@@ -121,8 +120,7 @@ class OpenAPISpecResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DiffResponse(BaseModel):
@@ -158,8 +156,7 @@ class SpecVersionResponse(BaseModel):
     meta: Optional[Dict[str, Any]] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Lint / Spectral Schemas

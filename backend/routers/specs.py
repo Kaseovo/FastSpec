@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List, Dict, Any, Optional
-import json
 import uuid
 import logging
 
@@ -143,10 +142,7 @@ async def get_spec_diff(
             "message": "No previous version available for comparison",
         }
 
-    current_spec = json.loads(spec.spec_json)
-    previous_spec = json.loads(spec.previous_spec_json)
-
-    diff = compare_specs(current_spec, previous_spec)
+    diff = compare_specs(spec.spec_json, spec.previous_spec_json)
 
     if format == "markdown":
         markdown = generate_markdown_report(diff)
@@ -172,6 +168,8 @@ def _resolve_spec_or_404(db: Session, spec_id: str, current_user: User) -> OpenA
 
 
 def _serialize_version(version: SpecVersion) -> Dict[str, Any]:
+    # Deprecated helper kept for compatibility in places that still need dicts.
+    # Prefer returning ORM objects directly and relying on Pydantic response_model.
     return {
         "id": version.id,
         "spec_id": version.spec_id,
@@ -238,8 +236,7 @@ async def list_versions(
         .order_by(SpecVersion.created_at.desc())
         .all()
     )
-    serialized = [_serialize_version(v) for v in versions]
-    return serialized
+    return versions
 
 
 @router.post(
@@ -285,7 +282,7 @@ async def create_version(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-    return _serialize_version(new_version)
+    return new_version
 
 
 @router.get("/{spec_id}/versions/{version_id}", response_model=SpecVersionResponse)
@@ -319,7 +316,7 @@ async def get_version(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Spec version not found"
         )
-    return _serialize_version(ver)
+    return ver
 
 
 @router.delete(
@@ -429,22 +426,21 @@ async def compare_versions(
                 detail="Compare version not found",
             )
         diff = compare_specs(base_ver.content, compare_ver.content)
-        compare_serialized = _serialize_version(compare_ver)
 
     # Format handling
     fmt = options.get("format", "structured")
     if fmt == "markdown":
         markdown = generate_markdown_report(diff)
         return {
-            "base": _serialize_version(base_ver),
-            "compare": compare_serialized,
+            "base": base_ver,
+            "compare": compare_ver,
             "markdown": markdown,
         }
 
     # Default: structured JSON diff
     return {
-        "base": _serialize_version(base_ver),
-        "compare": compare_serialized,
+        "base": base_ver,
+        "compare": compare_ver,
         "diff": diff,
     }
 
@@ -491,8 +487,8 @@ async def publish_version(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-    # refresh may not be available on simple sessions in tests; return serialized version
-    return _serialize_version(ver)
+    # refresh may not be available on simple sessions in tests; return version ORM object
+    return ver
 
 
 @router.put("/{spec_id}/versions/{version_id}", response_model=SpecVersionResponse)
@@ -528,4 +524,4 @@ async def update_version(
     db.add(ver)
     db.commit()
     db.refresh(ver)
-    return _serialize_version(ver)
+    return ver

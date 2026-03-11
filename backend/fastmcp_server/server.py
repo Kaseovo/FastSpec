@@ -22,7 +22,13 @@ def who_am_i(user: TokenPayload = Depends(get_current_user)) -> dict:
     """
     Returns information about the authenticated user
     """
-    return {"sub": user.sub, "actions": user.actions, "token_type": user.token_type, "exp": user.exp, "iat": user.iat}
+    return {
+        "sub": user.sub,
+        "actions": user.actions,
+        "token_type": user.token_type,
+        "exp": user.exp,
+        "iat": user.iat,
+    }
 
 
 @mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
@@ -62,8 +68,11 @@ def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> 
     finally:
         db.close()
 
+
 @mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
-def get_spec_details(spec_id: str, user: TokenPayload = Depends(get_current_user)) -> dict:
+def get_spec_details(
+    spec_id: str, user: TokenPayload = Depends(get_current_user)
+) -> dict:
     """
     Returns the details of a specific OpenAPI spec saved by the authenticated user
     """
@@ -72,7 +81,11 @@ def get_spec_details(spec_id: str, user: TokenPayload = Depends(get_current_user
 
     db = SessionLocal()
     try:
-        spec = db.query(OpenAPISpec).filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == user_id).first()
+        spec = (
+            db.query(OpenAPISpec)
+            .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == user_id)
+            .first()
+        )
 
         if not spec:
             raise ToolError("Spec not found or access denied")
@@ -84,7 +97,7 @@ def get_spec_details(spec_id: str, user: TokenPayload = Depends(get_current_user
             "version": spec.version,
             "created_at": spec.created_at.isoformat() if spec.created_at else None,
             "updated_at": spec.updated_at.isoformat() if spec.updated_at else None,
-            "content": json.loads(spec.spec_json) if spec.spec_json else None,
+            "content": spec.spec_json if spec.spec_json else None,
         }
     except ToolError:
         raise
@@ -92,6 +105,7 @@ def get_spec_details(spec_id: str, user: TokenPayload = Depends(get_current_user
         raise ToolError(f"Database error: {e}")
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     mcp.run(transport="http", host="0.0.0.0", port=9000, path="/")

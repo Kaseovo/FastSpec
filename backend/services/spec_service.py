@@ -1,4 +1,3 @@
-import json
 from typing import List, Optional
 
 from fastapi import HTTPException, status
@@ -20,30 +19,16 @@ class SpecService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_specs(self, user: User) -> List[dict]:
+    def list_specs(self, user: User) -> List[OpenAPISpec]:
         specs = (
             self.db.query(OpenAPISpec)
             .filter(OpenAPISpec.user_id == user.id)
             .order_by(OpenAPISpec.created_at.desc())
             .all()
         )
-        result = []
-        for spec in specs:
-            result.append(
-                {
-                    "id": spec.id,
-                    "name": spec.name,
-                    "title": spec.title,
-                    "version": spec.version,
-                    "spec_json": json.loads(spec.spec_json),
-                    "user_id": spec.user_id,
-                    "created_at": spec.created_at,
-                    "updated_at": spec.updated_at,
-                }
-            )
-        return result
+        return specs
 
-    def get_spec(self, user: User, spec_id: str) -> dict:
+    def get_spec(self, user: User, spec_id: str) -> OpenAPISpec:
         spec = (
             self.db.query(OpenAPISpec)
             .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == user.id)
@@ -54,18 +39,11 @@ class SpecService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Spec with id {spec_id} not found",
             )
-        return {
-            "id": spec.id,
-            "name": spec.name,
-            "title": spec.title,
-            "version": spec.version,
-            "spec_json": json.loads(spec.spec_json),
-            "user_id": spec.user_id,
-            "created_at": spec.created_at,
-            "updated_at": spec.updated_at,
-        }
+        return spec
 
-    def create_spec(self, user: User, data: OpenAPISpecCreate, version: str) -> dict:
+    def create_spec(
+        self, user: User, data: OpenAPISpecCreate, version: str
+    ) -> OpenAPISpec:
         # Enforce version presence
         if not version:
             raise HTTPException(
@@ -107,11 +85,12 @@ class SpecService:
         title = spec_json.get("info", {}).get("title", "Untitled")
         version_val = spec_json.get("info", {}).get("version", "1.0.0")
 
+        # Persist as native JSON value (requires DB JSON column)
         new_spec = OpenAPISpec(
             name=data.name,
             title=title,
             version=version_val,
-            spec_json=json.dumps(spec_json),
+            spec_json=spec_json,
             user_id=user.id,
         )
         self.db.add(new_spec)
@@ -129,26 +108,11 @@ class SpecService:
         self.db.commit()
         self.db.refresh(initial_version)
 
-        return {
-            "id": new_spec.id,
-            "name": new_spec.name,
-            "title": new_spec.title,
-            "version": new_spec.version,
-            "spec_json": spec_json,
-            "user_id": new_spec.user_id,
-            "created_at": new_spec.created_at,
-            "updated_at": new_spec.updated_at,
-            "initial_version": {
-                "id": initial_version.id,
-                "version": initial_version.version,
-                "content": initial_version.content,
-                "created_by": initial_version.created_by,
-                "created_at": initial_version.created_at,
-                "is_published": initial_version.is_published,
-            },
-        }
+        return new_spec
 
-    def update_spec(self, user: User, spec_id: str, data: OpenAPISpecUpdate) -> dict:
+    def update_spec(
+        self, user: User, spec_id: str, data: OpenAPISpecUpdate
+    ) -> OpenAPISpec:
         spec = (
             self.db.query(OpenAPISpec)
             .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == user.id)
@@ -182,16 +146,7 @@ class SpecService:
         spec.name = new_name
         self.db.commit()
         self.db.refresh(spec)
-        return {
-            "id": spec.id,
-            "name": spec.name,
-            "title": spec.title,
-            "version": spec.version,
-            "spec_json": json.loads(spec.spec_json),
-            "user_id": spec.user_id,
-            "created_at": spec.created_at,
-            "updated_at": spec.updated_at,
-        }
+        return spec
 
     def delete_spec(self, user: User, spec_id: str) -> None:
         spec = (
