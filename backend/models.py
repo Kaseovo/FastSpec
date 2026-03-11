@@ -66,8 +66,8 @@ class OpenAPISpec(Base):
     name = Column(String(255), index=True, nullable=False)
     title = Column(String(255), nullable=False)
     version = Column(String(50), nullable=False)
-    spec_json = Column(Text, nullable=False)
-    previous_spec_json = Column(Text, nullable=True)
+    spec_json = Column(JSON, nullable=False)
+    previous_spec_json = Column(JSON, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(

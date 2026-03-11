@@ -61,7 +61,7 @@ def test_update_spec_with_matching_version_creates_new_version(db_session):
         name="spec1",
         title="Spec 1",
         version="1.0.0",
-        spec_json=json.dumps({"info": {"version": "1.0.0"}, "paths": {}}),
+        spec_json={"info": {"version": "1.0.0"}, "paths": {}},
         user_id=user.id,
     )
     db_session.add(spec)
@@ -105,7 +105,7 @@ def test_update_spec_with_conflicting_version_returns_409(db_session):
         name="spec2",
         title="Spec 2",
         version="2.0.0",
-        spec_json=json.dumps({"info": {"version": "2.0.0"}, "paths": {}}),
+        spec_json={"info": {"version": "2.0.0"}, "paths": {}},
         user_id=user.id,
     )
     db_session.add(spec)

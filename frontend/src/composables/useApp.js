@@ -197,6 +197,11 @@ export function useApp() {
     viewMode.value = viewMode.value === "preview" ? "code" : "preview";
   };
 
+  // provide a toggle for the (future) diff UI so components that inject it don't fail
+  const toggleDiff = () => {
+    viewMode.value = viewMode.value === "preview" ? "code" : "preview";
+  };
+
   onMounted(() => {
     auth.initAuth();
     diff.fetchOpenApiFile().catch(() => {});
@@ -224,6 +229,7 @@ export function useApp() {
   });
   provide("loadTemplate", loadTemplate);
   provide("togglePreview", togglePreview);
+  provide("toggleDiff", toggleDiff);
   provide("viewMode", viewMode);
   provide("refreshSpecList", specListKey);
   provide("showTokenDialog", () => (showTokenDialog.value = true));
@@ -264,6 +270,8 @@ export function useApp() {
     updatePreview: editor.updatePreview,
     updateFromForm: editor.updateFromForm,
     loadSpec: editor.loadSpec,
+    // expose loadTemplate so templates using @load-template="loadTemplate" work
+    loadTemplate,
     saveSpec,
     editorPanelRef,
     lintResults,

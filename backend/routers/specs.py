@@ -411,7 +411,8 @@ async def compare_versions(
                 detail="compare_content must be a JSON object",
             )
         diff = compare_specs(base_ver.content, compare_content)
-        compare_serialized = {"id": None, "is_draft": True}
+        # Ensure compare_ver is defined for responses when comparing against a draft
+        compare_ver = None
     else:
         # Compare two stored versions; require compare key
         if not compare_key:

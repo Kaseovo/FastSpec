@@ -17,7 +17,7 @@ def make_spec_model(id, name, title, version, spec_json, user_id):
     m.name = name
     m.title = title
     m.version = version
-    m.spec_json = json.dumps(spec_json)
+    m.spec_json = spec_json
     m.user_id = user_id
     m.created_at = "created"
     m.updated_at = "updated"
