@@ -10,6 +10,9 @@ from models import User, AuthToken
 from .jwt import verify_token
 from auth.redis_client import redis_client
 from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Security scheme for Swagger UI
 security = HTTPBearer()
@@ -38,7 +41,8 @@ async def get_current_user(
     key = f"short_jwt:{token}"
     try:
         cached_user_id = redis_client.get(key)
-    except Exception:
+    except Exception as e:
+        logger.warning("Redis cache GET failed for key %s: %s", key, e)
         cached_user_id = None
 
     if cached_user_id:
@@ -102,12 +106,14 @@ async def get_current_user(
             if ttl and ttl > 0:
                 try:
                     redis_client.setex(key, ttl, str(token_data["user_id"]))
-                except Exception:
-                    # Don't let Redis failures block authentication
-                    pass
+                except Exception as e:
+                    # Don't let Redis failures block authentication, but log for observability
+                    logger.warning(
+                        "Redis cache SETEX failed for key %s ttl=%s: %s", key, ttl, e
+                    )
     except Exception:
-        # Defensive: any unexpected error should not block authentication
-        pass
+        # Defensive: any unexpected error should not block authentication but must be logged
+        logger.exception("Unexpected error in get_current_user caching flow")
 
     # Get user from database
     user = db.query(User).filter(User.id == token_data["user_id"]).first()

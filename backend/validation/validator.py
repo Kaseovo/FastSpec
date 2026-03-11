@@ -1,6 +1,9 @@
 from openapi_spec_validator import validate
 from openapi_spec_validator.validation.exceptions import OpenAPIValidationError
 from typing import Dict, Any, List, Tuple, NamedTuple
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ValidationError(NamedTuple):
@@ -77,16 +80,23 @@ def validate_openapi_spec(
         validate(spec_json)
         return True, errors, warnings
     except OpenAPIValidationError as e:
-        # Parse validation errors
+        # Use structured attributes when available
+        path_attr = getattr(e, "path", None) or getattr(e, "schema_path", None)
+        field = "spec"
+        try:
+            if isinstance(path_attr, (list, tuple)) and path_attr:
+                field = ".".join(str(p) for p in path_attr)
+            elif isinstance(path_attr, str) and path_attr:
+                field = path_attr
+        except Exception:
+            field = "spec"
+
         error_msg = str(e)
-        errors.append(
-            ValidationError(
-                field=error_msg.split(":")[0] if ":" in error_msg else "spec",
-                message=error_msg,
-            )
-        )
+        logger.warning("OpenAPI validation error on field %s: %s", field, error_msg)
+        errors.append(ValidationError(field=field, message=error_msg))
         return False, errors, warnings
     except Exception as e:
+        logger.exception("Unexpected error during OpenAPI validation")
         errors.append(
             ValidationError(field="spec", message=f"Validation error: {str(e)}")
         )
