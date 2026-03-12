@@ -76,6 +76,7 @@ export function useSpecEditor({
   };
 
   const newSpec = () => {
+    console.debug("useSpecEditor.newSpec called");
     currentSpec.value = null;
     const defaultSpec = getDefaultSpec();
     specContent.value = JSON.stringify(defaultSpec, null, 2);

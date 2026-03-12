@@ -251,8 +251,18 @@ export default {
 
         if (!props.spec) {
           loading.value = false;
+          console.debug(
+            "PreviewPanel.updatePreview: props.spec is falsy",
+            props.spec
+          );
           return;
         }
+
+        console.debug("PreviewPanel.updatePreview: received spec", {
+          id: props.spec.id,
+          title: props.spec?.info?.title,
+          openapi: props.spec?.openapi,
+        });
 
         // Validate it's an OpenAPI spec
         if (!props.spec.openapi && !props.spec.swagger) {
@@ -287,6 +297,9 @@ export default {
           await nextTick();
 
           if (!swaggerContainer.value) {
+            console.debug(
+              "PreviewPanel.updatePreview: swaggerContainer not found in DOM"
+            );
             return;
           }
 
@@ -307,6 +320,11 @@ export default {
             filter: true,
             showExtensions: true,
             showCommonExtensions: true,
+          });
+
+          console.debug("PreviewPanel.updatePreview: Swagger UI initialized", {
+            title: props.spec?.info?.title,
+            openapi: props.spec?.openapi,
           });
         } catch (err) {
           loading.value = false;

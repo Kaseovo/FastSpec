@@ -36,7 +36,7 @@ export default {
     const error = ref(null);
 
     const redirectToLogin = () => {
-      window.location.href = "/";
+      router.push({ name: "editor" }).catch(() => {});
     };
 
     const handleCallback = async () => {
@@ -64,8 +64,8 @@ export default {
         // Store auth data
         auth.setAuth(token, user);
 
-        // Redirect to main app
-        window.location.href = "/";
+        // Redirect to main app route using router
+        router.push({ name: "editor" }).catch(() => {});
       } catch (err) {
         console.error("OAuth callback error:", err);
         error.value =

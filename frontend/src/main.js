@@ -11,14 +11,11 @@ import OAuthCallback from "./components/OAuthCallback.vue";
 import "primeicons/primeicons.css";
 
 // Check if this is an OAuth callback
-const urlParams = new URLSearchParams(window.location.search);
-const isCallback = urlParams.has("token") || urlParams.has("error");
+import router from "./router";
 
-// Use callback component if this is a callback, otherwise use main app
-const rootComponent = isCallback ? OAuthCallback : App;
-
-const app = createApp(rootComponent);
+const app = createApp(App);
 app.use(createPinia());
+app.use(router);
 app.use(PrimeVue, {
   theme: {
     preset: Aura,

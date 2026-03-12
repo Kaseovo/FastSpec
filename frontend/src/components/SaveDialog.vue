@@ -18,7 +18,10 @@
           />
         </div>
 
-        <div class="form-group" v-if="specId">
+        <div
+          class="form-group"
+          v-if="specId !== null && specId !== '__unsaved'"
+        >
           <label for="version-select">Version</label>
           <select
             id="version-select"
@@ -32,8 +35,8 @@
           </select>
         </div>
 
-        <div class="form-group" v-if="showNewVersionInput">
-          <label for="new-version">New version</label>
+        <div class="form-group" v-else>
+          <label for="new-version">Version</label>
           <InputText
             id="new-version"
             v-model="newVersion"
@@ -308,7 +311,74 @@ export default {
     watch(
       () => props.specName,
       (newName) => {
-        name.value = newName;
+        if (newName) {
+          name.value = newName;
+        }
+      },
+      { immediate: true }
+    );
+
+    // Reset version suggestion and related state when the selected spec changes
+    watch(
+      () => props.specId,
+      async (newId, oldId) => {
+        // Clear previously loaded versions and reset inputs/state
+        versions.value = [];
+        selectedVersion.value = "__create_new";
+        newVersion.value = "";
+        errorMsg.value = "";
+        compareError.value = "";
+        diffResult.value = null;
+        baseSpec.value = null;
+        lintResult.value = null;
+        lintError.value = "";
+
+        // If dialog isn't open, don't attempt to load versions now
+        if (!props.visible) return;
+
+        if (newId && newId !== "__unsaved") {
+          try {
+            versions.value = await listSpecVersions(newId);
+            selectedVersion.value =
+              props.currentVersion &&
+              versions.value.find((v) => v.version === props.currentVersion)
+                ? props.currentVersion
+                : versions.value[0]?.version || "__create_new";
+
+            // If we have a draft and a real version selected, auto-run compare
+            if (props.draftContent) {
+              if (
+                selectedVersion.value &&
+                selectedVersion.value !== "__create_new"
+              ) {
+                try {
+                  await compareDraft();
+                } catch (e) {
+                  // compareDraft sets compareError
+                }
+              }
+
+              // Always run lint for the (new) draft so user sees score/errors
+              try {
+                await runLint();
+              } catch (e) {
+                // runLint sets lintError
+              }
+            }
+          } catch (e) {
+            console.error("Failed to load versions on spec change", e);
+            versions.value = [];
+          }
+        } else {
+          // New/unsaved spec — still run lint if we have draft content
+          if (props.draftContent) {
+            try {
+              await runLint();
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
       }
     );
 
@@ -335,7 +405,10 @@ export default {
       () => props.visible,
       async (newVisible) => {
         if (newVisible) {
-          name.value = props.specName;
+          name.value =
+            props.specName && props.specName !== "Untitled Spec"
+              ? props.specName
+              : "";
           errorMsg.value = "";
           compareError.value = "";
           diffResult.value = null;

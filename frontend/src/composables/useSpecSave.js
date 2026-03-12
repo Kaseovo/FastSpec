@@ -38,14 +38,18 @@ export function useSpecSave({
         const version =
           providedVersionChoice?.version || spec_json.info?.version || "1.0.0";
         const created = await createSpec({ name, version, spec_json });
+        console.debug("useSpecSave.saveSpec: created spec", created);
         currentSpecRef.value = created;
         initialSpecRef.value = JSON.parse(JSON.stringify(spec_json));
         showAlert?.("Spec created successfully!", "success");
       } else {
         // Use updateSpecVersion to update the stored version content instead of the spec-level PUT
-        console.log("Payload for saveSpec:", payloadOrName);
-        console.log(
-          "Payload versionChoice (camelCase):",
+        console.debug(
+          "useSpecSave.saveSpec: payload for update",
+          payloadOrName,
+        );
+        console.debug(
+          "useSpecSave.saveSpec: payload versionChoice:",
           payloadOrName?.versionChoice,
         );
         const name =

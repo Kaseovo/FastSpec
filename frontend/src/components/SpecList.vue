@@ -186,7 +186,7 @@
 </template>
 
 <script>
-import { ref, onMounted, watch, inject, computed } from "vue";
+import { ref, onMounted, watch, inject, computed, onUnmounted } from "vue";
 import Button from "primevue/button";
 import Select from "primevue/select";
 import Message from "primevue/message";
@@ -226,9 +226,11 @@ export default {
     const error = ref(null);
     const confirm = useConfirm();
     const confirmOpen = ref(false);
-    const refreshSpecList = inject("refreshSpecList");
+    const refreshSpecList = inject("refreshSpecList", ref(0));
     // Inject unsaved transient spec from parent so we can render a temporary card
     const unsavedSpec = inject("unsavedSpec", ref(null));
+    // Also inject the whole specEditor as a fallback to access unsavedSpec reliably
+    const specEditor = inject("specEditor", null);
     // Inject unsaved state and discard helper from parent (App.vue)
     const hasUnsavedChanges = inject("hasUnsavedChanges", ref(false));
     const discardUnsaved = inject("discardUnsaved", () => {});
@@ -322,7 +324,18 @@ export default {
       loading.value = true;
       error.value = null;
       try {
+        console.debug(
+          "SpecList.loadSpecs: starting load, unsavedSpec:",
+          unsavedSpec.value
+        );
         const fetched = await fetchSpecs();
+        console.log("Fetched specs:", fetched);
+        console.debug(
+          "SpecList.loadSpecs: fetched specs count",
+          fetched?.length,
+          "unsavedSpec:",
+          unsavedSpec.value
+        );
 
         // Fetch versions in parallel to avoid N+1 sequential calls.
         // Use Promise.allSettled so a single failing spec versions fetch doesn't block others.
@@ -336,12 +349,29 @@ export default {
         );
         await Promise.allSettled(versionFetchPromises);
 
-        // Prepend transient unsavedSpec if present
-        if (unsavedSpec.value) {
-          specs.value = [unsavedSpec.value, ...fetched];
+        // Prepend transient unsavedSpec if present. Prefer explicitly injected unsavedSpec,
+        // otherwise fall back to the injected specEditor (some callers provide that).
+        const transient =
+          (unsavedSpec && unsavedSpec.value) ||
+          (specEditor &&
+            specEditor.unsavedSpec &&
+            specEditor.unsavedSpec.value) ||
+          null;
+        if (transient) {
+          console.debug(
+            "SpecList.loadSpecs: prepending transient unsavedSpec to list",
+            transient
+          );
+          specs.value = [transient, ...fetched];
         } else {
           specs.value = fetched;
         }
+        console.debug(
+          "SpecList.loadSpecs: final specs length",
+          specs.value.length,
+          "first item id",
+          specs.value[0]?.id
+        );
 
         // Always select the latest version for each spec if available
         for (const spec of fetched) {
@@ -576,8 +606,47 @@ export default {
     });
 
     // Re-load when parent requests a refresh or when transient unsavedSpec changes
-    watch(refreshSpecList, loadSpecs);
-    watch(unsavedSpec, loadSpecs);
+    // Explicitly watch refreshSpecList.value and unsavedSpec.value.id to guarantee triggers.
+    // Watch the provided ref and also a global fallback event so the wrapper can notify
+    // components even if the provide/watch chain fails in some edge cases.
+    const onGlobalNewSpec = async (e) => {
+      console.debug(
+        "SpecList: received global fastspec:newSpec event",
+        e?.detail
+      );
+      await loadSpecs();
+    };
+
+    watch(
+      () => (refreshSpecList && refreshSpecList.value) || 0,
+      async (val) => {
+        console.debug(
+          "SpecList: refreshSpecList changed, reloading specs, key:",
+          val
+        );
+        await loadSpecs();
+      }
+    );
+
+    watch(
+      () => (unsavedSpec && unsavedSpec.value ? unsavedSpec.value.id : null),
+      async (id) => {
+        console.debug("SpecList: unsavedSpec.id changed:", id);
+        await loadSpecs();
+      }
+    );
+
+    // global fallback listener
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("fastspec:newSpec", onGlobalNewSpec);
+    }
+
+    // remove listener on unmount
+    onUnmounted(() => {
+      if (typeof window !== "undefined" && window.removeEventListener) {
+        window.removeEventListener("fastspec:newSpec", onGlobalNewSpec);
+      }
+    });
 
     // Ensure compareVersion is never equal to baseVersion by auto-adjusting when base changes
     watch(baseVersion, (newBase) => {

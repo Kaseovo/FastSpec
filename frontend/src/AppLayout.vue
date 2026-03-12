@@ -32,12 +32,13 @@
 
       <div class="view-mode-toggle">
         <SelectButton
-          v-model="viewMode"
+          :modelValue="selectedView"
           :options="viewModeOptions"
           optionLabel="label"
           optionValue="value"
           optionDisabled="disabled"
           dataKey="value"
+          @update:modelValue="onViewChange"
         >
           <template #option="slotProps">
             <span class="flex align-items-center gap-2">
@@ -49,48 +50,7 @@
       </div>
 
       <div class="editor-container">
-        <SpecList
-          v-if="isAuthenticated"
-          @spec-selected="loadSpec"
-          :selected-id="selectedSpecId"
-        />
-
-        <!-- Render the FormEditor for explicit 'form' view -->
-        <template v-if="viewMode === 'form'">
-          <FormEditor
-            :model-value="parsedSpec"
-            @update:modelValue="updateFromForm"
-          />
-        </template>
-
-        <template v-else-if="viewMode === 'code'">
-          <EditorPanel
-            ref="editorPanelRef"
-            v-model="specContent"
-            :show-validate="true"
-            :lint-results="lintResults"
-            @update:modelValue="updatePreview"
-          />
-        </template>
-
-        <template v-else-if="viewMode === 'preview'">
-          <!-- Full-width Preview view: render PreviewPanel as drawer did -->
-          <div class="preview-full">
-            <PreviewPanel :spec="parsedSpec" />
-          </div>
-        </template>
-
-        <template v-else-if="viewMode === 'lint'">
-          <div class="lint-full">
-            <LintPanel
-              :results="lintResults"
-              :loading="lintLoading"
-              :error="lintError"
-              @run-lint="runLint"
-              @go-to-line="handleGoToLine"
-            />
-          </div>
-        </template>
+        <router-view />
       </div>
     </div>
 
@@ -148,6 +108,8 @@ import LoginPage from "./components/LoginPage.vue";
 import TokenManager from "./components/TokenManager.vue";
 import LintPanel from "./components/LintPanel.vue";
 import AppHeader from "./AppHeader.vue";
+import { computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useApp } from "./composables/useApp";
 
 export default {
@@ -171,7 +133,22 @@ export default {
     AppHeader,
   },
   setup() {
-    return useApp();
+    const app = useApp();
+    const route = useRoute();
+    const router = useRouter();
+    // selected view mirrors router query 'view'
+    const selectedView = computed(() => route.query.view || "form");
+    const onViewChange = (value) => {
+      const name = route.name || "editor";
+      router
+        .push({ name, params: route.params, query: { view: value } })
+        .catch(() => {});
+    };
+    return {
+      ...app,
+      selectedView,
+      onViewChange,
+    };
   },
 };
 </script>
@@ -231,12 +208,20 @@ body {
   align-items: center;
   gap: 16px;
 }
-
 .editor-container {
   display: grid;
-  grid-template-columns: 250px 1fr;
+  /* Allow route views to control their own internal layout; keep a single column here */
+  grid-template-columns: 1fr;
   gap: 20px;
   height: calc(100vh - 300px);
+}
+
+/* Ensure router-view children fill the container */
+.editor-container > * {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Hide spec list when not authenticated */

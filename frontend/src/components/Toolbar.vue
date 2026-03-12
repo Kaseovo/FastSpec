@@ -4,23 +4,6 @@
       <div class="toolbar-left">
         <Button label="New" icon="pi pi-plus" @click="showNewDialog = true" />
         <Button label="Save" icon="pi pi-save" @click="openSaveDialog" />
-
-        <!-- Lint button + score badge -->
-        <Button
-          label="Lint"
-          icon="pi pi-search"
-          severity="secondary"
-          :loading="lintLoading"
-          @click="runLint"
-        />
-        <div
-          v-if="lintScore !== null"
-          class="lint-score-badge"
-          :class="scoreBadgeClass"
-          :title="`Spectral quality score: ${lintScore}/100`"
-        >
-          {{ lintScore }}
-        </div>
       </div>
 
       <!-- User Profile Section -->
@@ -90,24 +73,20 @@ export default {
     const hasUnsavedChanges = inject("hasUnsavedChanges", ref(false));
     const discardUnsaved = inject("discardUnsaved", () => {});
 
-    // Lint state (injected from App.vue)
-    const lintScore = inject("lintScore", ref(null));
-    const lintLoading = inject("lintLoading", ref(false));
-    const runLint = inject("runLint", () => {});
-
     const confirm = useConfirm();
 
     // Guard to avoid opening multiple confirm dialogs (re-entrancy)
     const confirmOpen = ref(false);
 
-    const scoreBadgeClass = computed(() => {
-      if (lintScore.value === null) return "";
-      if (lintScore.value >= 80) return "score-good";
-      if (lintScore.value >= 50) return "score-warn";
-      return "score-bad";
-    });
-
     const createBlank = () => {
+      console.debug(
+        "Toolbar.createBlank called",
+        "hasUnsavedChanges:",
+        hasUnsavedChanges.value,
+        "newSpec type:",
+        typeof newSpec
+      );
+
       // If there are unsaved changes, confirm discard first
       if (hasUnsavedChanges.value) {
         if (!confirmOpen.value) {
@@ -118,10 +97,28 @@ export default {
             icon: "pi pi-exclamation-triangle",
             acceptClass: "p-button-danger",
             accept: () => {
-              discardUnsaved();
-              newSpec();
-              showNewDialog.value = false;
-              confirmOpen.value = false;
+              try {
+                discardUnsaved();
+                if (typeof newSpec === "function") {
+                  console.debug(
+                    "Toolbar: invoking newSpec() from confirm.accept"
+                  );
+                  newSpec();
+                } else {
+                  console.error(
+                    "Toolbar.createBlank: newSpec is not a function",
+                    newSpec
+                  );
+                }
+                showNewDialog.value = false;
+              } catch (err) {
+                console.error(
+                  "Toolbar.createBlank: error calling newSpec()",
+                  err
+                );
+              } finally {
+                confirmOpen.value = false;
+              }
             },
             reject: () => {
               // close the guard so future confirms can open
@@ -136,8 +133,20 @@ export default {
         return;
       }
 
-      newSpec();
-      showNewDialog.value = false;
+      try {
+        if (typeof newSpec === "function") {
+          console.debug("Toolbar: invoking newSpec()");
+          newSpec();
+          showNewDialog.value = false;
+        } else {
+          console.error(
+            "Toolbar.createBlank: newSpec is not a function",
+            newSpec
+          );
+        }
+      } catch (err) {
+        console.error("Toolbar.createBlank: error calling newSpec()", err);
+      }
     };
 
     const createFromTemplate = () => {
@@ -180,10 +189,6 @@ export default {
       createBlank,
       createFromTemplate,
       showTokenDialog,
-      lintScore,
-      lintLoading,
-      runLint,
-      scoreBadgeClass,
     };
   },
   methods: {

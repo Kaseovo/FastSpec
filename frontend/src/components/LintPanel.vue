@@ -25,18 +25,29 @@
     <template v-else>
       <!-- Score bar -->
       <div class="lint-score-bar">
-        <span class="score-text">Score:</span>
-        <div class="score-label">
-          <span class="score-value" :class="scoreClass">{{
-            results.score
-          }}</span>
-          <span class="score-unit">/ 100</span>
+        <div class="score-left">
+          <span class="score-text">Score:</span>
+          <div class="score-label">
+            <span class="score-value" :class="scoreClass">{{
+              results.score
+            }}</span>
+            <span class="score-unit">/ 100</span>
+          </div>
+          <div class="score-track">
+            <div
+              class="score-fill"
+              :class="scoreClass"
+              :style="{ width: results.score + '%' }"
+            />
+          </div>
         </div>
-        <div class="score-track">
-          <div
-            class="score-fill"
-            :class="scoreClass"
-            :style="{ width: results.score + '%' }"
+        <div class="score-actions">
+          <Button
+            class="rerun-button"
+            icon="pi pi-refresh"
+            label="Rerun"
+            @click="$emit('run-lint')"
+            :disabled="loading"
           />
         </div>
       </div>
@@ -202,10 +213,26 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
+  justify-content: space-between;
   background: var(--p-surface-card, #fff);
   border-radius: 8px;
   padding: 12px 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.score-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.score-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+}
+.rerun-button {
+  flex-shrink: 0;
 }
 .score-label {
   display: flex;

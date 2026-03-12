@@ -1,4 +1,7 @@
 import { ref, computed, provide, onMounted, nextTick } from "vue";
+
+// Singleton instance so multiple calls to useApp() return the same app state
+let _appInstance = null;
 import { useAuthStore } from "../stores/auth";
 import { lintSpec, lintSpecById, validateSpec } from "../api/specs";
 import { useSpecEditor } from "../composables/useSpecEditor";
@@ -7,6 +10,7 @@ import { useSpecDiff } from "../composables/useSpecDiff";
 import { useAlerts } from "../composables/useAlerts";
 
 export function useApp() {
+  if (_appInstance) return _appInstance;
   const auth = useAuthStore();
   const isAuthenticated = computed(() => auth.isAuthenticated);
 
@@ -21,7 +25,7 @@ export function useApp() {
     showAlert: alerts.showAlert,
   });
 
-  const viewMode = ref("form");
+  // viewMode removed; expose view options for router-driven navigation
   const viewModeOptions = ref([
     { label: "Form", value: "form", icon: "pi pi-list" },
     { label: "Code", value: "code", icon: "pi pi-code" },
@@ -47,7 +51,11 @@ export function useApp() {
         return;
       }
 
-      if (editor.currentSpec.value?.id && editor.currentSpec.value?.version) {
+      if (
+        editor.currentSpec.value?.id &&
+        editor.currentSpec.value?.version &&
+        editor.currentSpec.value.id !== "__unsaved"
+      ) {
         lintResults.value = await lintSpecById(
           editor.currentSpec.value.id,
           editor.currentSpec.value.version,
@@ -63,8 +71,10 @@ export function useApp() {
     }
   };
 
-  const handleGoToLine = (result) => {
-    viewMode.value = "code";
+  const handleGoToLine = (result, router) => {
+    // navigate to code view; router should be provided by caller
+    if (router)
+      router.push({ name: "editor", query: { view: "code" } }).catch(() => {});
     nextTick(() => {
       editorPanelRef.value?.goToLine(result);
     });
@@ -76,10 +86,30 @@ export function useApp() {
 
   const saveSpec = async (payload) => {
     try {
+      console.debug(
+        "useApp.saveSpec: before save, currentSpec:",
+        editor.currentSpec.value,
+        "unsavedSpec:",
+        editor.unsavedSpec.value,
+      );
       await saver.saveSpec(payload);
+      console.debug(
+        "useApp.saveSpec: after saver.saveSpec, currentSpec:",
+        editor.currentSpec.value,
+        "unsavedSpec:",
+        editor.unsavedSpec.value,
+      );
       // Clear transient unsaved spec so the UI selects the persisted spec
       editor.unsavedSpec.value = null;
+      console.debug(
+        "useApp.saveSpec: cleared unsavedSpec, now",
+        editor.unsavedSpec.value,
+      );
       specListKey.value++;
+      console.debug(
+        "useApp.saveSpec: incremented specListKey to",
+        specListKey.value,
+      );
       // Non-blocking lint run
       runLint().catch(() => {});
     } catch (e) {
@@ -185,23 +215,44 @@ export function useApp() {
     editor.initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
     editor.unsavedSpec.value = {
       id: "__unsaved",
-      name: templateSpec.info?.title || "Untitled Spec",
+      name: "Untitled Spec",
       spec_json: templateSpec,
       version: templateSpec.info?.version || "1.0.0",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
     editor.updatePreview();
-    alerts.showAlert("Template loaded with sample endpoints", "success");
   };
 
-  const togglePreview = () => {
-    viewMode.value = viewMode.value === "preview" ? "code" : "preview";
+  const togglePreview = (router) => {
+    if (router) {
+      const route = router.currentRoute.value;
+      const current = route.query.view || "form";
+      const next = current === "preview" ? "code" : "preview";
+      router
+        .push({
+          name: route.name || "editor",
+          params: route.params,
+          query: { view: next },
+        })
+        .catch(() => {});
+    }
   };
 
   // provide a toggle for the (future) diff UI so components that inject it don't fail
-  const toggleDiff = () => {
-    viewMode.value = viewMode.value === "preview" ? "code" : "preview";
+  const toggleDiff = (router) => {
+    if (router) {
+      const route = router.currentRoute.value;
+      const current = route.query.view || "form";
+      const next = current === "preview" ? "code" : "preview";
+      router
+        .push({
+          name: route.name || "editor",
+          params: route.params,
+          query: { view: next },
+        })
+        .catch(() => {});
+    }
   };
 
   onMounted(() => {
@@ -216,7 +267,50 @@ export function useApp() {
   provide("alerts", alerts);
 
   // legacy provides
-  provide("newSpec", editor.newSpec);
+  // Wrap editor.newSpec so it also triggers spec list refresh and updates parsed preview
+  provide("newSpec", () => {
+    try {
+      editor.newSpec();
+      // update parsed preview immediately so UI reflects the new draft
+      editor.updatePreview();
+      // log unsavedSpec state so we can diagnose why SpecList doesn't see it
+      try {
+        console.debug(
+          "useApp.newSpec wrapper: editor.unsavedSpec (after newSpec)",
+          editor.unsavedSpec ? editor.unsavedSpec.value : null,
+        );
+      } catch (e) {
+        console.debug(
+          "useApp.newSpec wrapper: failed to read editor.unsavedSpec",
+          e,
+        );
+      }
+      // bump the spec list key so components listening to refreshSpecList reload
+      specListKey.value++;
+      console.debug(
+        "useApp.newSpec wrapper: called editor.newSpec and incremented specListKey to",
+        specListKey.value,
+      );
+      // Also emit a window-level event as a fallback so listeners that for some reason
+      // don't see the provided ref update still receive a notification.
+      try {
+        nextTick(() =>
+          window.dispatchEvent(
+            new CustomEvent("fastspec:newSpec", {
+              detail: { key: specListKey.value },
+            }),
+          ),
+        );
+      } catch (e) {
+        console.debug(
+          "useApp.newSpec wrapper: failed to dispatch global event",
+          e,
+        );
+      }
+    } catch (err) {
+      console.error("useApp.newSpec wrapper: failed to create new spec", err);
+    }
+  });
   provide("openSaveDialog", saver.openSaveDialog);
   provide("validateCurrentSpec", async () => {
     try {
@@ -232,7 +326,8 @@ export function useApp() {
   provide("loadTemplate", loadTemplate);
   provide("togglePreview", togglePreview);
   provide("toggleDiff", toggleDiff);
-  provide("viewMode", viewMode);
+  // legacy viewMode provide kept for compatibility; value is query-driven in views
+  provide("viewMode", ref("form"));
   provide("refreshSpecList", specListKey);
   provide("showTokenDialog", () => (showTokenDialog.value = true));
   provide("unsavedSpec", editor.unsavedSpec);
@@ -255,7 +350,15 @@ export function useApp() {
   provide("lintLoading", lintLoading);
   provide("runLint", runLint);
 
-  return {
+  const loadSpec = async (spec) => {
+    // call the editor loader (may be sync or async) and then reset lint state
+    await Promise.resolve(editor.loadSpec(spec));
+    lintResults.value = null;
+    lintError.value = null;
+    lintLoading.value = false;
+  };
+
+  const app = {
     isAuthenticated,
     currentSpec: editor.currentSpec,
     specContent: editor.specContent,
@@ -265,13 +368,12 @@ export function useApp() {
     showLoginDialog,
     showTokenDialog,
     alert: alerts.alert,
-    viewMode,
     viewModeOptions,
     showAlert: alerts.showAlert,
     closeAlert: alerts.closeAlert,
     updatePreview: editor.updatePreview,
     updateFromForm: editor.updateFromForm,
-    loadSpec: editor.loadSpec,
+    loadSpec: loadSpec,
     // expose loadTemplate so templates using @load-template="loadTemplate" work
     loadTemplate,
     saveSpec,
@@ -289,4 +391,7 @@ export function useApp() {
     formattedOpenapiFileDiff: diff.formattedOpenapiFileDiff,
     copyOpenapiFileDiff: diff.copyOpenapiFileDiff,
   };
+  // store singleton and return
+  _appInstance = app;
+  return app;
 }
