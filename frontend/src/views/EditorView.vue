@@ -1,11 +1,9 @@
 <template>
   <div class="editor-view">
     <div class="editor-left">
-      <SpecList
-        v-if="isAuthenticated"
-        @spec-selected="loadSpec"
-        :selected-id="selectedSpecId"
-      />
+      <ErrorBoundary v-if="isAuthenticated">
+        <SpecList @spec-selected="loadSpec" :selected-id="selectedSpecId" />
+      </ErrorBoundary>
     </div>
 
     <div class="editor-main">
@@ -50,13 +48,21 @@ import EditorPanel from "../components/EditorPanel.vue";
 import FormEditor from "../components/FormEditor.vue";
 import LintPanel from "../components/LintPanel.vue";
 import PreviewPanel from "../components/PreviewPanel.vue";
+import ErrorBoundary from "../components/ErrorBoundary.vue";
 import { useApp } from "../composables/useApp";
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 export default {
   name: "EditorView",
-  components: { SpecList, EditorPanel, FormEditor, LintPanel, PreviewPanel },
+  components: {
+    SpecList,
+    EditorPanel,
+    FormEditor,
+    LintPanel,
+    PreviewPanel,
+    ErrorBoundary,
+  },
   setup() {
     const app = useApp();
     const route = useRoute();
