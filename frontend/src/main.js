@@ -12,9 +12,12 @@ import "primeicons/primeicons.css";
 
 // Check if this is an OAuth callback
 import router from "./router";
+import { useAuthStore } from "./stores/auth";
+import { getCurrentUser } from "./api/auth";
 
 const app = createApp(App);
-app.use(createPinia());
+const pinia = createPinia();
+app.use(pinia);
 app.use(router);
 app.use(PrimeVue, {
   theme: {
@@ -53,4 +56,35 @@ window.addEventListener("unhandledrejection", (event) => {
   // event.preventDefault();
 });
 
+// Handle token passed to root URL (backend redirects to /?token=...)
+const handleRootToken = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+  const errorParam = params.get("error");
+  if (!token && !errorParam) return;
+
+  const auth = useAuthStore();
+  auth.setLoading(true);
+  try {
+    if (errorParam) {
+      console.error("OAuth error:", errorParam);
+    } else if (token) {
+      const user = await getCurrentUser(token);
+      auth.setAuth(token, user);
+      // remove token from URL so it isn't visible
+      const url = new URL(window.location.href);
+      url.search = "";
+      window.history.replaceState({}, "", url.toString());
+      await router.push({ name: "editor" }).catch(() => {});
+    }
+  } catch (err) {
+    console.error("OAuth callback processing failed:", err);
+  } finally {
+    auth.setLoading(false);
+  }
+};
+
 app.mount("#app");
+
+// Run token handler after mount
+handleRootToken();
