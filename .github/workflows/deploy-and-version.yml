@@ -53,12 +53,27 @@ jobs:
         id: get_tag
         run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
 
+      - name: Get commit log since last tag
+        id: changelog
+        run: |
+          latest_tag=$(git describe --tags --abbrev=0)
+          previous_tag=$(git describe --tags --abbrev=0 --exclude "$latest_tag" || echo "")
+          if [ -n "$previous_tag" ]; then
+            git log "$previous_tag"..HEAD --pretty=format:'- %s (%an)' > changes.txt
+          else
+            git log "$latest_tag" --pretty=format:'- %s (%an)' > changes.txt
+          fi
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          cat changes.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         if: ${{ github.event.inputs.version_bump != '' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
           name: Release ${{ steps.get_tag.outputs.tag }}
+          body: ${{ steps.changelog.outputs.log }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
