@@ -23,13 +23,21 @@ async def lifespan(app: FastAPI):
     yield
 
 
+from version import __version__
+
 app = FastAPI(
     title="FastSpec API",
     description="OpenAPI Specification Editor and Validator with OAuth2 Authentication",
-    version="2.0.0",
+    version=__version__,
     lifespan=lifespan,
     root_path=os.getenv("ROOT_PATH", ""),
 )
+
+
+@app.get("/version")
+async def get_version():
+    return {"version": __version__}
+
 
 # Session middleware for OAuth (required by Authlib)
 app.add_middleware(

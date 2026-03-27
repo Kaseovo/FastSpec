@@ -1,0 +1,68 @@
+name: Deploy and Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy to device via SSH'
+        required: false
+        default: false
+        type: boolean
+      version_bump:
+        description: 'Bump version (patch, minor, major)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - patch
+          - minor
+          - major
+
+jobs:
+  deploy_and_version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bump version and tag (if requested)
+        if: ${{ github.event.inputs.version_bump != '' }}
+        run: |
+          pip install bump2version
+          bump2version ${{ github.event.inputs.version_bump }}
+          git push --follow-tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy via SSH (if requested)
+        if: ${{ github.event.inputs.deploy }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /path/to/your/project
+            git pull
+            docker compose down
+            docker compose up -d --build
+
+      - name: Render version in frontend
+        run: |
+          echo "REACT_APP_VERSION=$(git describe --tags --abbrev=0)" > frontend/.env.version
+
+      - name: Render version in backend
+        run: |
+          echo "__version__ = '$(git describe --tags --abbrev=0)'" > backend/version.py
