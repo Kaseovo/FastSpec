@@ -40,6 +40,8 @@ jobs:
         if: ${{ github.event.inputs.version_bump != '' }}
         run: |
           pip install bump2version
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
           bump2version ${{ github.event.inputs.version_bump }} --allow-dirty
           git push --follow-tags
         env:
