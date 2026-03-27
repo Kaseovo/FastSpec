@@ -1,7 +1,7 @@
 services:
   traefik:
     container_name: fastspec-traefik-dev
-    image: traefik:v2.10
+    image: traefik:v3.6.12
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
@@ -47,8 +47,8 @@ services:
   frontend:
     container_name: fastspec-frontend-dev
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     restart: unless-stopped
     labels:
       - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"

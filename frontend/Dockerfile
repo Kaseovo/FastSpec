@@ -3,11 +3,11 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files from frontend folder
-COPY package.json ./
-COPY package-lock.json* ./
+COPY frontend/package.json ./
+COPY frontend/package-lock.json* ./
 RUN npm install
 
 # Copy the rest of frontend code
-COPY . ./
+COPY frontend/. ./
 
 RUN npm run build
