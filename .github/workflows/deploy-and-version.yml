@@ -40,7 +40,7 @@ jobs:
         if: ${{ github.event.inputs.version_bump != '' }}
         run: |
           pip install bump2version
-          bump2version ${{ github.event.inputs.version_bump }}
+          bump2version ${{ github.event.inputs.version_bump }} --allow-dirty
           git push --follow-tags
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
