@@ -2,10 +2,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy frontend source from build context
-COPY . .
+# Copy package files from frontend folder
+COPY package*.json ./
+RUN npm install
 
-RUN npm install && npm run build
-EXPOSE 3000
+# Copy the rest of frontend code
+COPY . ./
 
-CMD ["sh", "-c", "npm run dev"]
+RUN npm run build
