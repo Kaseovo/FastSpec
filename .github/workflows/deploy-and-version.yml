@@ -56,16 +56,22 @@ jobs:
       - name: Get commit log since last tag
         id: changelog
         run: |
-          latest_tag=$(git describe --tags --abbrev=0)
-          previous_tag=$(git describe --tags --abbrev=0 --exclude "$latest_tag" || echo "")
-          if [ -n "$previous_tag" ]; then
+          tags=$(git tag --sort=-creatordate)
+          latest_tag=$(echo "$tags" | head -n1)
+          previous_tag=$(echo "$tags" | sed -n '2p')
+          if [ -z "$latest_tag" ]; then
+            echo "log=First release" >> $GITHUB_OUTPUT
+          elif [ -n "$previous_tag" ]; then
             git log "$previous_tag"..HEAD --pretty=format:'- %s (%an)' > changes.txt
+            echo "log<<EOF" >> $GITHUB_OUTPUT
+            cat changes.txt >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           else
             git log "$latest_tag" --pretty=format:'- %s (%an)' > changes.txt
+            echo "log<<EOF" >> $GITHUB_OUTPUT
+            cat changes.txt >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           fi
-          echo "log<<EOF" >> $GITHUB_OUTPUT
-          cat changes.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         if: ${{ github.event.inputs.version_bump != '' }}
