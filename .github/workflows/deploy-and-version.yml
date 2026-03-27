@@ -54,7 +54,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd /path/to/your/project
+            cd ${{ vars.REPO_PATH }}
             git pull
             docker compose down
             docker compose up -d --build
