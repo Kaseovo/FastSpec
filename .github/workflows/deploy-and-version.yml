@@ -51,7 +51,9 @@ jobs:
 
       - name: Get latest tag
         id: get_tag
-        run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+        run: |
+          tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          echo "tag=$tag" >> $GITHUB_OUTPUT
 
       - name: Get commit log since last tag
         id: changelog
@@ -59,19 +61,17 @@ jobs:
           tags=$(git tag --sort=-creatordate)
           latest_tag=$(echo "$tags" | head -n1)
           previous_tag=$(echo "$tags" | sed -n '2p')
+          DELIM=$(openssl rand -hex 8)
           if [ -z "$latest_tag" ]; then
-            echo "log=First release" >> $GITHUB_OUTPUT
+            log="First release"
           elif [ -n "$previous_tag" ]; then
-            git log "$previous_tag"..HEAD --pretty=format:'- %s (%an)' > changes.txt
-            echo "log<<EOF" >> $GITHUB_OUTPUT
-            cat changes.txt >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            log=$(git log "$previous_tag"..HEAD --pretty=format:'- %s (%an)')
           else
-            git log "$latest_tag" --pretty=format:'- %s (%an)' > changes.txt
-            echo "log<<EOF" >> $GITHUB_OUTPUT
-            cat changes.txt >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            log=$(git log "$latest_tag" --pretty=format:'- %s (%an)')
           fi
+          echo "log<<$DELIM" >> $GITHUB_OUTPUT
+          echo "$log" >> $GITHUB_OUTPUT
+          echo "$DELIM" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         if: ${{ github.event.inputs.version_bump != '' }}
@@ -97,11 +97,3 @@ jobs:
             git pull
             docker compose down
             docker compose up -d --build
-
-      - name: Render version in frontend
-        run: |
-          echo "REACT_APP_VERSION=$(git describe --tags --abbrev=0)" > frontend/.env.version
-
-      - name: Render version in backend
-        run: |
-          echo "__version__ = '$(git describe --tags --abbrev=0)'" > backend/version.py
