@@ -1,13 +1,21 @@
-FROM node:18-alpine
+# Stage 1: Build
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files from frontend folder
 COPY frontend/package.json ./
 COPY frontend/package-lock.json* ./
 RUN npm install
 
-# Copy the rest of frontend code
 COPY frontend/. ./
-
 RUN npm run build
+
+# Stage 2: Serve
+FROM nginx:alpine
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
