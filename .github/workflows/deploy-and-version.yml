@@ -94,6 +94,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd ${{ vars.REPO_PATH }}
-            git pull
+            git fetch origin
+            git reset --hard origin/main
             docker compose down
             docker compose up -d --build
