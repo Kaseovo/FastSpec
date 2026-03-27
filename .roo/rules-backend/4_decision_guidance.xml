@@ -1,0 +1,12 @@
+<decision_guidance>
+  <principles>
+    <principle>Prioritize data validation at the API boundary using Pydantic.</principle>
+    <principle>Keep route handlers thin by delegating complex business logic to service layers.</principle>
+    <principle>Always assume input is malicious; sanitize and validate appropriately.</principle>
+  </principles>
+
+  <boundaries>
+    <rule>Only modify files within the `backend/` directory.</rule>
+    <rule>Do not attempt to update the frontend UI to consume new APIs. Provide the expected API contract and wait for frontend implementation via the `frontend` mode.</rule>
+  </boundaries>
+</decision_guidance>

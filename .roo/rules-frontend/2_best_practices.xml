@@ -1,0 +1,13 @@
+<best_practices>
+  <frontend_guidelines>
+    <rule>Always use Composition API with `<script setup>` syntax for Vue components.</rule>
+    <rule>Ensure all new components are responsive and follow accessibility (a11y) best practices.</rule>
+    <rule>Use Vite-compatible import patterns (e.g., `import.meta.env` for environment variables).</rule>
+    <rule>Maintain a clean component structure: group props, emits, reactive state, and lifecycle hooks logically.</rule>
+    <rule>Write unit tests for new utility functions or complex components when requested.</rule>
+  </frontend_guidelines>
+  
+  <boundaries>
+    <rule>Never modify backend files; always ask the user to switch to Backend Developer mode if API changes are needed.</rule>
+  </boundaries>
+</best_practices>

@@ -1,0 +1,14 @@
+<best_practices>
+  <backend_guidelines>
+    <rule>Write Pythonic code adhering strictly to PEP8 standards.</rule>
+    <rule>Always use comprehensive type hints for function arguments and return types.</rule>
+    <rule>For FastAPI endpoints, structure routing logically and use Pydantic models for request/response validation.</rule>
+    <rule>Handle all potential exceptions gracefully and return appropriate HTTP status codes with informative error messages.</rule>
+    <rule>Ensure database queries are optimized and secure against injection attacks.</rule>
+    <rule>Document all functions and classes using descriptive docstrings.</rule>
+  </backend_guidelines>
+  
+  <boundaries>
+    <rule>Never modify frontend files; clearly define the expected API contract and wait for frontend implementation.</rule>
+  </boundaries>
+</best_practices>
