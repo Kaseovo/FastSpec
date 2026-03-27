@@ -3,10 +3,10 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy frontend source from build context
-COPY frontend/ .
+COPY . .
 
-# Install dependencies and build the frontend
-RUN npm ci && npm run build
+# Debug: print Node/npm versions and directory contents before install
+RUN node -v && npm -v && ls -l && cat package.json && cat package-lock.json && npm ci && npm run build
 
 EXPOSE 3000
 
