@@ -26,6 +26,13 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - DEV_DEBUG=0
 
+  landing-page:
+    # Override for dev: serve static files directly from host volume
+    volumes:
+      - ./landing-page:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+
   mcp:
     # Override runtime for dev (do not change build context in base compose)
     working_dir: /app

@@ -27,6 +27,7 @@ services:
       - ./data:/app/data
     labels:
       - "traefik.http.routers.backend.rule=PathPrefix(`/api`) || PathPrefix(`/auth`)"
+      - "traefik.http.routers.backend.priority=30"
       - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     depends_on:
@@ -51,9 +52,24 @@ services:
       dockerfile: frontend/Dockerfile
     restart: unless-stopped
     labels:
-      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/specs`) || PathPrefix(`/auth/callback`)"
+      - "traefik.http.routers.frontend.priority=20"
       - "traefik.http.routers.frontend.entrypoints=web"
       - "traefik.http.services.frontend.loadbalancer.server.port=5173"
+    networks:
+      - webnet
+
+  landing-page:
+    container_name: fastspec-landing-page
+    build:
+      context: .
+      dockerfile: landing-page/Dockerfile
+    restart: unless-stopped
+    labels:
+      - "traefik.http.routers.landing.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.landing.priority=1"
+      - "traefik.http.routers.landing.entrypoints=web"
+      - "traefik.http.services.landing.loadbalancer.server.port=80"
     networks:
       - webnet
 
@@ -70,6 +86,7 @@ services:
       - "9000:9000"
     labels:
       - "traefik.http.routers.mcp.rule=PathPrefix(`/mcp`)"
+      - "traefik.http.routers.mcp.priority=30"
       - "traefik.http.routers.mcp.entrypoints=web"
       - "traefik.http.routers.mcp.middlewares=mcp-stripprefix@docker"
       - "traefik.http.services.mcp.loadbalancer.server.port=9000"

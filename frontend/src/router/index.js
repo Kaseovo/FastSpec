@@ -5,13 +5,6 @@ import OAuthCallback from "../components/OAuthCallback.vue";
 import { useAuthStore } from "../stores/auth";
 
 const routes = [
-  { 
-    path: "/", 
-    redirect: (to) => {
-      const authStore = useAuthStore();
-      return authStore.isAuthenticated ? "/specs" : "/about";
-    },
-  },
   { path: "/specs", component: EditorView, name: "editor" },
   { path: "/specs/:id", component: EditorView, name: "editor-id", props: true },
   {
@@ -34,7 +27,8 @@ router.beforeEach((to) => {
 
   const authStore = useAuthStore();
   if (!authStore.isAuthenticated) {
-    window.location.href = "https://www.google.com/";
+    // Redirect to the landing page (served by the landing-page container)
+    window.location.href = "/";
     return false;
   }
   return true;
