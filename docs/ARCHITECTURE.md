@@ -7,7 +7,7 @@ This document describes the high-level architecture of FastSpec and how the fron
 - Frontend (SPA) — located in [`frontend`](frontend) and built with Vue 3 + Vite. It provides the editor UI, preview, diff drawer and authentication UX.
 - Backend (API) — located in [`backend`](backend), implemented with FastAPI. It exposes authentication, spec CRUD and validation endpoints and contains core business logic (auth, validation, diffing).
 - MCP servers — optional model/context protocol servers located under [`backend/mcp`](backend/mcp:1) (example implementation: [`backend/mcp/server.py`](backend/mcp/server.py:1)). MCP servers can expose tools and resources to the agent and run as separate processes or services.
-- Data storage — configured via [`backend/database.py`](backend/database.py:1). The project is DB-agnostic and can use SQLite for development or Postgres in production.
+- Data storage — Specs are persisted in Redis, managed by [`backend/services/spec_service.py`](backend/services/spec_service.py:12). Each spec is stored as a JSON blob keyed by user and spec ID. Redis connection is configured via environment variables (see [`backend/auth/redis_client.py`](backend/auth/redis_client.py:1)).
 - Containers — `frontend/Dockerfile` and `backend/Dockerfile` define service images; `docker-compose.yml` orchestrates them for local development.
 
 2. Interaction and data flow

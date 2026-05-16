@@ -1,136 +1,87 @@
 import json
 import pytest
 from fastapi.testclient import TestClient
+import fakeredis
+from unittest.mock import patch
 
 from main import app
-from database import SessionLocal
-from models import User, OpenAPISpec, SpecVersion
+from backend.auth.redis_client import get_redis
+from schemas import OpenAPISpecCreate, OpenAPISpecUpdate
+from models import User
 from auth.dependencies import get_current_user
 
 client = TestClient(app)
 
 
-@pytest.fixture(scope="function")
-def db_session():
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-def _create_user(session):
-    user = User(email="test@example.com", provider="test", provider_user_id="uid")
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
-
-
-def test_create_spec_creates_initial_version(db_session):
-    user = _create_user(db_session)
+@patch("backend.auth.redis_client.get_redis")
+def test_create_spec_creates_and_persists(mock_get_redis):
+    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
+    mock_get_redis.return_value = fake_redis
+    user = User(id=1, email="test@example.com", provider="test", provider_user_id="uid")
     app.dependency_overrides[get_current_user] = lambda: user
-
     payload = {
         "name": "spec-init",
-        "title": "Spec Init",
         "spec_json": {"info": {"version": "3.0.0"}, "paths": {}},
     }
     resp = client.post("/specs?version=3.0.0", json=payload)
     assert resp.status_code == 201, resp.text
     data = resp.json()
     assert data["name"] == "spec-init"
-    assert data["initial_version"]["version"] == "3.0.0"
-    assert data["initial_version"]["is_published"] is True
-    # Check DB for version
-    spec_id = data["id"]
-    version = (
-        db_session.query(SpecVersion)
-        .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == "3.0.0")
-        .first()
-    )
-    assert version is not None
-    assert version.is_published is True
+    assert data["version"] == "3.0.0"
+    # Check Redis for persistence
+    keys = fake_redis.smembers("specs:1")
+    assert data["id"] in keys
+    stored = fake_redis.get(f"spec:1:{data['id']}")
+    assert stored is not None
 
 
-def test_update_spec_with_matching_version_creates_new_version(db_session):
-    # Setup user and spec with published version
-    user = _create_user(db_session)
-
-    spec = OpenAPISpec(
-        name="spec1",
-        title="Spec 1",
-        version="1.0.0",
-        spec_json={"info": {"version": "1.0.0"}, "paths": {}},
-        user_id=user.id,
-    )
-    db_session.add(spec)
-    db_session.commit()
-    db_session.refresh(spec)
-
-    ver = SpecVersion(
-        spec_id=spec.id,
-        version="1.0.0",
-        content={"info": {"version": "1.0.0"}},
-        created_by=user.id,
-        is_published=True,
-    )
-    db_session.add(ver)
-    db_session.commit()
-
-    # Override auth dependency to return our user
+@patch("backend.auth.redis_client.get_redis")
+def test_update_spec_name(mock_get_redis):
+    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
+    mock_get_redis.return_value = fake_redis
+    user = User(id=1, email="test@example.com", provider="test", provider_user_id="uid")
     app.dependency_overrides[get_current_user] = lambda: user
-
-    # Perform update with matching base version
+    # Create a spec
     payload = {
-        "version": "1.0.0",
-        "spec_json": {"info": {"version": "1.0.1"}, "paths": {}},
+        "name": "spec1",
+        "spec_json": {"info": {"version": "1.0.0"}, "paths": {}},
     }
-    resp = client.put(f"/specs/{spec.id}", json={"name": "spec1-renamed"})
-    assert resp.status_code == 200, resp.text
+    resp = client.post("/specs?version=1.0.0", json=payload)
+    assert resp.status_code == 201
     data = resp.json()
-    assert data["name"] == "spec1-renamed"
+    # Update name
+    update_payload = {"name": "spec1-renamed", "version": "1.0.0"}
+    resp2 = client.put(f"/specs/{data['id']}", json=update_payload)
+    assert resp2.status_code == 200
+    updated = resp2.json()
+    assert updated["name"] == "spec1-renamed"
+    # Check Redis
+    stored = fake_redis.get(f"spec:1:{data['id']}")
+    assert stored is not None
+    assert json.loads(stored)["name"] == "spec1-renamed"
 
-    # Spec name should be updated
-    updated_spec = (
-        db_session.query(OpenAPISpec).filter(OpenAPISpec.id == spec.id).first()
+
+@patch("backend.auth.redis_client.get_redis")
+def test_user_isolation(mock_get_redis):
+    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
+    mock_get_redis.return_value = fake_redis
+    user1 = User(
+        id=1, email="user1@example.com", provider="test", provider_user_id="u1"
     )
-    assert updated_spec.name == "spec1-renamed"
-
-
-def test_update_spec_with_conflicting_version_returns_409(db_session):
-    user = _create_user(db_session)
-
-    spec = OpenAPISpec(
-        name="spec2",
-        title="Spec 2",
-        version="2.0.0",
-        spec_json={"info": {"version": "2.0.0"}, "paths": {}},
-        user_id=user.id,
+    user2 = User(
+        id=2, email="user2@example.com", provider="test", provider_user_id="u2"
     )
-    db_session.add(spec)
-    db_session.commit()
-    db_session.refresh(spec)
-
-    # Create a published version that is different
-    ver = SpecVersion(
-        spec_id=spec.id,
-        version="2.0.0",
-        content={"info": {"version": "2.0.0"}},
-        created_by=user.id,
-        is_published=True,
-    )
-    db_session.add(ver)
-    db_session.commit()
-
-    app.dependency_overrides[get_current_user] = lambda: user
-
-    # Provide an out-of-date version
-    payload = {"version": "1.9.0", "spec_json": {"info": {"version": "2.0.1"}}}
-    resp = client.put(f"/specs/{spec.id}", json=payload)
-    assert resp.status_code == 409
-    body = resp.json()
-    assert body.get("message") == "Version conflict" or "Version conflict" in str(body)
-
-    # Cleanup override
-    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides[get_current_user] = lambda: user1
+    # User1 creates a spec
+    payload = {"name": "spec-u1", "spec_json": {"info": {"version": "1.0.0"}}}
+    resp = client.post("/specs?version=1.0.0", json=payload)
+    assert resp.status_code == 201
+    data = resp.json()
+    # Switch to user2
+    app.dependency_overrides[get_current_user] = lambda: user2
+    resp2 = client.get(f"/specs/{data['id']}")
+    assert resp2.status_code == 404
+    # User2 cannot see user1's specs
+    resp3 = client.get("/specs")
+    assert resp3.status_code == 200
+    assert resp3.json() == []

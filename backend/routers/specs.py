@@ -3,6 +3,7 @@ API routes for OpenAPI specifications
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
+
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List, Dict, Any, Optional
@@ -24,18 +25,15 @@ from validation.validator import validate_openapi_spec
 from validation.diff_utils import compare_specs, generate_markdown_report
 from services.spec_service import SpecService
 
-
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 # --- existing endpoints (unchanged) ---
 @router.get("/", response_model=List[OpenAPISpecResponse])
-async def list_specs(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
+async def list_specs(current_user: User = Depends(get_current_user)):
     """List all OpenAPI specifications for the current user"""
-    service = SpecService(db)
+    service = SpecService()
     return service.list_specs(current_user)
 
 
@@ -43,10 +41,9 @@ async def list_specs(
 async def get_spec(
     spec_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Get a specific OpenAPI specification by ID"""
-    service = SpecService(db)
+    service = SpecService()
     return service.get_spec(current_user, spec_id)
 
 
@@ -57,10 +54,9 @@ async def create_spec(
     spec_data: OpenAPISpecCreate,
     version: str = Query(..., description="Version for the spec"),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Create a new OpenAPI specification and its initial version"""
-    service = SpecService(db)
+    service = SpecService()
     return service.create_spec(current_user, spec_data, version)
 
 
@@ -69,10 +65,9 @@ async def update_spec(
     spec_id: str,
     spec_data: OpenAPISpecUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Update only the name of an existing OpenAPI specification."""
-    service = SpecService(db)
+    service = SpecService()
     return service.update_spec(current_user, spec_id, spec_data)
 
 
@@ -80,10 +75,9 @@ async def update_spec(
 async def delete_spec(
     spec_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Delete an OpenAPI specification"""
-    service = SpecService(db)
+    service = SpecService()
     return service.delete_spec(current_user, spec_id)
 
 

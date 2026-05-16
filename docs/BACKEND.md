@@ -43,9 +43,32 @@ Validation and diff
 - [`backend/validation/validator.py`](backend/validation/validator.py:1) exposes validation functions that run a set of rules against spec content and return structured findings.
 - [`backend/validation/diff_utils.py`](backend/validation/diff_utils.py:1) computes structured diffs between spec versions or arbitrary payloads. The frontend displays diffs using a `DiffDrawer` component.
 
-Database
+Specs Persistence (Redis)
 
-- See [`backend/database.py`](backend/database.py:1) for connection setup and usage. Switch DB by updating configuration and environment variables.
+Specs are now persisted in Redis, not a traditional relational database. The [`SpecService`](backend/services/spec_service.py:12) handles all CRUD operations for OpenAPI specs using Redis as the backing store.
+
+**Data Model:**
+- Each spec is stored as a JSON blob at key `spec:<user_id>:<spec_id>`.
+- Each user has a set `specs:<user_id>` containing all their spec IDs.
+- The [`OpenAPISpecResponse`](backend/schemas.py:111) schema defines the structure of the stored spec object.
+
+**Configuration:**
+- Redis connection is configured via environment variables in [`backend/auth/redis_client.py`](backend/auth/redis_client.py:1):
+  - `REDIS_HOST` (default: `localhost`)
+  - `REDIS_PORT` (default: `6379`)
+  - `REDIS_URL` (overrides host/port if set)
+- Update these variables in your environment or `docker-compose.yml` as needed.
+
+**Upgrade Notes:**
+- Specs previously stored in a relational database are no longer used for CRUD operations.
+- Migration is required if you have existing specs in the database; export and re-import them into Redis using the new API.
+- No automatic migration is provided.
+
+**Relevant files:**
+- [`backend/services/spec_service.py`](backend/services/spec_service.py:1): Redis-based spec logic
+- [`backend/auth/redis_client.py`](backend/auth/redis_client.py:1): Redis connection setup
+- [`backend/routers/specs.py`](backend/routers/specs.py:1): API endpoints for specs
+- [`backend/schemas.py`](backend/schemas.py:1): Spec schemas
 
 Extending backend
 

@@ -11,6 +11,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DEV_DEBUG=0
+      - PYTHONPATH=/app
 
   frontend:
     # Override runtime for dev (do not change build context in base compose)
