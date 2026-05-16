@@ -5,26 +5,6 @@
     <div class="main-content">
       <Toolbar @load-template="loadTemplate" />
 
-      <!-- Login prompt banner for unauthenticated users -->
-      <Message
-        v-if="!isAuthenticated"
-        severity="info"
-        :closable="false"
-        class="auth-banner"
-      >
-        <div class="auth-banner-content">
-          <span
-            >You're browsing in guest mode. Sign in to save and manage your
-            specifications.</span
-          >
-          <Button
-            label="Sign In"
-            icon="pi pi-sign-in"
-            size="small"
-            @click="showLoginDialog = true"
-          />
-        </div>
-      </Message>
 
       <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
         {{ alert.message }}
