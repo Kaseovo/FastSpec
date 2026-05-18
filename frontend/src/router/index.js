@@ -25,6 +25,9 @@ router.beforeEach((to) => {
   // Allow OAuth callback regardless of auth state
   if (to.name === "oauth-callback") return true;
 
+  // Allow navigation if a token is present in the query (will be processed by handleRootToken)
+  if (to.query.token) return true;
+
   const authStore = useAuthStore();
   if (!authStore.isAuthenticated) {
     // Redirect to the landing page (served by the landing-page container)

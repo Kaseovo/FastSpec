@@ -26,7 +26,7 @@ export default {
     } catch {}
     // Fallback to env file
     try {
-      const env = await fetch("/env.version");
+      const env = await fetch("/specs/env.version");
       if (env.ok) {
         const txt = await env.text();
         const m = txt.match(/REACT_APP_VERSION=(.+)/);

@@ -173,7 +173,7 @@ export const publishSpecVersion = async (specId, versionId) => {
 
 // Fetch the public OpenAPI file served from the frontend (Vite public folder)
 export const fetchOpenApi = async () => {
-  const response = await axios.get("/openapi.json");
+  const response = await axios.get("/api/openapi.json");
   return response.data;
 };
 
