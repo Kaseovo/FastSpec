@@ -1,9 +1,9 @@
 <template>
   <header class="app-header">
     <div class="header-left">
-      <router-link to="/" class="logo-link">
+      <a href="/" class="logo-link">
         <img src="/logo.svg" alt="FastSpec" class="logo" />
-      </router-link>
+      </a>
       <span v-if="version" class="version-badge">v{{ version }}</span>
     </div>
     <div class="header-center">
