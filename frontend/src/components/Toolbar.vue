@@ -204,8 +204,12 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--fs-surface, #fff);
+  border-radius: var(--fs-radius, 10px);
+  box-shadow: var(--fs-shadow, 0 4px 16px rgba(0, 0, 0, 0.06));
   flex-wrap: wrap;
 }
 
@@ -254,25 +258,25 @@ export default {
 }
 
 .option-card {
-  padding: 24px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  padding: 28px 24px;
+  border: 1.5px solid var(--fs-border, #e5e7eb);
+  border-radius: 14px;
   text-align: center;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  background: white;
+  background: var(--fs-surface, #fff);
 }
 
 .option-card:hover {
-  border-color: #667eea;
+  border-color: var(--fs-primary, #8b5cf6);
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
-  background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15);
+  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
 }
 
 .option-card i {
   font-size: 2.5rem;
-  color: #667eea;
+  color: var(--fs-primary, #8b5cf6);
   margin-bottom: 12px;
   display: block;
 }

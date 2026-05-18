@@ -22,6 +22,17 @@ app.use(router);
 app.use(PrimeVue, {
   theme: {
     preset: Aura,
+    options: {
+      darkModeSelector: false,
+    },
+    cssLayer: false,
+  },
+  pt: {
+    button: {
+      root: {
+        style: 'border-radius: 8px; font-weight: 500;',
+      },
+    },
   },
 });
 app.use(ConfirmationService);
