@@ -2126,7 +2126,7 @@ export default {
 
 .form-header {
   padding: 20px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2204,7 +2204,7 @@ export default {
   content: "";
   width: 4px;
   height: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   border-radius: 2px;
 }
 
@@ -2237,7 +2237,7 @@ export default {
   content: "";
   width: 3px;
   height: 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   border-radius: 2px;
 }
 
@@ -2278,7 +2278,7 @@ export default {
 .form-field :deep(.p-textarea:focus),
 .form-field :deep(.p-select:focus),
 .form-field :deep(.p-inputnumber-input:focus) {
-  border-color: #667eea;
+  border-color: #2563ff;
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
   outline: none;
 }
@@ -2295,7 +2295,7 @@ export default {
 }
 
 .form-field :deep(.p-chips:focus-within) {
-  border-color: #667eea;
+  border-color: #2563ff;
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
 }
 
@@ -2333,7 +2333,7 @@ export default {
 }
 
 :deep(.p-button-primary) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
 }
 
 :deep(.p-button-primary:hover) {
@@ -2407,7 +2407,7 @@ export default {
 .empty-state i {
   font-size: 56px;
   margin-bottom: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2691,7 +2691,7 @@ export default {
   content: "";
   width: 3px;
   height: 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   border-radius: 2px;
 }
 
@@ -2731,7 +2731,7 @@ export default {
   top: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   opacity: 0;
   transition: opacity 0.25s ease;
 }
@@ -2743,14 +2743,14 @@ export default {
 
 .property-item:hover,
 .param-item:hover {
-  border-color: #667eea;
+  border-color: #2563ff;
   box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
   transform: translateY(-2px);
 }
 
 .property-item.dragging {
   opacity: 0.6;
-  border-color: #667eea;
+  border-color: #2563ff;
   background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%);
   box-shadow: 0 12px 32px rgba(102, 126, 234, 0.25);
   transform: scale(0.98);
@@ -2775,7 +2775,7 @@ export default {
 }
 
 .drag-handle:hover {
-  color: #667eea;
+  color: #2563ff;
   background: rgba(102, 126, 234, 0.1);
 }
 
@@ -2905,7 +2905,7 @@ export default {
 
 :deep(.p-dialog-header) {
   padding: 24px 28px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   color: white;
   border-bottom: none;
   position: relative;
@@ -3157,8 +3157,8 @@ export default {
 }
 
 :deep(.p-tab[aria-selected="true"]) {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: #2563ff;
+  border-bottom-color: #2563ff;
   background: linear-gradient(
     to bottom,
     rgba(102, 126, 234, 0.08),
@@ -3196,13 +3196,13 @@ export default {
 }
 
 :deep(.p-accordion-panel[data-p-active="true"] .p-accordion-header) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   color: white;
   box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
 }
 
 :deep(.p-accordion-panel[data-p-active="true"]) {
-  border-color: #667eea;
+  border-color: #2563ff;
   box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
 }
 
@@ -3253,7 +3253,7 @@ export default {
 :deep(.p-textarea:focus-visible),
 :deep(.p-select:focus-visible),
 :deep(.p-button:focus-visible) {
-  outline: 2px solid #667eea;
+  outline: 2px solid #2563ff;
   outline-offset: 2px;
 }
 
@@ -3266,7 +3266,7 @@ export default {
 
 /* Better chip styling */
 :deep(.p-chip) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563ff 0%, #0B1220 100%);
   color: white;
   padding: 6px 12px;
   border-radius: 8px;

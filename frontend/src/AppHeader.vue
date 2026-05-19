@@ -68,8 +68,8 @@ onMounted(async () => {
 
 .version-badge {
   font-size: 0.75rem;
-  background: rgba(139, 92, 246, 0.1);
-  color: #7c3aed;
+  background: rgba(37, 99, 255, 0.1);
+  color: #2563ff;
   padding: 2px 8px;
   border-radius: 12px;
   font-weight: 500;

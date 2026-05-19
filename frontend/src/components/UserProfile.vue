@@ -142,7 +142,7 @@ export default {
 }
 
 .profile-button:hover {
-  border-color: #667eea;
+  border-color: #2563ff;
 }
 
 .avatar {

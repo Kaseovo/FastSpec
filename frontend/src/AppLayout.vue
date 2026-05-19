@@ -149,16 +149,16 @@ export default {
 }
 
 :root {
-  --fs-primary: #8b5cf6;
-  --fs-primary-hover: #7c3aed;
-  --fs-primary-light: rgba(139, 92, 246, 0.1);
-  --fs-dark: #0f0f1a;
-  --fs-dark-surface: #1a1a2e;
-  --fs-text: #1f2937;
-  --fs-text-muted: #6b7280;
-  --fs-bg: #f8f9fc;
+  --fs-primary: #2563ff;
+  --fs-primary-hover: #2D66C4;
+  --fs-primary-light: rgba(37, 99, 255, 0.1);
+  --fs-dark: #0B1220;
+  --fs-dark-surface: #1c1f25;
+  --fs-text: rgb(28 31 37);
+  --fs-text-muted: rgb(98 105 129);
+  --fs-bg: rgb(245 247 250);
   --fs-surface: #ffffff;
-  --fs-border: #e5e7eb;
+  --fs-border: rgb(210 213 226);
   --fs-radius: 10px;
   --fs-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
@@ -253,19 +253,19 @@ body {
 
 /* PrimeVue theme overrides to match landing page */
 :root {
-  --p-primary-color: #8b5cf6;
-  --p-primary-hover-color: #7c3aed;
-  --p-primary-active-color: #6d28d9;
-  --p-primary-50: #f5f3ff;
-  --p-primary-100: #ede9fe;
-  --p-primary-200: #ddd6fe;
-  --p-primary-300: #c4b5fd;
-  --p-primary-400: #a78bfa;
-  --p-primary-500: #8b5cf6;
-  --p-primary-600: #7c3aed;
-  --p-primary-700: #6d28d9;
-  --p-primary-800: #5b21b6;
-  --p-primary-900: #4c1d95;
+  --p-primary-color: #2563ff;
+  --p-primary-hover-color: #2D66C4;
+  --p-primary-active-color: #224C93;
+  --p-primary-50: #e2ecfe;
+  --p-primary-100: #b6d1fb;
+  --p-primary-200: #88b2f9;
+  --p-primary-300: #6099f7;
+  --p-primary-400: #387ff5;
+  --p-primary-500: #2563ff;
+  --p-primary-600: #2D66C4;
+  --p-primary-700: #224C93;
+  --p-primary-800: #1a3a6e;
+  --p-primary-900: #0B1220;
 }
 
 /* Button styling overrides */
@@ -285,7 +285,7 @@ body {
   background: var(--fs-primary-hover) !important;
   border-color: var(--fs-primary-hover) !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(37, 99, 255, 0.3);
 }
 
 /* Card / Dialog styling */

@@ -268,15 +268,15 @@ export default {
 }
 
 .option-card:hover {
-  border-color: var(--fs-primary, #8b5cf6);
+  border-color: var(--fs-primary, #2563ff);
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15);
-  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
+  box-shadow: 0 8px 24px rgba(37, 99, 255, 0.15);
+  background: linear-gradient(135deg, #e2ecfe 0%, #f0f5ff 100%);
 }
 
 .option-card i {
   font-size: 2.5rem;
-  color: var(--fs-primary, #8b5cf6);
+  color: var(--fs-primary, #2563ff);
   margin-bottom: 12px;
   display: block;
 }
