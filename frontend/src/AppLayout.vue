@@ -161,6 +161,16 @@ export default {
   --fs-border: rgb(210 213 226);
   --fs-radius: 10px;
   --fs-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+
+  /* Severity colors */
+  --fs-danger: #ef4444;
+  --fs-danger-hover: #dc2626;
+  --fs-warn: #f59e0b;
+  --fs-warn-hover: #d97706;
+  --fs-success: #10b981;
+  --fs-success-hover: #059669;
+  --fs-info: #00adef;
+  --fs-info-hover: #0090c9;
 }
 
 body {
@@ -276,16 +286,77 @@ body {
   transition: all 0.2s ease !important;
 }
 
-.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary) {
+.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(.p-button-danger):not(.p-button-warn):not(.p-button-success):not(.p-button-info) {
   background: var(--fs-primary) !important;
   border-color: var(--fs-primary) !important;
 }
 
-.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):hover {
+.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(.p-button-danger):not(.p-button-warn):not(.p-button-success):not(.p-button-info):hover {
   background: var(--fs-primary-hover) !important;
   border-color: var(--fs-primary-hover) !important;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(37, 99, 255, 0.3);
+}
+
+/* Danger buttons */
+.p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text) {
+  background: var(--fs-danger) !important;
+  border-color: var(--fs-danger) !important;
+}
+.p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text):hover {
+  background: var(--fs-danger-hover) !important;
+  border-color: var(--fs-danger-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Warn buttons */
+.p-button.p-button-warn:not(.p-button-outlined):not(.p-button-text) {
+  background: var(--fs-warn) !important;
+  border-color: var(--fs-warn) !important;
+  color: #fff !important;
+}
+.p-button.p-button-warn:not(.p-button-outlined):not(.p-button-text):hover {
+  background: var(--fs-warn-hover) !important;
+  border-color: var(--fs-warn-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+/* Success buttons */
+.p-button.p-button-success:not(.p-button-outlined):not(.p-button-text) {
+  background: var(--fs-success) !important;
+  border-color: var(--fs-success) !important;
+}
+.p-button.p-button-success:not(.p-button-outlined):not(.p-button-text):hover {
+  background: var(--fs-success-hover) !important;
+  border-color: var(--fs-success-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Info buttons */
+.p-button.p-button-info:not(.p-button-outlined):not(.p-button-text) {
+  background: var(--fs-info) !important;
+  border-color: var(--fs-info) !important;
+}
+.p-button.p-button-info:not(.p-button-outlined):not(.p-button-text):hover {
+  background: var(--fs-info-hover) !important;
+  border-color: var(--fs-info-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 173, 239, 0.3);
+}
+
+/* Secondary buttons */
+.p-button.p-button-secondary:not(.p-button-outlined):not(.p-button-text) {
+  background: #f1f5f9 !important;
+  border-color: var(--fs-border) !important;
+  color: var(--fs-text) !important;
+}
+.p-button.p-button-secondary:not(.p-button-outlined):not(.p-button-text):hover {
+  background: #e2e8f0 !important;
+  border-color: var(--fs-border) !important;
+  transform: translateY(-1px);
 }
 
 /* Card / Dialog styling */

@@ -3,7 +3,7 @@
     <div class="toolbar">
       <div class="toolbar-left">
         <Button label="New" icon="pi pi-plus" @click="showNewDialog = true" />
-        <Button label="Save" icon="pi pi-save" @click="openSaveDialog" />
+        <Button label="Save" icon="pi pi-save" severity="success" @click="openSaveDialog" />
       </div>
 
       <!-- User Profile Section -->
@@ -11,6 +11,7 @@
         <Button
           label="Manage Tokens"
           icon="pi pi-key"
+          severity="info"
           @click="showTokenDialog"
           class="me-2"
         />

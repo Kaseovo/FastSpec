@@ -31,7 +31,7 @@
         <p v-if="editError" class="error">{{ editError }}</p>
       </div>
       <template #footer>
-        <Button label="Cancel" @click="editDialogVisible = false" />
+        <Button label="Cancel" severity="secondary" @click="editDialogVisible = false" />
         <Button
           label="Save"
           class="p-button-primary"

@@ -1573,7 +1573,7 @@
         </div>
       </div>
       <template #footer>
-        <Button label="Close" icon="pi pi-times" @click="detailOpen = false" />
+        <Button label="Close" icon="pi pi-times" severity="secondary" @click="detailOpen = false" />
       </template>
     </Dialog>
   </div>
