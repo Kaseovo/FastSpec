@@ -16,9 +16,18 @@
           v-model="editActionsSelected"
           :options="actionOptions"
           optionLabel="label"
+          optionValue="value"
+          :optionDisabled="(opt) => editAllSelected && opt.value !== 'All'"
           placeholder="Select actions"
           class="w-full"
-        />
+        >
+          <template #option="{ option }">
+            <div class="action-option">
+              <span class="action-option-value">{{ option.value }}</span>
+              <span class="action-option-desc">{{ option.description }}</span>
+            </div>
+          </template>
+        </MultiSelect>
         <p v-if="editError" class="error">{{ editError }}</p>
       </div>
       <template #footer>
@@ -53,9 +62,18 @@
                 v-model="actionsSelected"
                 :options="actionOptions"
                 optionLabel="label"
+                optionValue="value"
+                :optionDisabled="(opt) => allSelected && opt.value !== 'All'"
                 placeholder="Select actions"
                 class="w-full"
-              />
+              >
+                <template #option="{ option }">
+                  <div class="action-option">
+                    <span class="action-option-value">{{ option.value }}</span>
+                    <span class="action-option-desc">{{ option.description }}</span>
+                  </div>
+                </template>
+              </MultiSelect>
               <p v-if="createError" class="error">{{ createError }}</p>
             </div>
 
@@ -195,12 +213,13 @@
 </template>
 
 <script>
-import { ref, onMounted, nextTick } from "vue";
+import { ref, onMounted, nextTick, watch, computed } from "vue";
 import {
   createApiKey,
   listApiKeys,
   revokeApiKey,
   updateApiKeyActions,
+  fetchAvailableActions,
 } from "../api/auth";
 import Card from "primevue/card";
 import Button from "primevue/button";
@@ -228,10 +247,7 @@ export default {
   },
   setup() {
     const toast = useToast();
-    const actionOptions = [
-      { label: "Action A", value: "action_a" },
-      { label: "Action B", value: "action_b" },
-    ];
+    const actionOptions = ref([]);
     const actionsSelected = ref([]);
     const creating = ref(false);
     const createError = ref("");
@@ -251,6 +267,42 @@ export default {
     const editLoading = ref(false);
     const editError = ref("");
 
+    const loadActions = async () => {
+      try {
+        const data = await fetchAvailableActions();
+        actionOptions.value = data.map((a) => ({
+          label: a.value,
+          value: a.value,
+          description: a.description || "",
+        }));
+      } catch (e) {
+        console.error("Failed to load available actions", e);
+      }
+    };
+
+    // Computed: whether "All" is selected
+    const allSelected = computed(() => actionsSelected.value.includes("All"));
+    const editAllSelected = computed(() => editActionsSelected.value.includes("All"));
+
+    // When "All" is selected, auto-select all other options
+    watch(actionsSelected, (val) => {
+      if (val.includes("All")) {
+        const allValues = actionOptions.value.map((o) => o.value);
+        if (val.length !== allValues.length) {
+          actionsSelected.value = allValues;
+        }
+      }
+    });
+
+    watch(editActionsSelected, (val) => {
+      if (val.includes("All")) {
+        const allValues = actionOptions.value.map((o) => o.value);
+        if (val.length !== allValues.length) {
+          editActionsSelected.value = allValues;
+        }
+      }
+    });
+
     const loadList = async () => {
       listError.value = "";
       try {
@@ -264,6 +316,7 @@ export default {
     };
 
     onMounted(() => {
+      loadActions();
       loadList();
     });
 
@@ -273,23 +326,19 @@ export default {
         actionsSelected.value = [];
       }
 
-      const valueMap = { action_a: "A", action_b: "B" };
-      const mapped = actionsSelected.value
-        .map((a) => {
-          const val = typeof a === "string" ? a : (a && a.value) || "";
-          return valueMap[val] ?? val;
-        })
-        .filter(Boolean);
+      const actions = actionsSelected.value.includes("All")
+        ? ["All"]
+        : actionsSelected.value.filter(Boolean);
 
       creating.value = true;
       try {
-        const res = await createApiKey(mapped);
+        const res = await createApiKey(actions);
         // res: { api_key, refresh_token?, id, expires_at }
         createdToken.value = res;
 
         tokens.value.unshift({
           id: res.id,
-          actions: mapped,
+          actions: actions,
           created_at: new Date().toISOString(),
           expires_at: res.expires_at,
           revoked: false,
@@ -355,11 +404,7 @@ export default {
     // Open edit dialog and pre-populate selections from token.actions
     const openEditDialog = (token) => {
       editError.value = "";
-      const reverseMap = { A: "action_a", B: "action_b" };
-      const vals = (token.actions || []).map((a) => reverseMap[a] ?? a);
-      editActionsSelected.value = vals
-        .map((v) => actionOptions.find((opt) => opt.value === v) || v)
-        .filter(Boolean);
+      editActionsSelected.value = [...(token.actions || [])];
       editingId.value = token.id;
       editDialogVisible.value = true;
     };
@@ -369,17 +414,15 @@ export default {
       if (!editingId.value) return;
       editLoading.value = true;
       try {
-        const valueMap = { action_a: "A", action_b: "B" };
-        const mapped = (editActionsSelected.value || [])
-          .map((a) => (typeof a === "string" ? a : (a && a.value) || ""))
-          .map((val) => valueMap[val] ?? val)
-          .filter(Boolean);
+        const actions = (editActionsSelected.value || []).includes("All")
+          ? ["All"]
+          : (editActionsSelected.value || []).filter(Boolean);
 
-        await updateApiKeyActions(editingId.value, mapped);
+        await updateApiKeyActions(editingId.value, actions);
 
         const idx = tokens.value.findIndex((t) => t.id === editingId.value);
         if (idx !== -1) {
-          tokens.value[idx].actions = mapped;
+          tokens.value[idx].actions = actions;
         }
 
         toast.add({
@@ -439,6 +482,7 @@ export default {
     return {
       actionOptions,
       actionsSelected,
+      allSelected,
       creating,
       createError,
       createdToken,
@@ -453,6 +497,7 @@ export default {
       // edit dialog
       editDialogVisible,
       editActionsSelected,
+      editAllSelected,
       editLoading,
       editError,
       openEditDialog,
@@ -557,5 +602,18 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.action-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.action-option-value {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.action-option-desc {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary, #6b7280);
 }
 </style>

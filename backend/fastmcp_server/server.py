@@ -5,6 +5,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp_server.authentication import get_current_user, TokenPayload
 from database import SessionLocal
 from models import OpenAPISpec
+from permissions import Action
 import json
 
 mcp = FastMCP(name="My MCP Server")
@@ -17,7 +18,7 @@ def greet() -> str:
     return "Hello !"
 
 
-@mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
+@mcp.tool(tags={"authentication"}, meta={"actions": [Action.READ_SPECS]})
 def who_am_i(user: TokenPayload = Depends(get_current_user)) -> dict:
     """
     Returns information about the authenticated user
@@ -31,7 +32,7 @@ def who_am_i(user: TokenPayload = Depends(get_current_user)) -> dict:
     }
 
 
-@mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
+@mcp.tool(tags={"authentication"}, meta={"actions": [Action.READ_SPECS]})
 def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> list:
     """
     Returns a list of OpenAPI specs saved by the authenticated user
@@ -69,7 +70,7 @@ def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> 
         db.close()
 
 
-@mcp.tool(tags={"authentication"}, meta={"actions": ["A", "B"]})
+@mcp.tool(tags={"authentication"}, meta={"actions": [Action.READ_SPECS]})
 def get_spec_details(
     spec_id: str, user: TokenPayload = Depends(get_current_user)
 ) -> dict:

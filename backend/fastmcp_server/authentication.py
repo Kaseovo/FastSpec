@@ -5,16 +5,20 @@ from fastmcp.server.dependencies import get_http_request
 from auth.jwt import exchange_api_key_for_short_jwt, verify_short_jwt
 from auth.redis_client import get_redis
 from fastmcp.exceptions import ToolError
+from permissions import Action, user_has_action
 
 
 def check_tool(tool: Tool, user: dict) -> bool:
     if "authentication" not in tool.tags:
         return True
-    else:
-        if all(action in user.get("actions", []) for action in tool.meta.get("actions", [])):
-            return True
-    
-    return False
+
+    user_actions = user.get("actions", [])
+    required_actions = tool.meta.get("actions", [])
+
+    if not required_actions:
+        return True
+
+    return user_has_action(user_actions, required_actions)
 
 
 def get_short_jwt_from_request() -> str:
@@ -81,14 +85,9 @@ def validate_short_jwt(short_jwt: str) -> TokenPayload:
         raise PermissionError("Invalid or expired token") from e
 
 
-def user_can_perform_actions(user: TokenPayload, actions: list[str]) -> bool:
-    user_actions = user.actions
-    return any(action in user_actions for action in actions)
-
-
 def get_current_user() -> TokenPayload:
     """
-    Dependency function to get the current authenticated user based on the short JWT in the request. This can be used in tool functions with Depends(get_current_user) to access the authenticated user's information.  
+    Dependency function to get the current authenticated user based on the short JWT in the request. This can be used in tool functions with Depends(get_current_user) to access the authenticated user's information.
     """
     try:
         short_jwt = get_short_jwt_from_request()

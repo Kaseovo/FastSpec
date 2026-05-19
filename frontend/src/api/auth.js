@@ -72,15 +72,9 @@ export const createApiKey = async (actions) => {
     .map((a) => (typeof a === "string" ? a : (a && a.value) || a || ""))
     .filter(Boolean);
 
-  const allowed = ["A", "B"];
-  const filtered = normalized.filter((a) => allowed.includes(a));
-  if (filtered.length !== normalized.length) {
-    throw new Error("Invalid actions");
-  }
-
   const response = await axios.post(
     `${API_BASE}/refresh`,
-    { actions: filtered },
+    { actions: normalized },
     { headers: getAuthHeaders() },
   );
 
@@ -128,5 +122,14 @@ export const updateApiKeyActions = async (id, actions) => {
     { actions },
     { headers: getAuthHeaders() },
   );
+  return response.data;
+};
+
+/**
+ * Fetch the list of available actions that can be assigned to API keys
+ * @returns {Promise<Array<{value: string, description: string}>>}
+ */
+export const fetchAvailableActions = async () => {
+  const response = await axios.get(`${API_BASE}/actions`);
   return response.data;
 };

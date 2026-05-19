@@ -27,6 +27,7 @@ from auth.jwt import (
     create_api_key,
 )
 from auth.dependencies import get_current_user
+from permissions import ALLOWED_ACTIONS, get_actions_metadata
 
 router = APIRouter()
 
@@ -45,7 +46,10 @@ class ApiKeyRevokeRequest(BaseModel):
     api_key: str
 
 
-ALLOWED_ACTIONS = {"A", "B"}
+@router.get("/actions")
+async def list_available_actions():
+    """Return all available actions that can be assigned to API keys."""
+    return get_actions_metadata()
 
 
 # New endpoint: exchange api_key for a short JWT
