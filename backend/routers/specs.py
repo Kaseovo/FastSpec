@@ -54,10 +54,35 @@ async def create_spec(
     spec_data: OpenAPISpecCreate,
     version: str = Query(..., description="Version for the spec"),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Create a new OpenAPI specification and its initial version"""
     service = SpecService()
-    return service.create_spec(current_user, spec_data, version)
+    spec_response = service.create_spec(current_user, spec_data, version)
+
+    # Also create the OpenAPISpec and initial SpecVersion in SQL
+    # so versioning/lint endpoints (which query SQL) work correctly.
+    sql_spec = OpenAPISpec(
+        id=spec_response.id,
+        name=spec_response.name,
+        title=spec_response.title,
+        version=spec_response.version,
+        spec_json=spec_response.spec_json,
+        user_id=current_user.id,
+    )
+    db.add(sql_spec)
+    db.flush()
+
+    initial_version = SpecVersion(
+        spec_id=spec_response.id,
+        version=spec_response.version,
+        content=spec_response.spec_json,
+        created_by=current_user.id,
+    )
+    db.add(initial_version)
+    db.commit()
+
+    return spec_response
 
 
 @router.put("/{spec_id}", response_model=OpenAPISpecResponse)
@@ -148,7 +173,22 @@ async def get_spec_diff(
 # --- Helpers for spec versions ---
 
 
-def _resolve_spec_or_404(db: Session, spec_id: str, current_user: User) -> OpenAPISpec:
+def _resolve_spec_or_404(db: Session, spec_id: str, current_user: User):
+    """Verify the spec exists and belongs to the current user.
+
+    Checks Redis first (primary store used by SpecService), then falls back to
+    the SQL database for legacy data.
+    """
+    # Try Redis (primary store)
+    from auth.redis_client import get_redis
+
+    redis = get_redis()
+    redis_key = f"spec:{current_user.id}:{spec_id}"
+    data = redis.get(redis_key)
+    if data:
+        return data  # Spec exists in Redis for this user
+
+    # Fallback to SQL database
     spec = (
         db.query(OpenAPISpec)
         .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)

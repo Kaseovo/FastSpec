@@ -58,30 +58,51 @@ async def lint_spec_by_id(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> LintResponse:
-    spec = (
-        db.query(OpenAPISpec)
-        .filter(OpenAPISpec.id == str(spec_id), OpenAPISpec.user_id == current_user.id)
-        .first()
-    )
-    if not spec:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Spec with id {spec_id} not found",
-        )
+    from auth.redis_client import get_redis
+    import json as _json
 
+    # Check Redis first (primary store)
+    redis = get_redis()
+    redis_key = f"spec:{current_user.id}:{spec_id}"
+    redis_data = redis.get(redis_key)
+
+    if not redis_data:
+        # Fallback to SQL
+        spec = (
+            db.query(OpenAPISpec)
+            .filter(
+                OpenAPISpec.id == str(spec_id), OpenAPISpec.user_id == current_user.id
+            )
+            .first()
+        )
+        if not spec:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Spec with id {spec_id} not found",
+            )
+
+    # Try to find the version in SQL (SpecVersion table)
     spec_version = (
         db.query(SpecVersion)
-        .filter(SpecVersion.spec_id == spec.id, SpecVersion.version == version)
+        .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == version)
         .first()
     )
-    if not spec_version:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Version {version} for spec {spec_id} not found",
-        )
+    if spec_version:
+        spec_json = spec_version.content
+        return _do_lint(spec_json, ruleset)
 
-    spec_json = spec_version.content
-    return _do_lint(spec_json, ruleset)
+    # If version not in SQL, check if Redis spec has matching version
+    if redis_data:
+        spec_obj = _json.loads(redis_data)
+        spec_json = spec_obj.get("spec_json", {})
+        redis_version = spec_json.get("info", {}).get("version", "")
+        if redis_version == version:
+            return _do_lint(spec_json, ruleset)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Version {version} for spec {spec_id} not found",
+    )
 
 
 @router.post(
@@ -117,16 +138,24 @@ async def lint_draft(
     db: Session = Depends(get_db),
 ) -> LintResponse:
     # Ensure the referenced spec exists and belongs to the user
-    spec = (
-        db.query(OpenAPISpec)
-        .filter(OpenAPISpec.id == str(spec_id), OpenAPISpec.user_id == current_user.id)
-        .first()
-    )
-    if not spec:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Spec with id {spec_id} not found",
+    from auth.redis_client import get_redis
+
+    redis = get_redis()
+    redis_key = f"spec:{current_user.id}:{spec_id}"
+    redis_data = redis.get(redis_key)
+    if not redis_data:
+        spec = (
+            db.query(OpenAPISpec)
+            .filter(
+                OpenAPISpec.id == str(spec_id), OpenAPISpec.user_id == current_user.id
+            )
+            .first()
         )
+        if not spec:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Spec with id {spec_id} not found",
+            )
 
     # Basic payload validation
     if not isinstance(body.spec_json, dict):
