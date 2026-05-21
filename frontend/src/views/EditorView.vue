@@ -8,24 +8,41 @@
 
     <div class="editor-main">
       <template v-if="mode === 'form'">
-        <FormEditor
-          :model-value="parsedSpec"
-          @update:modelValue="updateFromForm"
-        />
+        <div :class="['code-split', { 'with-preview': showLivePreview }]">
+          <div class="code-split__editor">
+            <FormEditor
+              :model-value="parsedSpec"
+              :show-live-preview="showLivePreview"
+              @update:modelValue="updateFromForm"
+              @toggle-live-preview="toggleLivePreview"
+            />
+          </div>
+          <div v-if="showLivePreview" class="code-split__preview">
+            <PreviewPanel :spec="parsedSpec" />
+          </div>
+        </div>
       </template>
 
       <template v-else-if="mode === 'code'">
-        <EditorPanel
-          ref="editorPanelRef"
-          v-model="specContent"
-          :show-validate="true"
-          :lint-results="lintResults"
-          @update:modelValue="updatePreview"
-        />
+        <div :class="['code-split', { 'with-preview': showLivePreview }]">
+          <div class="code-split__editor">
+            <EditorPanel
+              ref="editorPanelRef"
+              v-model="specContent"
+              :show-validate="true"
+              :lint-results="lintResults"
+              :show-live-preview="showLivePreview"
+              @update:modelValue="updatePreview"
+              @toggle-live-preview="toggleLivePreview"
+            />
+          </div>
+          <div v-if="showLivePreview" class="code-split__preview">
+            <PreviewPanel :spec="parsedSpec" />
+          </div>
+        </div>
       </template>
 
       <template v-else-if="mode === 'preview'">
-        <!-- Preview injected into the editor main when router query view=preview is set -->
         <PreviewPanel :spec="parsedSpec" />
       </template>
 
@@ -106,4 +123,45 @@ export default {
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* Split pane layout for code + live preview */
+.code-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  gap: 0;
+  height: 100%;
+  position: relative;
+}
+
+.code-split.with-preview {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.code-split__editor {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.code-split__editor > * {
+  flex: 1;
+  min-height: 0;
+}
+
+.code-split__preview {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb;
+}
+
+.code-split__preview > * {
+  flex: 1;
+  min-height: 0;
+}
+
 </style>

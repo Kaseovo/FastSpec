@@ -4,10 +4,20 @@
       <h3>Editor</h3>
       <div class="header-controls">
         <Button
+          :icon="showLivePreview ? 'pi pi-eye-slash' : 'pi pi-eye'"
+          :label="showLivePreview ? 'Hide Preview' : 'Live Preview'"
+          :severity="showLivePreview ? 'primary' : 'secondary'"
+          size="small"
+          outlined
+          @click="$emit('toggle-live-preview')"
+        />
+        <span class="header-controls__separator"></span>
+        <Button
           v-if="showValidate"
           label="Validate"
           icon="pi pi-check-circle"
-          severity="secondary"
+          severity="info"
+          size="small"
           @click="validateCurrentSpec"
         />
       </div>
@@ -55,8 +65,12 @@ export default {
       type: Object,
       default: null,
     },
+    showLivePreview: {
+      type: Boolean,
+      default: false,
+    },
   },
-  emits: ["update:modelValue"],
+  emits: ["update:modelValue", "toggle-live-preview"],
   setup(props, { emit }) {
     const editorContainer = ref(null);
     let editor = null;
@@ -184,7 +198,19 @@ export default {
 
 .panel-header h3 {
   font-size: 16px;
-  color: #1f2937;
+  color: var(--p-text-color, #1f2937);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-controls__separator {
+  width: 1px;
+  height: 24px;
+  background: var(--p-surface-border, #e5e7eb);
 }
 
 .panel-content {

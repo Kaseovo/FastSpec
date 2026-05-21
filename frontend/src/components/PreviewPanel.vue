@@ -333,7 +333,7 @@ export default {
             message: err.message,
           };
         }
-      }, 500); // 500ms debounce
+      }, 300); // 300ms debounce for live preview responsiveness
     };
 
     onMounted(async () => {

@@ -83,6 +83,11 @@ export function useApp() {
   const specListKey = ref(0);
   const showLoginDialog = ref(false);
   const showTokenDialog = ref(false);
+  const showLivePreview = ref(false);
+
+  const toggleLivePreview = () => {
+    showLivePreview.value = !showLivePreview.value;
+  };
 
   const saveSpec = async (payload) => {
     try {
@@ -383,6 +388,8 @@ export function useApp() {
     lintError,
     runLint,
     handleGoToLine,
+    showLivePreview,
+    toggleLivePreview,
     fetchOpenApiFile: diff.fetchOpenApiFile,
     openapiFileRaw: diff.openapiFileRaw,
     openapiBaseline: diff.openapiBaseline,

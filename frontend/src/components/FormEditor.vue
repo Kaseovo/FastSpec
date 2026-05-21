@@ -2,6 +2,16 @@
   <div class="form-editor">
     <div class="form-header">
       <h3>Form Editor</h3>
+      <div class="form-header__controls">
+        <Button
+          :icon="showLivePreview ? 'pi pi-eye-slash' : 'pi pi-eye'"
+          :label="showLivePreview ? 'Hide Preview' : 'Live Preview'"
+          class="preview-toggle-btn"
+          size="small"
+          text
+          @click="$emit('toggle-live-preview')"
+        />
+      </div>
     </div>
 
     <div class="form-content">
@@ -1386,8 +1396,12 @@ export default {
       type: Object,
       required: true,
     },
+    showLivePreview: {
+      type: Boolean,
+      default: false,
+    },
   },
-  emits: ["update:modelValue"],
+  emits: ["update:modelValue", "toggle-live-preview"],
   setup(props, { emit }) {
     const formData = ref({
       openapi: "3.0.0",
@@ -2157,6 +2171,23 @@ export default {
   position: relative;
   z-index: 1;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.form-header__controls {
+  position: relative;
+  z-index: 1;
+}
+
+.form-header__controls :deep(.p-button) {
+  color: white !important;
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(4px);
+}
+
+.form-header__controls :deep(.p-button:hover) {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: white !important;
 }
 
 .form-content {
