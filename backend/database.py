@@ -14,7 +14,9 @@ Base = declarative_base()
 # Importing here avoids circular imports elsewhere when creating tables on startup
 from models import User, OpenAPISpec, SpecVersion, AuthToken, APIKey
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:////app/data/fastspec.db")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL", "postgresql://fastspec:fastspec@postgres:5432/fastspec"
+)
 
 engine = create_engine(
     DATABASE_URL,

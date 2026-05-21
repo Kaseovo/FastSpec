@@ -32,6 +32,21 @@ services:
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     depends_on:
       - redis
+      - postgres
+    networks:
+      - webnet
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fastspec
+      POSTGRES_PASSWORD: fastspec
+      POSTGRES_DB: fastspec
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
     networks:
       - webnet
 
@@ -101,3 +116,4 @@ networks:
 
 volumes:
   redis-data: {}
+  postgres-data: {}

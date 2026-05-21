@@ -107,7 +107,7 @@ class SpecVersion(Base):
     )
     version = Column(String(50), nullable=False)
     content = Column(JSON, nullable=False)
-    created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     meta = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_published = Column(
