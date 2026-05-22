@@ -127,6 +127,8 @@
                   icon="pi pi-plus"
                   size="small"
                   @click="addServer"
+                  :disabled="hasEmptyServerUrl"
+                  v-tooltip.left="hasEmptyServerUrl ? 'Please fill in the URL for all existing servers before adding a new one.' : ''"
                 />
               </div>
 
@@ -1720,7 +1722,7 @@
 
     <!-- Add Path Dialog -->
     <Dialog
-      v-model:visible="showAddPathDialog"
+      v-model="showAddPathDialog"
       header="Add New Path"
       :style="{ width: '500px' }"
       modal
@@ -1769,7 +1771,7 @@
 
     <!-- Add Method Dialog -->
     <Dialog
-      v-model:visible="showAddMethodDialogVisible"
+      v-model="showAddMethodDialogVisible"
       header="Add Method to Path"
       :style="{ width: '500px' }"
       modal
@@ -1809,7 +1811,7 @@
 
     <!-- Add Schema Dialog -->
     <Dialog
-      v-model:visible="showAddSchemaDialog"
+      v-model="showAddSchemaDialog"
       header="Add New Schema"
       :style="{ width: '400px' }"
       modal
@@ -1830,6 +1832,7 @@
         <Button label="Add" @click="addSchema" :disabled="!newSchemaName" />
       </template>
     </Dialog>
+    <ConfirmDialog />
   </div>
 </template>
 
@@ -1853,6 +1856,9 @@ import AccordionPanel from "primevue/accordionpanel";
 import AccordionHeader from "primevue/accordionheader";
 import AccordionContent from "primevue/accordioncontent";
 import Tag from "primevue/tag";
+import ConfirmDialog from "primevue/confirmdialog";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
 
 export default {
   name: "FormEditor",
@@ -1875,6 +1881,7 @@ export default {
     AccordionHeader,
     AccordionContent,
     Tag,
+    ConfirmDialog,
   },
   props: {
     modelValue: {
@@ -1928,6 +1935,9 @@ export default {
     const draggedMethod = ref(null);
     const draggedMethodIndex = ref(null);
     const draggedMethodPath = ref(null);
+
+    const confirm = useConfirm();
+    const toast = useToast();
 
     const httpMethods = [
       "get",
@@ -2069,12 +2079,56 @@ export default {
 
     // syncWithJson removed: deep watcher now emits updates automatically
 
+    const hasEmptyServerUrl = computed(() => {
+      return formData.value.servers.some((server) => !server.url || server.url.trim() === "");
+    });
+
     const addServer = () => {
+      if (hasEmptyServerUrl.value) {
+        toast.add({
+          severity: "error",
+          summary: "Cannot Add Server",
+          detail: "Please fill in the URL for all existing servers first.",
+          life: 3000,
+        });
+        return;
+      }
       formData.value.servers.push({ url: "", description: "" });
+      toast.add({
+        severity: "success",
+        summary: "Server Added",
+        detail: "A new server entry has been added.",
+        life: 3000,
+      });
     };
 
     const removeServer = (index) => {
-      formData.value.servers.splice(index, 1);
+      confirm.require({
+        message: "Are you sure you want to delete this server?",
+        header: "Confirm Deletion",
+        icon: "pi pi-exclamation-triangle",
+        acceptProps: {
+            label: "Yes",
+            severity: "danger",
+        },
+        rejectProps: {
+            label: "No",
+            outlined: true,
+        },
+        accept: () => {
+          formData.value.servers.splice(index, 1);
+          toast.add({
+            severity: "success",
+            summary: "Server Deleted",
+            detail: "The server has been removed.",
+            life: 3000,
+          });
+          confirm.close();
+        },
+        reject: () => {
+          confirm.close();
+        }
+      });
     };
 
     const addPath = () => {
@@ -2679,6 +2733,7 @@ export default {
       handlePathDrop,
       handleMethodDragStart,
       handleMethodDrop,
+      hasEmptyServerUrl,
     };
   },
 };
