@@ -329,7 +329,7 @@
 
                               <div class="form-field">
                                 <label>Tags</label>
-                                <Chips
+                                <AutoComplete multiple typeahead
                                   v-model="
                                     formData.paths[selectedPath][selectedMethod]
                                       .tags
@@ -426,11 +426,12 @@
                                           'object',
                                         ]"
                                         placeholder="Type"
+                                        @change="onPropertyTypeChange(param.schema)"
                                       />
                                     </div>
                                     <div
                                       class="form-field"
-                                      v-if="param.schema.type === 'array'"
+                                      v-if="param.schema.type === 'array' && param.schema.items"
                                     >
                                       <label>Items Type</label>
                                       <Select
@@ -532,6 +533,18 @@
                                     class="form-row"
                                   >
                                     <div class="form-field">
+                                      <label>Format</label>
+                                      <Select
+                                        v-model="param.schema.format"
+                                        :options="
+                                          param.schema.type === 'integer'
+                                            ? ['', 'int32', 'int64']
+                                            : ['', 'float', 'double']
+                                        "
+                                        placeholder="Format"
+                                      />
+                                    </div>
+                                    <div class="form-field">
                                       <label>Multiple Of</label>
                                       <InputNumber
                                         v-model="param.schema.multipleOf"
@@ -539,6 +552,15 @@
                                         :min="0"
                                       />
                                     </div>
+                                  </div>
+
+                                  <div
+                                    v-if="
+                                      param.schema.type === 'number' ||
+                                      param.schema.type === 'integer'
+                                    "
+                                    class="form-row"
+                                  >
                                     <div class="form-field checkbox-field">
                                       <Checkbox
                                         v-model="param.schema.exclusiveMinimum"
@@ -547,6 +569,16 @@
                                       />
                                       <label :for="'param-excl-min-' + pIndex"
                                         >Exclusive Minimum</label
+                                      >
+                                    </div>
+                                    <div class="form-field checkbox-field">
+                                      <Checkbox
+                                        v-model="param.schema.exclusiveMaximum"
+                                        :inputId="'param-excl-max-' + pIndex"
+                                        :binary="true"
+                                      />
+                                      <label :for="'param-excl-max-' + pIndex"
+                                        >Exclusive Maximum</label
                                       >
                                     </div>
                                   </div>
@@ -591,7 +623,7 @@
                                   <!-- Enum values -->
                                   <div class="form-field">
                                     <label>Enum Values (optional)</label>
-                                    <Chips
+                                    <AutoComplete multiple typeahead
                                       v-model="param.schema.enum"
                                       placeholder="Add enum value and press Enter"
                                     />
@@ -613,15 +645,27 @@
                                     />
                                   </div>
 
-                                  <div class="form-field checkbox-field">
-                                    <Checkbox
-                                      v-model="param.required"
-                                      :inputId="'param-required-' + pIndex"
-                                      :binary="true"
-                                    />
-                                    <label :for="'param-required-' + pIndex"
-                                      >Required</label
-                                    >
+                                  <div class="form-row">
+                                    <div class="form-field checkbox-field">
+                                      <Checkbox
+                                        v-model="param.required"
+                                        :inputId="'param-required-' + pIndex"
+                                        :binary="true"
+                                      />
+                                      <label :for="'param-required-' + pIndex"
+                                        >Required</label
+                                      >
+                                    </div>
+                                    <div class="form-field checkbox-field">
+                                      <Checkbox
+                                        v-model="param.schema.nullable"
+                                        :inputId="'param-nullable-' + pIndex"
+                                        :binary="true"
+                                      />
+                                      <label :for="'param-nullable-' + pIndex"
+                                        >Nullable</label
+                                      >
+                                    </div>
                                   </div>
                                 </div>
                                 <Button
@@ -696,6 +740,8 @@
                                     v-if="requestBodySchemaType === 'reference'"
                                     v-model="requestBodySchemaRef"
                                     :options="availableSchemas"
+                                    optionLabel="label"
+                                    optionValue="value"
                                     placeholder="Select schema"
                                   />
                                 </div>
@@ -852,6 +898,8 @@
                                             )
                                           "
                                           :options="availableSchemas"
+                                          optionLabel="label"
+                                          optionValue="value"
                                           placeholder="Select schema"
                                         />
                                       </div>
@@ -958,6 +1006,7 @@
                                   'boolean',
                                 ]"
                                 placeholder="Select type"
+                                @change="onSchemaTypeChange(schema)"
                               />
                             </div>
 
@@ -1039,13 +1088,30 @@
                                           'boolean',
                                           'array',
                                           'object',
+                                          '$ref',
                                         ]"
                                         placeholder="Type"
-                                      />
+                                        @change="onPropertyTypeChange(prop)"
+                                        />
                                     </div>
                                   </div>
 
-                                  <div class="form-field">
+                                 <!-- $ref selector when type is $ref -->
+                                 <div
+                                   v-if="prop.type === '$ref'"
+                                   class="form-field"
+                                 >
+                                   <label>Schema Reference</label>
+                                   <Select
+                                     v-model="prop.$ref"
+                                     :options="availableSchemas"
+                                     optionLabel="label"
+                                     optionValue="value"
+                                     placeholder="Select schema"
+                                   />
+                                 </div>
+
+                                 <div class="form-field" v-if="prop.type !== '$ref'">
                                     <label>Description</label>
                                     <InputText
                                       v-model="prop.description"
@@ -1053,24 +1119,7 @@
                                     />
                                   </div>
 
-                                  <div
-                                    v-if="prop.type === 'array'"
-                                    class="form-field"
-                                  >
-                                    <label>Array Items Type</label>
-                                    <Select
-                                      v-model="prop.items.type"
-                                      :options="[
-                                        'string',
-                                        'number',
-                                        'integer',
-                                        'boolean',
-                                        'object',
-                                      ]"
-                                      placeholder="Items type"
-                                    />
-                                  </div>
-
+                                  <!-- String validations -->
                                   <div
                                     v-if="prop.type === 'string'"
                                     class="form-row"
@@ -1083,9 +1132,15 @@
                                           '',
                                           'date',
                                           'date-time',
+                                          'password',
+                                          'byte',
+                                          'binary',
                                           'email',
                                           'uri',
                                           'uuid',
+                                          'hostname',
+                                          'ipv4',
+                                          'ipv6',
                                         ]"
                                         placeholder="Format"
                                       />
@@ -1094,7 +1149,59 @@
                                       <label>Pattern</label>
                                       <InputText
                                         v-model="prop.pattern"
-                                        placeholder="Regex pattern"
+                                        placeholder="^[a-zA-Z0-9]+$"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div
+                                    v-if="prop.type === 'string'"
+                                    class="form-row"
+                                  >
+                                    <div class="form-field">
+                                      <label>Min Length</label>
+                                      <InputNumber
+                                        v-model="prop.minLength"
+                                        placeholder="Min length"
+                                        :min="0"
+                                      />
+                                    </div>
+                                    <div class="form-field">
+                                      <label>Max Length</label>
+                                      <InputNumber
+                                        v-model="prop.maxLength"
+                                        placeholder="Max length"
+                                        :min="0"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <!-- Number/Integer validations -->
+                                  <div
+                                    v-if="
+                                      prop.type === 'number' ||
+                                      prop.type === 'integer'
+                                    "
+                                    class="form-row"
+                                  >
+                                    <div class="form-field">
+                                      <label>Format</label>
+                                      <Select
+                                        v-model="prop.format"
+                                        :options="
+                                          prop.type === 'integer'
+                                            ? ['', 'int32', 'int64']
+                                            : ['', 'float', 'double']
+                                        "
+                                        placeholder="Format"
+                                      />
+                                    </div>
+                                    <div class="form-field">
+                                      <label>Multiple Of</label>
+                                      <InputNumber
+                                        v-model="prop.multipleOf"
+                                        placeholder="Multiple of"
+                                        :min="0"
                                       />
                                     </div>
                                   </div>
@@ -1122,24 +1229,160 @@
                                     </div>
                                   </div>
 
-                                  <div class="form-field checkbox-field">
+                                  <div
+                                    v-if="
+                                      prop.type === 'number' ||
+                                      prop.type === 'integer'
+                                    "
+                                    class="form-row"
+                                  >
+                                    <div class="form-field checkbox-field">
+                                      <Checkbox
+                                        v-model="prop.exclusiveMinimum"
+                                        :inputId="'prop-excl-min-' + propName"
+                                        :binary="true"
+                                      />
+                                      <label :for="'prop-excl-min-' + propName"
+                                        >Exclusive Minimum</label
+                                      >
+                                    </div>
+                                    <div class="form-field checkbox-field">
+                                      <Checkbox
+                                        v-model="prop.exclusiveMaximum"
+                                        :inputId="'prop-excl-max-' + propName"
+                                        :binary="true"
+                                      />
+                                      <label :for="'prop-excl-max-' + propName"
+                                        >Exclusive Maximum</label
+                                      >
+                                    </div>
+                                  </div>
+
+                                  <!-- Array validations -->
+                                  <div
+                                    v-if="prop.type === 'array' && prop.items"
+                                    class="form-field"
+                                  >
+                                    <label>Array Items Type</label>
+                                    <Select
+                                      v-model="prop.items.type"
+                                      :options="[
+                                        'string',
+                                        'number',
+                                        'integer',
+                                        'boolean',
+                                        'object',
+                                        '$ref',
+                                      ]"
+                                      placeholder="Items type"
+                                    />
+                                  </div>
+                                  <div
+                                    v-if="prop.type === 'array' && prop.items && prop.items.type === '$ref'"
+                                    class="form-field"
+                                  >
+                                    <label>Array Items Schema Reference</label>
+                                    <Select
+                                      v-model="prop.items.$ref"
+                                      :options="availableSchemas"
+                                      optionLabel="label"
+                                      optionValue="value"
+                                      placeholder="Select schema"
+                                    />
+                                  </div>
+
+                                  <div
+                                    v-if="prop.type === 'array'"
+                                    class="form-row"
+                                  >
+                                    <div class="form-field">
+                                      <label>Min Items</label>
+                                      <InputNumber
+                                        v-model="prop.minItems"
+                                        placeholder="Min items"
+                                        :min="0"
+                                      />
+                                    </div>
+                                    <div class="form-field">
+                                      <label>Max Items</label>
+                                      <InputNumber
+                                        v-model="prop.maxItems"
+                                        placeholder="Max items"
+                                        :min="0"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div
+                                    v-if="prop.type === 'array'"
+                                    class="form-field checkbox-field"
+                                  >
                                     <Checkbox
-                                      :checked="
-                                        schema.data.required?.includes(propName)
-                                      "
-                                      @change="
-                                        toggleSchemaPropertyRequired(
-                                          schema.name,
-                                          propName,
-                                          $event.checked
-                                        )
-                                      "
-                                      :inputId="'prop-req-' + propName"
+                                      v-model="prop.uniqueItems"
+                                      :inputId="'prop-unique-' + propName"
                                       :binary="true"
                                     />
-                                    <label :for="'prop-req-' + propName"
-                                      >Required</label
+                                    <label :for="'prop-unique-' + propName"
+                                      >Unique Items</label
                                     >
+                                  </div>
+
+                                  <!-- Common validations for all types (hidden for $ref) -->
+                                  <div class="form-field" v-if="prop.type !== '$ref'">
+                                    <label>Enum Values</label>
+                                    <AutoComplete multiple typeahead
+                                      v-model="prop.enum"
+                                      placeholder="Add value and press Enter"
+                                    />
+                                  </div>
+
+                                  <div class="form-row" v-if="prop.type !== '$ref'">
+                                    <div class="form-field">
+                                      <label>Default Value</label>
+                                      <InputText
+                                        v-model="prop.default"
+                                        placeholder="Default value"
+                                      />
+                                    </div>
+                                    <div class="form-field">
+                                      <label>Example</label>
+                                      <InputText
+                                        v-model="prop.example"
+                                        placeholder="Example value"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div class="form-row">
+                                    <div class="form-field checkbox-field">
+                                      <Checkbox
+                                        :checked="
+                                          schema.data.required?.includes(propName)
+                                        "
+                                        @change="
+                                          toggleSchemaPropertyRequired(
+                                            schema.name,
+                                            propName,
+                                            $event.checked
+                                          )
+                                        "
+                                        :inputId="'prop-req-' + propName"
+                                        :binary="true"
+                                      />
+                                      <label :for="'prop-req-' + propName"
+                                        >Required</label
+                                      >
+                                    </div>
+                                    <div class="form-field checkbox-field">
+                                      <Checkbox
+                                        v-model="prop.nullable"
+                                        :inputId="'prop-nullable-' + propName"
+                                        :binary="true"
+                                      />
+                                      <label :for="'prop-nullable-' + propName"
+                                        >Nullable</label
+                                      >
+                                    </div>
                                   </div>
                                 </div>
                                 <Button
@@ -1154,22 +1397,264 @@
                               </div>
                             </div>
 
+                            <!-- String top-level schema validations -->
+                            <div v-if="schema.data.type === 'string'">
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Format</label>
+                                  <Select
+                                    v-model="schema.data.format"
+                                    :options="[
+                                      '',
+                                      'date',
+                                      'date-time',
+                                      'password',
+                                      'byte',
+                                      'binary',
+                                      'email',
+                                      'uri',
+                                      'uuid',
+                                      'hostname',
+                                      'ipv4',
+                                      'ipv6',
+                                    ]"
+                                    placeholder="Format"
+                                  />
+                                </div>
+                                <div class="form-field">
+                                  <label>Pattern</label>
+                                  <InputText
+                                    v-model="schema.data.pattern"
+                                    placeholder="^[a-zA-Z0-9]+$"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Min Length</label>
+                                  <InputNumber
+                                    v-model="schema.data.minLength"
+                                    placeholder="Min length"
+                                    :min="0"
+                                  />
+                                </div>
+                                <div class="form-field">
+                                  <label>Max Length</label>
+                                  <InputNumber
+                                    v-model="schema.data.maxLength"
+                                    placeholder="Max length"
+                                    :min="0"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <!-- Number/Integer top-level schema validations -->
                             <div
-                              v-if="schema.data.type === 'array'"
-                              class="form-field"
+                              v-if="
+                                schema.data.type === 'number' ||
+                                schema.data.type === 'integer'
+                              "
                             >
-                              <label>Array Items Type</label>
-                              <Select
-                                v-model="schema.data.items.type"
-                                :options="[
-                                  'string',
-                                  'number',
-                                  'integer',
-                                  'boolean',
-                                  'object',
-                                ]"
-                                placeholder="Items type"
-                              />
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Format</label>
+                                  <Select
+                                    v-model="schema.data.format"
+                                    :options="
+                                      schema.data.type === 'integer'
+                                        ? ['', 'int32', 'int64']
+                                        : ['', 'float', 'double']
+                                    "
+                                    placeholder="Format"
+                                  />
+                                </div>
+                                <div class="form-field">
+                                  <label>Multiple Of</label>
+                                  <InputNumber
+                                    v-model="schema.data.multipleOf"
+                                    placeholder="Multiple of"
+                                    :min="0"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Minimum</label>
+                                  <InputNumber
+                                    v-model="schema.data.minimum"
+                                    placeholder="Min value"
+                                  />
+                                </div>
+                                <div class="form-field">
+                                  <label>Maximum</label>
+                                  <InputNumber
+                                    v-model="schema.data.maximum"
+                                    placeholder="Max value"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-row">
+                                <div class="form-field checkbox-field">
+                                  <Checkbox
+                                    v-model="schema.data.exclusiveMinimum"
+                                    :inputId="'schema-excl-min-' + schema.name"
+                                    :binary="true"
+                                  />
+                                  <label
+                                    :for="'schema-excl-min-' + schema.name"
+                                    >Exclusive Minimum</label
+                                  >
+                                </div>
+                                <div class="form-field checkbox-field">
+                                  <Checkbox
+                                    v-model="schema.data.exclusiveMaximum"
+                                    :inputId="'schema-excl-max-' + schema.name"
+                                    :binary="true"
+                                  />
+                                  <label
+                                    :for="'schema-excl-max-' + schema.name"
+                                    >Exclusive Maximum</label
+                                  >
+                                </div>
+                              </div>
+                            </div>
+
+                            <!-- Array top-level schema validations -->
+                            <div v-if="schema.data.type === 'array'">
+                              <div class="form-field" v-if="schema.data.items">
+                                <label>Array Items Type</label>
+                                <Select
+                                  v-model="schema.data.items.type"
+                                  :options="[
+                                    'string',
+                                    'number',
+                                    'integer',
+                                    'boolean',
+                                    'object',
+                                    '$ref',
+                                  ]"
+                                  placeholder="Items type"
+                                />
+                              </div>
+                              <div
+                                class="form-field"
+                                v-if="schema.data.items && schema.data.items.type === '$ref'"
+                              >
+                                <label>Array Items Schema Reference</label>
+                                <Select
+                                  v-model="schema.data.items.$ref"
+                                  :options="availableSchemas"
+                                  optionLabel="label"
+                                  optionValue="value"
+                                  placeholder="Select schema"
+                                />
+                              </div>
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Min Items</label>
+                                  <InputNumber
+                                    v-model="schema.data.minItems"
+                                    placeholder="Min items"
+                                    :min="0"
+                                  />
+                                </div>
+                                <div class="form-field">
+                                  <label>Max Items</label>
+                                  <InputNumber
+                                    v-model="schema.data.maxItems"
+                                    placeholder="Max items"
+                                    :min="0"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-field checkbox-field">
+                                <Checkbox
+                                  v-model="schema.data.uniqueItems"
+                                  :inputId="'schema-unique-' + schema.name"
+                                  :binary="true"
+                                />
+                                <label :for="'schema-unique-' + schema.name"
+                                  >Unique Items</label
+                                >
+                              </div>
+                            </div>
+
+                            <!-- Object top-level additional validations -->
+                            <div v-if="schema.data.type === 'object'">
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Min Properties</label>
+                                  <InputNumber
+                                    v-model="schema.data.minProperties"
+                                    placeholder="Min properties"
+                                    :min="0"
+                                  />
+                                </div>
+                                <div class="form-field">
+                                  <label>Max Properties</label>
+                                  <InputNumber
+                                    v-model="schema.data.maxProperties"
+                                    placeholder="Max properties"
+                                    :min="0"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-field checkbox-field">
+                                <Checkbox
+                                  v-model="schema.data.additionalProperties"
+                                  :inputId="
+                                    'schema-addl-props-' + schema.name
+                                  "
+                                  :binary="true"
+                                  :trueValue="true"
+                                  :falseValue="false"
+                                />
+                                <label
+                                  :for="'schema-addl-props-' + schema.name"
+                                  >Allow Additional Properties</label
+                                >
+                              </div>
+                            </div>
+
+                            <!-- Common fields for all non-object types -->
+                            <div
+                              v-if="schema.data.type !== 'object'"
+                            >
+                              <div class="form-field">
+                                <label>Enum Values</label>
+                                <AutoComplete multiple typeahead
+                                  v-model="schema.data.enum"
+                                  placeholder="Add value and press Enter"
+                                />
+                              </div>
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Default Value</label>
+                                  <InputText
+                                    v-model="schema.data.default"
+                                    placeholder="Default value"
+                                  />
+                                </div>
+                                <div class="form-field">
+                                  <label>Example</label>
+                                  <InputText
+                                    v-model="schema.data.example"
+                                    placeholder="Example value"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-field checkbox-field">
+                                <Checkbox
+                                  v-model="schema.data.nullable"
+                                  :inputId="'schema-nullable-' + schema.name"
+                                  :binary="true"
+                                />
+                                <label
+                                  :for="'schema-nullable-' + schema.name"
+                                  >Nullable</label
+                                >
+                              </div>
                             </div>
                           </div>
                         </TabPanel>
@@ -1356,7 +1841,7 @@ import InputNumber from "primevue/inputnumber";
 import Textarea from "primevue/textarea";
 import Select from "primevue/select";
 import Checkbox from "primevue/checkbox";
-import Chips from "primevue/chips";
+import AutoComplete from "primevue/autocomplete";
 import Dialog from "primevue/dialog";
 import Tabs from "primevue/tabs";
 import TabList from "primevue/tablist";
@@ -1378,7 +1863,7 @@ export default {
     Textarea,
     Select,
     Checkbox,
-    Chips,
+    AutoComplete,
     Dialog,
     Tabs,
     TabList,
@@ -1454,12 +1939,64 @@ export default {
       "head",
     ];
 
+    // Helper: normalize $ref properties on load for form editing
+    const normalizeRefsForForm = (obj) => {
+      if (!obj || typeof obj !== 'object') return obj;
+      if (obj.components && obj.components.schemas) {
+        for (const schemaName of Object.keys(obj.components.schemas)) {
+          const schema = obj.components.schemas[schemaName];
+          if (schema.properties) {
+            for (const propName of Object.keys(schema.properties)) {
+              const prop = schema.properties[propName];
+              if (prop.$ref && !prop.type) {
+                prop.type = '$ref';
+              }
+              if (prop.type === 'array' && prop.items && prop.items.$ref && !prop.items.type) {
+                prop.items.type = '$ref';
+              }
+            }
+          }
+          if (schema.type === 'array' && schema.items && schema.items.$ref && !schema.items.type) {
+            schema.items.type = '$ref';
+          }
+        }
+      }
+      return obj;
+    };
+
+    // Helper: clean $ref properties on emit for valid OpenAPI output
+    const cleanRefsForOutput = (obj) => {
+      if (!obj || typeof obj !== 'object') return obj;
+      if (obj.components && obj.components.schemas) {
+        for (const schemaName of Object.keys(obj.components.schemas)) {
+          const schema = obj.components.schemas[schemaName];
+          if (schema.properties) {
+            for (const propName of Object.keys(schema.properties)) {
+              const prop = schema.properties[propName];
+              if (prop.type === '$ref') {
+                const ref = prop.$ref || '';
+                schema.properties[propName] = { $ref: ref };
+              } else if (prop.type === 'array' && prop.items && prop.items.type === '$ref') {
+                const ref = prop.items.$ref || '';
+                prop.items = { $ref: ref };
+              }
+            }
+          }
+          if (schema.type === 'array' && schema.items && schema.items.type === '$ref') {
+            const ref = schema.items.$ref || '';
+            schema.items = { $ref: ref };
+          }
+        }
+      }
+      return obj;
+    };
+
     // Initialize form data from prop
     watch(
       () => props.modelValue,
       (newValue) => {
         if (newValue && Object.keys(newValue).length > 0) {
-          formData.value = JSON.parse(JSON.stringify(newValue));
+          formData.value = normalizeRefsForForm(JSON.parse(JSON.stringify(newValue)));
           // Ensure nested objects exist
           if (!formData.value.info) formData.value.info = {};
           if (!formData.value.info.contact) formData.value.info.contact = {};
@@ -1497,7 +2034,7 @@ export default {
               delete cleaned.info.license;
             }
           }
-          emit("update:modelValue", cleaned);
+          emit("update:modelValue", cleanRefsForOutput(cleaned));
         } catch (e) {
           // Fallback: emit raw value if cloning fails
           emit("update:modelValue", newVal);
@@ -1706,7 +2243,7 @@ export default {
 
     const availableSchemas = computed(() => {
       return Object.keys(formData.value.components?.schemas || {}).map(
-        (name) => `#/components/schemas/${name}`
+        (name) => ({ label: name, value: `#/components/schemas/${name}` })
       );
     });
 
@@ -1943,6 +2480,25 @@ export default {
       }
     };
 
+    // Type change handlers - initialize sub-structures
+    const onSchemaTypeChange = (schema) => {
+      if (schema.data.type === 'array' && !schema.data.items) {
+        schema.data.items = { type: 'string' };
+      }
+      if (schema.data.type === 'object' && !schema.data.properties) {
+        schema.data.properties = {};
+      }
+    };
+
+    const onPropertyTypeChange = (prop) => {
+      if (prop.type === 'array' && !prop.items) {
+        prop.items = { type: 'string' };
+      }
+      if (prop.type === '$ref' && !prop.$ref) {
+        prop.$ref = '';
+      }
+    };
+
     // Drag and drop handlers
     const handleDragStart = (event, schemaName, propName, index) => {
       draggedProperty.value = propName;
@@ -2113,6 +2669,8 @@ export default {
       removeSchemaProperty,
       renameSchemaProperty,
       toggleSchemaPropertyRequired,
+      onSchemaTypeChange,
+      onPropertyTypeChange,
       handleDragStart,
       handleDragOver,
       handleDrop,
@@ -2263,18 +2821,18 @@ export default {
   outline: none;
 }
 
-.form-field :deep(.p-chips) {
+.form-field :deep(.p-autocomplete) {
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 6px 10px;
   transition: border-color 0.15s ease;
 }
 
-.form-field :deep(.p-chips:hover) {
+.form-field :deep(.p-autocomplete:hover) {
   border-color: #d1d5db;
 }
 
-.form-field :deep(.p-chips:focus-within) {
+.form-field :deep(.p-autocomplete:focus-within) {
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
