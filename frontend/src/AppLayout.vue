@@ -88,7 +88,7 @@ import LoginPage from "./components/LoginPage.vue";
 import TokenManager from "./components/TokenManager.vue";
 import LintPanel from "./components/LintPanel.vue";
 import AppHeader from "./AppHeader.vue";
-import { computed } from "vue";
+import { computed, ref, provide } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApp } from "./composables/useApp";
 
@@ -124,6 +124,10 @@ export default {
         .push({ name, params: route.params, query: { view: value } })
         .catch(() => {});
     };
+
+    const sidebarCollapsed = ref(false);
+    provide("sidebarCollapsed", sidebarCollapsed);
+
     return {
       ...app,
       selectedView,
@@ -187,7 +191,7 @@ body {
 }
 
 .main-content {
-  max-width: 1800px;
+  max-width: 2000px;
   margin: 0 auto;
 }
 

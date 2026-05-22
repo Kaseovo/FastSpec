@@ -62,12 +62,12 @@ onMounted(async () => {
 }
 
 .logo {
-  height: 28px;
+  height: 50px;
   width: auto;
 }
 
 .version-badge {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   background: rgba(37, 99, 255, 0.1);
   color: #2563ff;
   padding: 2px 8px;
@@ -82,7 +82,7 @@ onMounted(async () => {
 
 .tagline {
   color: #6b7280;
-  font-size: 0.9rem;
+  font-size: 1rem;
   margin: 0;
 }
 </style>

@@ -2,6 +2,14 @@
   <div>
     <div class="toolbar">
       <div class="toolbar-left">
+        <Button
+          :icon="sidebarCollapsed ? 'pi pi-chevron-right' : 'pi pi-chevron-left'"
+          :title="sidebarCollapsed ? 'Show Saved Specs' : 'Hide Saved Specs'"
+          :aria-label="sidebarCollapsed ? 'Show Saved Specs' : 'Hide Saved Specs'"
+          severity="secondary"
+          rounded
+          @click="sidebarCollapsed = !sidebarCollapsed"
+        />
         <Button label="New" icon="pi pi-plus" @click="showNewDialog = true" />
         <Button label="Save" icon="pi pi-save" severity="success" @click="openSaveDialog" />
       </div>
@@ -69,6 +77,7 @@ export default {
     const toggleDiff = inject("toggleDiff");
     const viewMode = inject("viewMode", ref("form"));
     const showTokenDialog = inject("showTokenDialog");
+    const sidebarCollapsed = inject("sidebarCollapsed", ref(false));
 
     // Unsaved helpers injected from App.vue
     const hasUnsavedChanges = inject("hasUnsavedChanges", ref(false));
@@ -190,6 +199,7 @@ export default {
       createBlank,
       createFromTemplate,
       showTokenDialog,
+      sidebarCollapsed,
     };
   },
   methods: {

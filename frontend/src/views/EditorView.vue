@@ -1,9 +1,11 @@
 <template>
-  <div class="editor-view">
+  <div :class="['editor-view', { 'sidebar-collapsed': sidebarCollapsed }]">
     <div class="editor-left">
-      <ErrorBoundary v-if="isAuthenticated">
-        <SpecList @spec-selected="loadSpec" :selected-id="selectedSpecId" />
-      </ErrorBoundary>
+      <div v-show="!sidebarCollapsed">
+        <ErrorBoundary v-if="isAuthenticated">
+          <SpecList @spec-selected="loadSpec" :selected-id="selectedSpecId" />
+        </ErrorBoundary>
+      </div>
     </div>
 
     <div class="editor-main">
@@ -67,7 +69,7 @@ import LintPanel from "../components/LintPanel.vue";
 import PreviewPanel from "../components/PreviewPanel.vue";
 import ErrorBoundary from "../components/ErrorBoundary.vue";
 import { useApp } from "../composables/useApp";
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 export default {
@@ -92,9 +94,12 @@ export default {
       app.loadSpec(route.params.id).catch(() => {});
     }
 
+    const sidebarCollapsed = inject("sidebarCollapsed", { value: false });
+
     return {
       ...app,
       mode,
+      sidebarCollapsed,
     };
   },
 };
@@ -106,10 +111,26 @@ export default {
   grid-template-columns: 250px 1fr;
   gap: 20px;
   height: 100%;
+  transition: grid-template-columns 0.2s ease;
+}
+
+.editor-view.sidebar-collapsed {
+  grid-template-columns: 0 1fr;
+  gap: 0;
+}
+
+.editor-view.sidebar-collapsed .editor-left {
+  overflow: hidden;
+  width: 0;
 }
 
 .editor-left {
   min-height: 0;
+  position: relative;
+}
+
+.sidebar-toggle {
+  margin-bottom: 8px;
 }
 
 .editor-main {
