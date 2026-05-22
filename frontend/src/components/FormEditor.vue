@@ -1722,7 +1722,8 @@
 
     <!-- Add Path Dialog -->
     <Dialog
-      v-model="showAddPathDialog"
+      :visible="showAddPathDialog"
+      @update:visible="showAddPathDialog = $event"
       header="Add New Path"
       :style="{ width: '500px' }"
       modal
@@ -1771,7 +1772,8 @@
 
     <!-- Add Method Dialog -->
     <Dialog
-      v-model="showAddMethodDialogVisible"
+      :visible="showAddMethodDialogVisible"
+      @update:visible="showAddMethodDialogVisible = $event"
       header="Add Method to Path"
       :style="{ width: '500px' }"
       modal
@@ -1811,7 +1813,8 @@
 
     <!-- Add Schema Dialog -->
     <Dialog
-      v-model="showAddSchemaDialog"
+      :visible="showAddSchemaDialog"
+      @update:visible="showAddSchemaDialog = $event"
       header="Add New Schema"
       :style="{ width: '400px' }"
       modal
