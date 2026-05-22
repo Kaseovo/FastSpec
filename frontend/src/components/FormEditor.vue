@@ -1725,45 +1725,43 @@
       :visible="showAddPathDialog"
       @update:visible="showAddPathDialog = $event"
       header="Add New Path"
-      :style="{ width: '500px' }"
+      :style="{ width: '520px' }"
       modal
     >
       <div class="dialog-content">
         <div class="form-field">
-          <label for="new-path">Path *</label>
-          <InputText
-            id="new-path"
-            v-model="newPath"
-            placeholder="/users/{id}"
-            class="w-full"
-          />
+          <label>HTTP Method</label>
+          <SelectButton
+            v-model="newMethod"
+            :options="httpMethods"
+            class="method-select-button"
+          >
+            <template #option="slotProps">
+              <span :class="['method-chip', 'method-' + slotProps.option.toLowerCase()]">
+                {{ slotProps.option.toUpperCase() }}
+              </span>
+            </template>
+          </SelectButton>
         </div>
         <div class="form-field">
-          <label for="new-method">HTTP Method *</label>
-          <div class="method-selector-grid">
-            <button
-              v-for="method in httpMethods"
-              :key="method"
-              :class="[
-                'method-selector-button',
-                'method-' + method.toLowerCase(),
-                { selected: newMethod === method },
-              ]"
-              @click="newMethod = method"
-              type="button"
-            >
-              <span class="method-name">{{ method.toUpperCase() }}</span>
-              <span class="method-description">{{
-                getMethodDescription(method)
-              }}</span>
-            </button>
-          </div>
+          <label for="new-path">Path</label>
+          <InputGroup>
+            <InputGroupAddon class="path-addon">/</InputGroupAddon>
+            <InputText
+              id="new-path"
+              v-model="newPath"
+              placeholder="users/{id}"
+              @keydown="handlePathKeydown"
+            />
+          </InputGroup>
+          <small class="helper-text">Use {param} for path variables — e.g. users/{id}</small>
         </div>
       </div>
       <template #footer>
         <Button label="Cancel" text @click="showAddPathDialog = false" />
         <Button
-          label="Add"
+          label="Add Path"
+          icon="pi pi-plus"
           @click="addPath"
           :disabled="!newPath || !newMethod"
         />
@@ -1775,30 +1773,23 @@
       :visible="showAddMethodDialogVisible"
       @update:visible="showAddMethodDialogVisible = $event"
       header="Add Method to Path"
-      :style="{ width: '500px' }"
+      :style="{ width: '520px' }"
       modal
     >
       <div class="dialog-content">
         <div class="form-field">
-          <label for="add-method">Select HTTP Method *</label>
-          <div class="method-selector-grid">
-            <button
-              v-for="method in availableMethodsForPath"
-              :key="method"
-              :class="[
-                'method-selector-button',
-                'method-' + method.toLowerCase(),
-                { selected: methodToAdd === method },
-              ]"
-              @click="methodToAdd = method"
-              type="button"
-            >
-              <span class="method-name">{{ method.toUpperCase() }}</span>
-              <span class="method-description">{{
-                getMethodDescription(method)
-              }}</span>
-            </button>
-          </div>
+          <label>HTTP Method</label>
+          <SelectButton
+            v-model="methodToAdd"
+            :options="availableMethodsForPath"
+            class="method-select-button"
+          >
+            <template #option="slotProps">
+              <span :class="['method-chip', 'method-' + slotProps.option.toLowerCase()]">
+                {{ slotProps.option.toUpperCase() }}
+              </span>
+            </template>
+          </SelectButton>
         </div>
       </div>
       <template #footer>
@@ -1807,7 +1798,7 @@
           text
           @click="showAddMethodDialogVisible = false"
         />
-        <Button label="Add" @click="addMethodToPath" :disabled="!methodToAdd" />
+        <Button label="Add Method" icon="pi pi-plus" @click="addMethodToPath" :disabled="!methodToAdd" />
       </template>
     </Dialog>
 
@@ -1859,6 +1850,9 @@ import AccordionPanel from "primevue/accordionpanel";
 import AccordionHeader from "primevue/accordionheader";
 import AccordionContent from "primevue/accordioncontent";
 import Tag from "primevue/tag";
+import SelectButton from "primevue/selectbutton";
+import InputGroup from "primevue/inputgroup";
+import InputGroupAddon from "primevue/inputgroupaddon";
 import ConfirmDialog from "primevue/confirmdialog";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
@@ -1884,6 +1878,9 @@ export default {
     AccordionHeader,
     AccordionContent,
     Tag,
+    SelectButton,
+    InputGroup,
+    InputGroupAddon,
     ConfirmDialog,
   },
   props: {
@@ -2137,11 +2134,13 @@ export default {
     const addPath = () => {
       if (!newPath.value || !newMethod.value) return;
 
-      if (!formData.value.paths[newPath.value]) {
-        formData.value.paths[newPath.value] = {};
+      const fullPath = newPath.value.startsWith('/') ? newPath.value : '/' + newPath.value;
+
+      if (!formData.value.paths[fullPath]) {
+        formData.value.paths[fullPath] = {};
       }
 
-      formData.value.paths[newPath.value][newMethod.value] = {
+      formData.value.paths[fullPath][newMethod.value] = {
         summary: "",
         description: "",
         operationId: "",
@@ -2154,7 +2153,7 @@ export default {
         },
       };
 
-      selectedPath.value = newPath.value;
+      selectedPath.value = fullPath;
       selectedMethod.value = newMethod.value;
       newPath.value = "";
       newMethod.value = "";
@@ -2667,6 +2666,22 @@ export default {
       formData.value.paths[path] = newPathData;
     };
 
+    const handlePathKeydown = (event) => {
+      if (event.key === '{') {
+        event.preventDefault();
+        const input = event.target;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const value = input.value;
+        const newValue = value.substring(0, start) + '{}' + value.substring(end);
+        newPath.value = newValue;
+        // Move cursor inside the braces on next tick
+        setTimeout(() => {
+          input.setSelectionRange(start + 1, start + 1);
+        }, 0);
+      }
+    };
+
     return {
       formData,
       hasChanges,
@@ -2736,6 +2751,7 @@ export default {
       handlePathDrop,
       handleMethodDragStart,
       handleMethodDrop,
+      handlePathKeydown,
       hasEmptyServerUrl,
     };
   },
@@ -3534,6 +3550,88 @@ export default {
   background: #6b7280;
   color: white;
   border-color: #6b7280;
+}
+
+/* ── New SelectButton method chips ── */
+.method-select-button {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+:deep(.method-select-button .p-selectbutton) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+:deep(.method-select-button .p-togglebutton) {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 4px 10px;
+  border-radius: 999px !important;
+  border: 1.5px solid #e5e7eb !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+}
+
+:deep(.method-select-button .p-togglebutton:focus) {
+  box-shadow: none !important;
+}
+
+.method-chip {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 0;
+}
+
+.method-chip.method-get   { color: #1d4ed8; }
+.method-chip.method-post  { color: #166534; }
+.method-chip.method-put   { color: #92400e; }
+.method-chip.method-patch { color: #9a3412; }
+.method-chip.method-delete { color: #991b1b; }
+.method-chip.method-options,
+.method-chip.method-head  { color: #4b5563; }
+
+:deep(.method-select-button .p-togglebutton:has(.method-chip.method-get))    { border-color: #bfdbfe !important; background: #eff6ff !important; }
+:deep(.method-select-button .p-togglebutton:has(.method-chip.method-post))   { border-color: #bbf7d0 !important; background: #f0fdf4 !important; }
+:deep(.method-select-button .p-togglebutton:has(.method-chip.method-put))    { border-color: #fde68a !important; background: #fffbeb !important; }
+:deep(.method-select-button .p-togglebutton:has(.method-chip.method-patch))  { border-color: #fed7aa !important; background: #fff7ed !important; }
+:deep(.method-select-button .p-togglebutton:has(.method-chip.method-delete)) { border-color: #fecaca !important; background: #fef2f2 !important; }
+:deep(.method-select-button .p-togglebutton:has(.method-chip.method-options)),
+:deep(.method-select-button .p-togglebutton:has(.method-chip.method-head))   { border-color: #e5e7eb !important; background: #f9fafb !important; }
+
+
+/* Checked state: stronger border, no background change */
+:deep(.method-select-button .p-togglebutton.p-togglebutton-checked:has(.method-chip.method-get))    { border-color: #2563eb !important; border-width: 2px !important; }
+:deep(.method-select-button .p-togglebutton.p-togglebutton-checked:has(.method-chip.method-post))   { border-color: #16a34a !important; border-width: 2px !important; }
+:deep(.method-select-button .p-togglebutton.p-togglebutton-checked:has(.method-chip.method-put))    { border-color: #d97706 !important; border-width: 2px !important; }
+:deep(.method-select-button .p-togglebutton.p-togglebutton-checked:has(.method-chip.method-patch))  { border-color: #ea580c !important; border-width: 2px !important; }
+:deep(.method-select-button .p-togglebutton.p-togglebutton-checked:has(.method-chip.method-delete)) { border-color: #dc2626 !important; border-width: 2px !important; }
+:deep(.method-select-button .p-togglebutton.p-togglebutton-checked:has(.method-chip.method-options)),
+:deep(.method-select-button .p-togglebutton.p-togglebutton-checked:has(.method-chip.method-head))   { border-color: #4b5563 !important; border-width: 2px !important; }
+
+
+/* ── Path input helpers ── */
+.helper-text {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
+  display: block;
+}
+
+:deep(.path-addon) {
+  font-weight: 600;
+  font-size: 15px;
+  color: #6b7280;
+  min-width: 2rem;
+  justify-content: center;
 }
 
 .w-full {
