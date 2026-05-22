@@ -204,40 +204,14 @@
                       <div class="drag-handle" title="Drag to reorder">
                         <i class="pi pi-bars"></i>
                       </div>
-                      <span class="path-url">{{ pathItem.path }}</span>
-                      <div class="path-methods">
-                        <span
-                          v-for="method in pathItem.methods"
-                          :key="method"
-                          :class="[
-                            'method-badge',
-                            'method-' + method.toLowerCase(),
-                          ]"
-                        >
-                          {{ method.toUpperCase() }}
-                        </span>
-                      </div>
-                      <Button
-                        icon="pi pi-trash"
-                        severity="danger"
-                        text
-                        rounded
-                        size="small"
-                        @click.stop="removePath(pathItem.path)"
-                      />
-                    </div>
-                  </AccordionHeader>
-                  <AccordionContent>
-                    <div class="path-methods-editor">
-                      <div class="method-tabs">
+                      <div class="path-header-chips" @click.stop>
                         <button
                           v-for="(method, methodIndex) in pathItem.methods"
                           :key="method"
                           :class="[
-                            'method-tab-button',
-                            'method-' + method.toLowerCase(),
+                            'path-method-chip',
                             {
-                              active:
+                              'path-method-chip--active':
                                 selectedPath === pathItem.path &&
                                 selectedMethod === method,
                             },
@@ -257,30 +231,42 @@
                             handleMethodDrop($event, pathItem.path, methodIndex)
                           "
                           @dragend="handleDragEnd"
-                          @click="selectPathMethod(pathItem.path, method)"
+                          @click.stop="selectPathMethod(pathItem.path, method)"
                         >
-                          <i class="pi pi-bars drag-icon"></i>
-                          {{ method.toUpperCase() }}
-                          <Button
-                            icon="pi pi-times"
-                            severity="danger"
-                            text
-                            rounded
-                            size="small"
-                            class="method-delete-btn"
+                          <span :class="['method-chip', 'method-' + method.toLowerCase()]">
+                            {{ method.toUpperCase() }}
+                          </span>
+                          <span
+                            class="chip-delete-btn"
                             @click.stop="removeMethod(pathItem.path, method)"
-                            v-tooltip.top="'Remove method'"
-                          />
+                            v-tooltip.top="'Remove ' + method.toUpperCase()"
+                          >
+                            <i class="pi pi-times"></i>
+                          </span>
                         </button>
-                        <Button
-                          label="Add Method"
-                          icon="pi pi-plus"
-                          size="small"
-                          text
-                          @click="showAddMethodDialog(pathItem.path)"
-                        />
                       </div>
-
+                      <span class="path-url">{{ pathItem.path }}</span>
+                      <Button
+                        icon="pi pi-plus"
+                        label="Add Method"
+                        size="small"
+                        text
+                        class="path-add-method-btn"
+                        @click.stop="showAddMethodDialog(pathItem.path)"
+                      />
+                      <Button
+                        icon="pi pi-trash"
+                        severity="danger"
+                        text
+                        rounded
+                        size="small"
+                        class="path-delete-btn"
+                        @click.stop="removePath(pathItem.path)"
+                      />
+                    </div>
+                  </AccordionHeader>
+                  <AccordionContent>
+                    <div class="path-methods-editor">
                       <div
                         v-if="selectedPath === pathItem.path && selectedMethod"
                         class="method-editor"
@@ -2171,24 +2157,50 @@ export default {
     const removeMethod = (path, method) => {
       if (!formData.value.paths[path]) return;
 
-      // Delete the method from the path
-      delete formData.value.paths[path][method];
+      confirm.require({
+        message: `Are you sure you want to remove the ${method.toUpperCase()} method from ${path}?`,
+        header: "Confirm Deletion",
+        icon: "pi pi-exclamation-triangle",
+        acceptProps: {
+          label: "Yes",
+          severity: "danger",
+        },
+        rejectProps: {
+          label: "No",
+          outlined: true,
+        },
+        accept: () => {
+          // Delete the method from the path
+          delete formData.value.paths[path][method];
 
-      // If this was the selected method, clear the selection
-      if (selectedPath.value === path && selectedMethod.value === method) {
-        selectedMethod.value = "";
-      }
+          // If this was the selected method, clear the selection
+          if (selectedPath.value === path && selectedMethod.value === method) {
+            selectedMethod.value = "";
+          }
 
-      // If no methods left for this path, remove the path entirely
-      const remainingMethods = Object.keys(formData.value.paths[path]).filter(
-        (key) =>
-          !["summary", "description", "servers", "parameters"].includes(key)
-      );
+          // If no methods left for this path, remove the path entirely
+          const remainingMethods = Object.keys(formData.value.paths[path]).filter(
+            (key) =>
+              !["summary", "description", "servers", "parameters"].includes(key)
+          );
 
-      if (remainingMethods.length === 0) {
-        delete formData.value.paths[path];
-        selectedPath.value = "";
-      }
+          if (remainingMethods.length === 0) {
+            delete formData.value.paths[path];
+            selectedPath.value = "";
+          }
+
+          toast.add({
+            severity: "success",
+            summary: "Method Removed",
+            detail: `${method.toUpperCase()} removed from ${path}.`,
+            life: 3000,
+          });
+          confirm.close();
+        },
+        reject: () => {
+          confirm.close();
+        },
+      });
     };
 
     const showAddMethodDialog = (path) => {
@@ -3018,11 +3030,12 @@ export default {
   border: 1px dashed #e5e7eb;
 }
 
+/* ── Path accordion header ── */
 .path-header,
 .schema-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   cursor: move;
 }
@@ -3030,6 +3043,7 @@ export default {
 .path-header .drag-handle {
   color: #d1d5db;
   cursor: grab;
+  flex-shrink: 0;
 }
 
 .path-header .drag-handle:hover {
@@ -3041,62 +3055,102 @@ export default {
   background: #f3f4f6;
 }
 
+.path-header-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .path-url,
 .schema-name {
   font-family: "SF Mono", "Monaco", "Inconsolata", "Courier New", monospace;
   font-weight: 600;
   font-size: 13px;
   color: #111827;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Method pill chips in the accordion header — same design as SelectButton dialog chips ── */
+.path-method-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid #e5e7eb;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-shadow: none;
+}
+
+.path-method-chip:focus {
+  box-shadow: none;
+}
+
+/* Per-method border + background (mirrors the SelectButton togglebutton rules) */
+.path-method-chip:has(.method-chip.method-get)    { border-color: #bfdbfe; background: #eff6ff; }
+.path-method-chip:has(.method-chip.method-post)   { border-color: #bbf7d0; background: #f0fdf4; }
+.path-method-chip:has(.method-chip.method-put)    { border-color: #fde68a; background: #fffbeb; }
+.path-method-chip:has(.method-chip.method-patch)  { border-color: #fed7aa; background: #fff7ed; }
+.path-method-chip:has(.method-chip.method-delete) { border-color: #fecaca; background: #fef2f2; }
+.path-method-chip:has(.method-chip.method-options),
+.path-method-chip:has(.method-chip.method-head)   { border-color: #e5e7eb; background: #f9fafb; }
+
+/* Active state: stronger border, same background (mirrors checked togglebutton rules) */
+.path-method-chip.path-method-chip--active:has(.method-chip.method-get)    { border-color: #2563eb; border-width: 2px; }
+.path-method-chip.path-method-chip--active:has(.method-chip.method-post)   { border-color: #16a34a; border-width: 2px; }
+.path-method-chip.path-method-chip--active:has(.method-chip.method-put)    { border-color: #d97706; border-width: 2px; }
+.path-method-chip.path-method-chip--active:has(.method-chip.method-patch)  { border-color: #ea580c; border-width: 2px; }
+.path-method-chip.path-method-chip--active:has(.method-chip.method-delete) { border-color: #dc2626; border-width: 2px; }
+.path-method-chip.path-method-chip--active:has(.method-chip.method-options),
+.path-method-chip.path-method-chip--active:has(.method-chip.method-head)   { border-color: #4b5563; border-width: 2px; }
+
+.path-method-chip.dragging-method {
+  opacity: 0.4;
+}
+
+/* Delete ✕ inside chip */
+.chip-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-left: 1px;
+  cursor: pointer;
+  font-size: 9px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  color: inherit;
+}
+
+.path-method-chip:hover .chip-delete-btn {
+  opacity: 0.65;
+}
+
+.chip-delete-btn:hover {
+  opacity: 1;
+}
+
+.path-add-method-btn {
   flex-shrink: 0;
 }
 
-.path-methods {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-  flex-wrap: wrap;
+.path-delete-btn {
+  flex-shrink: 0;
 }
 
-.method-badge {
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.method-badge.method-get {
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.method-badge.method-post {
-  background: #f0fdf4;
-  color: #166534;
-}
-
-.method-badge.method-put {
-  background: #fffbeb;
-  color: #92400e;
-}
-
-.method-badge.method-patch {
-  background: #fff7ed;
-  color: #9a3412;
-}
-
-.method-badge.method-delete {
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.method-badge.method-options,
-.method-badge.method-head {
-  background: #f3f4f6;
-  color: #4b5563;
-}
-
+/* ── Path methods editor (accordion content) ── */
 .path-methods-editor {
   padding: 16px;
   background: #f9fafb;
@@ -3104,135 +3158,8 @@ export default {
   border: 1px solid #f3f4f6;
 }
 
-.method-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.method-tab-button {
-  padding: 6px 12px;
-  border: 1px solid;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  cursor: move;
-  transition: background-color 0.15s ease;
-  background: #ffffff;
-  outline: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.method-tab-button .drag-icon {
-  font-size: 9px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.method-tab-button:hover .drag-icon {
-  opacity: 0.5;
-}
-
-.method-delete-btn {
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  margin-left: 4px;
-}
-
-.method-tab-button:hover .method-delete-btn {
-  opacity: 1;
-}
-
-.method-tab-button:hover {
-  opacity: 0.85;
-}
-
-.method-tab-button.dragging-method {
-  opacity: 0.4;
-}
-
-.method-tab-button.method-get {
-  color: #1d4ed8;
-  border-color: #bfdbfe;
-  background: #eff6ff;
-}
-
-.method-tab-button.method-get.active {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
-}
-
-.method-tab-button.method-post {
-  color: #166534;
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-}
-
-.method-tab-button.method-post.active {
-  background: #22c55e;
-  color: white;
-  border-color: #22c55e;
-}
-
-.method-tab-button.method-put {
-  color: #92400e;
-  border-color: #fde68a;
-  background: #fffbeb;
-}
-
-.method-tab-button.method-put.active {
-  background: #f59e0b;
-  color: white;
-  border-color: #f59e0b;
-}
-
-.method-tab-button.method-patch {
-  color: #9a3412;
-  border-color: #fed7aa;
-  background: #fff7ed;
-}
-
-.method-tab-button.method-patch.active {
-  background: #f97316;
-  color: white;
-  border-color: #f97316;
-}
-
-.method-tab-button.method-delete {
-  color: #991b1b;
-  border-color: #fecaca;
-  background: #fef2f2;
-}
-
-.method-tab-button.method-delete.active {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
-}
-
-.method-tab-button.method-options,
-.method-tab-button.method-head {
-  color: #4b5563;
-  border-color: #e5e7eb;
-  background: #f9fafb;
-}
-
-.method-tab-button.method-options.active,
-.method-tab-button.method-head.active {
-  background: #6b7280;
-  color: white;
-  border-color: #6b7280;
-}
-
 .method-editor {
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  /* no top border needed — content starts directly */
 }
 
 .param-item,
