@@ -31,9 +31,12 @@ logger = logging.getLogger(__name__)
 
 # --- existing endpoints (unchanged) ---
 @router.get("/", response_model=List[OpenAPISpecResponse])
-async def list_specs(current_user: User = Depends(get_current_user)):
+async def list_specs(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """List all OpenAPI specifications for the current user"""
-    service = SpecService()
+    service = SpecService(db)
     return service.list_specs(current_user)
 
 
@@ -41,9 +44,10 @@ async def list_specs(current_user: User = Depends(get_current_user)):
 async def get_spec(
     spec_id: str,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Get a specific OpenAPI specification by ID"""
-    service = SpecService()
+    service = SpecService(db)
     return service.get_spec(current_user, spec_id)
 
 
@@ -57,32 +61,8 @@ async def create_spec(
     db: Session = Depends(get_db),
 ):
     """Create a new OpenAPI specification and its initial version"""
-    service = SpecService()
-    spec_response = service.create_spec(current_user, spec_data, version)
-
-    # Also create the OpenAPISpec and initial SpecVersion in SQL
-    # so versioning/lint endpoints (which query SQL) work correctly.
-    sql_spec = OpenAPISpec(
-        id=spec_response.id,
-        name=spec_response.name,
-        title=spec_response.title,
-        version=spec_response.version,
-        spec_json=spec_response.spec_json,
-        user_id=current_user.id,
-    )
-    db.add(sql_spec)
-    db.flush()
-
-    initial_version = SpecVersion(
-        spec_id=spec_response.id,
-        version=spec_response.version,
-        content=spec_response.spec_json,
-        created_by=current_user.id,
-    )
-    db.add(initial_version)
-    db.commit()
-
-    return spec_response
+    service = SpecService(db)
+    return service.create_spec(current_user, spec_data, version)
 
 
 @router.put("/{spec_id}", response_model=OpenAPISpecResponse)
@@ -90,9 +70,10 @@ async def update_spec(
     spec_id: str,
     spec_data: OpenAPISpecUpdate,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Update only the name of an existing OpenAPI specification."""
-    service = SpecService()
+    service = SpecService(db)
     return service.update_spec(current_user, spec_id, spec_data)
 
 
@@ -100,9 +81,10 @@ async def update_spec(
 async def delete_spec(
     spec_id: str,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Delete an OpenAPI specification"""
-    service = SpecService()
+    service = SpecService(db)
     return service.delete_spec(current_user, spec_id)
 
 
@@ -155,13 +137,24 @@ async def get_spec_diff(
             detail=f"Spec with id {spec_id} not found",
         )
 
-    if not spec.previous_spec_json:
+    # Get the two most recent versions to compare
+    recent_versions = (
+        db.query(SpecVersion)
+        .filter(SpecVersion.spec_id == spec_id)
+        .order_by(SpecVersion.created_at.desc())
+        .limit(2)
+        .all()
+    )
+
+    if len(recent_versions) < 2:
         return {
             "has_changes": False,
             "message": "No previous version available for comparison",
         }
 
-    diff = compare_specs(spec.spec_json, spec.previous_spec_json)
+    current_content = recent_versions[0].content
+    previous_content = recent_versions[1].content
+    diff = compare_specs(current_content, previous_content)
 
     if output_format == "markdown":
         markdown = generate_markdown_report(diff)
@@ -174,21 +167,7 @@ async def get_spec_diff(
 
 
 def _resolve_spec_or_404(db: Session, spec_id: str, current_user: User):
-    """Verify the spec exists and belongs to the current user.
-
-    Checks Redis first (primary store used by SpecService), then falls back to
-    the SQL database for legacy data.
-    """
-    # Try Redis (primary store)
-    from auth.redis_client import get_redis
-
-    redis = get_redis()
-    redis_key = f"spec:{current_user.id}:{spec_id}"
-    data = redis.get(redis_key)
-    if data:
-        return data  # Spec exists in Redis for this user
-
-    # Fallback to SQL database
+    """Verify the spec exists and belongs to the current user."""
     spec = (
         db.query(OpenAPISpec)
         .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == current_user.id)
@@ -285,7 +264,7 @@ async def create_version(
     db: Session = Depends(get_db),
 ):
     """Create a new version for a spec"""
-    _resolve_spec_or_404(db, spec_id, current_user)
+    spec = _resolve_spec_or_404(db, spec_id, current_user)
 
     # Validate basic payload
     if not payload.version or not isinstance(payload.content, dict):
@@ -303,6 +282,9 @@ async def create_version(
 
     try:
         db.add(new_version)
+        # Update the spec's current version pointer
+        spec.version = payload.version
+        db.add(spec)
         db.commit()
         db.refresh(new_version)
     except IntegrityError as e:
@@ -378,12 +360,8 @@ async def delete_version(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to delete this version",
         )
-    # If this is the last published version and spec has live pointer (spec.version == ver.version), disallow unless owner
-    if (
-        ver.is_published
-        and spec.version == ver.version
-        and current_user.id != spec.user_id
-    ):
+    # If this version is the current live version, disallow unless owner
+    if spec.version == ver.version and current_user.id != spec.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot delete published live version",
@@ -406,7 +384,7 @@ async def compare_versions(
     db: Session = Depends(get_db),
 ):
     """Compare a stored base against either another stored version or an unsaved draft provided inline."""
-    _resolve_spec_or_404(db, spec_id, current_user)
+    spec = _resolve_spec_or_404(db, spec_id, current_user)
 
     base_key = body.get("base")
     compare_key = body.get("compare")
@@ -424,8 +402,7 @@ async def compare_versions(
     if base_key in ("live", "latest"):
         base_ver = (
             db.query(SpecVersion)
-            .filter(SpecVersion.spec_id == spec_id, SpecVersion.is_published)
-            .order_by(SpecVersion.created_at.desc())
+            .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == spec.version)
             .first()
         )
     else:
@@ -509,13 +486,7 @@ async def publish_version(
             detail="Not allowed to publish this version",
         )
     try:
-        # mark all other versions is_published=False (simple approach)
-        db.query(SpecVersion).filter(SpecVersion.spec_id == spec_id).update(
-            {"is_published": False}
-        )
-        ver.is_published = True
         spec.version = ver.version
-        db.add(ver)
         db.add(spec)
     except Exception as e:
         logger.exception("Error publishing spec version: %s", e)

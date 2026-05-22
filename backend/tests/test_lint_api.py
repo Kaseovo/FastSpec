@@ -176,9 +176,7 @@ def test_lint_by_spec_id(db_session):
     user = _make_user(db_session)
     spec = OpenAPISpec(
         name="my-spec",
-        title="Test API",
         version="1.0.0",
-        spec_json=VALID_SPEC,
         user_id=user.id,
     )
     db_session.add(spec)
@@ -212,9 +210,7 @@ def test_lint_draft_for_spec(db_session):
     user = _make_user(db_session)
     spec = OpenAPISpec(
         name="draft-spec",
-        title="Draft API",
         version="1.0.0",
-        spec_json=VALID_SPEC,
         user_id=user.id,
     )
     db_session.add(spec)
@@ -252,9 +248,7 @@ def test_lint_by_spec_id_wrong_user(db_session):
 
     spec = OpenAPISpec(
         name="user-a-spec",
-        title="API",
         version="1.0.0",
-        spec_json=VALID_SPEC,
         user_id=user_a.id,
     )
     db_session.add(spec)

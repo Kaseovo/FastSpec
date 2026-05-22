@@ -4,7 +4,7 @@ from fastmcp_server.middleware import LoggingMiddleware, AuthenticationMiddlewar
 from fastmcp.exceptions import ToolError
 from fastmcp_server.authentication import get_current_user, TokenPayload
 from database import SessionLocal
-from models import OpenAPISpec
+from models import OpenAPISpec, SpecVersion
 from permissions import Action
 import json
 
@@ -52,11 +52,20 @@ def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> 
 
         result = []
         for s in specs:
+            # Derive title from current version content
+            current_ver = (
+                db.query(SpecVersion)
+                .filter(SpecVersion.spec_id == s.id, SpecVersion.version == s.version)
+                .first()
+            )
+            title = ""
+            if current_ver and current_ver.content:
+                title = current_ver.content.get("info", {}).get("title", "")
             result.append(
                 {
                     "id": s.id,
                     "name": s.name,
-                    "title": s.title,
+                    "title": title,
                     "version": s.version,
                     "created_at": s.created_at.isoformat() if s.created_at else None,
                     "updated_at": s.updated_at.isoformat() if s.updated_at else None,
@@ -91,14 +100,24 @@ def get_spec_details(
         if not spec:
             raise ToolError("Spec not found or access denied")
 
+        # Load content from the current version
+        current_version = (
+            db.query(SpecVersion)
+            .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == spec.version)
+            .first()
+        )
+        title = ""
+        if current_version and current_version.content:
+            title = current_version.content.get("info", {}).get("title", "")
+
         return {
             "id": spec.id,
             "name": spec.name,
-            "title": spec.title,
+            "title": title,
             "version": spec.version,
             "created_at": spec.created_at.isoformat() if spec.created_at else None,
             "updated_at": spec.updated_at.isoformat() if spec.updated_at else None,
-            "content": spec.spec_json if spec.spec_json else None,
+            "content": current_version.content if current_version else None,
         }
     except ToolError:
         raise

@@ -64,10 +64,7 @@ class OpenAPISpec(Base):
         String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
     )
     name = Column(String(255), index=True, nullable=False)
-    title = Column(String(255), nullable=False)
     version = Column(String(50), nullable=False)
-    spec_json = Column(JSON, nullable=False)
-    previous_spec_json = Column(JSON, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
@@ -85,7 +82,7 @@ class OpenAPISpec(Base):
     )
 
     def __repr__(self):
-        return f"<OpenAPISpec {self.name} ({self.title} v{self.version})>"
+        return f"<OpenAPISpec {self.name} (v{self.version})>"
 
 
 class SpecVersion(Base):
@@ -110,9 +107,6 @@ class SpecVersion(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     meta = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    is_published = Column(
-        Boolean, nullable=False, server_default="false", default=False
-    )
     spec = relationship("OpenAPISpec", back_populates="versions")
     creator = relationship("User", foreign_keys=[created_by])
 

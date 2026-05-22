@@ -33,6 +33,15 @@
               {{ v.version }}
             </option>
           </select>
+          <InputText
+            v-if="showNewVersionInput"
+            id="new-version-inline"
+            v-model="newVersion"
+            class="w-full"
+            style="margin-top: 0.5rem"
+            :placeholder="suggestedVersion"
+          />
+          <div v-if="showNewVersionInput && errorMsg" class="inline-error">{{ errorMsg }}</div>
         </div>
 
         <div class="form-group" v-else>

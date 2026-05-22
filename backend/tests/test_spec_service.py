@@ -1,13 +1,24 @@
-import json
-from unittest.mock import MagicMock, patch
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+from database import Base
 from services.spec_service import SpecService
-from backend.auth.redis_client import get_redis
 from schemas import OpenAPISpecCreate, OpenAPISpecUpdate
+from models import User, OpenAPISpec, SpecVersion
 
-import uuid
-import fakeredis
+# In-memory SQLite for tests
+engine = create_engine("sqlite:///:memory:")
+TestSessionLocal = sessionmaker(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def db_session():
+    Base.metadata.create_all(bind=engine)
+    session = TestSessionLocal()
+    yield session
+    session.close()
+    Base.metadata.drop_all(bind=engine)
 
 
 class DummyUser:
@@ -15,128 +26,110 @@ class DummyUser:
         self.id = id
 
 
-def make_spec_model(id, name, title, version, spec_json, user_id):
-    m = MagicMock()
-    m.id = id
-    m.name = name
-    m.title = title
-    m.version = version
-    m.spec_json = spec_json
-    m.user_id = user_id
-    m.created_at = "created"
-    m.updated_at = "updated"
-    return m
-
-
-@patch("backend.auth.redis_client.get_redis")
-def test_list_specs_returns_serialized_list(mock_get_redis):
-    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
-    mock_get_redis.return_value = fake_redis
+def test_list_specs_empty(db_session):
     user = DummyUser(1)
-    spec_id = str(uuid.uuid4())
-    spec_obj = {
-        "id": spec_id,
-        "name": "s1",
-        "title": "Title",
-        "version": "1.0",
-        "spec_json": {"info": {}},
-        "user_id": 1,
-        "created_at": "2023-01-01T00:00:00",
-        "updated_at": "2023-01-01T00:00:00",
-    }
-    fake_redis.set(f"spec:1:{spec_id}", json.dumps(spec_obj))
-    fake_redis.sadd("specs:1", spec_id)
-    svc = SpecService()
+    svc = SpecService(db_session)
     res = svc.list_specs(user)
-    assert isinstance(res, list)
-    assert res[0].id == spec_id
+    assert res == []
 
 
-@patch("backend.auth.redis_client.get_redis")
-def test_get_spec_not_found_raises(mock_get_redis):
-    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
-    mock_get_redis.return_value = fake_redis
+def test_create_spec_validates_and_creates(db_session):
+    user = DummyUser(2)
+    payload = OpenAPISpecCreate(
+        name="new",
+        spec_json={"info": {"title": "Test"}, "openapi": "3.0.0", "paths": {}},
+    )
+    svc = SpecService(db_session)
+    res = svc.create_spec(user, payload, "1.2.3")
+    assert res.name == "new"
+    assert res.version == "1.2.3"
+    assert res.title == "Test"
+    # Verify in DB
+    spec = db_session.query(OpenAPISpec).filter(OpenAPISpec.id == res.id).first()
+    assert spec is not None
+    assert spec.name == "new"
+    ver = db_session.query(SpecVersion).filter(SpecVersion.spec_id == res.id).first()
+    assert ver is not None
+    assert ver.version == "1.2.3"
+
+
+def test_list_specs_returns_created(db_session):
     user = DummyUser(1)
-    svc = SpecService()
+    svc = SpecService(db_session)
+    payload = OpenAPISpecCreate(
+        name="s1", spec_json={"info": {"title": "T"}, "openapi": "3.0.0", "paths": {}}
+    )
+    svc.create_spec(user, payload, "1.0.0")
+    res = svc.list_specs(user)
+    assert len(res) == 1
+    assert res[0].name == "s1"
+
+
+def test_get_spec_not_found_raises(db_session):
+    user = DummyUser(1)
+    svc = SpecService(db_session)
     with pytest.raises(Exception):
         svc.get_spec(user, "nope")
 
 
-@patch("backend.auth.redis_client.get_redis")
-def test_create_spec_validates_and_creates(mock_get_redis):
-    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
-    mock_get_redis.return_value = fake_redis
-    user = DummyUser(2)
-    payload = OpenAPISpecCreate(name="new", spec_json={"info": {}})
-    svc = SpecService()
-    res = svc.create_spec(user, payload, "1.2.3")
-    assert res.name == "new"
-    assert res.version == "1.2.3"
-    # Check persistence
-    keys = fake_redis.smembers("specs:2")
-    assert len(keys) == 1
-    stored = fake_redis.get(f"spec:2:{res.id}")
-    assert stored is not None
-
-
-@patch("backend.auth.redis_client.get_redis")
-def test_update_spec_name_conflict(mock_get_redis):
-    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
-    mock_get_redis.return_value = fake_redis
+def test_update_spec_name(db_session):
     user = DummyUser(1)
-    # Create two specs for user 1
-    spec_id = str(uuid.uuid4())
-    other_id = str(uuid.uuid4())
-    spec_obj = {
-        "id": spec_id,
-        "name": "s1",
-        "title": "T",
-        "version": "1.0",
-        "spec_json": {"info": {}},
-        "user_id": 1,
-        "created_at": "2023-01-01T00:00:00",
-        "updated_at": "2023-01-01T00:00:00",
-    }
-    other_obj = dict(spec_obj)
-    other_obj["id"] = other_id
-    other_obj["name"] = "other"
-    fake_redis.set(f"spec:1:{spec_id}", json.dumps(spec_obj))
-    fake_redis.set(f"spec:1:{other_id}", json.dumps(other_obj))
-    fake_redis.sadd("specs:1", spec_id, other_id)
-    svc = SpecService()
+    svc = SpecService(db_session)
+    payload = OpenAPISpecCreate(
+        name="orig", spec_json={"info": {"title": "T"}, "openapi": "3.0.0", "paths": {}}
+    )
+    created = svc.create_spec(user, payload, "1.0.0")
+    updated = svc.update_spec(
+        user, created.id, OpenAPISpecUpdate(version="1.0.0", name="renamed")
+    )
+    assert updated.name == "renamed"
+
+
+def test_update_spec_name_conflict(db_session):
+    user = DummyUser(1)
+    svc = SpecService(db_session)
+    spec_json = {"info": {"title": "T"}, "openapi": "3.0.0", "paths": {}}
+    svc.create_spec(user, OpenAPISpecCreate(name="s1", spec_json=spec_json), "1.0.0")
+    created2 = svc.create_spec(
+        user, OpenAPISpecCreate(name="s2", spec_json=spec_json), "1.0.0"
+    )
     with pytest.raises(Exception):
-        svc.update_spec(user, spec_id, OpenAPISpecUpdate(version="1.0", name="other"))
+        svc.update_spec(
+            user, created2.id, OpenAPISpecUpdate(version="1.0.0", name="s1")
+        )
 
 
-@patch("backend.auth.redis_client.get_redis")
-def test_delete_spec_not_found(mock_get_redis):
-    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
-    mock_get_redis.return_value = fake_redis
+def test_delete_spec_success(db_session):
     user = DummyUser(1)
-    svc = SpecService()
+    svc = SpecService(db_session)
+    payload = OpenAPISpecCreate(
+        name="to-delete",
+        spec_json={"info": {"title": "T"}, "openapi": "3.0.0", "paths": {}},
+    )
+    created = svc.create_spec(user, payload, "1.0.0")
+    svc.delete_spec(user, created.id)
+    assert (
+        db_session.query(OpenAPISpec).filter(OpenAPISpec.id == created.id).first()
+        is None
+    )
+
+
+def test_delete_spec_not_found(db_session):
+    user = DummyUser(1)
+    svc = SpecService(db_session)
     with pytest.raises(Exception):
         svc.delete_spec(user, "nope")
 
 
-@patch("backend.auth.redis_client.get_redis")
-def test_delete_spec_success(mock_get_redis):
-    fake_redis = fakeredis.FakeStrictRedis(decode_responses=True)
-    mock_get_redis.return_value = fake_redis
-    user = DummyUser(1)
-    spec_id = str(uuid.uuid4())
-    spec_obj = {
-        "id": spec_id,
-        "name": "s1",
-        "title": "T",
-        "version": "1.0",
-        "spec_json": {"info": {}},
-        "user_id": 1,
-        "created_at": "2023-01-01T00:00:00",
-        "updated_at": "2023-01-01T00:00:00",
-    }
-    fake_redis.set(f"spec:1:{spec_id}", json.dumps(spec_obj))
-    fake_redis.sadd("specs:1", spec_id)
-    svc = SpecService()
-    svc.delete_spec(user, spec_id)
-    assert fake_redis.get(f"spec:1:{spec_id}") is None
-    assert spec_id not in fake_redis.smembers("specs:1")
+def test_user_isolation(db_session):
+    user1 = DummyUser(1)
+    user2 = DummyUser(2)
+    svc = SpecService(db_session)
+    spec_json = {"info": {"title": "T"}, "openapi": "3.0.0", "paths": {}}
+    svc.create_spec(
+        user1, OpenAPISpecCreate(name="u1-spec", spec_json=spec_json), "1.0.0"
+    )
+    # user2 should not see user1's spec
+    assert svc.list_specs(user2) == []
+    with pytest.raises(Exception):
+        svc.get_spec(user2, "some-id")

@@ -48,6 +48,15 @@
               v-if="spec.id !== '__unsaved'"
             />
             <Button
+              icon="pi pi-pencil"
+              text
+              rounded
+              @click.stop="startRename(spec)"
+              aria-label="Rename spec"
+              title="Rename"
+              v-if="spec.id !== '__unsaved'"
+            />
+            <Button
               icon="pi pi-history"
               text
               rounded
@@ -182,12 +191,37 @@
         </div>
       </div>
     </Drawer>
+
+    <!-- Rename Dialog -->
+    <Dialog
+      :visible="renameDialogVisible"
+      @update:visible="renameDialogVisible = $event"
+      modal
+      header="Rename Specification"
+      :style="{ width: '400px' }"
+    >
+      <div class="form-group">
+        <label for="rename-input" style="margin-bottom: 0.5rem; display: block">New name</label>
+        <InputText
+          id="rename-input"
+          v-model="renameValue"
+          class="w-full"
+          @keyup.enter="confirmRename"
+        />
+      </div>
+      <template #footer>
+        <Button label="Cancel" severity="secondary" @click="cancelRename" />
+        <Button label="Rename" @click="confirmRename" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script>
 import { ref, onMounted, watch, inject, computed, onUnmounted } from "vue";
 import Button from "primevue/button";
+import Dialog from "primevue/dialog";
+import InputText from "primevue/inputtext";
 import Select from "primevue/select";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
@@ -196,6 +230,7 @@ import { useConfirm } from "primevue/useconfirm";
 import {
   fetchSpecs,
   deleteSpec,
+  updateSpec,
   listSpecVersions,
   compareSpecVersions,
   compareDraftWithVersion,
@@ -207,6 +242,8 @@ export default {
   name: "SpecList",
   components: {
     Button,
+    Dialog,
+    InputText,
     Select,
     Message,
     ProgressSpinner,
@@ -522,6 +559,40 @@ export default {
       });
     };
 
+    // --- Rename spec (modal) ---
+    const renameDialogVisible = ref(false);
+    const renamingSpec = ref(null);
+    const renameValue = ref("");
+
+    const startRename = (spec) => {
+      renamingSpec.value = spec;
+      renameValue.value = spec.name;
+      renameDialogVisible.value = true;
+    };
+
+    const cancelRename = () => {
+      renameDialogVisible.value = false;
+      renamingSpec.value = null;
+      renameValue.value = "";
+    };
+
+    const confirmRename = async () => {
+      const spec = renamingSpec.value;
+      if (!spec) return;
+      const newName = renameValue.value.trim();
+      if (!newName || newName === spec.name) {
+        cancelRename();
+        return;
+      }
+      try {
+        await updateSpec(spec.id, { name: newName, version: spec.version });
+        spec.name = newName;
+      } catch (err) {
+        console.error("Failed to rename spec:", err);
+      }
+      cancelRename();
+    };
+
     const openHistory = async (spec) => {
       historySpec.value = spec;
       historyOpen.value = true;
@@ -666,6 +737,11 @@ export default {
       error,
       selectSpec,
       confirmDelete,
+      renameDialogVisible,
+      renameValue,
+      startRename,
+      cancelRename,
+      confirmRename,
       expanded,
       toggleExpand,
       formatRelativeTime,
@@ -756,6 +832,11 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.spec-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .spec-info h4 {
