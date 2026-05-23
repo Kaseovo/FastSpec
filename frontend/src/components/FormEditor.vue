@@ -247,6 +247,15 @@
                       </div>
                       <span class="path-url" @click.stop="selectFirstMethod(pathItem)">{{ pathItem.path }}</span>
                       <Button
+                        icon="pi pi-pencil"
+                        size="small"
+                        text
+                        rounded
+                        class="path-edit-btn"
+                        v-tooltip.top="'Edit path'"
+                        @click.stop="editPath(pathItem.path)"
+                      />
+                      <Button
                         icon="pi pi-plus"
                         label="Add Method"
                         size="small"
@@ -368,8 +377,13 @@
                                   param, pIndex
                                 ) in currentMethodData.parameters"
                                 :key="pIndex"
-                                class="param-item"
+                                :class="['param-item', { 'param-item--path': param.in === 'path' }]"
                               >
+                                <!-- Path parameter lock banner -->
+                                <div v-if="param.in === 'path'" class="path-param-banner">
+                                  <i class="pi pi-lock"></i>
+                                  <span>Path parameter — edit the path template to rename or remove</span>
+                                </div>
                                 <div class="param-content">
                                   <div class="form-row">
                                     <div class="form-field">
@@ -377,6 +391,7 @@
                                       <InputText
                                         v-model="param.name"
                                         placeholder="id"
+                                        :disabled="param.in === 'path'"
                                       />
                                     </div>
                                     <div class="form-field">
@@ -385,11 +400,11 @@
                                         v-model="param.in"
                                         :options="[
                                           'query',
-                                          'path',
                                           'header',
                                           'cookie',
                                         ]"
                                         placeholder="Select location"
+                                        :disabled="param.in === 'path'"
                                       />
                                     </div>
                                   </div>
@@ -660,6 +675,7 @@
                                   </div>
                                 </div>
                                 <Button
+                                  v-if="param.in !== 'path'"
                                   icon="pi pi-trash"
                                   severity="danger"
                                   text
@@ -1821,6 +1837,42 @@
         <Button label="Add" @click="addSchema" :disabled="!newSchemaName" />
       </template>
     </Dialog>
+
+    <!-- Edit Path Dialog -->
+    <Dialog
+      :visible="showEditPathDialog"
+      @update:visible="showEditPathDialog = $event"
+      header="Edit Path"
+      :style="{ width: '520px' }"
+      modal
+    >
+      <div class="dialog-content">
+        <div class="form-field">
+          <label for="edit-path">Path</label>
+          <InputGroup>
+            <InputGroupAddon class="path-addon">/</InputGroupAddon>
+            <InputText
+              id="edit-path"
+              v-model="editPathValue"
+              placeholder="users/{id}"
+              :class="{ 'p-invalid': editPathError }"
+              @keydown="handleEditPathKeydown"
+            />
+          </InputGroup>
+          <small v-if="editPathError" class="p-error">{{ editPathError }}</small>
+          <small v-else class="helper-text">Use {param} for path variables — e.g. users/{id}</small>
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Cancel" text @click="showEditPathDialog = false" />
+        <Button
+          label="Save Path"
+          icon="pi pi-check"
+          @click="confirmEditPath"
+        />
+      </template>
+    </Dialog>
+
     <ConfirmDialog />
   </div>
 </template>
@@ -1908,6 +1960,10 @@ export default {
 
     const hasChanges = ref(false);
     const showAddPathDialog = ref(false);
+    const showEditPathDialog = ref(false);
+    const editingPath = ref("");
+    const editPathValue = ref("");
+    const editPathError = ref("");
     const showAddMethodDialogVisible = ref(false);
     const showAddSchemaDialog = ref(false);
     const showAddResponseDialog = ref(false);
@@ -2127,6 +2183,65 @@ export default {
       });
     };
 
+    // ── Path Parameter helpers ──────────────────────────────────────────────
+
+    const extractPathParams = (path) => {
+      const matches = path.match(/\{([^}]+)\}/g) || [];
+      return matches.map((m) => m.slice(1, -1));
+    };
+
+    const isParamContentFilled = (param) => {
+      if (!param) return false;
+      return !!(
+        param.description ||
+        param.schema?.format ||
+        param.schema?.example ||
+        param.schema?.pattern ||
+        param.schema?.enum?.length ||
+        param.schema?.default !== undefined
+      );
+    };
+
+    const buildPathParam = (name) => ({
+      name,
+      in: "path",
+      description: "",
+      required: true,
+      schema: { type: "string" },
+    });
+
+    /**
+     * Syncs path parameters for a single method after a path template change.
+     * - Adds param entries for newly introduced tokens.
+     * - Removes entries for dropped tokens (calls onRemove for content-filled ones).
+     * - Preserves existing param definitions for surviving tokens.
+     * Returns a list of params-to-remove that have content (so caller can confirm).
+     */
+    const computePathParamDiff = (method, oldParamNames, newParamNames) => {
+      const existing = method.parameters || [];
+      const toAdd = newParamNames.filter(
+        (n) => !oldParamNames.includes(n) && !existing.find((p) => p.in === "path" && p.name === n)
+      );
+      const toRemove = oldParamNames.filter((n) => !newParamNames.includes(n));
+      const filledRemovals = toRemove
+        .map((n) => existing.find((p) => p.in === "path" && p.name === n))
+        .filter((p) => p && isParamContentFilled(p));
+      return { toAdd, toRemove, filledRemovals };
+    };
+
+    const applyPathParamSync = (path, methodKey, toAdd, toRemove) => {
+      const method = formData.value.paths[path]?.[methodKey];
+      if (!method) return;
+      if (!method.parameters) method.parameters = [];
+      // Remove dropped params
+      method.parameters = method.parameters.filter(
+        (p) => !(p.in === "path" && toRemove.includes(p.name))
+      );
+      // Add new params (prepend so path params appear first)
+      const newParams = toAdd.map(buildPathParam);
+      method.parameters = [...newParams, ...method.parameters];
+    };
+
     const addPath = () => {
       if (!newMethod.value) return;
 
@@ -2138,12 +2253,16 @@ export default {
         formData.value.paths[fullPath] = {};
       }
 
+      const pathParamNames = extractPathParams(fullPath);
+      const pathParams = pathParamNames.map(buildPathParam);
+
       formData.value.paths[fullPath][newMethod.value] = {
         summary: "",
         description: "",
         operationId: "",
         tags: [],
         deprecated: false,
+        parameters: pathParams,
         responses: {
           200: {
             description: "Successful response",
@@ -2224,12 +2343,16 @@ export default {
     const addMethodToPath = () => {
       if (!methodToAdd.value || !currentPathForMethod.value) return;
 
+      const pathParamNames = extractPathParams(currentPathForMethod.value);
+      const pathParams = pathParamNames.map(buildPathParam);
+
       formData.value.paths[currentPathForMethod.value][methodToAdd.value] = {
         summary: "",
         description: "",
         operationId: "",
         tags: [],
         deprecated: false,
+        parameters: pathParams,
         responses: {
           200: {
             description: "Successful response",
@@ -2240,6 +2363,101 @@ export default {
       selectedPath.value = currentPathForMethod.value;
       selectedMethod.value = methodToAdd.value;
       showAddMethodDialogVisible.value = false;
+    };
+
+    // ── Edit Path ────────────────────────────────────────────────────────────
+
+    const editPath = (path) => {
+      editingPath.value = path;
+      // Strip leading slash for the input (same convention as Add Path)
+      editPathValue.value = path.startsWith('/') ? path.slice(1) : path;
+      editPathError.value = "";
+      showEditPathDialog.value = true;
+    };
+
+    const confirmEditPath = () => {
+      const newFullPath = editPathValue.value
+        ? (editPathValue.value.startsWith('/') ? editPathValue.value : '/' + editPathValue.value)
+        : '/';
+      const oldFullPath = editingPath.value;
+
+      // Conflict check
+      if (newFullPath !== oldFullPath && formData.value.paths[newFullPath]) {
+        editPathError.value = "Path already exists";
+        return;
+      }
+      editPathError.value = "";
+
+      const oldParamNames = extractPathParams(oldFullPath);
+      const newParamNames = extractPathParams(newFullPath);
+
+      const methods = Object.keys(formData.value.paths[oldFullPath] || {});
+
+      // Collect all content-filled removals across all methods
+      const allFilledRemovals = [];
+      const diffsByMethod = {};
+      for (const methodKey of methods) {
+        const method = formData.value.paths[oldFullPath][methodKey];
+        const diff = computePathParamDiff(method, oldParamNames, newParamNames);
+        diffsByMethod[methodKey] = diff;
+        for (const p of diff.filledRemovals) {
+          if (!allFilledRemovals.find((x) => x.name === p.name)) {
+            allFilledRemovals.push(p);
+          }
+        }
+      }
+
+      const doRename = () => {
+        // Apply param sync to all methods
+        for (const methodKey of methods) {
+          const { toAdd, toRemove } = diffsByMethod[methodKey];
+          applyPathParamSync(oldFullPath, methodKey, toAdd, toRemove);
+        }
+
+        // Rename path key (preserve order)
+        const pathsArray = Object.entries(formData.value.paths);
+        const idx = pathsArray.findIndex(([k]) => k === oldFullPath);
+        if (idx !== -1) {
+          pathsArray[idx] = [newFullPath, pathsArray[idx][1]];
+        }
+        formData.value.paths = Object.fromEntries(pathsArray);
+
+        // Update selection if the renamed path was selected
+        if (selectedPath.value === oldFullPath) {
+          selectedPath.value = newFullPath;
+        }
+
+        showEditPathDialog.value = false;
+        editingPath.value = "";
+        editPathValue.value = "";
+
+        toast.add({
+          severity: "success",
+          summary: "Path Updated",
+          detail: `Path renamed to ${newFullPath}`,
+          life: 3000,
+        });
+      };
+
+      if (allFilledRemovals.length > 0) {
+        const names = allFilledRemovals.map((p) => `{${p.name}}`).join(", ");
+        confirm.require({
+          message: `Editing this path will remove path parameters: ${names}. Their definitions will be lost. Continue?`,
+          header: "Remove Path Parameters?",
+          icon: "pi pi-exclamation-triangle",
+          acceptProps: { label: "Yes, remove them", severity: "danger" },
+          rejectProps: { label: "Cancel", outlined: true },
+          accept: () => {
+            doRename();
+            confirm.close();
+          },
+          reject: () => {
+            confirm.close();
+          },
+        });
+      } else {
+        doRename();
+      }
     };
 
     const selectPathMethod = (path, method) => {
@@ -2750,10 +2968,29 @@ export default {
       }
     };
 
+    const handleEditPathKeydown = (event) => {
+      if (event.key === '{') {
+        event.preventDefault();
+        const input = event.target;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const value = input.value;
+        const newValue = value.substring(0, start) + '{}' + value.substring(end);
+        editPathValue.value = newValue;
+        setTimeout(() => {
+          input.setSelectionRange(start + 1, start + 1);
+        }, 0);
+      }
+    };
+
     return {
       formData,
       hasChanges,
       showAddPathDialog,
+      showEditPathDialog,
+      editingPath,
+      editPathValue,
+      editPathError,
       showAddMethodDialogVisible,
       showAddSchemaDialog,
       showAddResponseDialog,
@@ -2782,6 +3019,8 @@ export default {
       addPath,
       removePath,
       removeMethod,
+      editPath,
+      confirmEditPath,
       showAddMethodDialog,
       addMethodToPath,
       selectPathMethod,
@@ -2824,6 +3063,7 @@ export default {
       handleMethodDragStart,
       handleMethodDrop,
       handlePathKeydown,
+      handleEditPathKeydown,
       hasEmptyServerUrl,
     };
   },
@@ -3204,6 +3444,46 @@ export default {
 
 .path-delete-btn {
   flex-shrink: 0;
+}
+
+.path-edit-btn {
+  flex-shrink: 0;
+  color: #6b7280 !important;
+}
+
+.path-edit-btn:hover {
+  color: #3b82f6 !important;
+}
+
+/* ── Path parameter lock banner ── */
+.path-param-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #1d4ed8;
+}
+
+.path-param-banner .pi-lock {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.param-item--path {
+  border-color: #bfdbfe;
+  background: #f8faff;
+}
+
+.param-item--path :deep(.p-inputtext:disabled),
+.param-item--path :deep(.p-select.p-disabled) {
+  opacity: 0.7;
+  background: #f0f4ff;
+  cursor: not-allowed;
 }
 
 /* ── Path methods editor (accordion content) ── */
