@@ -35,34 +35,23 @@
           </div>
           <div class="spec-actions">
             <Button
-              :icon="
-                expanded.has(spec.id)
-                  ? 'pi pi-chevron-up'
-                  : 'pi pi-chevron-down'
-              "
-              text
-              rounded
-              @click.stop="toggleExpand(spec.id)"
-              :aria-expanded="expanded.has(spec.id)"
-              aria-label="Toggle details"
-              v-if="spec.id !== '__unsaved'"
-            />
-            <Button
               icon="pi pi-pencil"
               text
               rounded
+              size="small"
               @click.stop="startRename(spec)"
               aria-label="Rename spec"
-              title="Rename"
+              v-tooltip.top="'Rename'"
               v-if="spec.id !== '__unsaved'"
             />
             <Button
               icon="pi pi-history"
               text
               rounded
+              size="small"
               @click.stop="openHistory(spec)"
               aria-label="Open version history"
-              title="Version history"
+              v-tooltip.top="'Version history'"
               v-if="spec.id !== '__unsaved'"
             />
             <Button
@@ -70,10 +59,21 @@
               severity="danger"
               text
               rounded
+              size="small"
               @click.stop="confirmDelete(spec)"
+              v-tooltip.top="'Delete'"
             />
           </div>
         </div>
+        <button
+          v-if="spec.id !== '__unsaved'"
+          class="spec-expand-toggle"
+          :aria-expanded="expanded.has(spec.id)"
+          @click.stop="toggleExpand(spec.id)"
+        >
+          <span class="spec-expand-label">Details</span>
+          <i :class="expanded.has(spec.id) ? 'pi pi-angle-up' : 'pi pi-angle-down'"></i>
+        </button>
         <div class="version-row" v-if="spec.id !== '__unsaved'">
           <span>Version</span>
           <span>
@@ -489,19 +489,14 @@ export default {
     };
 
     const selectSpec = async (spec) => {
-      console.log(
-        "Selecting spec:",
-        spec,
-        "Unsaved changes?",
-        hasUnsavedChanges.value,
-        "Unsaved spec:",
-        unsavedSpec.value
-      );
-      // If selecting a persisted spec while there's a transient unsaved spec with changes, confirm discard
-      if (
-        hasUnsavedChanges.value ||
-        (unsavedSpec.value && unsavedSpec.value.id === "__unsaved")
-      ) {
+      // Skip prompt when clicking the card that is already selected / is the unsaved card itself
+      const isAlreadySelected = spec.id === props.selectedId || spec.id === selectedId.value;
+      const isUnsavedCard = spec.id === "__unsaved";
+
+      // Never discard when re-clicking the same spec — just return silently
+      if (isAlreadySelected) return;
+
+      if (!isUnsavedCard && hasUnsavedChanges.value) {
         if (!confirmOpen.value) {
           confirmOpen.value = true;
           confirm.require({
@@ -853,7 +848,35 @@ export default {
 
 .spec-actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  align-items: center;
+}
+
+.spec-expand-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid #f3f4f6;
+  color: #6b7280;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 0 0 6px 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.spec-expand-toggle:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.spec-expand-label {
+  font-weight: 500;
 }
 
 .spec-details {

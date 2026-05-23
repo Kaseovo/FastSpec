@@ -1873,7 +1873,6 @@
       </template>
     </Dialog>
 
-    <ConfirmDialog />
   </div>
 </template>
 
@@ -1900,7 +1899,6 @@ import Tag from "primevue/tag";
 import SelectButton from "primevue/selectbutton";
 import InputGroup from "primevue/inputgroup";
 import InputGroupAddon from "primevue/inputgroupaddon";
-import ConfirmDialog from "primevue/confirmdialog";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 
@@ -1928,7 +1926,6 @@ export default {
     SelectButton,
     InputGroup,
     InputGroupAddon,
-    ConfirmDialog,
   },
   props: {
     modelValue: {
