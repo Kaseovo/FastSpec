@@ -204,7 +204,7 @@
                       <div class="drag-handle" title="Drag to reorder">
                         <i class="pi pi-bars"></i>
                       </div>
-                      <div class="path-header-chips" @click.stop>
+                      <div class="path-header-chips">
                         <button
                           v-for="(method, methodIndex) in pathItem.methods"
                           :key="method"
@@ -231,7 +231,7 @@
                             handleMethodDrop($event, pathItem.path, methodIndex)
                           "
                           @dragend="handleDragEnd"
-                          @click.stop="selectPathMethod(pathItem.path, method)"
+                          @click="selectPathMethod(pathItem.path, method)"
                         >
                           <span :class="['method-chip', 'method-' + method.toLowerCase()]">
                             {{ method.toUpperCase() }}
@@ -245,7 +245,7 @@
                           </span>
                         </button>
                       </div>
-                      <span class="path-url">{{ pathItem.path }}</span>
+                      <span class="path-url" @click.stop="selectFirstMethod(pathItem)">{{ pathItem.path }}</span>
                       <Button
                         icon="pi pi-plus"
                         label="Add Method"
@@ -2256,6 +2256,9 @@ export default {
     };
 
     const selectFirstMethod = (pathItem) => {
+      // Only auto-select first method if no method chip was directly clicked
+      // (chip clicks call selectPathMethod first and set selectedPath/selectedMethod)
+      if (selectedPath.value === pathItem.path && selectedMethod.value) return;
       if (pathItem.methods && pathItem.methods.length > 0) {
         selectedPath.value = pathItem.path;
         selectedMethod.value = pathItem.methods[0];
