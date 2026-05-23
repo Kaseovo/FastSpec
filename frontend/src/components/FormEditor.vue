@@ -199,7 +199,7 @@
                   @dragend="handleDragEnd"
                   :class="{ 'dragging-path': draggedPath === pathItem.path }"
                 >
-                  <AccordionHeader>
+                  <AccordionHeader @click="selectFirstMethod(pathItem)">
                     <div class="path-header">
                       <div class="drag-handle" title="Drag to reorder">
                         <i class="pi pi-bars"></i>
@@ -2236,6 +2236,13 @@ export default {
       selectedMethod.value = method;
     };
 
+    const selectFirstMethod = (pathItem) => {
+      if (pathItem.methods && pathItem.methods.length > 0) {
+        selectedPath.value = pathItem.path;
+        selectedMethod.value = pathItem.methods[0];
+      }
+    };
+
     const addSchema = () => {
       if (!newSchemaName.value) return;
 
@@ -2730,6 +2737,7 @@ export default {
       showAddMethodDialog,
       addMethodToPath,
       selectPathMethod,
+      selectFirstMethod,
       addSchema,
       removeSchema,
       updateSchema,
