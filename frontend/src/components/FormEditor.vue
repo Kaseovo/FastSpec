@@ -317,12 +317,10 @@
 
                               <div class="form-field">
                                 <label>Tags</label>
-                                <AutoComplete multiple typeahead
-                                  v-model="
-                                    formData.paths[selectedPath][selectedMethod]
-                                      .tags
-                                  "
+                                <InputChips
+                                  v-model="formData.paths[selectedPath][selectedMethod].tags"
                                   placeholder="Add tag and press Enter"
+                                  class="w-full"
                                 />
                               </div>
 
@@ -611,9 +609,10 @@
                                   <!-- Enum values -->
                                   <div class="form-field">
                                     <label>Enum Values (optional)</label>
-                                    <AutoComplete multiple typeahead
+                                    <InputChips
                                       v-model="param.schema.enum"
                                       placeholder="Add enum value and press Enter"
+                                      class="w-full"
                                     />
                                   </div>
 
@@ -1318,9 +1317,10 @@
                                   <!-- Common validations for all types (hidden for $ref) -->
                                   <div class="form-field" v-if="prop.type !== '$ref'">
                                     <label>Enum Values</label>
-                                    <AutoComplete multiple typeahead
+                                    <InputChips
                                       v-model="prop.enum"
                                       placeholder="Add value and press Enter"
+                                      class="w-full"
                                     />
                                   </div>
 
@@ -1611,9 +1611,10 @@
                             >
                               <div class="form-field">
                                 <label>Enum Values</label>
-                                <AutoComplete multiple typeahead
+                                <InputChips
                                   v-model="schema.data.enum"
                                   placeholder="Add value and press Enter"
+                                  class="w-full"
                                 />
                               </div>
                               <div class="form-row">
@@ -1824,7 +1825,7 @@ import InputNumber from "primevue/inputnumber";
 import Textarea from "primevue/textarea";
 import Select from "primevue/select";
 import Checkbox from "primevue/checkbox";
-import AutoComplete from "primevue/autocomplete";
+import InputChips from "primevue/inputchips";
 import Dialog from "primevue/dialog";
 import Tabs from "primevue/tabs";
 import TabList from "primevue/tablist";
@@ -1852,7 +1853,7 @@ export default {
     Textarea,
     Select,
     Checkbox,
-    AutoComplete,
+    InputChips,
     Dialog,
     Tabs,
     TabList,
