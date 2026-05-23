@@ -317,10 +317,12 @@
 
                               <div class="form-field">
                                 <label>Tags</label>
-                                <InputChips
+                                <AutoComplete
+                                  multiple
+                                  typeahead
                                   v-model="formData.paths[selectedPath][selectedMethod].tags"
                                   placeholder="Add tag and press Enter"
-                                  class="w-full"
+                                  @keydown.enter.prevent="addChipOnEnter($event, formData.paths[selectedPath][selectedMethod], 'tags')"
                                 />
                               </div>
 
@@ -609,10 +611,12 @@
                                   <!-- Enum values -->
                                   <div class="form-field">
                                     <label>Enum Values (optional)</label>
-                                    <InputChips
+                                    <AutoComplete
+                                      multiple
+                                      typeahead
                                       v-model="param.schema.enum"
                                       placeholder="Add enum value and press Enter"
-                                      class="w-full"
+                                      @keydown.enter.prevent="addChipOnEnter($event, param.schema, 'enum')"
                                     />
                                   </div>
 
@@ -1317,10 +1321,12 @@
                                   <!-- Common validations for all types (hidden for $ref) -->
                                   <div class="form-field" v-if="prop.type !== '$ref'">
                                     <label>Enum Values</label>
-                                    <InputChips
+                                    <AutoComplete
+                                      multiple
+                                      typeahead
                                       v-model="prop.enum"
                                       placeholder="Add value and press Enter"
-                                      class="w-full"
+                                      @keydown.enter.prevent="addChipOnEnter($event, prop, 'enum')"
                                     />
                                   </div>
 
@@ -1611,10 +1617,12 @@
                             >
                               <div class="form-field">
                                 <label>Enum Values</label>
-                                <InputChips
+                                <AutoComplete
+                                  multiple
+                                  typeahead
                                   v-model="schema.data.enum"
                                   placeholder="Add value and press Enter"
-                                  class="w-full"
+                                  @keydown.enter.prevent="addChipOnEnter($event, schema.data, 'enum')"
                                 />
                               </div>
                               <div class="form-row">
@@ -1825,7 +1833,7 @@ import InputNumber from "primevue/inputnumber";
 import Textarea from "primevue/textarea";
 import Select from "primevue/select";
 import Checkbox from "primevue/checkbox";
-import InputChips from "primevue/inputchips";
+import AutoComplete from "primevue/autocomplete";
 import Dialog from "primevue/dialog";
 import Tabs from "primevue/tabs";
 import TabList from "primevue/tablist";
@@ -1853,7 +1861,7 @@ export default {
     Textarea,
     Select,
     Checkbox,
-    InputChips,
+    AutoComplete,
     Dialog,
     Tabs,
     TabList,
@@ -2234,6 +2242,17 @@ export default {
     const selectPathMethod = (path, method) => {
       selectedPath.value = path;
       selectedMethod.value = method;
+    };
+
+    const addChipOnEnter = (event, obj, key) => {
+      const input = event.target;
+      const value = input.value?.trim();
+      if (!value) return;
+      if (!Array.isArray(obj[key])) obj[key] = [];
+      if (!obj[key].includes(value)) {
+        obj[key] = [...obj[key], value];
+      }
+      input.value = "";
     };
 
     const selectFirstMethod = (pathItem) => {
@@ -2738,6 +2757,7 @@ export default {
       addMethodToPath,
       selectPathMethod,
       selectFirstMethod,
+      addChipOnEnter,
       addSchema,
       removeSchema,
       updateSchema,
