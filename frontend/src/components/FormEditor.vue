@@ -187,7 +187,7 @@
                 <p>No paths defined. Add one to get started.</p>
               </div>
 
-              <Accordion v-if="pathsList.length > 0" :multiple="true">
+              <Accordion v-if="pathsList.length > 0" :multiple="true" :value="openPaths" @update:value="openPaths = $event">
                 <AccordionPanel
                   v-for="(pathItem, index) in pathsList"
                   :key="index"
@@ -231,7 +231,7 @@
                             handleMethodDrop($event, pathItem.path, methodIndex)
                           "
                           @dragend="handleDragEnd"
-                          @click="selectPathMethod(pathItem.path, method)"
+                          @click.stop="selectAndOpenPath(pathItem.path, method)"
                         >
                           <span :class="['method-chip', 'method-' + method.toLowerCase()]">
                             {{ method.toUpperCase() }}
@@ -266,7 +266,7 @@
                     </div>
                   </AccordionHeader>
                   <AccordionContent>
-                    <div class="path-methods-editor">
+                    <div :class="['path-methods-editor', { 'path-methods-editor--active': selectedPath === pathItem.path && selectedMethod }]">
                       <div
                         v-if="selectedPath === pathItem.path && selectedMethod"
                         class="method-editor"
@@ -1826,7 +1826,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import InputNumber from "primevue/inputnumber";
@@ -1919,6 +1919,7 @@ export default {
     const currentPathForMethod = ref("");
     const selectedPath = ref("");
     const selectedMethod = ref("");
+    const openPaths = ref([]);
     const requestBodyContentType = ref("application/json");
     const requestBodySchemaType = ref("reference");
     const requestBodySchemaRef = ref("");
@@ -2257,11 +2258,34 @@ export default {
 
     const selectFirstMethod = (pathItem) => {
       // Only auto-select first method if no method chip was directly clicked
-      // (chip clicks call selectPathMethod first and set selectedPath/selectedMethod)
       if (selectedPath.value === pathItem.path && selectedMethod.value) return;
       if (pathItem.methods && pathItem.methods.length > 0) {
         selectedPath.value = pathItem.path;
         selectedMethod.value = pathItem.methods[0];
+        // Ensure the panel is open after PrimeVue toggles it
+        const index = pathsList.value.findIndex((p) => p.path === pathItem.path);
+        if (index !== -1) {
+          const key = index.toString();
+          // Use nextTick so this runs after PrimeVue's internal @update:value
+          nextTick(() => {
+            if (!openPaths.value.includes(key)) {
+              openPaths.value = [...openPaths.value, key];
+            }
+          });
+        }
+      }
+    };
+
+    const selectAndOpenPath = (path, method) => {
+      selectedPath.value = path;
+      selectedMethod.value = method;
+      // Ensure the accordion panel for this path is open
+      const index = pathsList.value.findIndex((p) => p.path === path);
+      if (index !== -1) {
+        const key = index.toString();
+        if (!openPaths.value.includes(key)) {
+          openPaths.value = [...openPaths.value, key];
+        }
       }
     };
 
@@ -2760,7 +2784,9 @@ export default {
       addMethodToPath,
       selectPathMethod,
       selectFirstMethod,
+      selectAndOpenPath,
       addChipOnEnter,
+      openPaths,
       addSchema,
       removeSchema,
       updateSchema,
@@ -3180,6 +3206,10 @@ export default {
 
 /* ── Path methods editor (accordion content) ── */
 .path-methods-editor {
+  /* empty by default — no space when no method is selected */
+}
+
+.path-methods-editor--active {
   padding: 16px;
   background: #f9fafb;
   border-radius: 6px;
