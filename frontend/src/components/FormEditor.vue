@@ -3129,13 +3129,9 @@ export default {
   margin-left: 1px;
   cursor: pointer;
   font-size: 9px;
-  opacity: 0;
+  opacity: 0.45;
   transition: opacity 0.15s ease;
   color: inherit;
-}
-
-.path-method-chip:hover .chip-delete-btn {
-  opacity: 0.65;
 }
 
 .chip-delete-btn:hover {
