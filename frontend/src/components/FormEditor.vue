@@ -1758,7 +1758,7 @@
           label="Add Path"
           icon="pi pi-plus"
           @click="addPath"
-          :disabled="!newPath || !newMethod"
+          :disabled="!newMethod"
         />
       </template>
     </Dialog>
@@ -2128,9 +2128,11 @@ export default {
     };
 
     const addPath = () => {
-      if (!newPath.value || !newMethod.value) return;
+      if (!newMethod.value) return;
 
-      const fullPath = newPath.value.startsWith('/') ? newPath.value : '/' + newPath.value;
+      const fullPath = newPath.value
+        ? (newPath.value.startsWith('/') ? newPath.value : '/' + newPath.value)
+        : '/';
 
       if (!formData.value.paths[fullPath]) {
         formData.value.paths[fullPath] = {};
