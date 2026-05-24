@@ -1738,6 +1738,7 @@
       header="Add New Path"
       :style="{ width: '520px' }"
       modal
+      :draggable="false"
     >
       <div class="dialog-content">
         <div class="form-field">
@@ -1786,6 +1787,7 @@
       header="Add Method to Path"
       :style="{ width: '520px' }"
       modal
+      :draggable="false"
     >
       <div class="dialog-content">
         <div class="form-field">
@@ -1820,6 +1822,7 @@
       header="Add New Schema"
       :style="{ width: '400px' }"
       modal
+      :draggable="false"
     >
       <div class="dialog-content">
         <div class="form-field">
@@ -1845,6 +1848,7 @@
       header="Edit Path"
       :style="{ width: '520px' }"
       modal
+      :draggable="false"
     >
       <div class="dialog-content">
         <div class="form-field">
@@ -3871,6 +3875,12 @@ export default {
 :deep(.method-select-button .p-togglebutton:has(.method-chip.method-options)),
 :deep(.method-select-button .p-togglebutton:has(.method-chip.method-head))   { border-color: #e5e7eb !important; background: #f9fafb !important; }
 
+
+/* Checked state: stronger border, no background/shadow change */
+:deep(.method-select-button .p-togglebutton-checked .p-togglebutton-content) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
 
 /* Checked state: stronger border, no background change */
 :deep(.method-select-button .p-togglebutton.p-togglebutton-checked:has(.method-chip.method-get))    { border-color: #2563eb !important; border-width: 2px !important; }
