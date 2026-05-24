@@ -1,4 +1,5 @@
 import { ref, computed, provide, onMounted, nextTick } from "vue";
+import { useToast } from "primevue/usetoast";
 
 // Singleton instance so multiple calls to useApp() return the same app state
 let _appInstance = null;
@@ -317,15 +318,17 @@ export function useApp() {
     }
   });
   provide("openSaveDialog", saver.openSaveDialog);
+  const toast = useToast();
   provide("validateCurrentSpec", async () => {
     try {
       const spec_json = JSON.parse(editor.specContent.value);
       const result = await validateSpec(spec_json);
       if (result.valid)
-        alerts.showAlert("✓ Specification is valid!", "success");
-      else alerts.showAlert("Validation failed", "error");
+        toast.add({ severity: "success", summary: "Valid", detail: "✓ Specification is valid!", life: 4000 });
+      else
+        toast.add({ severity: "error", summary: "Invalid", detail: "Validation failed", life: 4000 });
     } catch (e) {
-      alerts.showAlert("Invalid JSON", "error");
+      toast.add({ severity: "error", summary: "Invalid JSON", detail: e.message, life: 6000 });
     }
   });
   provide("loadTemplate", loadTemplate);
