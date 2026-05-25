@@ -907,36 +907,453 @@
                                     :options="['reference', 'inline']"
                                     placeholder="Schema type"
                                   />
-                                  <Select
-                                    v-if="requestBodySchemaType === 'reference'"
-                                    v-model="requestBodySchemaRef"
-                                    :options="availableSchemas"
-                                    optionLabel="label"
-                                    optionValue="value"
-                                    :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
-                                  />
+                                  <template v-if="requestBodySchemaType === 'reference'">
+                                    <Select
+                                      v-model="requestBodySchemaRef"
+                                      :options="availableSchemas"
+                                      optionLabel="label"
+                                      optionValue="value"
+                                      :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
+                                    />
+                                    <Button
+                                      label="New Schema"
+                                      icon="pi pi-plus"
+                                      size="small"
+                                      text
+                                      @click="showAddSchemaDialog = true"
+                                    />
+                                  </template>
                                 </div>
                               </div>
 
-                              <div
-                                v-if="
-                                  requestBodySchemaType === 'inline' &&
-                                  requestBodyContentType
-                                "
-                                class="form-field"
-                              >
-                                <label>Inline Schema (JSON)</label>
-                                <Textarea
-                                  :value="getRequestBodyInlineSchema()"
-                                  @input="
-                                    updateRequestBodyInlineSchema(
-                                      $event.target.value
-                                    )
-                                  "
-                                  rows="10"
-                                  class="json-textarea"
-                                />
-                              </div>
+                              <!-- Inline schema builder (replaces raw JSON textarea) -->
+                              <template v-if="requestBodySchemaType === 'inline' && requestBodyContentType">
+                                <div class="form-field">
+                                  <label>Type *</label>
+                                  <Select
+                                    v-model="requestBodyInlineSchemaType"
+                                    :options="['object', 'array', 'string', 'number', 'integer', 'boolean']"
+                                    placeholder="Select type"
+                                    @change="onRequestBodyTypeChange"
+                                  />
+                                </div>
+
+                                <!-- object: property list -->
+                                <div v-if="requestBodyInlineSchemaType === 'object'">
+                                  <div class="section-header">
+                                    <h5>Properties</h5>
+                                    <Button
+                                      label="Add Property"
+                                      icon="pi pi-plus"
+                                      size="small"
+                                      @click="addRequestBodyProperty"
+                                    />
+                                  </div>
+                                  <div
+                                    v-if="!currentRequestBodySchema || !currentRequestBodySchema.properties || Object.keys(currentRequestBodySchema.properties).length === 0"
+                                    class="empty-state-small"
+                                  >
+                                    <p>No properties defined</p>
+                                  </div>
+                                  <div
+                                    v-for="(prop, propName) in currentRequestBodySchema && currentRequestBodySchema.properties"
+                                    :key="propName"
+                                    class="property-item"
+                                  >
+                                    <div class="property-content">
+                                      <div class="form-row">
+                                        <div class="form-field">
+                                          <label>Property Name *</label>
+                                          <InputText
+                                            :value="propName"
+                                            @input="renameRequestBodyProperty(propName, $event.target.value)"
+                                            placeholder="propertyName"
+                                          />
+                                        </div>
+                                        <div class="form-field">
+                                          <label>Type *</label>
+                                          <Select
+                                            v-model="prop.type"
+                                            :options="['string','number','integer','boolean','array','object','$ref']"
+                                            placeholder="Type"
+                                            @change="onPropertyTypeChange(prop)"
+                                          />
+                                        </div>
+                                      </div>
+                                      <!-- $ref selector -->
+                                      <div v-if="prop.type === '$ref'" class="form-field">
+                                        <label>Schema Reference</label>
+                                        <Select
+                                          v-model="prop.$ref"
+                                          :options="availableSchemas"
+                                          optionLabel="label"
+                                          optionValue="value"
+                                          :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
+                                        />
+                                      </div>
+                                      <div class="form-field" v-if="prop.type !== '$ref'">
+                                        <label>Description</label>
+                                        <InputText v-model="prop.description" placeholder="Property description" />
+                                      </div>
+                                      <!-- String validations -->
+                                      <template v-if="prop.type === 'string'">
+                                        <div class="form-row">
+                                          <div class="form-field">
+                                            <label>Format</label>
+                                            <Select v-model="prop.format" :options="['','date','date-time','password','byte','binary','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" />
+                                          </div>
+                                          <div class="form-field">
+                                            <label>Pattern</label>
+                                            <InputText v-model="prop.pattern" placeholder="^[a-zA-Z0-9]+$" />
+                                          </div>
+                                        </div>
+                                        <div class="form-row">
+                                          <div class="form-field">
+                                            <label>Min Length</label>
+                                            <InputNumber v-model="prop.minLength" placeholder="Min length" :min="0" />
+                                          </div>
+                                          <div class="form-field">
+                                            <label>Max Length</label>
+                                            <InputNumber v-model="prop.maxLength" placeholder="Max length" :min="0" />
+                                          </div>
+                                        </div>
+                                      </template>
+                                      <!-- Number/Integer validations -->
+                                      <template v-if="prop.type === 'number' || prop.type === 'integer'">
+                                        <div class="form-row">
+                                          <div class="form-field">
+                                            <label>Format</label>
+                                            <Select v-model="prop.format" :options="prop.type === 'integer' ? ['','int32','int64'] : ['','float','double']" placeholder="Format" />
+                                          </div>
+                                          <div class="form-field">
+                                            <label>Multiple Of</label>
+                                            <InputNumber v-model="prop.multipleOf" placeholder="Multiple of" :min="0" />
+                                          </div>
+                                        </div>
+                                        <div class="form-row">
+                                          <div class="form-field">
+                                            <label>Minimum</label>
+                                            <InputNumber v-model="prop.minimum" placeholder="Min value" />
+                                          </div>
+                                          <div class="form-field">
+                                            <label>Maximum</label>
+                                            <InputNumber v-model="prop.maximum" placeholder="Max value" />
+                                          </div>
+                                        </div>
+                                        <div class="form-row">
+                                          <template v-if="isOpenAPI31">
+                                            <div class="form-field">
+                                              <label>Exclusive Minimum</label>
+                                              <InputNumber v-model="prop.exclusiveMinimum" placeholder="Exclusive min" />
+                                            </div>
+                                            <div class="form-field">
+                                              <label>Exclusive Maximum</label>
+                                              <InputNumber v-model="prop.exclusiveMaximum" placeholder="Exclusive max" />
+                                            </div>
+                                          </template>
+                                          <template v-else>
+                                            <div class="form-field checkbox-field">
+                                              <Checkbox v-model="prop.exclusiveMinimum" :inputId="'rbprop-excl-min-' + propName" :binary="true" />
+                                              <label :for="'rbprop-excl-min-' + propName">Exclusive Minimum</label>
+                                            </div>
+                                            <div class="form-field checkbox-field">
+                                              <Checkbox v-model="prop.exclusiveMaximum" :inputId="'rbprop-excl-max-' + propName" :binary="true" />
+                                              <label :for="'rbprop-excl-max-' + propName">Exclusive Maximum</label>
+                                            </div>
+                                          </template>
+                                        </div>
+                                      </template>
+                                      <!-- Array validations -->
+                                      <template v-if="prop.type === 'array'">
+                                        <div class="form-field" v-if="prop.items">
+                                          <label>Array Items Type</label>
+                                          <Select
+                                            v-model="prop.items.type"
+                                            :options="['string','number','integer','boolean','object','$ref']"
+                                            placeholder="Items type"
+                                          />
+                                        </div>
+                                        <div class="form-field" v-if="prop.items && prop.items.type === '$ref'">
+                                          <label>Array Items Schema Reference</label>
+                                          <Select
+                                            v-model="prop.items.$ref"
+                                            :options="availableSchemas"
+                                            optionLabel="label"
+                                            optionValue="value"
+                                            :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
+                                          />
+                                        </div>
+                                        <div class="form-row">
+                                          <div class="form-field">
+                                            <label>Min Items</label>
+                                            <InputNumber v-model="prop.minItems" placeholder="Min items" :min="0" />
+                                          </div>
+                                          <div class="form-field">
+                                            <label>Max Items</label>
+                                            <InputNumber v-model="prop.maxItems" placeholder="Max items" :min="0" />
+                                          </div>
+                                        </div>
+                                        <div class="form-field checkbox-field">
+                                          <Checkbox v-model="prop.uniqueItems" :inputId="'rbprop-unique-' + propName" :binary="true" />
+                                          <label :for="'rbprop-unique-' + propName">Unique Items</label>
+                                        </div>
+                                      </template>
+                                      <!-- Enum / default / example (non-$ref) -->
+                                      <template v-if="prop.type !== '$ref'">
+                                        <div class="form-field">
+                                          <label>Enum Values</label>
+                                          <AutoComplete
+                                            multiple
+                                            typeahead
+                                            v-model="prop.enum"
+                                            placeholder="Add value and press Enter"
+                                            @keydown.enter.prevent="addChipOnEnter($event, prop, 'enum')"
+                                          />
+                                        </div>
+                                        <div class="form-row">
+                                          <div class="form-field">
+                                            <label>Default Value</label>
+                                            <InputText v-model="prop.default" placeholder="Default value" />
+                                          </div>
+                                          <div class="form-field">
+                                            <label>Example</label>
+                                            <InputText v-model="prop.example" placeholder="Example value" />
+                                          </div>
+                                        </div>
+                                      </template>
+                                      <!-- Required / Nullable -->
+                                      <div class="form-row" v-if="prop.type !== '$ref'">
+                                        <div class="form-field checkbox-field">
+                                          <Checkbox
+                                            :checked="currentRequestBodySchema && currentRequestBodySchema.required && currentRequestBodySchema.required.includes(propName)"
+                                            :inputId="'rbprop-req-' + propName"
+                                            :binary="true"
+                                            @change="toggleRequestBodyPropertyRequired(propName, $event.checked)"
+                                          />
+                                          <label :for="'rbprop-req-' + propName">Required</label>
+                                        </div>
+                                        <div class="form-field checkbox-field">
+                                          <template v-if="isOpenAPI31">
+                                            <Checkbox
+                                              :modelValue="Array.isArray(prop.type) && prop.type.includes('null')"
+                                              :inputId="'rbprop-nullable-' + propName"
+                                              :binary="true"
+                                              @update:modelValue="val => {
+                                                const base = Array.isArray(prop.type) ? prop.type.filter(t => t !== 'null') : [prop.type || 'string'];
+                                                prop.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
+                                              }"
+                                            />
+                                          </template>
+                                          <template v-else>
+                                            <Checkbox v-model="prop.nullable" :inputId="'rbprop-nullable-' + propName" :binary="true" />
+                                          </template>
+                                          <label :for="'rbprop-nullable-' + propName">Nullable</label>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      icon="pi pi-trash"
+                                      severity="danger"
+                                      text
+                                      rounded
+                                      @click="removeRequestBodyProperty(propName)"
+                                    />
+                                  </div>
+                                  <!-- object-level constraints -->
+                                  <div class="form-row" style="margin-top: 0.75rem;">
+                                    <div class="form-field">
+                                      <label>Min Properties</label>
+                                      <InputNumber v-if="currentRequestBodySchema" v-model="currentRequestBodySchema.minProperties" placeholder="Min properties" :min="0" />
+                                    </div>
+                                    <div class="form-field">
+                                      <label>Max Properties</label>
+                                      <InputNumber v-if="currentRequestBodySchema" v-model="currentRequestBodySchema.maxProperties" placeholder="Max properties" :min="0" />
+                                    </div>
+                                  </div>
+                                  <div class="form-field checkbox-field">
+                                    <Checkbox
+                                      v-if="currentRequestBodySchema"
+                                      v-model="currentRequestBodySchema.additionalProperties"
+                                      inputId="rb-addl-props"
+                                      :binary="true"
+                                      :trueValue="true"
+                                      :falseValue="false"
+                                    />
+                                    <label for="rb-addl-props">Allow Additional Properties</label>
+                                  </div>
+                                </div>
+
+                                <!-- array: item type + constraints -->
+                                <template v-if="requestBodyInlineSchemaType === 'array' && currentRequestBodySchema">
+                                  <div class="form-field">
+                                    <label>Items Type(s)</label>
+                                    <MultiSelect
+                                      :modelValue="currentRequestBodySchema._itemSchemas ? [...new Set(currentRequestBodySchema._itemSchemas.map(s => s.type))] : []"
+                                      :options="['string','number','integer','boolean','object']"
+                                      placeholder="Select one or more types"
+                                      display="chip"
+                                      @update:modelValue="onItemTypesChange(currentRequestBodySchema, $event)"
+                                    />
+                                  </div>
+                                  <div v-if="currentRequestBodySchema._itemSchemas && currentRequestBodySchema._itemSchemas.length > 0" class="item-schemas-list">
+                                    <div
+                                      v-for="(itemSchema, sIdx) in currentRequestBodySchema._itemSchemas"
+                                      :key="sIdx"
+                                      class="item-schema-entry"
+                                    >
+                                      <div class="item-schema-entry-header">
+                                        <span :class="['type-badge', 'type-badge--' + itemSchema.type]">{{ itemSchema.type }}</span>
+                                        <span v-if="itemSchema.type === 'object' && itemSchema.$ref" class="item-schema-ref-label">{{ itemSchema.$ref.split('/').pop() }}</span>
+                                        <Button icon="pi pi-trash" severity="danger" text rounded size="small" class="item-schema-remove" v-tooltip.top="'Remove this type entry'" @click="currentRequestBodySchema._itemSchemas.splice(sIdx, 1)" />
+                                      </div>
+                                      <div class="item-schema-entry-body">
+                                        <template v-if="itemSchema.type === 'object'">
+                                          <div class="form-field">
+                                            <label>Schema Reference</label>
+                                            <div class="schema-selector">
+                                              <Select
+                                                v-model="itemSchema.$ref"
+                                                :options="availableSchemas"
+                                                optionLabel="label"
+                                                optionValue="value"
+                                                :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
+                                              />
+                                              <Button label="New Schema" icon="pi pi-plus" size="small" text @click="showAddSchemaDialog = true" />
+                                            </div>
+                                          </div>
+                                          <Button
+                                            v-if="sIdx === currentRequestBodySchema._itemSchemas.map((s,i) => s.type === 'object' ? i : -1).filter(i => i >= 0).slice(-1)[0]"
+                                            label="Add another object schema"
+                                            icon="pi pi-plus"
+                                            size="small"
+                                            text
+                                            class="mt-1"
+                                            @click="currentRequestBodySchema._itemSchemas.splice(sIdx + 1, 0, { type: 'object', $ref: '' })"
+                                          />
+                                        </template>
+                                        <template v-else-if="itemSchema.type === 'string'">
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Format</label><Select v-model="itemSchema.format" :options="['','date','date-time','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" /></div>
+                                            <div class="form-field"><label>Pattern</label><InputText v-model="itemSchema.pattern" placeholder="^[a-zA-Z0-9]+$" /></div>
+                                          </div>
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Min Length</label><InputNumber v-model="itemSchema.minLength" placeholder="Min length" :min="0" /></div>
+                                            <div class="form-field"><label>Max Length</label><InputNumber v-model="itemSchema.maxLength" placeholder="Max length" :min="0" /></div>
+                                          </div>
+                                        </template>
+                                        <template v-else-if="itemSchema.type === 'number' || itemSchema.type === 'integer'">
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Format</label><Select v-model="itemSchema.format" :options="itemSchema.type === 'integer' ? ['','int32','int64'] : ['','float','double']" placeholder="Format" /></div>
+                                            <div class="form-field"><label>Multiple Of</label><InputNumber v-model="itemSchema.multipleOf" placeholder="Multiple of" :min="0" /></div>
+                                          </div>
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Minimum</label><InputNumber v-model="itemSchema.minimum" placeholder="Min value" /></div>
+                                            <div class="form-field"><label>Maximum</label><InputNumber v-model="itemSchema.maximum" placeholder="Max value" /></div>
+                                          </div>
+                                        </template>
+                                        <template v-else-if="itemSchema.type === 'boolean'">
+                                          <p class="helper-text">No additional constraints for boolean.</p>
+                                        </template>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div class="form-row" style="margin-top: 0.75rem;">
+                                    <div class="form-field"><label>Min Items</label><InputNumber v-model="currentRequestBodySchema.minItems" placeholder="Min items" :min="0" /></div>
+                                    <div class="form-field"><label>Max Items</label><InputNumber v-model="currentRequestBodySchema.maxItems" placeholder="Max items" :min="0" /></div>
+                                  </div>
+                                  <div class="form-field checkbox-field">
+                                    <Checkbox v-model="currentRequestBodySchema.uniqueItems" inputId="rb-unique-items" :binary="true" />
+                                    <label for="rb-unique-items">Unique Items</label>
+                                  </div>
+                                </template>
+
+                                <!-- string constraints -->
+                                <template v-if="requestBodyInlineSchemaType === 'string' && currentRequestBodySchema">
+                                  <div class="form-row">
+                                    <div class="form-field">
+                                      <label>Format</label>
+                                      <Select v-model="currentRequestBodySchema.format" :options="['','date','date-time','password','byte','binary','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" />
+                                    </div>
+                                    <div class="form-field">
+                                      <label>Pattern</label>
+                                      <InputText v-model="currentRequestBodySchema.pattern" placeholder="^[a-zA-Z0-9]+$" />
+                                    </div>
+                                  </div>
+                                  <div class="form-row">
+                                    <div class="form-field"><label>Min Length</label><InputNumber v-model="currentRequestBodySchema.minLength" placeholder="Min length" :min="0" /></div>
+                                    <div class="form-field"><label>Max Length</label><InputNumber v-model="currentRequestBodySchema.maxLength" placeholder="Max length" :min="0" /></div>
+                                  </div>
+                                </template>
+
+                                <!-- number / integer constraints -->
+                                <template v-if="(requestBodyInlineSchemaType === 'number' || requestBodyInlineSchemaType === 'integer') && currentRequestBodySchema">
+                                  <div class="form-row">
+                                    <div class="form-field">
+                                      <label>Format</label>
+                                      <Select v-model="currentRequestBodySchema.format" :options="requestBodyInlineSchemaType === 'integer' ? ['','int32','int64'] : ['','float','double']" placeholder="Format" />
+                                    </div>
+                                    <div class="form-field">
+                                      <label>Multiple Of</label>
+                                      <InputNumber v-model="currentRequestBodySchema.multipleOf" placeholder="Multiple of" :min="0" />
+                                    </div>
+                                  </div>
+                                  <div class="form-row">
+                                    <div class="form-field"><label>Minimum</label><InputNumber v-model="currentRequestBodySchema.minimum" placeholder="Min value" /></div>
+                                    <div class="form-field"><label>Maximum</label><InputNumber v-model="currentRequestBodySchema.maximum" placeholder="Max value" /></div>
+                                  </div>
+                                  <div class="form-row">
+                                    <template v-if="isOpenAPI31">
+                                      <div class="form-field"><label>Exclusive Minimum</label><InputNumber v-model="currentRequestBodySchema.exclusiveMinimum" placeholder="Exclusive min" /></div>
+                                      <div class="form-field"><label>Exclusive Maximum</label><InputNumber v-model="currentRequestBodySchema.exclusiveMaximum" placeholder="Exclusive max" /></div>
+                                    </template>
+                                    <template v-else>
+                                      <div class="form-field checkbox-field">
+                                        <Checkbox v-model="currentRequestBodySchema.exclusiveMinimum" inputId="rb-excl-min" :binary="true" />
+                                        <label for="rb-excl-min">Exclusive Minimum</label>
+                                      </div>
+                                      <div class="form-field checkbox-field">
+                                        <Checkbox v-model="currentRequestBodySchema.exclusiveMaximum" inputId="rb-excl-max" :binary="true" />
+                                        <label for="rb-excl-max">Exclusive Maximum</label>
+                                      </div>
+                                    </template>
+                                  </div>
+                                </template>
+
+                                <!-- common: enum / default / example / nullable (non-object, non-array) -->
+                                <template v-if="requestBodyInlineSchemaType !== 'object' && currentRequestBodySchema">
+                                  <div class="form-field">
+                                    <label>Enum Values</label>
+                                    <AutoComplete
+                                      multiple
+                                      typeahead
+                                      v-model="currentRequestBodySchema.enum"
+                                      placeholder="Add value and press Enter"
+                                      @keydown.enter.prevent="addChipOnEnter($event, currentRequestBodySchema, 'enum')"
+                                    />
+                                  </div>
+                                  <div class="form-row">
+                                    <div class="form-field"><label>Default Value</label><InputText v-model="currentRequestBodySchema.default" placeholder="Default value" /></div>
+                                    <div class="form-field"><label>Example</label><InputText v-model="currentRequestBodySchema.example" placeholder="Example value" /></div>
+                                  </div>
+                                  <div class="form-field checkbox-field">
+                                    <template v-if="isOpenAPI31">
+                                      <Checkbox
+                                        :modelValue="Array.isArray(currentRequestBodySchema.type) && currentRequestBodySchema.type.includes('null')"
+                                        inputId="rb-nullable"
+                                        :binary="true"
+                                        @update:modelValue="val => {
+                                          const base = Array.isArray(currentRequestBodySchema.type) ? currentRequestBodySchema.type.filter(t => t !== 'null') : [currentRequestBodySchema.type || 'string'];
+                                          currentRequestBodySchema.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
+                                        }"
+                                      />
+                                    </template>
+                                    <template v-else>
+                                      <Checkbox v-model="currentRequestBodySchema.nullable" inputId="rb-nullable" :binary="true" />
+                                    </template>
+                                    <label for="rb-nullable">Nullable</label>
+                                  </div>
+                                </template>
+                              </template>
                             </TabPanel>
 
                             <!-- Responses -->
@@ -2212,6 +2629,7 @@ export default {
     const requestBodyContentType = ref("application/json");
     const requestBodySchemaType = ref("reference");
     const requestBodySchemaRef = ref("");
+    const requestBodyInlineSchemaType = ref("object");
     const draggedProperty = ref(null);
     const draggedPropertyIndex = ref(null);
     const draggedSchemaName = ref(null);
@@ -2290,6 +2708,45 @@ export default {
           }
         }
       }
+      // Normalize $ref props and array _itemSchemas in inline request body schemas
+      if (obj.paths) {
+        for (const path of Object.values(obj.paths)) {
+          for (const op of Object.values(path)) {
+            if (!op || !op.requestBody || !op.requestBody.content) continue;
+            for (const ct of Object.values(op.requestBody.content)) {
+              const schema = ct && ct.schema;
+              if (!schema) continue;
+              // Normalize $ref properties
+              if (schema.properties) {
+                for (const propName of Object.keys(schema.properties)) {
+                  const prop = schema.properties[propName];
+                  if (prop.$ref && !prop.type) prop.type = '$ref';
+                  if (prop.type === 'array' && prop.items && prop.items.$ref && !prop.items.type) {
+                    prop.items.type = '$ref';
+                  }
+                }
+              }
+              // Normalize array _itemSchemas
+              if (schema.type === 'array') {
+                const items = schema.items;
+                const toItemSchema = (s) => {
+                  if (s.$ref) return { type: 'object', $ref: s.$ref };
+                  const out = { type: s.type || 'string' };
+                  ['format','pattern','minLength','maxLength','minimum','maximum','multipleOf','exclusiveMinimum','exclusiveMaximum'].forEach(k => { if (s[k] !== undefined) out[k] = s[k]; });
+                  return out;
+                };
+                if (items && items.oneOf) {
+                  schema._itemSchemas = items.oneOf.map(toItemSchema);
+                } else if (items) {
+                  schema._itemSchemas = [toItemSchema(items)];
+                } else {
+                  schema._itemSchemas = [];
+                }
+              }
+            }
+          }
+        }
+      }
       return obj;
     };
 
@@ -2348,6 +2805,48 @@ export default {
                   param.schema.items = toOutput(schemas[0]);
                 } else {
                   param.schema.items = { oneOf: schemas.map(toOutput) };
+                }
+              }
+            }
+          }
+        }
+      }
+      // Clean $ref props and _itemSchemas in inline request body schemas
+      if (obj.paths) {
+        for (const path of Object.values(obj.paths)) {
+          for (const op of Object.values(path)) {
+            if (!op || !op.requestBody || !op.requestBody.content) continue;
+            for (const ct of Object.values(op.requestBody.content)) {
+              const schema = ct && ct.schema;
+              if (!schema) continue;
+              // Clean $ref properties
+              if (schema.properties) {
+                for (const propName of Object.keys(schema.properties)) {
+                  const prop = schema.properties[propName];
+                  if (prop.type === '$ref') {
+                    const ref = prop.$ref || '';
+                    schema.properties[propName] = { $ref: ref };
+                  } else if (prop.type === 'array' && prop.items && prop.items.type === '$ref') {
+                    prop.items = { $ref: prop.items.$ref || '' };
+                  }
+                }
+              }
+              // Clean array _itemSchemas
+              if (schema.type === 'array') {
+                const schemas = schema._itemSchemas || [];
+                delete schema._itemSchemas;
+                const toOutput = (s) => {
+                  if (s.type === 'object') return s.$ref ? { $ref: s.$ref } : { type: 'object' };
+                  const out = { type: s.type };
+                  ['format','pattern','minLength','maxLength','minimum','maximum','multipleOf','exclusiveMinimum','exclusiveMaximum'].forEach(k => { if (s[k] != null) out[k] = s[k]; });
+                  return out;
+                };
+                if (schemas.length === 0) {
+                  delete schema.items;
+                } else if (schemas.length === 1) {
+                  schema.items = toOutput(schemas[0]);
+                } else {
+                  schema.items = { oneOf: schemas.map(toOutput) };
                 }
               }
             }
@@ -2918,37 +3417,97 @@ export default {
     };
 
     // Request body methods
-    const getRequestBodyInlineSchema = () => {
-      const content = currentMethodData.value.requestBody?.content;
-      if (!content || !requestBodyContentType.value) return "{}";
-      const schema = content[requestBodyContentType.value]?.schema;
-      return JSON.stringify(schema || {}, null, 2);
+
+    // Returns the live schema object for the current inline request body (writable via v-model on its properties)
+    const currentRequestBodySchema = computed(() => {
+      if (!selectedPath.value || !selectedMethod.value) return null;
+      if (requestBodySchemaType.value !== 'inline' || !requestBodyContentType.value) return null;
+      const methodData = formData.value.paths[selectedPath.value]?.[selectedMethod.value];
+      if (!methodData) return null;
+      if (!methodData.requestBody) methodData.requestBody = { required: false };
+      if (!methodData.requestBody.content) methodData.requestBody.content = {};
+      if (!methodData.requestBody.content[requestBodyContentType.value]) {
+        methodData.requestBody.content[requestBodyContentType.value] = { schema: { type: requestBodyInlineSchemaType.value } };
+      }
+      if (!methodData.requestBody.content[requestBodyContentType.value].schema) {
+        methodData.requestBody.content[requestBodyContentType.value].schema = { type: requestBodyInlineSchemaType.value };
+      }
+      return methodData.requestBody.content[requestBodyContentType.value].schema;
+    });
+
+    // Sync requestBodyInlineSchemaType from the live schema when selection changes
+    watch([selectedPath, selectedMethod, requestBodyContentType, requestBodySchemaType], () => {
+      if (requestBodySchemaType.value !== 'inline') return;
+      const schema = currentRequestBodySchema.value;
+      if (schema) {
+        const t = Array.isArray(schema.type) ? schema.type.find(x => x !== 'null') || 'object' : (schema.type || 'object');
+        requestBodyInlineSchemaType.value = t;
+      } else {
+        requestBodyInlineSchemaType.value = 'object';
+      }
+    });
+
+    // Called when the type selector in the inline builder changes
+    const onRequestBodyTypeChange = () => {
+      if (!selectedPath.value || !selectedMethod.value || !requestBodyContentType.value) return;
+      const methodData = formData.value.paths[selectedPath.value][selectedMethod.value];
+      if (!methodData.requestBody) methodData.requestBody = { required: false };
+      if (!methodData.requestBody.content) methodData.requestBody.content = {};
+      const t = requestBodyInlineSchemaType.value;
+      const newSchema = { type: t };
+      if (t === 'object') {
+        newSchema.properties = {};
+      } else if (t === 'array') {
+        newSchema._itemSchemas = [];
+      }
+      methodData.requestBody.content[requestBodyContentType.value] = { schema: newSchema };
     };
 
-    const updateRequestBodyInlineSchema = (jsonString) => {
-      try {
-        const schema = JSON.parse(jsonString);
-        if (!currentMethodData.value.requestBody.content) {
-          currentMethodData.value.requestBody.content = {};
-        }
-        if (
-          !currentMethodData.value.requestBody.content[
-            requestBodyContentType.value
-          ]
-        ) {
-          currentMethodData.value.requestBody.content[
-            requestBodyContentType.value
-          ] = {};
-        }
-        currentMethodData.value.requestBody.content[
-          requestBodyContentType.value
-        ].schema = schema;
-      } catch (e) {
-        // Invalid JSON
+    // Property helpers for the inline object request body
+    const addRequestBodyProperty = () => {
+      const schema = currentRequestBodySchema.value;
+      if (!schema || schema.type !== 'object') return;
+      if (!schema.properties) schema.properties = {};
+      let propName = 'newProperty';
+      let counter = 1;
+      while (schema.properties[propName]) {
+        propName = `newProperty${counter}`;
+        counter++;
+      }
+      schema.properties[propName] = { type: 'string', description: '' };
+    };
+
+    const removeRequestBodyProperty = (propName) => {
+      const schema = currentRequestBodySchema.value;
+      if (!schema || !schema.properties) return;
+      delete schema.properties[propName];
+      if (schema.required) schema.required = schema.required.filter(r => r !== propName);
+    };
+
+    const renameRequestBodyProperty = (oldName, newName) => {
+      if (oldName === newName || !newName) return;
+      const schema = currentRequestBodySchema.value;
+      if (!schema || !schema.properties || schema.properties[newName]) return;
+      schema.properties[newName] = schema.properties[oldName];
+      delete schema.properties[oldName];
+      if (schema.required) {
+        const idx = schema.required.indexOf(oldName);
+        if (idx !== -1) schema.required[idx] = newName;
       }
     };
 
-    // Watch for request body schema type changes
+    const toggleRequestBodyPropertyRequired = (propName, isRequired) => {
+      const schema = currentRequestBodySchema.value;
+      if (!schema) return;
+      if (!schema.required) schema.required = [];
+      if (isRequired) {
+        if (!schema.required.includes(propName)) schema.required.push(propName);
+      } else {
+        schema.required = schema.required.filter(r => r !== propName);
+      }
+    };
+
+    // Watch for request body schema type changes (reference mode)
     watch(
       [requestBodySchemaType, requestBodySchemaRef, requestBodyContentType],
       () => {
@@ -3344,6 +3903,13 @@ export default {
       requestBodyContentType,
       requestBodySchemaType,
       requestBodySchemaRef,
+      requestBodyInlineSchemaType,
+      currentRequestBodySchema,
+      onRequestBodyTypeChange,
+      addRequestBodyProperty,
+      removeRequestBodyProperty,
+      renameRequestBodyProperty,
+      toggleRequestBodyPropertyRequired,
       draggedProperty,
       draggedPath,
       draggedMethod,
@@ -3376,8 +3942,6 @@ export default {
       getStatusSeverity,
       addParameter,
       removeParameter,
-      getRequestBodyInlineSchema,
-      updateRequestBodyInlineSchema,
       addResponse,
       removeResponse,
       getResponseContentType,
