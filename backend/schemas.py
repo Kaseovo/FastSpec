@@ -3,7 +3,7 @@ Pydantic schemas for FastSpec API
 """
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Literal, Optional
 from datetime import datetime
 
 
@@ -208,3 +208,50 @@ class LintRequest(BaseModel):
 
     spec_json: Dict[str, Any]
     ruleset: Optional[str] = "spectral:oas"
+
+
+# Lint Ruleset Management Schemas
+
+SPECTRAL_FUNCTIONS = Literal[
+    "truthy", "falsy", "pattern", "enumeration", "length", "schema"
+]
+
+
+class StructuredRule(BaseModel):
+    """A single structured lint rule built via the rule-form UI."""
+
+    name: str = Field(..., min_length=1, max_length=128, description="Unique rule key")
+    severity: Literal["error", "warn", "info", "hint", "off"] = "warn"
+    given: str = Field(
+        ..., min_length=1, description="JSONPath selector, e.g. $.paths[*][*]"
+    )
+    message: Optional[str] = Field(None, description="Optional custom message template")
+    then_function: SPECTRAL_FUNCTIONS = Field(
+        ..., description="Built-in Spectral function name"
+    )
+    then_function_options: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Options passed to then_function (e.g. {match: '^[a-z]+'} for pattern)",
+    )
+
+
+class LintRulesetUpsertRequest(BaseModel):
+    """Request body for PUT /lint/ruleset."""
+
+    rules: Optional[List[StructuredRule]] = Field(
+        None, description="Structured rules built via the form UI"
+    )
+    raw_yaml: Optional[str] = Field(
+        None,
+        description="Raw Spectral YAML override; takes precedence over rules when present",
+    )
+
+
+class LintRulesetResponse(BaseModel):
+    """Response body for GET /lint/ruleset."""
+
+    rules: Optional[List[StructuredRule]] = None
+    raw_yaml: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

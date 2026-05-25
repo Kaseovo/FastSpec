@@ -12,6 +12,8 @@ import subprocess
 import tempfile
 from typing import Any, Dict, List, Optional
 
+import yaml
+
 logger = logging.getLogger(__name__)
 
 # Severity mapping: Spectral uses integers 0-3
@@ -20,6 +22,16 @@ SEVERITY_MAP = {0: "error", 1: "warn", 2: "info", 3: "hint"}
 
 # Penalty weights for score calculation (deducted per issue)
 SEVERITY_PENALTY = {"error": 10, "warn": 3, "info": 1, "hint": 0}
+
+# Built-in Spectral functions supported by the structured rule form
+_SPECTRAL_BUILTIN_FUNCTIONS = {
+    "truthy",
+    "falsy",
+    "pattern",
+    "enumeration",
+    "length",
+    "schema",
+}
 
 
 def _find_spectral() -> str:
@@ -34,30 +46,89 @@ def _find_spectral() -> str:
     custom = os.environ.get("SPECTRAL_PATH")
     if custom:
         return custom
-    
-    raise RuntimeError(
-        "Error with Spectral CLI invocation: SPECTRAL_PATH not set."
-    )
+
+    raise RuntimeError("Error with Spectral CLI invocation: SPECTRAL_PATH not set.")
 
 
-def _build_command(spec_path: str, ruleset: str) -> List[str]:
-    """Build the Spectral CLI command list."""
-    spectral = _find_spectral()      
-    if ruleset == "spectral:oas":
-        return [
-            spectral,
-            "lint",
-            spec_path,
-            "--ruleset",
-            "./spectral.oas.yaml",
-            "--format",
-            "json",
-            "--quiet"
-        ]
-    else:
-         logger.warning(
-            "Custom SPECTRAL_PATH detected; ignoring ruleset argument (only supported with npx)"
-        )
+def _build_command(spec_path: str, ruleset_path: str) -> List[str]:
+    """Build the Spectral CLI command list.
+
+    Args:
+        spec_path:    Path to the temporary OpenAPI JSON file.
+        ruleset_path: Path to the ruleset YAML file to use.
+    """
+    spectral = _find_spectral()
+    return [
+        spectral,
+        "lint",
+        spec_path,
+        "--ruleset",
+        ruleset_path,
+        "--format",
+        "json",
+        "--quiet",
+    ]
+
+
+def build_ruleset_yaml(user_ruleset: Optional[Dict[str, Any]]) -> str:
+    """
+    Build a Spectral ruleset YAML string from a user's stored ruleset data.
+
+    Strategy:
+    - If ``user_ruleset`` is None or empty, fall back to plain ``extends: spectral:oas``.
+    - If ``raw_yaml`` is present, it takes precedence: return it as-is, ensuring
+      the ``extends: spectral:oas`` directive is present (prepend if missing).
+    - Otherwise serialise ``rules_json`` (Structured Rules) into valid Spectral YAML
+      alongside ``extends: spectral:oas``.
+
+    Args:
+        user_ruleset: Dict with optional keys ``rules_json`` (list) and
+                      ``raw_yaml`` (str), as stored in ``UserLintRuleset``.
+
+    Returns:
+        A YAML string ready to be written to a ``.spectral.yaml`` temp file.
+    """
+    if not user_ruleset:
+        return "extends: spectral:oas\n"
+
+    raw_yaml: Optional[str] = user_ruleset.get("raw_yaml")
+    rules_json: Optional[List[Dict[str, Any]]] = user_ruleset.get("rules_json")
+
+    # --- Raw YAML override takes precedence ---
+    if raw_yaml:
+        stripped = raw_yaml.strip()
+        # Ensure the baseline is always extended
+        if "spectral:oas" not in stripped:
+            stripped = "extends: spectral:oas\n" + stripped
+        return stripped + "\n"
+
+    # --- Structured Rules → generated YAML ---
+    if not rules_json:
+        return "extends: spectral:oas\n"
+
+    ruleset: Dict[str, Any] = {"extends": "spectral:oas", "rules": {}}
+    for rule in rules_json:
+        name: str = rule.get("name", "")
+        if not name:
+            continue
+
+        then_block: Dict[str, Any] = {"function": rule.get("then_function", "truthy")}
+        options = rule.get("then_function_options")
+        if options:
+            then_block["functionOptions"] = options
+
+        rule_def: Dict[str, Any] = {
+            "given": rule.get("given", "$"),
+            "then": then_block,
+            "severity": rule.get("severity", "warn"),
+        }
+        message = rule.get("message")
+        if message:
+            rule_def["message"] = message
+
+        ruleset["rules"][name] = rule_def
+
+    return yaml.dump(ruleset, default_flow_style=False, sort_keys=False)
 
 
 def _parse_result(raw: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -104,17 +175,24 @@ def run_spectral(
     spec_json: Dict[str, Any],
     ruleset: str = "spectral:oas",
     timeout: int = 60,
+    user_ruleset: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run Spectral CLI on the provided OpenAPI spec dict.
 
-    Writes the spec to a temporary JSON file, invokes the Spectral CLI
-    subprocess, parses the JSON output, and returns a structured result.
+    Writes the spec to a temporary JSON file, builds a temporary ruleset YAML
+    file (merging ``user_ruleset`` on top of ``spectral:oas`` when provided),
+    invokes the Spectral CLI subprocess, parses the JSON output, and returns
+    a structured result.
 
     Args:
-        spec_json:  The parsed OpenAPI spec as a Python dict.
-        ruleset:    The Spectral ruleset to use (default: spectral:oas).
-        timeout:    Maximum seconds to wait for the subprocess.
+        spec_json:    The parsed OpenAPI spec as a Python dict.
+        ruleset:      Legacy parameter kept for backward compatibility (ignored
+                      when ``user_ruleset`` is provided).
+        timeout:      Maximum seconds to wait for the subprocess.
+        user_ruleset: Optional dict with keys ``rules_json`` and/or ``raw_yaml``
+                      loaded from the ``UserLintRuleset`` DB row for the
+                      authenticated user.
 
     Returns:
         A dict with keys: score (int), summary (dict), results (list).
@@ -122,17 +200,32 @@ def run_spectral(
     Raises:
         RuntimeError: If Spectral is not found or returns unexpected output.
     """
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".json",
-        delete=False,
-        encoding="utf-8",
-    ) as tmp:
-        json.dump(spec_json, tmp, indent=2)
-        tmp_path = tmp.name
+    tmp_spec_path: Optional[str] = None
+    tmp_ruleset_path: Optional[str] = None
 
     try:
-        cmd = _build_command(tmp_path, ruleset)
+        # Write spec to temp file
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".json",
+            delete=False,
+            encoding="utf-8",
+        ) as tmp_spec:
+            json.dump(spec_json, tmp_spec, indent=2)
+            tmp_spec_path = tmp_spec.name
+
+        # Build ruleset YAML and write to temp file
+        ruleset_yaml_content = build_ruleset_yaml(user_ruleset)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".spectral.yaml",
+            delete=False,
+            encoding="utf-8",
+        ) as tmp_ruleset:
+            tmp_ruleset.write(ruleset_yaml_content)
+            tmp_ruleset_path = tmp_ruleset.name
+
+        cmd = _build_command(tmp_spec_path, tmp_ruleset_path)
         logger.debug("Running Spectral: %s", " ".join(cmd))
         logger.debug("Environment PATH: %s", os.environ.get("PATH"))
 
@@ -154,7 +247,11 @@ def run_spectral(
         stdout = proc.stdout.strip()
         if not stdout:
             # No output = zero issues (perfect spec)
-            return {"score": 100, "summary": {"error": 0, "warn": 0, "info": 0, "hint": 0}, "results": []}
+            return {
+                "score": 100,
+                "summary": {"error": 0, "warn": 0, "info": 0, "hint": 0},
+                "results": [],
+            }
 
         try:
             raw = json.loads(stdout)
@@ -166,16 +263,16 @@ def run_spectral(
         return _parse_result(raw)
 
     except subprocess.TimeoutExpired:
-        raise RuntimeError(
-            f"Spectral CLI timed out after {timeout} seconds"
-        )
+        raise RuntimeError(f"Spectral CLI timed out after {timeout} seconds")
     except FileNotFoundError as exc:
         raise RuntimeError(
             "Spectral CLI not found. Ensure Node.js and npx are available in PATH, "
             "or set the SPECTRAL_PATH environment variable."
         ) from exc
     finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+        for path in (tmp_spec_path, tmp_ruleset_path):
+            if path:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass

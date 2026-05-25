@@ -1,5 +1,21 @@
 # FastSpec — Domain Glossary
 
+## Lint Ruleset
+
+The set of Spectral rules applied when linting a Spec. Always extends the `spectral:oas` baseline. A user may have one optional **User Lint Ruleset** that layers on top of the baseline — adding new rules and/or overriding the severity of default rules.
+
+## User Lint Ruleset
+
+A per-user, globally-scoped Lint Ruleset stored in the `user_lint_rulesets` table. When present, it is merged with `spectral:oas` at lint time by generating a temporary ruleset file. When absent, only the `spectral:oas` baseline runs. Composed of two optional parts: **Structured Rules** and a **Raw Ruleset Override**.
+
+## Structured Rules
+
+An array of lint rule definitions built via the rule-form UI. Each rule has: a unique name (key), severity (`error` | `warn` | `info` | `hint` | `off`), a JSONPath selector (`given`), an optional message template, and a `then` block specifying one of the built-in Spectral functions (`truthy`, `falsy`, `pattern`, `enumeration`, `length`, `schema`) with its options. Stored as JSON in `user_lint_rulesets.rules_json`.
+
+## Raw Ruleset Override
+
+A user-authored YAML text block containing a valid Spectral ruleset. When present, it takes precedence over Structured Rules for linting — the Raw Ruleset Override is written directly to the temporary ruleset file instead of the generated YAML. Validated as well-formed YAML at save time. Stored in `user_lint_rulesets.raw_yaml`.
+
 ## Path
 
 A URL template string (e.g. `/users/{id}/posts`) that identifies an API endpoint. A Path may contain one or more **Path Parameter Tokens**.

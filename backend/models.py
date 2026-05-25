@@ -43,6 +43,13 @@ class User(Base):
         "OpenAPISpec", back_populates="owner", cascade="all, delete-orphan"
     )
 
+    lint_ruleset = relationship(
+        "UserLintRuleset",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     auth_tokens = relationship(
         "AuthToken", back_populates="user", cascade="all, delete-orphan"
     )
@@ -166,3 +173,34 @@ class APIKey(Base):
 
     def __repr__(self):
         return f"<APIKey id={self.id} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"
+
+
+class UserLintRuleset(Base):
+    """Per-user global Spectral lint ruleset.
+
+    Stores either structured rule definitions (rules_json), a raw YAML
+    override (raw_yaml), or both. When raw_yaml is present it takes
+    precedence at lint time and is written directly to the temp ruleset
+    file. rules_json is kept for UI round-tripping even when raw_yaml is set.
+    """
+
+    __tablename__ = "user_lint_rulesets"
+
+    id = Column(
+        String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id"), unique=True, nullable=False, index=True
+    )
+    # Structured Rules: list of rule dicts built via the rule-form UI
+    rules_json = Column(JSON, nullable=True)
+    # Raw Ruleset Override: user-authored Spectral YAML (takes precedence over rules_json)
+    raw_yaml = Column(Text, nullable=True)
+    updated_at = Column(
+        DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
+    )
+
+    user = relationship("User", back_populates="lint_ruleset")
+
+    def __repr__(self) -> str:
+        return f"<UserLintRuleset user_id={self.user_id}>"

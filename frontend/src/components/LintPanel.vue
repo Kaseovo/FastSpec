@@ -1,5 +1,11 @@
 <template>
   <div class="lint-panel">
+    <LintRulesetDialog
+      :open="showRulesetDialog"
+      @update:open="showRulesetDialog = $event"
+      @saved="$emit('run-lint')"
+      @deleted="$emit('run-lint')"
+    />
     <!-- Empty / loading state -->
     <div v-if="loading" class="lint-loading">
       <ProgressSpinner style="width: 32px; height: 32px" />
@@ -42,6 +48,14 @@
           </div>
         </div>
         <div class="score-actions">
+          <Button
+            icon="pi pi-sliders-h"
+            severity="secondary"
+            text
+            aria-label="Configure lint ruleset"
+            v-tooltip.top="'Custom rules'"
+            @click="showRulesetDialog = true"
+          />
           <Button
             class="rerun-button"
             icon="pi pi-refresh"
@@ -113,10 +127,11 @@ import { ref, computed } from "vue";
 import Button from "primevue/button";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
+import LintRulesetDialog from "./LintRulesetDialog.vue";
 
 export default {
   name: "LintPanel",
-  components: { Button, Message, ProgressSpinner },
+  components: { Button, Message, ProgressSpinner, LintRulesetDialog },
 
   props: {
     /** LintResponse from the backend: { score, summary, results } */
@@ -138,6 +153,7 @@ export default {
 
   setup(props) {
     const activeFilter = ref(null);
+    const showRulesetDialog = ref(false);
 
     const severities = [
       { key: null, label: "All", icon: "⚪" },
@@ -173,6 +189,7 @@ export default {
 
     return {
       activeFilter,
+      showRulesetDialog,
       severities,
       toggleFilter,
       filteredResults,
