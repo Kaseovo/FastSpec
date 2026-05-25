@@ -185,32 +185,35 @@ export default {
       }
     };
 
+    const SWAGGER_UI_VERSION = "5.21.0";
+
     const loadSwaggerUI = async () => {
-      if (window.SwaggerUIBundle) {
+      if (window.SwaggerUIBundle && window.__swaggerUIVersion === SWAGGER_UI_VERSION) {
         return true;
       }
 
       return new Promise((resolve, reject) => {
         const bundleScript = document.createElement("script");
         bundleScript.src =
-          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js";
+          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.21.0/swagger-ui-bundle.js";
         bundleScript.crossOrigin = "anonymous";
 
         const presetScript = document.createElement("script");
         presetScript.src =
-          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js";
+          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.21.0/swagger-ui-standalone-preset.js";
         presetScript.crossOrigin = "anonymous";
 
         const cssLink = document.createElement("link");
         cssLink.rel = "stylesheet";
         cssLink.href =
-          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css";
+          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.21.0/swagger-ui.css";
 
         let bundleLoaded = false;
         let presetLoaded = false;
 
         const checkBothLoaded = () => {
           if (bundleLoaded && presetLoaded) {
+            window.__swaggerUIVersion = SWAGGER_UI_VERSION;
             resolve(true);
           }
         };

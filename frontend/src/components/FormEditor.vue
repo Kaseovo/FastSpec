@@ -474,8 +474,8 @@
                                                     :options="availableSchemas.filter(s => s.value === itemSchema.$ref || !param.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value))"
                                                     optionLabel="label"
                                                     optionValue="value"
-                                                    :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
-                                                    :disabled="availableSchemas.length === 0"
+                                                    :placeholder="availableSchemas.filter(s => s.value === itemSchema.$ref || !param.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0 ? 'No schemas available' : 'Select schema'"
+                                                    :disabled="availableSchemas.filter(s => s.value === itemSchema.$ref || !param.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0"
                                                   />
                                                   <Button
                                                     label="New Schema"
@@ -485,7 +485,10 @@
                                                     @click="showAddSchemaDialog = true"
                                                   />
                                                 </div>
-                                                <small v-if="availableSchemas.length === 0" class="helper-text">No schemas yet — create one first.</small>
+                                                <small
+                                                  v-if="availableSchemas.filter(s => s.value === itemSchema.$ref || !param.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0"
+                                                  class="helper-text"
+                                                >{{ availableSchemas.length === 0 ? 'No schemas yet — create one first.' : 'All schemas are already used — create a new one.' }}</small>
                                               </div>
                                               <Button
                                                 v-if="sIdx === param.schema._itemSchemas.map((s,i) => s.type === 'object' ? i : -1).filter(i => i >= 0).slice(-1)[0]"
