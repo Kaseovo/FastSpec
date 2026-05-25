@@ -27,126 +27,137 @@
               No custom rules yet. Click <strong>Add Rule</strong> to get started.
             </div>
 
-            <div
-              v-for="(rule, idx) in structuredRules"
-              :key="idx"
-              class="rule-card"
-            >
-              <div class="rule-card-header">
-                <span class="rule-card-name">{{ rule.name || "(unnamed rule)" }}</span>
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  size="small"
-                  aria-label="Remove rule"
-                  @click="removeRule(idx)"
-                />
-              </div>
-
-              <div class="rule-fields">
-                <div class="field">
-                    <label>Rule name <span class="required">*</span></label>
-                    <InputText
-                      v-model="rule.name"
-                      placeholder="e.g. operation-summary-required"
-                      class="w-full"
+            <Accordion v-else :multiple="true" class="rules-accordion">
+              <AccordionPanel
+                v-for="(rule, idx) in structuredRules"
+                :key="idx"
+                :value="String(idx)"
+              >
+                <AccordionHeader>
+                  <div class="accordion-rule-header">
+                    <span class="accordion-rule-name">{{ rule.name || "(unnamed rule)" }}</span>
+                    <span class="accordion-rule-meta">
+                      <span class="rule-severity-badge" :class="'sev-' + rule.severity">{{ rule.severity }}</span>
+                      <span class="rule-fn-badge">{{ rule.then_function }}</span>
+                    </span>
+                    <Button
+                      icon="pi pi-trash"
+                      severity="danger"
+                      text
+                      size="small"
+                      aria-label="Remove rule"
+                      class="accordion-delete-btn"
+                      @click.stop="removeRule(idx)"
                     />
                   </div>
+                </AccordionHeader>
 
-                  <div class="field-row">
+                <AccordionContent>
+                  <div class="rule-fields">
                     <div class="field">
-                      <label>Severity <span class="required">*</span></label>
-                      <Select
-                        v-model="rule.severity"
-                        :options="severityOptions"
-                        option-label="label"
-                        option-value="value"
-                        class="w-full"
-                      />
-                    </div>
-                    <div class="field">
-                      <label>Function <span class="required">*</span></label>
-                      <Select
-                        v-model="rule.then_function"
-                        :options="functionOptions"
-                        option-label="label"
-                        option-value="value"
-                        class="w-full"
-                      />
-                    </div>
-                  </div>
-
-                  <div class="field">
-                    <label>Given (JSONPath) <span class="required">*</span></label>
-                    <InputText
-                      v-model="rule.given"
-                      placeholder="e.g. $.paths[*][*].summary"
-                      class="w-full"
-                      font-family="monospace"
-                    />
-                  </div>
-
-                  <div class="field">
-                    <label>Message <span class="optional">optional</span></label>
-                  <InputText
-                    v-model="rule.message"
-                    placeholder="e.g. Operation must have a summary"
-                    class="w-full"
-                  />
-                </div>
-
-                <!-- Dynamic functionOptions for pattern -->
-                <template v-if="rule.then_function === 'pattern'">
-                  <div class="field">
-                    <label>Pattern (regex) <span class="required">*</span></label>
-                    <InputText
-                      v-model="rule.functionOptions.match"
-                      placeholder="e.g. ^[a-z]+"
-                      class="w-full"
-                      font-family="monospace"
-                    />
-                  </div>
-                </template>
-
-                <!-- Dynamic functionOptions for enumeration -->
-                <template v-if="rule.then_function === 'enumeration'">
-                  <div class="field">
-                    <label>Allowed values (comma-separated) <span class="required">*</span></label>
-                    <InputText
-                      :model-value="(rule.functionOptions.values || []).join(', ')"
-                      @update:model-value="(v) => rule.functionOptions.values = v.split(',').map(s => s.trim()).filter(Boolean)"
-                      placeholder="e.g. get, post, put"
-                      class="w-full"
-                    />
-                  </div>
-                </template>
-
-                <!-- Dynamic functionOptions for length -->
-                <template v-if="rule.then_function === 'length'">
-                  <div class="field-row">
-                    <div class="field">
-                      <label>Min length</label>
+                      <label>Rule name <span class="required">*</span></label>
                       <InputText
-                        v-model.number="rule.functionOptions.min"
-                        type="number"
-                        placeholder="0"
+                        v-model="rule.name"
+                        placeholder="e.g. operation-summary-required"
                         class="w-full"
                       />
                     </div>
+
+                    <div class="field-row">
+                      <div class="field">
+                        <label>Severity <span class="required">*</span></label>
+                        <Select
+                          v-model="rule.severity"
+                          :options="severityOptions"
+                          option-label="label"
+                          option-value="value"
+                          class="w-full"
+                        />
+                      </div>
+                      <div class="field">
+                        <label>Function <span class="required">*</span></label>
+                        <Select
+                          v-model="rule.then_function"
+                          :options="functionOptions"
+                          option-label="label"
+                          option-value="value"
+                          class="w-full"
+                        />
+                      </div>
+                    </div>
+
                     <div class="field">
-                      <label>Max length</label>
+                      <label>Given (JSONPath) <span class="required">*</span></label>
                       <InputText
-                        v-model.number="rule.functionOptions.max"
-                        type="number"
-                        placeholder="255"
+                        v-model="rule.given"
+                        placeholder="e.g. $.paths[*][*].summary"
+                        class="w-full"
+                        font-family="monospace"
+                      />
+                    </div>
+
+                    <div class="field">
+                      <label>Message <span class="optional">optional</span></label>
+                      <InputText
+                        v-model="rule.message"
+                        placeholder="e.g. Operation must have a summary"
                         class="w-full"
                       />
                     </div>
+
+                    <!-- Dynamic functionOptions for pattern -->
+                    <template v-if="rule.then_function === 'pattern'">
+                      <div class="field">
+                        <label>Pattern (regex) <span class="required">*</span></label>
+                        <InputText
+                          v-model="rule.functionOptions.match"
+                          placeholder="e.g. ^[a-z]+"
+                          class="w-full"
+                          font-family="monospace"
+                        />
+                      </div>
+                    </template>
+
+                    <!-- Dynamic functionOptions for enumeration -->
+                    <template v-if="rule.then_function === 'enumeration'">
+                      <div class="field">
+                        <label>Allowed values (comma-separated) <span class="required">*</span></label>
+                        <InputText
+                          :model-value="(rule.functionOptions.values || []).join(', ')"
+                          @update:model-value="(v) => rule.functionOptions.values = v.split(',').map(s => s.trim()).filter(Boolean)"
+                          placeholder="e.g. get, post, put"
+                          class="w-full"
+                        />
+                      </div>
+                    </template>
+
+                    <!-- Dynamic functionOptions for length -->
+                    <template v-if="rule.then_function === 'length'">
+                      <div class="field-row">
+                        <div class="field">
+                          <label>Min length</label>
+                          <InputText
+                            v-model.number="rule.functionOptions.min"
+                            type="number"
+                            placeholder="0"
+                            class="w-full"
+                          />
+                        </div>
+                        <div class="field">
+                          <label>Max length</label>
+                          <InputText
+                            v-model.number="rule.functionOptions.max"
+                            type="number"
+                            placeholder="255"
+                            class="w-full"
+                          />
+                        </div>
+                      </div>
+                    </template>
                   </div>
-                </template>
-              </div>
-            </div>
+                </AccordionContent>
+              </AccordionPanel>
+            </Accordion>
 
             <Button
               label="Add Rule"
@@ -213,6 +224,7 @@
 
 <script>
 import { computed, ref, watch } from "vue";
+import { useConfirm } from "primevue/useconfirm";
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
 import InputText from "primevue/inputtext";
@@ -224,6 +236,10 @@ import TabPanel from "primevue/tabpanel";
 import TabPanels from "primevue/tabpanels";
 import Tabs from "primevue/tabs";
 import Textarea from "primevue/textarea";
+import Accordion from "primevue/accordion";
+import AccordionContent from "primevue/accordioncontent";
+import AccordionHeader from "primevue/accordionheader";
+import AccordionPanel from "primevue/accordionpanel";
 import { deleteLintRuleset, getLintRuleset, putLintRuleset } from "../api/lint";
 
 const SEVERITY_OPTIONS = [
@@ -259,6 +275,10 @@ export default {
   name: "LintRulesetDialog",
 
   components: {
+    Accordion,
+    AccordionContent,
+    AccordionHeader,
+    AccordionPanel,
     Button,
     Dialog,
     InputText,
@@ -283,6 +303,7 @@ export default {
   emits: ["update:open", "saved", "deleted"],
 
   setup(props, { emit }) {
+    const confirm = useConfirm();
     const visible = ref(false);
     const activeTab = ref("rules");
 
@@ -353,7 +374,18 @@ export default {
     }
 
     function removeRule(idx) {
-      structuredRules.value.splice(idx, 1);
+      const ruleName = structuredRules.value[idx]?.name || "this rule";
+      confirm.require({
+        message: `Remove "${ruleName}"?`,
+        header: "Delete Rule",
+        icon: "pi pi-exclamation-triangle",
+        rejectLabel: "Cancel",
+        acceptLabel: "Delete",
+        acceptClass: "p-button-danger",
+        accept: () => {
+          structuredRules.value.splice(idx, 1);
+        },
+      });
     }
 
     async function onSave() {
@@ -394,21 +426,30 @@ export default {
       }
     }
 
-    async function onDelete() {
-      deleting.value = true;
-      try {
-        await deleteLintRuleset();
-        hasExistingRuleset.value = false;
-        structuredRules.value = [];
-        rawYaml.value = "";
-        emit("deleted");
-        visible.value = false;
-      } catch {
-        // Silently ignore — ruleset may already be gone
-        visible.value = false;
-      } finally {
-        deleting.value = false;
-      }
+    function onDelete() {
+      confirm.require({
+        message: "This will remove all custom rules and revert to the default spectral:oas ruleset.",
+        header: "Reset to Defaults",
+        icon: "pi pi-exclamation-triangle",
+        rejectLabel: "Cancel",
+        acceptLabel: "Reset",
+        acceptClass: "p-button-danger",
+        accept: async () => {
+          deleting.value = true;
+          try {
+            await deleteLintRuleset();
+            hasExistingRuleset.value = false;
+            structuredRules.value = [];
+            rawYaml.value = "";
+            emit("deleted");
+            visible.value = false;
+          } catch {
+            visible.value = false;
+          } finally {
+            deleting.value = false;
+          }
+        },
+      });
     }
 
     function onCancel() {
@@ -493,29 +534,61 @@ export default {
   color: var(--p-text-muted-color, #6c757d);
 }
 
-/* ── Rule cards ────────────────────────────────────────────── */
-.rule-card {
-  border: 1px solid var(--p-surface-border, #dee2e6);
-  border-radius: 8px;
-  padding: 14px 16px;
-  background: var(--p-surface-card, #fff);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* ── Rules accordion ───────────────────────────────────────── */
+.rules-accordion {
+  width: 100%;
 }
 
-.rule-card-header {
+.accordion-rule-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
-.rule-card-name {
+.accordion-rule-name {
   font-weight: 600;
   font-size: 0.875rem;
-  color: var(--p-text-color, #212529);
   font-family: monospace;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.accordion-rule-meta {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.accordion-delete-btn {
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.rule-severity-badge,
+.rule-fn-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rule-fn-badge {
+  background: var(--p-surface-section, #f1f5f9);
+  color: var(--p-text-muted-color, #6c757d);
+}
+
+.rule-severity-badge.sev-error   { background: #fee2e2; color: #ef4444; }
+.rule-severity-badge.sev-warn    { background: #ffedd5; color: #f97316; }
+.rule-severity-badge.sev-info    { background: #dcfce7; color: #22c55e; }
+.rule-severity-badge.sev-hint    { background: #f3e8ff; color: #a855f7; }
+.rule-severity-badge.sev-off     { background: var(--p-surface-section, #f1f5f9); color: var(--p-text-muted-color, #6c757d); }
 
 .rule-fields {
   display: flex;
