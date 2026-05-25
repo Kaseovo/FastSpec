@@ -31,3 +31,11 @@ The schema that describes each element of an array-typed Parameter or Property. 
 ## Spec Version Mode
 
 The OpenAPI version declared in the `openapi` field of a Spec (`3.0.x` or `3.1.x`). Determines which form semantics are active: in 3.0 mode, nullability is expressed as `nullable: true` and `exclusiveMinimum`/`exclusiveMaximum` are booleans; in 3.1 mode, nullability is expressed as a type array (e.g. `["string", "null"]`) and `exclusiveMinimum`/`exclusiveMaximum` are numbers. The Form Editor detects the Spec Version Mode from the `openapi` field value and adjusts its UI accordingly.
+
+## Response
+
+An HTTP status code entry under an Operation's `responses` map. Each Response has a status code key (numeric string or `"default"`), a description, an optional content type, and an optional Response Schema. A single Operation may have multiple Responses with distinct status codes (e.g. `200`, `201`, `409`). Status codes are selected via a two-step picker (category → code) that surfaces the standard name and a contextual hint for each code (e.g. `409 Conflict — State conflict (e.g. duplicate)`). The status code of an existing Response can be changed without losing its definition.
+
+## Response Schema
+
+The schema attached to a Response's content type. Supports the same three modes as the Request Body Schema: **reference** (a `$ref` to a Component Schema), **inline object** (a property builder with `$ref`-capable properties, array item types, and constraints), and **inline primitive/array** (type selector with constraints). Inline Response Schemas are normalised through the same `_itemSchemas` / `cleanRefsForOutput` pipeline as Request Body Schemas.

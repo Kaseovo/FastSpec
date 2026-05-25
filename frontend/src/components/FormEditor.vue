@@ -1364,7 +1364,7 @@
                                   label="Add Response"
                                   icon="pi pi-plus"
                                   size="small"
-                                  @click="showAddResponseDialog = true"
+                                  @click="openAddResponseDialog"
                                 />
                               </div>
 
@@ -1396,14 +1396,21 @@
                                   <AccordionHeader>
                                     <div class="response-header">
                                       <Tag
-                                        :value="statusCode"
-                                        :severity="
-                                          getStatusSeverity(statusCode)
-                                        "
+                                        :value="statusCode + ' ' + (getStatusName(statusCode))"
+                                        :severity="getStatusSeverity(statusCode)"
                                       />
                                       <span>{{
                                         response.description || "No description"
                                       }}</span>
+                                      <Button
+                                        icon="pi pi-pencil"
+                                        text
+                                        rounded
+                                        size="small"
+                                        class="response-edit-code-btn"
+                                        v-tooltip.top="'Change status code'"
+                                        @click.stop="openEditResponseCodeDialog(statusCode)"
+                                      />
                                       <Button
                                         icon="pi pi-trash"
                                         severity="danger"
@@ -1433,89 +1440,311 @@
                                     <div class="form-field">
                                       <label>Content Type</label>
                                       <Select
-                                        :value="
-                                          getResponseContentType(response)
-                                        "
-                                        @change="
-                                          setResponseContentType(
-                                            response,
-                                            $event.value
-                                          )
-                                        "
-                                        :options="[
-                                          'application/json',
-                                          'application/xml',
-                                          'text/plain',
-                                          'text/html',
-                                        ]"
+                                        :value="getResponseContentType(response)"
+                                        @change="setResponseContentType(response, $event.value)"
+                                        :options="['application/json','application/xml','text/plain','text/html']"
                                         placeholder="Select content type"
                                       />
                                     </div>
 
-                                    <div
-                                      class="form-field"
-                                      v-if="getResponseContentType(response)"
-                                    >
-                                      <label>Schema</label>
-                                      <div class="schema-selector">
-                                        <Select
-                                          :value="
-                                            getResponseSchemaType(response)
-                                          "
-                                          @change="
-                                            setResponseSchemaType(
-                                              response,
-                                              $event.value
-                                            )
-                                          "
-                                          :options="['reference', 'inline']"
-                                          placeholder="Schema type"
-                                        />
-                                        <Select
-                                          v-if="
-                                            getResponseSchemaType(response) ===
-                                            'reference'
-                                          "
-                                          :value="
-                                            getResponseSchemaRef(response)
-                                          "
-                                          @change="
-                                            setResponseSchemaRef(
-                                              response,
-                                              $event.value
-                                            )
-                                          "
-                                          :options="availableSchemas"
-                                          optionLabel="label"
-                                          optionValue="value"
-                                          :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
-                                        />
+                                    <template v-if="getResponseContentType(response)">
+                                      <div class="form-field">
+                                        <label>Schema</label>
+                                        <div class="schema-selector">
+                                          <Select
+                                            :value="getResponseSchemaType(response)"
+                                            @change="setResponseSchemaType(response, $event.value)"
+                                            :options="['reference', 'inline']"
+                                            placeholder="Schema type"
+                                          />
+                                          <template v-if="getResponseSchemaType(response) === 'reference'">
+                                            <Select
+                                              :value="getResponseSchemaRef(response)"
+                                              @change="setResponseSchemaRef(response, $event.value)"
+                                              :options="availableSchemas"
+                                              optionLabel="label"
+                                              optionValue="value"
+                                              :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
+                                            />
+                                            <Button
+                                              label="New Schema"
+                                              icon="pi pi-plus"
+                                              size="small"
+                                              text
+                                              @click="showAddSchemaDialog = true"
+                                            />
+                                          </template>
+                                        </div>
                                       </div>
-                                    </div>
 
-                                    <div
-                                      v-if="
-                                        getResponseSchemaType(response) ===
-                                          'inline' &&
-                                        getResponseContentType(response)
-                                      "
-                                      class="form-field"
-                                    >
-                                      <label>Inline Schema (JSON)</label>
-                                      <Textarea
-                                        :value="
-                                          getResponseInlineSchema(response)
-                                        "
-                                        @input="
-                                          updateResponseInlineSchema(
-                                            response,
-                                            $event.target.value
-                                          )
-                                        "
-                                        rows="10"
-                                        class="json-textarea"
-                                      />
-                                    </div>
+                                      <!-- Inline schema builder (mirrors Request Body) -->
+                                      <template v-if="getResponseSchemaType(response) === 'inline'">
+                                        <div class="form-field">
+                                          <label>Type *</label>
+                                          <Select
+                                            :value="getResponseInlineSchemaType(response)"
+                                            :options="['object','array','string','number','integer','boolean']"
+                                            placeholder="Select type"
+                                            @change="setResponseInlineSchemaType(response, $event.value)"
+                                          />
+                                        </div>
+
+                                        <!-- object: property list -->
+                                        <div v-if="getResponseInlineSchemaType(response) === 'object'">
+                                          <div class="section-header">
+                                            <h5>Properties</h5>
+                                            <Button label="Add Property" icon="pi pi-plus" size="small" @click="addResponseProperty(response)" />
+                                          </div>
+                                          <div v-if="!getResponseInlineSchema(response).properties || Object.keys(getResponseInlineSchema(response).properties).length === 0" class="empty-state-small">
+                                            <p>No properties defined</p>
+                                          </div>
+                                          <div
+                                            v-for="(prop, propName) in getResponseInlineSchema(response).properties"
+                                            :key="propName"
+                                            class="property-item"
+                                          >
+                                            <div class="property-content">
+                                              <div class="form-row">
+                                                <div class="form-field">
+                                                  <label>Property Name *</label>
+                                                  <InputText
+                                                    :value="propName"
+                                                    @input="renameResponseProperty(response, propName, $event.target.value)"
+                                                    placeholder="propertyName"
+                                                  />
+                                                </div>
+                                                <div class="form-field">
+                                                  <label>Type *</label>
+                                                  <Select
+                                                    v-model="prop.type"
+                                                    :options="['string','number','integer','boolean','array','object','$ref']"
+                                                    placeholder="Type"
+                                                    @change="onPropertyTypeChange(prop)"
+                                                  />
+                                                </div>
+                                              </div>
+                                              <div v-if="prop.type === '$ref'" class="form-field">
+                                                <label>Schema Reference</label>
+                                                <div class="schema-selector">
+                                                  <Select
+                                                    v-model="prop.$ref"
+                                                    :options="availableSchemas"
+                                                    optionLabel="label"
+                                                    optionValue="value"
+                                                    :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
+                                                  />
+                                                  <Button label="New Schema" icon="pi pi-plus" size="small" text @click="showAddSchemaDialog = true" />
+                                                </div>
+                                              </div>
+                                              <div class="form-field" v-if="prop.type !== '$ref'">
+                                                <label>Description</label>
+                                                <InputText v-model="prop.description" placeholder="Property description" />
+                                              </div>
+                                              <template v-if="prop.type === 'string'">
+                                                <div class="form-row">
+                                                  <div class="form-field"><label>Format</label><Select v-model="prop.format" :options="['','date','date-time','password','byte','binary','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" /></div>
+                                                  <div class="form-field"><label>Pattern</label><InputText v-model="prop.pattern" placeholder="^[a-zA-Z0-9]+$" /></div>
+                                                </div>
+                                                <div class="form-row">
+                                                  <div class="form-field"><label>Min Length</label><InputNumber v-model="prop.minLength" placeholder="Min length" :min="0" /></div>
+                                                  <div class="form-field"><label>Max Length</label><InputNumber v-model="prop.maxLength" placeholder="Max length" :min="0" /></div>
+                                                </div>
+                                              </template>
+                                              <template v-if="prop.type === 'number' || prop.type === 'integer'">
+                                                <div class="form-row">
+                                                  <div class="form-field"><label>Format</label><Select v-model="prop.format" :options="prop.type === 'integer' ? ['','int32','int64'] : ['','float','double']" placeholder="Format" /></div>
+                                                  <div class="form-field"><label>Multiple Of</label><InputNumber v-model="prop.multipleOf" placeholder="Multiple of" :min="0" /></div>
+                                                </div>
+                                                <div class="form-row">
+                                                  <div class="form-field"><label>Minimum</label><InputNumber v-model="prop.minimum" placeholder="Min value" /></div>
+                                                  <div class="form-field"><label>Maximum</label><InputNumber v-model="prop.maximum" placeholder="Max value" /></div>
+                                                </div>
+                                              </template>
+                                              <template v-if="prop.type === 'array'">
+                                                <div class="form-field" v-if="prop.items">
+                                                  <label>Array Items Type</label>
+                                                  <Select v-model="prop.items.type" :options="['string','number','integer','boolean','object','$ref']" placeholder="Items type" />
+                                                </div>
+                                                <div class="form-field" v-if="prop.items && prop.items.type === '$ref'">
+                                                  <label>Array Items Schema Reference</label>
+                                                  <Select v-model="prop.items.$ref" :options="availableSchemas" optionLabel="label" optionValue="value" :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'" />
+                                                </div>
+                                                <div class="form-row">
+                                                  <div class="form-field"><label>Min Items</label><InputNumber v-model="prop.minItems" placeholder="Min items" :min="0" /></div>
+                                                  <div class="form-field"><label>Max Items</label><InputNumber v-model="prop.maxItems" placeholder="Max items" :min="0" /></div>
+                                                </div>
+                                                <div class="form-field checkbox-field">
+                                                  <Checkbox v-model="prop.uniqueItems" :inputId="'resprop-unique-' + propName" :binary="true" />
+                                                  <label :for="'resprop-unique-' + propName">Unique Items</label>
+                                                </div>
+                                              </template>
+                                              <template v-if="prop.type !== '$ref'">
+                                                <div class="form-field">
+                                                  <label>Enum Values</label>
+                                                  <AutoComplete multiple typeahead v-model="prop.enum" placeholder="Add value and press Enter" @keydown.enter.prevent="addChipOnEnter($event, prop, 'enum')" />
+                                                </div>
+                                                <div class="form-row">
+                                                  <div class="form-field"><label>Default Value</label><InputText v-model="prop.default" placeholder="Default value" /></div>
+                                                  <div class="form-field"><label>Example</label><InputText v-model="prop.example" placeholder="Example value" /></div>
+                                                </div>
+                                              </template>
+                                              <div class="form-row" v-if="prop.type !== '$ref'">
+                                                <div class="form-field checkbox-field">
+                                                  <Checkbox
+                                                    :checked="getResponseInlineSchema(response).required && getResponseInlineSchema(response).required.includes(propName)"
+                                                    :inputId="'resprop-req-' + propName"
+                                                    :binary="true"
+                                                    @change="toggleResponsePropertyRequired(response, propName, $event.checked)"
+                                                  />
+                                                  <label :for="'resprop-req-' + propName">Required</label>
+                                                </div>
+                                                <div class="form-field checkbox-field">
+                                                  <template v-if="isOpenAPI31">
+                                                    <Checkbox
+                                                      :modelValue="Array.isArray(prop.type) && prop.type.includes('null')"
+                                                      :inputId="'resprop-nullable-' + propName"
+                                                      :binary="true"
+                                                      @update:modelValue="val => {
+                                                        const base = Array.isArray(prop.type) ? prop.type.filter(t => t !== 'null') : [prop.type || 'string'];
+                                                        prop.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
+                                                      }"
+                                                    />
+                                                  </template>
+                                                  <template v-else>
+                                                    <Checkbox v-model="prop.nullable" :inputId="'resprop-nullable-' + propName" :binary="true" />
+                                                  </template>
+                                                  <label :for="'resprop-nullable-' + propName">Nullable</label>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <Button icon="pi pi-trash" severity="danger" text rounded @click="removeResponseProperty(response, propName)" />
+                                          </div>
+                                          <div class="form-row" style="margin-top: 0.75rem;">
+                                            <div class="form-field"><label>Min Properties</label><InputNumber v-model="getResponseInlineSchema(response).minProperties" placeholder="Min properties" :min="0" /></div>
+                                            <div class="form-field"><label>Max Properties</label><InputNumber v-model="getResponseInlineSchema(response).maxProperties" placeholder="Max properties" :min="0" /></div>
+                                          </div>
+                                          <div class="form-field checkbox-field">
+                                            <Checkbox v-model="getResponseInlineSchema(response).additionalProperties" inputId="resp-addl-props" :binary="true" :trueValue="true" :falseValue="false" />
+                                            <label for="resp-addl-props">Allow Additional Properties</label>
+                                          </div>
+                                        </div>
+
+                                        <!-- array: item type + constraints -->
+                                        <template v-if="getResponseInlineSchemaType(response) === 'array'">
+                                          <div class="form-field">
+                                            <label>Items Type(s)</label>
+                                            <MultiSelect
+                                              :modelValue="getResponseInlineSchema(response)._itemSchemas ? [...new Set(getResponseInlineSchema(response)._itemSchemas.map(s => s.type))] : []"
+                                              :options="['string','number','integer','boolean','object']"
+                                              placeholder="Select one or more types"
+                                              display="chip"
+                                              @update:modelValue="onItemTypesChange(getResponseInlineSchema(response), $event)"
+                                            />
+                                          </div>
+                                          <div v-if="getResponseInlineSchema(response)._itemSchemas && getResponseInlineSchema(response)._itemSchemas.length > 0" class="item-schemas-list">
+                                            <div
+                                              v-for="(itemSchema, sIdx) in getResponseInlineSchema(response)._itemSchemas"
+                                              :key="sIdx"
+                                              class="item-schema-entry"
+                                            >
+                                              <div class="item-schema-entry-header">
+                                                <span :class="['type-badge', 'type-badge--' + itemSchema.type]">{{ itemSchema.type }}</span>
+                                                <span v-if="itemSchema.type === 'object' && itemSchema.$ref" class="item-schema-ref-label">{{ itemSchema.$ref.split('/').pop() }}</span>
+                                                <Button icon="pi pi-trash" severity="danger" text rounded size="small" class="item-schema-remove" v-tooltip.top="'Remove this type entry'" @click="getResponseInlineSchema(response)._itemSchemas.splice(sIdx, 1)" />
+                                              </div>
+                                              <div class="item-schema-entry-body">
+                                                <template v-if="itemSchema.type === 'object'">
+                                                  <div class="form-field">
+                                                    <label>Schema Reference</label>
+                                                    <div class="schema-selector">
+                                                      <Select v-model="itemSchema.$ref" :options="availableSchemas" optionLabel="label" optionValue="value" :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'" />
+                                                      <Button label="New Schema" icon="pi pi-plus" size="small" text @click="showAddSchemaDialog = true" />
+                                                    </div>
+                                                  </div>
+                                                </template>
+                                                <template v-else-if="itemSchema.type === 'string'">
+                                                  <div class="form-row">
+                                                    <div class="form-field"><label>Format</label><Select v-model="itemSchema.format" :options="['','date','date-time','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" /></div>
+                                                    <div class="form-field"><label>Pattern</label><InputText v-model="itemSchema.pattern" placeholder="^[a-zA-Z0-9]+$" /></div>
+                                                  </div>
+                                                </template>
+                                                <template v-else-if="itemSchema.type === 'number' || itemSchema.type === 'integer'">
+                                                  <div class="form-row">
+                                                    <div class="form-field"><label>Minimum</label><InputNumber v-model="itemSchema.minimum" placeholder="Min value" /></div>
+                                                    <div class="form-field"><label>Maximum</label><InputNumber v-model="itemSchema.maximum" placeholder="Max value" /></div>
+                                                  </div>
+                                                </template>
+                                                <template v-else-if="itemSchema.type === 'boolean'">
+                                                  <p class="helper-text">No additional constraints for boolean.</p>
+                                                </template>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div class="form-row" style="margin-top: 0.75rem;">
+                                            <div class="form-field"><label>Min Items</label><InputNumber v-model="getResponseInlineSchema(response).minItems" placeholder="Min items" :min="0" /></div>
+                                            <div class="form-field"><label>Max Items</label><InputNumber v-model="getResponseInlineSchema(response).maxItems" placeholder="Max items" :min="0" /></div>
+                                          </div>
+                                          <div class="form-field checkbox-field">
+                                            <Checkbox v-model="getResponseInlineSchema(response).uniqueItems" inputId="resp-unique-items" :binary="true" />
+                                            <label for="resp-unique-items">Unique Items</label>
+                                          </div>
+                                        </template>
+
+                                        <!-- string constraints -->
+                                        <template v-if="getResponseInlineSchemaType(response) === 'string'">
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Format</label><Select v-model="getResponseInlineSchema(response).format" :options="['','date','date-time','password','byte','binary','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" /></div>
+                                            <div class="form-field"><label>Pattern</label><InputText v-model="getResponseInlineSchema(response).pattern" placeholder="^[a-zA-Z0-9]+$" /></div>
+                                          </div>
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Min Length</label><InputNumber v-model="getResponseInlineSchema(response).minLength" placeholder="Min length" :min="0" /></div>
+                                            <div class="form-field"><label>Max Length</label><InputNumber v-model="getResponseInlineSchema(response).maxLength" placeholder="Max length" :min="0" /></div>
+                                          </div>
+                                        </template>
+
+                                        <!-- number/integer constraints -->
+                                        <template v-if="getResponseInlineSchemaType(response) === 'number' || getResponseInlineSchemaType(response) === 'integer'">
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Format</label><Select v-model="getResponseInlineSchema(response).format" :options="getResponseInlineSchemaType(response) === 'integer' ? ['','int32','int64'] : ['','float','double']" placeholder="Format" /></div>
+                                            <div class="form-field"><label>Multiple Of</label><InputNumber v-model="getResponseInlineSchema(response).multipleOf" placeholder="Multiple of" :min="0" /></div>
+                                          </div>
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Minimum</label><InputNumber v-model="getResponseInlineSchema(response).minimum" placeholder="Min value" /></div>
+                                            <div class="form-field"><label>Maximum</label><InputNumber v-model="getResponseInlineSchema(response).maximum" placeholder="Max value" /></div>
+                                          </div>
+                                        </template>
+
+                                        <!-- common: enum / default / example (non-object) -->
+                                        <template v-if="getResponseInlineSchemaType(response) !== 'object'">
+                                          <div class="form-field">
+                                            <label>Enum Values</label>
+                                            <AutoComplete multiple typeahead v-model="getResponseInlineSchema(response).enum" placeholder="Add value and press Enter" @keydown.enter.prevent="addChipOnEnter($event, getResponseInlineSchema(response), 'enum')" />
+                                          </div>
+                                          <div class="form-row">
+                                            <div class="form-field"><label>Default Value</label><InputText v-model="getResponseInlineSchema(response).default" placeholder="Default value" /></div>
+                                            <div class="form-field"><label>Example</label><InputText v-model="getResponseInlineSchema(response).example" placeholder="Example value" /></div>
+                                          </div>
+                                          <div class="form-field checkbox-field">
+                                            <template v-if="isOpenAPI31">
+                                              <Checkbox
+                                                :modelValue="Array.isArray(getResponseInlineSchema(response).type) && getResponseInlineSchema(response).type.includes('null')"
+                                                inputId="resp-nullable"
+                                                :binary="true"
+                                                @update:modelValue="val => {
+                                                  const s = getResponseInlineSchema(response);
+                                                  const base = Array.isArray(s.type) ? s.type.filter(t => t !== 'null') : [s.type || 'string'];
+                                                  s.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
+                                                }"
+                                              />
+                                            </template>
+                                            <template v-else>
+                                              <Checkbox v-model="getResponseInlineSchema(response).nullable" inputId="resp-nullable" :binary="true" />
+                                            </template>
+                                            <label for="resp-nullable">Nullable</label>
+                                          </div>
+                                        </template>
+                                      </template>
+                                    </template>
                                   </AccordionContent>
                                 </AccordionPanel>
                               </Accordion>
@@ -2378,6 +2607,88 @@
       </Tabs>
     </div>
 
+    <!-- Add / Edit Response Code Dialog (two-step: category → code) -->
+    <Dialog
+      :visible="showAddResponseDialog"
+      @update:visible="showAddResponseDialog = $event"
+      :header="editingResponseCode ? 'Change Status Code' : 'Add Response'"
+      :style="{ width: '560px' }"
+      modal
+      :draggable="false"
+      @hide="resetResponseDialog"
+    >
+      <div class="dialog-content">
+        <!-- Step 1: category -->
+        <div v-if="responseDialogStep === 1" class="form-field">
+          <label>Category</label>
+          <div class="status-category-grid">
+            <button
+              v-for="cat in statusCodeCategories"
+              :key="cat.value"
+              :class="['status-category-btn', 'status-category-btn--' + cat.value, { 'status-category-btn--active': responseDialogCategory === cat.value }]"
+              @click="responseDialogCategory = cat.value; responseDialogStep = 2"
+            >
+              <span class="status-category-label">{{ cat.label }}</span>
+              <span class="status-category-desc">{{ cat.description }}</span>
+            </button>
+            <button
+              :class="['status-category-btn', 'status-category-btn--custom', { 'status-category-btn--active': responseDialogCategory === 'custom' }]"
+              @click="responseDialogCategory = 'custom'; responseDialogStep = 2"
+            >
+              <span class="status-category-label">Custom</span>
+              <span class="status-category-desc">Non-standard or wildcards (e.g. default, 4xx)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: pick code from category -->
+        <div v-if="responseDialogStep === 2">
+          <div class="response-dialog-back">
+            <Button icon="pi pi-arrow-left" label="Back" text size="small" @click="responseDialogStep = 1" />
+            <span class="response-dialog-category-title">{{ statusCodeCategories.find(c => c.value === responseDialogCategory)?.label || 'Custom' }}</span>
+          </div>
+
+          <!-- custom: free-text input -->
+          <div v-if="responseDialogCategory === 'custom'" class="form-field" style="margin-top:12px;">
+            <label for="custom-status-code">Status Code</label>
+            <InputText id="custom-status-code" v-model="newResponseCode" placeholder="e.g. 418 or default" class="w-full" />
+            <small class="helper-text">Enter a numeric code or "default"</small>
+          </div>
+
+          <!-- code list from category -->
+          <div v-else class="status-code-list">
+            <button
+              v-for="entry in statusCodesForCategory(responseDialogCategory)"
+              :key="entry.code"
+              :class="[
+                'status-code-item',
+                { 'status-code-item--active': newResponseCode === String(entry.code) },
+                { 'status-code-item--used': isResponseCodeUsed(String(entry.code)) }
+              ]"
+              :disabled="isResponseCodeUsed(String(entry.code))"
+              @click="!isResponseCodeUsed(String(entry.code)) && (newResponseCode = String(entry.code))"
+            >
+              <Tag :value="String(entry.code)" :severity="getStatusSeverity(String(entry.code))" class="status-code-tag" />
+              <div class="status-code-info">
+                <span class="status-code-name">{{ entry.name }}</span>
+                <span class="status-code-hint">{{ isResponseCodeUsed(String(entry.code)) ? 'Already added' : entry.hint }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Cancel" text @click="showAddResponseDialog = false; resetResponseDialog()" />
+        <Button
+          v-if="responseDialogStep === 2"
+          :label="editingResponseCode ? 'Change Code' : 'Add Response'"
+          icon="pi pi-check"
+          :disabled="!newResponseCode"
+          @click="confirmResponseDialog"
+        />
+      </template>
+    </Dialog>
+
     <!-- Add Path Dialog -->
     <Dialog
       :visible="showAddPathDialog"
@@ -2617,6 +2928,9 @@ export default {
     const showAddMethodDialogVisible = ref(false);
     const showAddSchemaDialog = ref(false);
     const showAddResponseDialog = ref(false);
+    const responseDialogStep = ref(1);
+    const responseDialogCategory = ref('');
+    const editingResponseCode = ref(''); // non-empty = edit mode (old code being replaced)
     const newPath = ref("");
     const newMethod = ref("");
     const newSchemaName = ref("");
@@ -2747,6 +3061,46 @@ export default {
           }
         }
       }
+      // Normalize $ref props and array _itemSchemas in inline response schemas
+      if (obj.paths) {
+        for (const path of Object.values(obj.paths)) {
+          for (const op of Object.values(path)) {
+            if (!op || !op.responses) continue;
+            for (const resp of Object.values(op.responses)) {
+              if (!resp || !resp.content) continue;
+              for (const ct of Object.values(resp.content)) {
+                const schema = ct && ct.schema;
+                if (!schema) continue;
+                if (schema.properties) {
+                  for (const propName of Object.keys(schema.properties)) {
+                    const prop = schema.properties[propName];
+                    if (prop.$ref && !prop.type) prop.type = '$ref';
+                    if (prop.type === 'array' && prop.items && prop.items.$ref && !prop.items.type) {
+                      prop.items.type = '$ref';
+                    }
+                  }
+                }
+                if (schema.type === 'array') {
+                  const items = schema.items;
+                  const toItemSchema = (s) => {
+                    if (s.$ref) return { type: 'object', $ref: s.$ref };
+                    const out = { type: s.type || 'string' };
+                    ['format','pattern','minLength','maxLength','minimum','maximum','multipleOf','exclusiveMinimum','exclusiveMaximum'].forEach(k => { if (s[k] !== undefined) out[k] = s[k]; });
+                    return out;
+                  };
+                  if (items && items.oneOf) {
+                    schema._itemSchemas = items.oneOf.map(toItemSchema);
+                  } else if (items) {
+                    schema._itemSchemas = [toItemSchema(items)];
+                  } else {
+                    schema._itemSchemas = [];
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
       return obj;
     };
 
@@ -2847,6 +3201,46 @@ export default {
                   schema.items = toOutput(schemas[0]);
                 } else {
                   schema.items = { oneOf: schemas.map(toOutput) };
+                }
+              }
+            }
+          }
+        }
+      }
+      // Clean $ref props and _itemSchemas in inline response schemas
+      if (obj.paths) {
+        for (const path of Object.values(obj.paths)) {
+          for (const op of Object.values(path)) {
+            if (!op || !op.responses) continue;
+            for (const resp of Object.values(op.responses)) {
+              if (!resp || !resp.content) continue;
+              for (const ct of Object.values(resp.content)) {
+                const schema = ct && ct.schema;
+                if (!schema) continue;
+                // Clean $ref properties
+                if (schema.properties) {
+                  for (const propName of Object.keys(schema.properties)) {
+                    const prop = schema.properties[propName];
+                    if (prop.type === '$ref') {
+                      schema.properties[propName] = { $ref: prop.$ref || '' };
+                    } else if (prop.type === 'array' && prop.items && prop.items.type === '$ref') {
+                      prop.items = { $ref: prop.items.$ref || '' };
+                    }
+                  }
+                }
+                // Clean array _itemSchemas
+                if (schema.type === 'array') {
+                  const schemas = schema._itemSchemas || [];
+                  delete schema._itemSchemas;
+                  const toOutput = (s) => {
+                    if (s.type === 'object') return s.$ref ? { $ref: s.$ref } : { type: 'object' };
+                    const out = { type: s.type };
+                    ['format','pattern','minLength','maxLength','minimum','maximum','multipleOf','exclusiveMinimum','exclusiveMaximum'].forEach(k => { if (s[k] != null) out[k] = s[k]; });
+                    return out;
+                  };
+                  if (schemas.length === 0) { delete schema.items; }
+                  else if (schemas.length === 1) { schema.items = toOutput(schemas[0]); }
+                  else { schema.items = { oneOf: schemas.map(toOutput) }; }
                 }
               }
             }
@@ -3532,29 +3926,153 @@ export default {
       }
     );
 
-    // Response methods
-    const addResponse = () => {
-      if (!newResponseCode.value) return;
+    // ── HTTP Status Code data ────────────────────────────────────────────────
 
-      if (
-        !formData.value.paths[selectedPath.value][selectedMethod.value]
-          .responses
-      ) {
-        formData.value.paths[selectedPath.value][
-          selectedMethod.value
-        ].responses = {};
+    const statusCodeCategories = [
+      { value: '2xx', label: '2xx Success', description: 'Request succeeded' },
+      { value: '3xx', label: '3xx Redirection', description: 'Further action needed' },
+      { value: '4xx', label: '4xx Client Error', description: 'Request has an issue' },
+      { value: '5xx', label: '5xx Server Error', description: 'Server failed to fulfill' },
+    ];
+
+    const allStatusCodes = {
+      '2xx': [
+        { code: 200, name: 'OK', hint: 'Standard success response' },
+        { code: 201, name: 'Created', hint: 'Resource was created' },
+        { code: 202, name: 'Accepted', hint: 'Request accepted, processing deferred' },
+        { code: 204, name: 'No Content', hint: 'Success with no response body' },
+        { code: 206, name: 'Partial Content', hint: 'Range request fulfilled' },
+        { code: 207, name: 'Multi-Status', hint: 'Multiple status codes (WebDAV)' },
+        { code: 208, name: 'Already Reported', hint: 'Already enumerated (WebDAV)' },
+        { code: 226, name: 'IM Used', hint: 'Deferred GET fulfilled' },
+      ],
+      '3xx': [
+        { code: 301, name: 'Moved Permanently', hint: 'Resource moved permanently' },
+        { code: 302, name: 'Found', hint: 'Temporary redirect' },
+        { code: 303, name: 'See Other', hint: 'Redirect with GET' },
+        { code: 304, name: 'Not Modified', hint: 'Cache is still valid' },
+        { code: 307, name: 'Temporary Redirect', hint: 'Temporary redirect, same method' },
+        { code: 308, name: 'Permanent Redirect', hint: 'Permanent redirect, same method' },
+      ],
+      '4xx': [
+        { code: 400, name: 'Bad Request', hint: 'Malformed request syntax' },
+        { code: 401, name: 'Unauthorized', hint: 'Authentication required' },
+        { code: 402, name: 'Payment Required', hint: 'Quota or billing error' },
+        { code: 403, name: 'Forbidden', hint: 'Authenticated but not authorised' },
+        { code: 404, name: 'Not Found', hint: 'Resource does not exist' },
+        { code: 405, name: 'Method Not Allowed', hint: 'HTTP method not supported' },
+        { code: 406, name: 'Not Acceptable', hint: 'No acceptable content type' },
+        { code: 408, name: 'Request Timeout', hint: 'Client took too long' },
+        { code: 409, name: 'Conflict', hint: 'State conflict (e.g. duplicate)' },
+        { code: 410, name: 'Gone', hint: 'Resource deleted permanently' },
+        { code: 411, name: 'Length Required', hint: 'Content-Length header missing' },
+        { code: 412, name: 'Precondition Failed', hint: 'Conditional request failed' },
+        { code: 413, name: 'Content Too Large', hint: 'Payload exceeds limit' },
+        { code: 415, name: 'Unsupported Media Type', hint: 'Content-Type not supported' },
+        { code: 416, name: 'Range Not Satisfiable', hint: 'Range header invalid' },
+        { code: 422, name: 'Unprocessable Entity', hint: 'Validation failed' },
+        { code: 423, name: 'Locked', hint: 'Resource is locked (WebDAV)' },
+        { code: 424, name: 'Failed Dependency', hint: 'Depends on failed action' },
+        { code: 425, name: 'Too Early', hint: 'Replay attack risk' },
+        { code: 426, name: 'Upgrade Required', hint: 'Switch protocol required' },
+        { code: 428, name: 'Precondition Required', hint: 'Conditional request required' },
+        { code: 429, name: 'Too Many Requests', hint: 'Rate limit exceeded' },
+        { code: 451, name: 'Unavailable For Legal Reasons', hint: 'Censored content' },
+      ],
+      '5xx': [
+        { code: 500, name: 'Internal Server Error', hint: 'Generic server error' },
+        { code: 501, name: 'Not Implemented', hint: 'Method not implemented' },
+        { code: 502, name: 'Bad Gateway', hint: 'Upstream returned bad response' },
+        { code: 503, name: 'Service Unavailable', hint: 'Server temporarily down' },
+        { code: 504, name: 'Gateway Timeout', hint: 'Upstream timed out' },
+        { code: 507, name: 'Insufficient Storage', hint: 'No storage left (WebDAV)' },
+        { code: 508, name: 'Loop Detected', hint: 'Infinite loop detected' },
+        { code: 511, name: 'Network Authentication Required', hint: 'Network auth needed' },
+      ],
+    };
+
+    const statusCodesForCategory = (cat) => allStatusCodes[cat] || [];
+
+    const getStatusName = (code) => {
+      for (const codes of Object.values(allStatusCodes)) {
+        const found = codes.find(e => String(e.code) === String(code));
+        if (found) return found.name;
+      }
+      return '';
+    };
+
+    // Returns true if the given status code is already used by the current operation
+    // In edit mode (editingResponseCode set), the original code being renamed is excluded
+    const isResponseCodeUsed = (code) => {
+      if (!selectedPath.value || !selectedMethod.value) return false;
+      const responses = formData.value.paths[selectedPath.value]?.[selectedMethod.value]?.responses || {};
+      const usedCodes = Object.keys(responses);
+      if (editingResponseCode.value) {
+        // Exclude the code currently being edited so it doesn't block re-selecting itself
+        return usedCodes.filter(c => c !== editingResponseCode.value).includes(String(code));
+      }
+      return usedCodes.includes(String(code));
+    };
+
+    // ── Response dialog helpers ──────────────────────────────────────────────
+
+    const openAddResponseDialog = () => {
+      editingResponseCode.value = '';
+      newResponseCode.value = '';
+      responseDialogStep.value = 1;
+      responseDialogCategory.value = '';
+      showAddResponseDialog.value = true;
+    };
+
+    const openEditResponseCodeDialog = (statusCode) => {
+      editingResponseCode.value = statusCode;
+      newResponseCode.value = statusCode;
+      // Pre-select category from existing code
+      const code = parseInt(statusCode);
+      if (code >= 200 && code < 300) responseDialogCategory.value = '2xx';
+      else if (code >= 300 && code < 400) responseDialogCategory.value = '3xx';
+      else if (code >= 400 && code < 500) responseDialogCategory.value = '4xx';
+      else if (code >= 500 && code < 600) responseDialogCategory.value = '5xx';
+      else responseDialogCategory.value = 'custom';
+      responseDialogStep.value = 2;
+      showAddResponseDialog.value = true;
+    };
+
+    const resetResponseDialog = () => {
+      responseDialogStep.value = 1;
+      responseDialogCategory.value = '';
+      editingResponseCode.value = '';
+      newResponseCode.value = '';
+    };
+
+    const confirmResponseDialog = () => {
+      if (!newResponseCode.value || !selectedPath.value || !selectedMethod.value) return;
+
+      const responses = formData.value.paths[selectedPath.value][selectedMethod.value].responses;
+      if (!responses) {
+        formData.value.paths[selectedPath.value][selectedMethod.value].responses = {};
       }
 
-      formData.value.paths[selectedPath.value][selectedMethod.value].responses[
-        newResponseCode.value
-      ] = {
-        description: "",
-        content: {},
-      };
+      const code = newResponseCode.value;
 
-      newResponseCode.value = "";
+      if (editingResponseCode.value && editingResponseCode.value !== code) {
+        // Rename: preserve existing response data under new key
+        const existing = responses[editingResponseCode.value];
+        delete responses[editingResponseCode.value];
+        responses[code] = existing || { description: '', content: {} };
+      } else if (!editingResponseCode.value) {
+        // Add new
+        if (!responses[code]) {
+          const defaultDesc = getStatusName(code) ? getStatusName(code) : '';
+          responses[code] = { description: defaultDesc, content: {} };
+        }
+      }
+
       showAddResponseDialog.value = false;
+      resetResponseDialog();
     };
+
+    // ── Response methods ─────────────────────────────────────────────────────
 
     const removeResponse = (path, method, statusCode) => {
       delete formData.value.paths[path][method].responses[statusCode];
@@ -3572,7 +4090,7 @@ export default {
       if (contentType) {
         response.content[contentType] = oldContent[
           Object.keys(oldContent)[0]
-        ] || { schema: {} };
+        ] || { schema: { type: 'object' } };
       }
     };
 
@@ -3580,17 +4098,20 @@ export default {
       const contentType = getResponseContentType(response);
       if (!contentType || !response.content[contentType]?.schema)
         return "inline";
-      return response.content[contentType].schema.$ref ? "reference" : "inline";
+      const schema = response.content[contentType].schema;
+      // Use hasOwnProperty so { $ref: "" } (empty ref) is still detected as reference
+      return Object.prototype.hasOwnProperty.call(schema, '$ref') ? "reference" : "inline";
     };
 
     const setResponseSchemaType = (response, type) => {
       const contentType = getResponseContentType(response);
       if (!contentType) return;
+      if (!response.content[contentType]) response.content[contentType] = {};
 
       if (type === "reference") {
         response.content[contentType].schema = { $ref: "" };
       } else {
-        response.content[contentType].schema = { type: "object" };
+        response.content[contentType].schema = { type: "object", properties: {} };
       }
     };
 
@@ -3606,23 +4127,72 @@ export default {
       response.content[contentType].schema = { $ref: ref };
     };
 
+    // Returns the live schema object for inline response (writable)
     const getResponseInlineSchema = (response) => {
       const contentType = getResponseContentType(response);
-      if (!contentType) return "{}";
-      const schema = response.content[contentType]?.schema;
-      if (schema?.$ref) return "{}";
-      return JSON.stringify(schema || {}, null, 2);
+      if (!contentType) return {};
+      if (!response.content) response.content = {};
+      if (!response.content[contentType]) response.content[contentType] = { schema: { type: 'object', properties: {} } };
+      if (!response.content[contentType].schema) response.content[contentType].schema = { type: 'object', properties: {} };
+      const schema = response.content[contentType].schema;
+      // Treat any schema that has a $ref key (even empty string) as a reference schema
+      if (Object.prototype.hasOwnProperty.call(schema, '$ref')) return {};
+      return schema;
     };
 
-    const updateResponseInlineSchema = (response, jsonString) => {
-      try {
-        const schema = JSON.parse(jsonString);
-        const contentType = getResponseContentType(response);
-        if (contentType) {
-          response.content[contentType].schema = schema;
-        }
-      } catch (e) {
-        // Invalid JSON
+    const getResponseInlineSchemaType = (response) => {
+      const schema = getResponseInlineSchema(response);
+      if (!schema || !schema.type) return 'object';
+      return Array.isArray(schema.type) ? schema.type.find(t => t !== 'null') || 'object' : schema.type;
+    };
+
+    const setResponseInlineSchemaType = (response, type) => {
+      const contentType = getResponseContentType(response);
+      if (!contentType) return;
+      if (!response.content) response.content = {};
+      const newSchema = { type };
+      if (type === 'object') { newSchema.properties = {}; }
+      else if (type === 'array') { newSchema._itemSchemas = []; }
+      response.content[contentType] = { schema: newSchema };
+    };
+
+    const addResponseProperty = (response) => {
+      const schema = getResponseInlineSchema(response);
+      if (!schema || schema.type !== 'object') return;
+      if (!schema.properties) schema.properties = {};
+      let propName = 'newProperty';
+      let counter = 1;
+      while (schema.properties[propName]) { propName = `newProperty${counter}`; counter++; }
+      schema.properties[propName] = { type: 'string', description: '' };
+    };
+
+    const removeResponseProperty = (response, propName) => {
+      const schema = getResponseInlineSchema(response);
+      if (!schema || !schema.properties) return;
+      delete schema.properties[propName];
+      if (schema.required) schema.required = schema.required.filter(r => r !== propName);
+    };
+
+    const renameResponseProperty = (response, oldName, newName) => {
+      if (oldName === newName || !newName) return;
+      const schema = getResponseInlineSchema(response);
+      if (!schema || !schema.properties || schema.properties[newName]) return;
+      schema.properties[newName] = schema.properties[oldName];
+      delete schema.properties[oldName];
+      if (schema.required) {
+        const idx = schema.required.indexOf(oldName);
+        if (idx !== -1) schema.required[idx] = newName;
+      }
+    };
+
+    const toggleResponsePropertyRequired = (response, propName, isRequired) => {
+      const schema = getResponseInlineSchema(response);
+      if (!schema) return;
+      if (!schema.required) schema.required = [];
+      if (isRequired) {
+        if (!schema.required.includes(propName)) schema.required.push(propName);
+      } else {
+        schema.required = schema.required.filter(r => r !== propName);
       }
     };
 
@@ -3940,9 +4510,19 @@ export default {
       getMethodSeverity,
       getMethodDescription,
       getStatusSeverity,
+      getStatusName,
       addParameter,
       removeParameter,
-      addResponse,
+      statusCodeCategories,
+      statusCodesForCategory,
+      isResponseCodeUsed,
+      responseDialogStep,
+      responseDialogCategory,
+      editingResponseCode,
+      openAddResponseDialog,
+      openEditResponseCodeDialog,
+      resetResponseDialog,
+      confirmResponseDialog,
       removeResponse,
       getResponseContentType,
       setResponseContentType,
@@ -3951,7 +4531,12 @@ export default {
       getResponseSchemaRef,
       setResponseSchemaRef,
       getResponseInlineSchema,
-      updateResponseInlineSchema,
+      getResponseInlineSchemaType,
+      setResponseInlineSchemaType,
+      addResponseProperty,
+      removeResponseProperty,
+      renameResponseProperty,
+      toggleResponsePropertyRequired,
       addSchemaProperty,
       removeSchemaProperty,
       renameSchemaProperty,
@@ -4573,6 +5158,153 @@ export default {
   font-weight: 500;
   font-size: 13px;
   color: #374151;
+}
+
+/* ── Response edit-code button ── */
+.response-edit-code-btn {
+  flex-shrink: 0;
+  color: #6b7280 !important;
+}
+
+.response-edit-code-btn:hover {
+  color: #3b82f6 !important;
+}
+
+/* ── Status code category grid ── */
+.status-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.status-category-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1.5px solid #e5e7eb;
+  background: #f9fafb;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.status-category-btn:hover {
+  border-color: #d1d5db;
+  background: #f3f4f6;
+}
+
+.status-category-btn--active {
+  border-width: 2px;
+}
+
+.status-category-btn--2xx            { border-color: #bbf7d0; background: #f0fdf4; }
+.status-category-btn--2xx.status-category-btn--active { border-color: #16a34a; }
+.status-category-btn--3xx            { border-color: #bfdbfe; background: #eff6ff; }
+.status-category-btn--3xx.status-category-btn--active { border-color: #2563eb; }
+.status-category-btn--4xx            { border-color: #fde68a; background: #fffbeb; }
+.status-category-btn--4xx.status-category-btn--active { border-color: #d97706; }
+.status-category-btn--5xx            { border-color: #fecaca; background: #fef2f2; }
+.status-category-btn--5xx.status-category-btn--active { border-color: #dc2626; }
+.status-category-btn--custom         { border-color: #e5e7eb; background: #f9fafb; }
+.status-category-btn--custom.status-category-btn--active { border-color: #6b7280; }
+
+.status-category-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.status-category-desc {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* ── Status code list (step 2) ── */
+.response-dialog-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.response-dialog-category-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.status-code-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.status-code-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1.5px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.status-code-item:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.status-code-item--used {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.status-code-item--used .status-code-hint {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.status-code-item--active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  border-width: 2px;
+}
+
+.status-code-tag {
+  flex-shrink: 0;
+}
+
+.status-code-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.status-code-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.status-code-hint {
+  font-size: 11px;
+  color: #6b7280;
 }
 
 .schema-builder {
