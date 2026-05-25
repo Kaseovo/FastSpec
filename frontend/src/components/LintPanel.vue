@@ -6,6 +6,19 @@
       @saved="$emit('run-lint')"
       @deleted="$emit('run-lint')"
     />
+    <!-- Always-visible top bar with settings access -->
+    <div class="lint-topbar">
+      <Button
+        icon="pi pi-sliders-h"
+        severity="secondary"
+        text
+        size="small"
+        label="Custom rules"
+        aria-label="Configure lint ruleset"
+        @click="showRulesetDialog = true"
+      />
+    </div>
+
     <!-- Empty / loading state -->
     <div v-if="loading" class="lint-loading">
       <ProgressSpinner style="width: 32px; height: 32px" />
@@ -201,6 +214,14 @@ export default {
 </script>
 
 <style scoped>
+.lint-topbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 4px 0;
+  border-bottom: 1px solid var(--p-surface-border, #dee2e6);
+  margin-bottom: 4px;
+}
+
 .lint-panel {
   display: flex;
   flex-direction: column;
