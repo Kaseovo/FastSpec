@@ -23,3 +23,11 @@ An HTTP method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD) bound to a Path, c
 ## Route
 
 Synonym for the combination of a Path and one of its Operations (e.g. `GET /users/{id}`). Not used as a distinct domain term — prefer "Path" or "Operation".
+
+## Item Schema
+
+The schema that describes each element of an array-typed Parameter or Property. Represented internally as `_itemSchemas` (a list of per-type sub-schemas) and serialised to the OpenAPI `items` field on output. Must always be present and valid when the parent type is `array` — an absent or malformed Item Schema causes Swagger UI's "Add item" button to silently fail.
+
+## Spec Version Mode
+
+The OpenAPI version declared in the `openapi` field of a Spec (`3.0.x` or `3.1.x`). Determines which form semantics are active: in 3.0 mode, nullability is expressed as `nullable: true` and `exclusiveMinimum`/`exclusiveMaximum` are booleans; in 3.1 mode, nullability is expressed as a type array (e.g. `["string", "null"]`) and `exclusiveMinimum`/`exclusiveMaximum` are numbers. The Form Editor detects the Spec Version Mode from the `openapi` field value and adjusts its UI accordingly.

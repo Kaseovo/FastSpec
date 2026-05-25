@@ -1,7 +1,7 @@
 <template>
   <div class="preview-panel">
     <div class="panel-header">
-      <h3>Swagger Preview</h3>
+      <h3>OpenAPI Preview</h3>
       <div class="header-controls">
         <div v-if="spec?.id" class="version-compare">
           <label>Base</label>

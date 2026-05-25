@@ -415,40 +415,164 @@
                                       placeholder="Parameter description"
                                     />
                                   </div>
-                                  <div class="form-row">
-                                    <div class="form-field">
-                                      <label>Type *</label>
-                                      <Select
-                                        v-model="param.schema.type"
-                                        :options="[
-                                          'string',
-                                          'number',
-                                          'integer',
-                                          'boolean',
-                                          'array',
-                                          'object',
-                                        ]"
-                                        placeholder="Type"
-                                        @change="onPropertyTypeChange(param.schema)"
-                                      />
-                                    </div>
-                                    <div
-                                      class="form-field"
-                                      v-if="param.schema.type === 'array' && param.schema.items"
-                                    >
-                                      <label>Items Type</label>
-                                      <Select
-                                        v-model="param.schema.items.type"
-                                        :options="[
-                                          'string',
-                                          'number',
-                                          'integer',
-                                          'boolean',
-                                        ]"
-                                        placeholder="Items type"
-                                      />
-                                    </div>
+                                  <div class="form-field">
+                                    <label>Type *</label>
+                                    <Select
+                                      v-model="param.schema.type"
+                                      :options="[
+                                        'string',
+                                        'number',
+                                        'integer',
+                                        'boolean',
+                                        'array',
+                                        'object',
+                                      ]"
+                                      placeholder="Type"
+                                      @change="onPropertyTypeChange(param.schema)"
+                                    />
                                   </div>
+                                  <template v-if="param.schema.type === 'array'">
+                                      <div class="form-field">
+                                        <label>Items Type(s)</label>
+                                        <MultiSelect
+                                          :modelValue="param.schema._itemSchemas ? [...new Set(param.schema._itemSchemas.map(s => s.type))] : []"
+                                          :options="['string','number','integer','boolean','object']"
+                                          placeholder="Select one or more types"
+                                          display="chip"
+                                          @update:modelValue="onItemTypesChange(param.schema, $event)"
+                                        />
+                                      </div>
+                                      <!-- Per-type schema sections -->
+                                      <div v-if="param.schema._itemSchemas && param.schema._itemSchemas.length > 0" class="item-schemas-list">
+                                        <div
+                                          v-for="(itemSchema, sIdx) in param.schema._itemSchemas"
+                                          :key="sIdx"
+                                          class="item-schema-entry"
+                                        >
+                                          <div class="item-schema-entry-header">
+                                            <span :class="['type-badge', 'type-badge--' + itemSchema.type]">{{ itemSchema.type }}</span>
+                                            <span v-if="itemSchema.type === 'object' && itemSchema.$ref" class="item-schema-ref-label">{{ itemSchema.$ref.split('/').pop() }}</span>
+                                            <Button
+                                              icon="pi pi-trash"
+                                              severity="danger"
+                                              text
+                                              rounded
+                                              size="small"
+                                              class="item-schema-remove"
+                                              v-tooltip.top="'Remove this type entry'"
+                                              @click="param.schema._itemSchemas.splice(sIdx, 1)"
+                                            />
+                                          </div>
+                                          <div class="item-schema-entry-body">
+                                            <!-- object: $ref picker + add more objects -->
+                                            <template v-if="itemSchema.type === 'object'">
+                                              <div class="form-field">
+                                                <label>Schema Reference</label>
+                                                <div class="schema-selector">
+                                                  <Select
+                                                    v-model="itemSchema.$ref"
+                                                    :options="availableSchemas.filter(s => s.value === itemSchema.$ref || !param.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value))"
+                                                    optionLabel="label"
+                                                    optionValue="value"
+                                                    :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
+                                                    :disabled="availableSchemas.length === 0"
+                                                  />
+                                                  <Button
+                                                    label="New Schema"
+                                                    icon="pi pi-plus"
+                                                    size="small"
+                                                    text
+                                                    @click="showAddSchemaDialog = true"
+                                                  />
+                                                </div>
+                                                <small v-if="availableSchemas.length === 0" class="helper-text">No schemas yet — create one first.</small>
+                                              </div>
+                                              <Button
+                                                v-if="sIdx === param.schema._itemSchemas.map((s,i) => s.type === 'object' ? i : -1).filter(i => i >= 0).slice(-1)[0]"
+                                                label="Add another object schema"
+                                                icon="pi pi-plus"
+                                                size="small"
+                                                text
+                                                class="mt-1"
+                                                @click="param.schema._itemSchemas.splice(sIdx + 1, 0, { type: 'object', $ref: '' })"
+                                              />
+                                            </template>
+                                            <!-- string validations -->
+                                            <template v-else-if="itemSchema.type === 'string'">
+                                              <div class="form-row">
+                                                <div class="form-field">
+                                                  <label>Format</label>
+                                                  <Select v-model="itemSchema.format" :options="['','date','date-time','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" />
+                                                </div>
+                                                <div class="form-field">
+                                                  <label>Pattern</label>
+                                                  <InputText v-model="itemSchema.pattern" placeholder="^[a-zA-Z0-9]+$" />
+                                                </div>
+                                              </div>
+                                              <div class="form-row">
+                                                <div class="form-field">
+                                                  <label>Min Length</label>
+                                                  <InputNumber v-model="itemSchema.minLength" placeholder="Min length" :min="0" />
+                                                </div>
+                                                <div class="form-field">
+                                                  <label>Max Length</label>
+                                                  <InputNumber v-model="itemSchema.maxLength" placeholder="Max length" :min="0" />
+                                                </div>
+                                              </div>
+                                            </template>
+                                            <!-- number / integer validations -->
+                                            <template v-else-if="itemSchema.type === 'number' || itemSchema.type === 'integer'">
+                                              <div class="form-row">
+                                                <div class="form-field">
+                                                  <label>Format</label>
+                                                  <Select v-model="itemSchema.format" :options="itemSchema.type === 'integer' ? ['','int32','int64'] : ['','float','double']" placeholder="Format" />
+                                                </div>
+                                                <div class="form-field">
+                                                  <label>Multiple Of</label>
+                                                  <InputNumber v-model="itemSchema.multipleOf" placeholder="Multiple of" :min="0" />
+                                                </div>
+                                              </div>
+                                              <div class="form-row">
+                                                <div class="form-field">
+                                                  <label>Minimum</label>
+                                                  <InputNumber v-model="itemSchema.minimum" placeholder="Min value" />
+                                                </div>
+                                                <div class="form-field">
+                                                  <label>Maximum</label>
+                                                  <InputNumber v-model="itemSchema.maximum" placeholder="Max value" />
+                                                </div>
+                                              </div>
+                                              <div class="form-row">
+                                                <template v-if="isOpenAPI31">
+                                                  <div class="form-field">
+                                                    <label :for="'item-excl-min-' + pIndex + '-' + sIdx">Exclusive Minimum</label>
+                                                    <InputNumber v-model="itemSchema.exclusiveMinimum" :inputId="'item-excl-min-' + pIndex + '-' + sIdx" placeholder="Exclusive min value" />
+                                                  </div>
+                                                  <div class="form-field">
+                                                    <label :for="'item-excl-max-' + pIndex + '-' + sIdx">Exclusive Maximum</label>
+                                                    <InputNumber v-model="itemSchema.exclusiveMaximum" :inputId="'item-excl-max-' + pIndex + '-' + sIdx" placeholder="Exclusive max value" />
+                                                  </div>
+                                                </template>
+                                                <template v-else>
+                                                  <div class="form-field checkbox-field">
+                                                    <Checkbox v-model="itemSchema.exclusiveMinimum" :inputId="'item-excl-min-' + pIndex + '-' + sIdx" :binary="true" />
+                                                    <label :for="'item-excl-min-' + pIndex + '-' + sIdx">Exclusive Minimum</label>
+                                                  </div>
+                                                  <div class="form-field checkbox-field">
+                                                    <Checkbox v-model="itemSchema.exclusiveMaximum" :inputId="'item-excl-max-' + pIndex + '-' + sIdx" :binary="true" />
+                                                    <label :for="'item-excl-max-' + pIndex + '-' + sIdx">Exclusive Maximum</label>
+                                                  </div>
+                                                </template>
+                                              </div>
+                                            </template>
+                                            <!-- boolean: no constraints -->
+                                            <template v-else-if="itemSchema.type === 'boolean'">
+                                              <p class="helper-text">No additional constraints for boolean.</p>
+                                            </template>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </template>
 
                                   <!-- String validations -->
                                   <div
@@ -564,32 +688,53 @@
                                     "
                                     class="form-row"
                                   >
-                                    <div class="form-field checkbox-field">
-                                      <Checkbox
-                                        v-model="param.schema.exclusiveMinimum"
-                                        :inputId="'param-excl-min-' + pIndex"
-                                        :binary="true"
-                                      />
-                                      <label :for="'param-excl-min-' + pIndex"
-                                        >Exclusive Minimum</label
-                                      >
-                                    </div>
-                                    <div class="form-field checkbox-field">
-                                      <Checkbox
-                                        v-model="param.schema.exclusiveMaximum"
-                                        :inputId="'param-excl-max-' + pIndex"
-                                        :binary="true"
-                                      />
-                                      <label :for="'param-excl-max-' + pIndex"
-                                        >Exclusive Maximum</label
-                                      >
-                                    </div>
+                                    <template v-if="isOpenAPI31">
+                                      <div class="form-field">
+                                        <label :for="'param-excl-min-' + pIndex">Exclusive Minimum</label>
+                                        <InputNumber
+                                          v-model="param.schema.exclusiveMinimum"
+                                          :inputId="'param-excl-min-' + pIndex"
+                                          placeholder="Exclusive min value"
+                                        />
+                                      </div>
+                                      <div class="form-field">
+                                        <label :for="'param-excl-max-' + pIndex">Exclusive Maximum</label>
+                                        <InputNumber
+                                          v-model="param.schema.exclusiveMaximum"
+                                          :inputId="'param-excl-max-' + pIndex"
+                                          placeholder="Exclusive max value"
+                                        />
+                                      </div>
+                                    </template>
+                                    <template v-else>
+                                      <div class="form-field checkbox-field">
+                                        <Checkbox
+                                          v-model="param.schema.exclusiveMinimum"
+                                          :inputId="'param-excl-min-' + pIndex"
+                                          :binary="true"
+                                        />
+                                        <label :for="'param-excl-min-' + pIndex"
+                                          >Exclusive Minimum</label
+                                        >
+                                      </div>
+                                      <div class="form-field checkbox-field">
+                                        <Checkbox
+                                          v-model="param.schema.exclusiveMaximum"
+                                          :inputId="'param-excl-max-' + pIndex"
+                                          :binary="true"
+                                        />
+                                        <label :for="'param-excl-max-' + pIndex"
+                                          >Exclusive Maximum</label
+                                        >
+                                      </div>
+                                    </template>
                                   </div>
 
                                   <!-- Array validations -->
                                   <div
                                     v-if="param.schema.type === 'array'"
                                     class="form-row"
+                                    style="margin-top: 0.75rem;"
                                   >
                                     <div class="form-field">
                                       <label>Min Items</label>
@@ -624,7 +769,10 @@
                                   </div>
 
                                   <!-- Enum values -->
-                                  <div class="form-field">
+                                  <div
+                                    class="form-field"
+                                    v-if="param.schema.type !== 'object'"
+                                  >
                                     <label>Enum Values (optional)</label>
                                     <AutoComplete
                                       multiple
@@ -663,11 +811,24 @@
                                       >
                                     </div>
                                     <div class="form-field checkbox-field">
-                                      <Checkbox
-                                        v-model="param.schema.nullable"
-                                        :inputId="'param-nullable-' + pIndex"
-                                        :binary="true"
-                                      />
+                                      <template v-if="isOpenAPI31">
+                                        <Checkbox
+                                          :modelValue="Array.isArray(param.schema.type) && param.schema.type.includes('null')"
+                                          :inputId="'param-nullable-' + pIndex"
+                                          :binary="true"
+                                          @update:modelValue="val => {
+                                            const base = Array.isArray(param.schema.type) ? param.schema.type.filter(t => t !== 'null') : [param.schema.type || 'string'];
+                                            param.schema.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
+                                          }"
+                                        />
+                                      </template>
+                                      <template v-else>
+                                        <Checkbox
+                                          v-model="param.schema.nullable"
+                                          :inputId="'param-nullable-' + pIndex"
+                                          :binary="true"
+                                        />
+                                      </template>
                                       <label :for="'param-nullable-' + pIndex"
                                         >Nullable</label
                                       >
@@ -749,7 +910,7 @@
                                     :options="availableSchemas"
                                     optionLabel="label"
                                     optionValue="value"
-                                    placeholder="Select schema"
+                                    :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                   />
                                 </div>
                               </div>
@@ -907,7 +1068,7 @@
                                           :options="availableSchemas"
                                           optionLabel="label"
                                           optionValue="value"
-                                          placeholder="Select schema"
+                                          :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                         />
                                       </div>
                                     </div>
@@ -1114,7 +1275,7 @@
                                      :options="availableSchemas"
                                      optionLabel="label"
                                      optionValue="value"
-                                     placeholder="Select schema"
+                                     :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                    />
                                  </div>
 
@@ -1243,26 +1404,46 @@
                                     "
                                     class="form-row"
                                   >
-                                    <div class="form-field checkbox-field">
-                                      <Checkbox
-                                        v-model="prop.exclusiveMinimum"
-                                        :inputId="'prop-excl-min-' + propName"
-                                        :binary="true"
-                                      />
-                                      <label :for="'prop-excl-min-' + propName"
-                                        >Exclusive Minimum</label
-                                      >
-                                    </div>
-                                    <div class="form-field checkbox-field">
-                                      <Checkbox
-                                        v-model="prop.exclusiveMaximum"
-                                        :inputId="'prop-excl-max-' + propName"
-                                        :binary="true"
-                                      />
-                                      <label :for="'prop-excl-max-' + propName"
-                                        >Exclusive Maximum</label
-                                      >
-                                    </div>
+                                    <template v-if="isOpenAPI31">
+                                      <div class="form-field">
+                                        <label :for="'prop-excl-min-' + propName">Exclusive Minimum</label>
+                                        <InputNumber
+                                          v-model="prop.exclusiveMinimum"
+                                          :inputId="'prop-excl-min-' + propName"
+                                          placeholder="Exclusive min value"
+                                        />
+                                      </div>
+                                      <div class="form-field">
+                                        <label :for="'prop-excl-max-' + propName">Exclusive Maximum</label>
+                                        <InputNumber
+                                          v-model="prop.exclusiveMaximum"
+                                          :inputId="'prop-excl-max-' + propName"
+                                          placeholder="Exclusive max value"
+                                        />
+                                      </div>
+                                    </template>
+                                    <template v-else>
+                                      <div class="form-field checkbox-field">
+                                        <Checkbox
+                                          v-model="prop.exclusiveMinimum"
+                                          :inputId="'prop-excl-min-' + propName"
+                                          :binary="true"
+                                        />
+                                        <label :for="'prop-excl-min-' + propName"
+                                          >Exclusive Minimum</label
+                                        >
+                                      </div>
+                                      <div class="form-field checkbox-field">
+                                        <Checkbox
+                                          v-model="prop.exclusiveMaximum"
+                                          :inputId="'prop-excl-max-' + propName"
+                                          :binary="true"
+                                        />
+                                        <label :for="'prop-excl-max-' + propName"
+                                          >Exclusive Maximum</label
+                                        >
+                                      </div>
+                                    </template>
                                   </div>
 
                                   <!-- Array validations -->
@@ -1294,7 +1475,7 @@
                                       :options="availableSchemas"
                                       optionLabel="label"
                                       optionValue="value"
-                                      placeholder="Select schema"
+                                      :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                     />
                                   </div>
 
@@ -1384,11 +1565,24 @@
                                       >
                                     </div>
                                     <div class="form-field checkbox-field">
-                                      <Checkbox
-                                        v-model="prop.nullable"
-                                        :inputId="'prop-nullable-' + propName"
-                                        :binary="true"
-                                      />
+                                      <template v-if="isOpenAPI31">
+                                        <Checkbox
+                                          :modelValue="Array.isArray(prop.type) && prop.type.includes('null')"
+                                          :inputId="'prop-nullable-' + propName"
+                                          :binary="true"
+                                          @update:modelValue="val => {
+                                            const base = Array.isArray(prop.type) ? prop.type.filter(t => t !== 'null') : [prop.type || 'string'];
+                                            prop.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
+                                          }"
+                                        />
+                                      </template>
+                                      <template v-else>
+                                        <Checkbox
+                                          v-model="prop.nullable"
+                                          :inputId="'prop-nullable-' + propName"
+                                          :binary="true"
+                                        />
+                                      </template>
                                       <label :for="'prop-nullable-' + propName"
                                         >Nullable</label
                                       >
@@ -1505,28 +1699,48 @@
                                 </div>
                               </div>
                               <div class="form-row">
-                                <div class="form-field checkbox-field">
-                                  <Checkbox
-                                    v-model="schema.data.exclusiveMinimum"
-                                    :inputId="'schema-excl-min-' + schema.name"
-                                    :binary="true"
-                                  />
-                                  <label
-                                    :for="'schema-excl-min-' + schema.name"
-                                    >Exclusive Minimum</label
-                                  >
-                                </div>
-                                <div class="form-field checkbox-field">
-                                  <Checkbox
-                                    v-model="schema.data.exclusiveMaximum"
-                                    :inputId="'schema-excl-max-' + schema.name"
-                                    :binary="true"
-                                  />
-                                  <label
-                                    :for="'schema-excl-max-' + schema.name"
-                                    >Exclusive Maximum</label
-                                  >
-                                </div>
+                                <template v-if="isOpenAPI31">
+                                  <div class="form-field">
+                                    <label :for="'schema-excl-min-' + schema.name">Exclusive Minimum</label>
+                                    <InputNumber
+                                      v-model="schema.data.exclusiveMinimum"
+                                      :inputId="'schema-excl-min-' + schema.name"
+                                      placeholder="Exclusive min value"
+                                    />
+                                  </div>
+                                  <div class="form-field">
+                                    <label :for="'schema-excl-max-' + schema.name">Exclusive Maximum</label>
+                                    <InputNumber
+                                      v-model="schema.data.exclusiveMaximum"
+                                      :inputId="'schema-excl-max-' + schema.name"
+                                      placeholder="Exclusive max value"
+                                    />
+                                  </div>
+                                </template>
+                                <template v-else>
+                                  <div class="form-field checkbox-field">
+                                    <Checkbox
+                                      v-model="schema.data.exclusiveMinimum"
+                                      :inputId="'schema-excl-min-' + schema.name"
+                                      :binary="true"
+                                    />
+                                    <label
+                                      :for="'schema-excl-min-' + schema.name"
+                                      >Exclusive Minimum</label
+                                    >
+                                  </div>
+                                  <div class="form-field checkbox-field">
+                                    <Checkbox
+                                      v-model="schema.data.exclusiveMaximum"
+                                      :inputId="'schema-excl-max-' + schema.name"
+                                      :binary="true"
+                                    />
+                                    <label
+                                      :for="'schema-excl-max-' + schema.name"
+                                      >Exclusive Maximum</label
+                                    >
+                                  </div>
+                                </template>
                               </div>
                             </div>
 
@@ -1557,7 +1771,7 @@
                                   :options="availableSchemas"
                                   optionLabel="label"
                                   optionValue="value"
-                                  placeholder="Select schema"
+                                  :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                 />
                               </div>
                               <div class="form-row">
@@ -1658,11 +1872,24 @@
                                 </div>
                               </div>
                               <div class="form-field checkbox-field">
-                                <Checkbox
-                                  v-model="schema.data.nullable"
-                                  :inputId="'schema-nullable-' + schema.name"
-                                  :binary="true"
-                                />
+                                <template v-if="isOpenAPI31">
+                                  <Checkbox
+                                    :modelValue="Array.isArray(schema.data.type) && schema.data.type.includes('null')"
+                                    :inputId="'schema-nullable-' + schema.name"
+                                    :binary="true"
+                                    @update:modelValue="val => {
+                                      const base = Array.isArray(schema.data.type) ? schema.data.type.filter(t => t !== 'null') : [schema.data.type || 'string'];
+                                      schema.data.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
+                                    }"
+                                  />
+                                </template>
+                                <template v-else>
+                                  <Checkbox
+                                    v-model="schema.data.nullable"
+                                    :inputId="'schema-nullable-' + schema.name"
+                                    :binary="true"
+                                  />
+                                </template>
                                 <label
                                   :for="'schema-nullable-' + schema.name"
                                   >Nullable</label
@@ -1887,6 +2114,7 @@ import InputText from "primevue/inputtext";
 import InputNumber from "primevue/inputnumber";
 import Textarea from "primevue/textarea";
 import Select from "primevue/select";
+import MultiSelect from "primevue/multiselect";
 import Checkbox from "primevue/checkbox";
 import AutoComplete from "primevue/autocomplete";
 import Dialog from "primevue/dialog";
@@ -1930,6 +2158,7 @@ export default {
     SelectButton,
     InputGroup,
     InputGroupAddon,
+    MultiSelect,
   },
   props: {
     modelValue: {
@@ -2024,6 +2253,40 @@ export default {
           }
         }
       }
+      // Normalize param items: flat or oneOf → _itemSchemas
+      if (obj.paths) {
+        for (const path of Object.values(obj.paths)) {
+          for (const op of Object.values(path)) {
+            if (!op || !op.parameters) continue;
+            for (const param of op.parameters) {
+              if (param.schema && param.schema.type === 'array') {
+                const items = param.schema.items;
+                const toItemSchema = (s) => {
+                  if (s.$ref) return { type: 'object', $ref: s.$ref };
+                  const schema = { type: s.type || 'string' };
+                  if (s.format !== undefined) schema.format = s.format;
+                  if (s.pattern !== undefined) schema.pattern = s.pattern;
+                  if (s.minLength !== undefined) schema.minLength = s.minLength;
+                  if (s.maxLength !== undefined) schema.maxLength = s.maxLength;
+                  if (s.minimum !== undefined) schema.minimum = s.minimum;
+                  if (s.maximum !== undefined) schema.maximum = s.maximum;
+                  if (s.multipleOf !== undefined) schema.multipleOf = s.multipleOf;
+                  if (s.exclusiveMinimum !== undefined) schema.exclusiveMinimum = s.exclusiveMinimum;
+                  if (s.exclusiveMaximum !== undefined) schema.exclusiveMaximum = s.exclusiveMaximum;
+                  return schema;
+                };
+                if (items && items.oneOf) {
+                  param.schema._itemSchemas = items.oneOf.map(toItemSchema);
+                } else if (items) {
+                  param.schema._itemSchemas = [toItemSchema(items)];
+                } else {
+                  param.schema._itemSchemas = [];
+                }
+              }
+            }
+          }
+        }
+      }
       return obj;
     };
 
@@ -2048,6 +2311,42 @@ export default {
           if (schema.type === 'array' && schema.items && schema.items.type === '$ref') {
             const ref = schema.items.$ref || '';
             schema.items = { $ref: ref };
+          }
+        }
+      }
+      // Clean param items: _itemSchemas → flat or oneOf
+      if (obj.paths) {
+        for (const path of Object.values(obj.paths)) {
+          for (const op of Object.values(path)) {
+            if (!op || !op.parameters) continue;
+            for (const param of op.parameters) {
+              if (param.schema && param.schema.type === 'array') {
+                const schemas = param.schema._itemSchemas || [];
+                delete param.schema._itemSchemas;
+                const toOutput = (s) => {
+                  if (s.type === 'object') return s.$ref ? { $ref: s.$ref } : { type: 'object' };
+                  const out = { type: s.type };
+                  if (s.format) out.format = s.format;
+                  if (s.pattern) out.pattern = s.pattern;
+                  if (s.minLength != null) out.minLength = s.minLength;
+                  if (s.maxLength != null) out.maxLength = s.maxLength;
+                  if (s.minimum != null) out.minimum = s.minimum;
+                  if (s.maximum != null) out.maximum = s.maximum;
+                  if (s.multipleOf != null) out.multipleOf = s.multipleOf;
+                  if (s.exclusiveMinimum != null) out.exclusiveMinimum = s.exclusiveMinimum;
+                  if (s.exclusiveMaximum != null) out.exclusiveMaximum = s.exclusiveMaximum;
+                  return out;
+                };
+                if (schemas.length === 0) {
+                  // Fallback: always emit a valid items schema so Swagger UI "Add item" works
+                  param.schema.items = { type: 'string' };
+                } else if (schemas.length === 1) {
+                  param.schema.items = toOutput(schemas[0]);
+                } else {
+                  param.schema.items = { oneOf: schemas.map(toOutput) };
+                }
+              }
+            }
           }
         }
       }
@@ -2590,6 +2889,12 @@ export default {
       );
     });
 
+    // Detect OpenAPI 3.1 mode from the spec version field
+    const isOpenAPI31 = computed(() => {
+      const v = formData.value.openapi || '';
+      return v.startsWith('3.1');
+    });
+
     // Parameter methods
     const addParameter = (path, method) => {
       if (!formData.value.paths[path][method].parameters) {
@@ -2600,7 +2905,7 @@ export default {
         in: "query",
         description: "",
         required: false,
-        schema: { type: "string", items: { type: "string" } },
+        schema: { type: "string" },
       });
     };
 
@@ -2834,12 +3139,41 @@ export default {
     };
 
     const onPropertyTypeChange = (prop) => {
-      if (prop.type === 'array' && !prop.items) {
-        prop.items = { type: 'string' };
+      if (prop.type === 'array') {
+        if (!prop.items) prop.items = {};
+        if (!prop._itemSchemas) prop._itemSchemas = [];
       }
       if (prop.type === '$ref' && !prop.$ref) {
         prop.$ref = '';
       }
+    };
+
+    // Sync MultiSelect type selection with _itemSchemas array
+    // object type: selecting adds one object entry; deselecting removes ALL object entries
+    const onItemTypesChange = (schema, newTypes) => {
+      const current = schema._itemSchemas || [];
+      const hadObject = current.some(s => s.type === 'object');
+      const wantsObject = newTypes.includes('object');
+
+      // rebuild scalar entries preserving existing constraints
+      const newScalars = newTypes
+        .filter(t => t !== 'object')
+        .map(t => current.find(s => s.type === t) || { type: t });
+
+      // handle object entries
+      let objectEntries;
+      if (wantsObject && hadObject) {
+        // keep all existing object entries (user may have added multiples)
+        objectEntries = current.filter(s => s.type === 'object');
+      } else if (wantsObject && !hadObject) {
+        // add first object entry
+        objectEntries = [{ type: 'object', $ref: '' }];
+      } else {
+        // deselected object — remove all
+        objectEntries = [];
+      }
+
+      schema._itemSchemas = [...newScalars, ...objectEntries];
     };
 
     // Drag and drop handlers
@@ -3014,6 +3348,7 @@ export default {
       schemasList,
       availableMethodsForPath,
       availableSchemas,
+      isOpenAPI31,
       currentMethodData,
       addServer,
       removeServer,
@@ -3055,6 +3390,7 @@ export default {
       toggleSchemaPropertyRequired,
       onSchemaTypeChange,
       onPropertyTypeChange,
+      onItemTypesChange,
       handleDragStart,
       handleDragOver,
       handleDrop,
@@ -3493,6 +3829,71 @@ export default {
   white-space: nowrap;
   flex: 1;
 }
+
+/* ── Item schema entries (oneOf items in array params) ── */
+.item-schema-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.item-schema-controls :deep(.p-multiselect) {
+  flex: 1;
+}
+
+.item-schemas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.item-schema-entry {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.item-schema-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.item-schema-remove {
+  margin-left: auto;
+}
+
+.item-schema-entry-body {
+  padding: 0.75rem;
+}
+
+.item-schema-ref-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.type-badge--string  { background: #dcfce7; color: #166534; }
+.type-badge--number  { background: #fef9c3; color: #854d0e; }
+.type-badge--integer { background: #ffedd5; color: #9a3412; }
+.type-badge--boolean { background: #f3e8ff; color: #6b21a8; }
+.type-badge--object  { background: #dbeafe; color: #1e40af; }
 
 .param-item--path {
   border-color: #bfdbfe;
