@@ -3475,6 +3475,25 @@ export default {
   flex-shrink: 0;
 }
 
+.param-item :deep(.p-select),
+.param-item :deep(.p-inputtext) {
+  height: 2.375rem;
+  min-height: unset;
+}
+
+.param-item :deep(.p-select) {
+  display: flex;
+  align-items: center;
+}
+
+.param-item :deep(.p-select-label) {
+  padding: 0 0.5rem;
+  line-height: normal;
+  overflow: visible;
+  white-space: nowrap;
+  flex: 1;
+}
+
 .param-item--path {
   border-color: #bfdbfe;
   background: #f8faff;
@@ -3558,6 +3577,10 @@ export default {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.form-row > .form-field {
+  min-width: 0;
 }
 
 .schema-selector {
