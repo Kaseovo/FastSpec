@@ -27,7 +27,7 @@
               No custom rules yet. Click <strong>Add Rule</strong> to get started.
             </div>
 
-            <Accordion v-else :multiple="true" class="rules-accordion">
+            <Accordion v-else :multiple="true" v-model:value="openPanels" class="rules-accordion">
               <AccordionPanel
                 v-for="(rule, idx) in structuredRules"
                 :key="idx"
@@ -309,6 +309,7 @@ export default {
 
     // Structured rules state
     const structuredRules = ref([]);
+    const openPanels = ref([]);
     // Raw YAML state
     const rawYaml = ref("");
     const yamlError = ref(null);
@@ -371,6 +372,7 @@ export default {
 
     function addRule() {
       structuredRules.value.push(emptyRule());
+      openPanels.value = [...openPanels.value, String(structuredRules.value.length - 1)];
     }
 
     function removeRule(idx) {
@@ -464,6 +466,7 @@ export default {
       visible,
       activeTab,
       structuredRules,
+      openPanels,
       rawYaml,
       yamlError,
       saving,
