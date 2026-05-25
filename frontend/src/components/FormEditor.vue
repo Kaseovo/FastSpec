@@ -3457,11 +3457,28 @@ export default {
     };
 
     const removePath = (path) => {
-      delete formData.value.paths[path];
-      if (selectedPath.value === path) {
-        selectedPath.value = "";
-        selectedMethod.value = "";
-      }
+      confirm.require({
+        message: `Are you sure you want to delete the path "${path}" and all its methods?`,
+        header: "Confirm Deletion",
+        icon: "pi pi-exclamation-triangle",
+        acceptProps: { label: "Yes", severity: "danger" },
+        rejectProps: { label: "No", outlined: true },
+        accept: () => {
+          delete formData.value.paths[path];
+          if (selectedPath.value === path) {
+            selectedPath.value = "";
+            selectedMethod.value = "";
+          }
+          toast.add({
+            severity: "success",
+            summary: "Path Deleted",
+            detail: `Path "${path}" has been removed.`,
+            life: 3000,
+          });
+          confirm.close();
+        },
+        reject: () => { confirm.close(); },
+      });
     };
 
     const removeMethod = (path, method) => {
@@ -3705,7 +3722,24 @@ export default {
     };
 
     const removeSchema = (name) => {
-      delete formData.value.components.schemas[name];
+      confirm.require({
+        message: `Are you sure you want to delete the schema "${name}"? Any references to it will become invalid.`,
+        header: "Confirm Deletion",
+        icon: "pi pi-exclamation-triangle",
+        acceptProps: { label: "Yes", severity: "danger" },
+        rejectProps: { label: "No", outlined: true },
+        accept: () => {
+          delete formData.value.components.schemas[name];
+          toast.add({
+            severity: "success",
+            summary: "Schema Deleted",
+            detail: `Schema "${name}" has been removed.`,
+            life: 3000,
+          });
+          confirm.close();
+        },
+        reject: () => { confirm.close(); },
+      });
     };
 
     const renameSchema = (oldName, newName) => {
@@ -3821,7 +3855,24 @@ export default {
     };
 
     const removeParameter = (path, method, index) => {
-      formData.value.paths[path][method].parameters.splice(index, 1);
+      confirm.require({
+        message: "Are you sure you want to delete this parameter?",
+        header: "Confirm Deletion",
+        icon: "pi pi-exclamation-triangle",
+        acceptProps: { label: "Yes", severity: "danger" },
+        rejectProps: { label: "No", outlined: true },
+        accept: () => {
+          formData.value.paths[path][method].parameters.splice(index, 1);
+          toast.add({
+            severity: "success",
+            summary: "Parameter Deleted",
+            detail: "The parameter has been removed.",
+            life: 3000,
+          });
+          confirm.close();
+        },
+        reject: () => { confirm.close(); },
+      });
     };
 
     // Request body methods
@@ -4089,7 +4140,24 @@ export default {
     // ── Response methods ─────────────────────────────────────────────────────
 
     const removeResponse = (path, method, statusCode) => {
-      delete formData.value.paths[path][method].responses[statusCode];
+      confirm.require({
+        message: `Are you sure you want to delete the ${statusCode} response?`,
+        header: "Confirm Deletion",
+        icon: "pi pi-exclamation-triangle",
+        acceptProps: { label: "Yes", severity: "danger" },
+        rejectProps: { label: "No", outlined: true },
+        accept: () => {
+          delete formData.value.paths[path][method].responses[statusCode];
+          toast.add({
+            severity: "success",
+            summary: "Response Deleted",
+            detail: `Response ${statusCode} has been removed.`,
+            life: 3000,
+          });
+          confirm.close();
+        },
+        reject: () => { confirm.close(); },
+      });
     };
 
     const getResponseContentType = (response) => {
@@ -4230,13 +4298,28 @@ export default {
     };
 
     const removeSchemaProperty = (schemaName, propName) => {
-      const schema = formData.value.components.schemas[schemaName];
-      delete schema.properties[propName];
-
-      // Remove from required array if present
-      if (schema.required) {
-        schema.required = schema.required.filter((r) => r !== propName);
-      }
+      confirm.require({
+        message: `Are you sure you want to delete the property "${propName}"?`,
+        header: "Confirm Deletion",
+        icon: "pi pi-exclamation-triangle",
+        acceptProps: { label: "Yes", severity: "danger" },
+        rejectProps: { label: "No", outlined: true },
+        accept: () => {
+          const schema = formData.value.components.schemas[schemaName];
+          delete schema.properties[propName];
+          if (schema.required) {
+            schema.required = schema.required.filter((r) => r !== propName);
+          }
+          toast.add({
+            severity: "success",
+            summary: "Property Deleted",
+            detail: `Property "${propName}" has been removed.`,
+            life: 3000,
+          });
+          confirm.close();
+        },
+        reject: () => { confirm.close(); },
+      });
     };
 
     const renameSchemaProperty = (schemaName, oldName, newName) => {
