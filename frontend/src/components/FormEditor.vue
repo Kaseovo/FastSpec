@@ -42,7 +42,7 @@
               <h4>API Information</h4>
 
               <div class="form-field">
-                <label for="openapi-version">OpenAPI Version *</label>
+                <label for="openapi-version" class="required">OpenAPI Version</label>
                 <InputText
                   id="openapi-version"
                   v-model="formData.openapi"
@@ -51,7 +51,7 @@
               </div>
 
               <div class="form-field">
-                <label for="api-title">Title *</label>
+                <label for="api-title" class="required">Title</label>
                 <InputText
                   id="api-title"
                   v-model="formData.info.title"
@@ -60,7 +60,7 @@
               </div>
 
               <div class="form-field">
-                <label for="api-version">Version *</label>
+                <label for="api-version" class="required">Version</label>
                 <InputText
                   id="api-version"
                   v-model="formData.info.version"
@@ -144,7 +144,7 @@
               >
                 <div class="list-item-content">
                   <div class="form-field">
-                    <label>URL *</label>
+                    <label class="required">URL</label>
                     <InputText
                       v-model="server.url"
                       placeholder="https://api.example.com"
@@ -387,7 +387,7 @@
                                 <div class="param-content">
                                   <div class="form-row">
                                     <div class="form-field">
-                                      <label>Name *</label>
+                                      <label class="required">Name</label>
                                       <InputText
                                         v-model="param.name"
                                         placeholder="id"
@@ -395,7 +395,7 @@
                                       />
                                     </div>
                                     <div class="form-field">
-                                      <label>Location *</label>
+                                      <label class="required">Location</label>
                                       <Select
                                         v-model="param.in"
                                         :options="[
@@ -416,7 +416,7 @@
                                     />
                                   </div>
                                   <div class="form-field">
-                                    <label>Type *</label>
+                                    <label class="required">Type</label>
                                     <Select
                                       v-model="param.schema.type"
                                       :options="[
@@ -482,7 +482,7 @@
                                                     icon="pi pi-plus"
                                                     size="small"
                                                     text
-                                                    @click="showAddSchemaDialog = true"
+                                                    @click="addSchema"
                                                   />
                                                 </div>
                                                 <small
@@ -920,7 +920,7 @@
                                       icon="pi pi-plus"
                                       size="small"
                                       text
-                                      @click="showAddSchemaDialog = true"
+                                      @click="addSchema"
                                     />
                                   </template>
                                 </div>
@@ -929,7 +929,7 @@
                               <!-- Inline schema builder (replaces raw JSON textarea) -->
                               <template v-if="requestBodySchemaType === 'inline' && requestBodyContentType">
                                 <div class="form-field">
-                                  <label>Type *</label>
+                                  <label class="required">Type</label>
                                   <Select
                                     v-model="requestBodyInlineSchemaType"
                                     :options="['object', 'array', 'string', 'number', 'integer', 'boolean']"
@@ -963,7 +963,7 @@
                                     <div class="property-content">
                                       <div class="form-row">
                                         <div class="form-field">
-                                          <label>Property Name *</label>
+                                          <label class="required">Property Name</label>
                                           <InputText
                                             :value="propName"
                                             @input="renameRequestBodyProperty(propName, $event.target.value)"
@@ -971,7 +971,7 @@
                                           />
                                         </div>
                                         <div class="form-field">
-                                          <label>Type *</label>
+                                          <label class="required">Type</label>
                                           <Select
                                             v-model="prop.type"
                                             :options="['string','number','integer','boolean','array','object','$ref']"
@@ -1218,7 +1218,7 @@
                                                 optionValue="value"
                                                 :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                               />
-                                              <Button label="New Schema" icon="pi pi-plus" size="small" text @click="showAddSchemaDialog = true" />
+                                              <Button label="New Schema" icon="pi pi-plus" size="small" text @click="addSchema" />
                                             </div>
                                           </div>
                                           <Button
@@ -1471,7 +1471,7 @@
                                               icon="pi pi-plus"
                                               size="small"
                                               text
-                                              @click="showAddSchemaDialog = true"
+                                              @click="addSchema"
                                             />
                                           </template>
                                         </div>
@@ -1480,7 +1480,7 @@
                                       <!-- Inline schema builder (mirrors Request Body) -->
                                       <template v-if="getResponseSchemaType(response) === 'inline'">
                                         <div class="form-field">
-                                          <label>Type *</label>
+                                          <label class="required">Type</label>
                                           <Select
                                             :value="getResponseInlineSchemaType(response)"
                                             :options="['object','array','string','number','integer','boolean']"
@@ -1506,7 +1506,7 @@
                                             <div class="property-content">
                                               <div class="form-row">
                                                 <div class="form-field">
-                                                  <label>Property Name *</label>
+                                                  <label class="required">Property Name</label>
                                                   <InputText
                                                     :value="propName"
                                                     @input="renameResponseProperty(response, propName, $event.target.value)"
@@ -1514,7 +1514,7 @@
                                                   />
                                                 </div>
                                                 <div class="form-field">
-                                                  <label>Type *</label>
+                                                  <label class="required">Type</label>
                                                   <Select
                                                     v-model="prop.type"
                                                     :options="['string','number','integer','boolean','array','object','$ref']"
@@ -1533,7 +1533,7 @@
                                                     optionValue="value"
                                                     :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                                   />
-                                                  <Button label="New Schema" icon="pi pi-plus" size="small" text @click="showAddSchemaDialog = true" />
+                                                  <Button label="New Schema" icon="pi pi-plus" size="small" text @click="addSchema" />
                                                 </div>
                                               </div>
                                               <div class="form-field" v-if="prop.type !== '$ref'">
@@ -1658,7 +1658,7 @@
                                                     <label>Schema Reference</label>
                                                     <div class="schema-selector">
                                                       <Select v-model="itemSchema.$ref" :options="availableSchemas" optionLabel="label" optionValue="value" :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'" />
-                                                      <Button label="New Schema" icon="pi pi-plus" size="small" text @click="showAddSchemaDialog = true" />
+                                                      <Button label="New Schema" icon="pi pi-plus" size="small" text @click="addSchema" />
                                                     </div>
                                                   </div>
                                                 </template>
@@ -1768,7 +1768,7 @@
                   label="Add Schema"
                   icon="pi pi-plus"
                   size="small"
-                  @click="showAddSchemaDialog = true"
+                  @click="addSchema"
                 />
               </div>
 
@@ -1810,21 +1810,31 @@
                       <TabPanels>
                         <TabPanel value="0">
                           <div class="schema-builder">
-                            <div class="form-field">
-                              <label>Type *</label>
-                              <Select
-                                v-model="schema.data.type"
-                                :options="[
-                                  'object',
-                                  'array',
-                                  'string',
-                                  'number',
-                                  'integer',
-                                  'boolean',
-                                ]"
-                                placeholder="Select type"
-                                @change="onSchemaTypeChange(schema)"
-                              />
+                            <div class="form-row">
+                              <div class="form-field">
+                                <label class="required">Schema Name</label>
+                                <InputText
+                                  :value="schema.name"
+                                  @input="renameSchema(schema.name, $event.target.value)"
+                                  placeholder="SchemaName"
+                                />
+                              </div>
+                              <div class="form-field">
+                                <label class="required">Type</label>
+                                <Select
+                                  v-model="schema.data.type"
+                                  :options="[
+                                    'object',
+                                    'array',
+                                    'string',
+                                    'number',
+                                    'integer',
+                                    'boolean',
+                                  ]"
+                                  placeholder="Select type"
+                                  @change="onSchemaTypeChange(schema)"
+                                />
+                              </div>
                             </div>
 
                             <div v-if="schema.data.type === 'object'">
@@ -1881,7 +1891,7 @@
                                 <div class="property-content">
                                   <div class="form-row">
                                     <div class="form-field">
-                                      <label>Property Name *</label>
+                                      <label class="required">Property Name</label>
                                       <InputText
                                         :value="propName"
                                         @input="
@@ -1895,7 +1905,7 @@
                                       />
                                     </div>
                                     <div class="form-field">
-                                      <label>Type *</label>
+                                      <label class="required">Type</label>
                                       <Select
                                         v-model="prop.type"
                                         :options="[
@@ -2700,7 +2710,7 @@
     >
       <div class="dialog-content">
         <div class="form-field">
-          <label>HTTP Method</label>
+          <label class="required">HTTP Method</label>
           <SelectButton
             v-model="newMethod"
             :options="httpMethods"
@@ -2749,7 +2759,7 @@
     >
       <div class="dialog-content">
         <div class="form-field">
-          <label>HTTP Method</label>
+          <label class="required">HTTP Method</label>
           <SelectButton
             v-model="methodToAdd"
             :options="availableMethodsForPath"
@@ -2770,32 +2780,6 @@
           @click="showAddMethodDialogVisible = false"
         />
         <Button label="Add Method" icon="pi pi-plus" @click="addMethodToPath" :disabled="!methodToAdd" />
-      </template>
-    </Dialog>
-
-    <!-- Add Schema Dialog -->
-    <Dialog
-      :visible="showAddSchemaDialog"
-      @update:visible="showAddSchemaDialog = $event"
-      header="Add New Schema"
-      :style="{ width: '400px' }"
-      modal
-      :draggable="false"
-    >
-      <div class="dialog-content">
-        <div class="form-field">
-          <label for="new-schema-name">Schema Name *</label>
-          <InputText
-            id="new-schema-name"
-            v-model="newSchemaName"
-            placeholder="User"
-            class="w-full"
-          />
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showAddSchemaDialog = false" />
-        <Button label="Add" @click="addSchema" :disabled="!newSchemaName" />
       </template>
     </Dialog>
 
@@ -2926,14 +2910,12 @@ export default {
     const editPathValue = ref("");
     const editPathError = ref("");
     const showAddMethodDialogVisible = ref(false);
-    const showAddSchemaDialog = ref(false);
     const showAddResponseDialog = ref(false);
     const responseDialogStep = ref(1);
     const responseDialogCategory = ref('');
     const editingResponseCode = ref(''); // non-empty = edit mode (old code being replaced)
     const newPath = ref("");
     const newMethod = ref("");
-    const newSchemaName = ref("");
     const newResponseCode = ref("");
     const methodToAdd = ref("");
     const currentPathForMethod = ref("");
@@ -3707,19 +3689,51 @@ export default {
     };
 
     const addSchema = () => {
-      if (!newSchemaName.value) return;
+      // Generate a unique name
+      let baseName = "NewSchema";
+      let name = baseName;
+      let counter = 1;
+      while (formData.value.components.schemas[name]) {
+        name = `${baseName}${counter}`;
+        counter++;
+      }
 
-      formData.value.components.schemas[newSchemaName.value] = {
+      formData.value.components.schemas[name] = {
         type: "object",
         properties: {},
       };
-
-      newSchemaName.value = "";
-      showAddSchemaDialog.value = false;
     };
 
     const removeSchema = (name) => {
       delete formData.value.components.schemas[name];
+    };
+
+    const renameSchema = (oldName, newName) => {
+      if (!newName || oldName === newName) return;
+      if (formData.value.components.schemas[newName]) return; // already exists
+
+      // Rename the key (preserve order)
+      const schemasArray = Object.entries(formData.value.components.schemas);
+      const idx = schemasArray.findIndex(([k]) => k === oldName);
+      if (idx === -1) return;
+      schemasArray[idx] = [newName, schemasArray[idx][1]];
+      formData.value.components.schemas = Object.fromEntries(schemasArray);
+
+      // Update all $ref strings pointing to the old schema name
+      const oldRef = `#/components/schemas/${oldName}`;
+      const newRef = `#/components/schemas/${newName}`;
+      const updateRefs = (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        if (Array.isArray(obj)) { obj.forEach(updateRefs); return; }
+        for (const key of Object.keys(obj)) {
+          if (key === '$ref' && obj[key] === oldRef) {
+            obj[key] = newRef;
+          } else {
+            updateRefs(obj[key]);
+          }
+        }
+      };
+      updateRefs(formData.value);
     };
 
     const updateSchema = (name, jsonString) => {
@@ -4460,11 +4474,9 @@ export default {
       editPathValue,
       editPathError,
       showAddMethodDialogVisible,
-      showAddSchemaDialog,
       showAddResponseDialog,
       newPath,
       newMethod,
-      newSchemaName,
       newResponseCode,
       methodToAdd,
       currentPathForMethod,
@@ -4506,6 +4518,7 @@ export default {
       openPaths,
       addSchema,
       removeSchema,
+      renameSchema,
       updateSchema,
       getMethodSeverity,
       getMethodDescription,
@@ -4965,17 +4978,21 @@ export default {
 }
 
 .param-item :deep(.p-select),
-.param-item :deep(.p-inputtext) {
+.param-item :deep(.p-inputtext),
+.property-item :deep(.p-select),
+.property-item :deep(.p-inputtext) {
   height: 2.375rem;
   min-height: unset;
 }
 
-.param-item :deep(.p-select) {
+.param-item :deep(.p-select),
+.property-item :deep(.p-select) {
   display: flex;
   align-items: center;
 }
 
-.param-item :deep(.p-select-label) {
+.param-item :deep(.p-select-label),
+.property-item :deep(.p-select-label) {
   padding: 0 0.5rem;
   line-height: normal;
   overflow: visible;
@@ -5312,6 +5329,25 @@ export default {
   background: #f9fafb;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
+}
+
+.schema-builder :deep(.p-select),
+.schema-builder :deep(.p-inputtext) {
+  height: 2.375rem;
+  min-height: unset;
+}
+
+.schema-builder :deep(.p-select) {
+  display: flex;
+  align-items: center;
+}
+
+.schema-builder :deep(.p-select-label) {
+  padding: 0 0.5rem;
+  line-height: normal;
+  overflow: visible;
+  white-space: nowrap;
+  flex: 1;
 }
 
 .schema-json-editor {
@@ -5738,5 +5774,10 @@ export default {
 
 :deep(.p-chip .p-chip-remove-icon:hover) {
   color: white;
+}
+
+.form-field label.required::after {
+  content: ' *';
+  color: #ef4444;
 }
 </style>
