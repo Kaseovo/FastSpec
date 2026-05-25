@@ -2341,8 +2341,9 @@ export default {
                   return out;
                 };
                 if (schemas.length === 0) {
-                  // Fallback: always emit a valid items schema so Swagger UI "Add item" works
-                  param.schema.items = { type: 'string' };
+                  // No item types chosen yet — omit items to avoid feeding 'string' back into the form via normalizeRefsForForm.
+                  // Swagger UI will still render the parameter; user must pick a type to get "Add item" working.
+                  delete param.schema.items;
                 } else if (schemas.length === 1) {
                   param.schema.items = toOutput(schemas[0]);
                 } else {
