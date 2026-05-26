@@ -64,7 +64,7 @@
                     </div>
 
                     <div class="field-row">
-                      <div class="field">
+                      <div class="field field-severity">
                         <label>Severity <span class="required">*</span></label>
                         <Select
                           v-model="rule.severity"
@@ -74,8 +74,14 @@
                           class="w-full"
                         />
                       </div>
-                      <div class="field">
-                        <label>Function <span class="required">*</span></label>
+                      <div class="field field-function">
+                        <label class="label-with-help">
+                          Function <span class="required">*</span>
+                          <i
+                            v-tooltip.top="functionTooltip(rule.then_function)"
+                            class="pi pi-question-circle help-icon"
+                          />
+                        </label>
                         <Select
                           v-model="rule.then_function"
                           :options="functionOptions"
@@ -86,13 +92,29 @@
                       </div>
                     </div>
 
+                    <!-- schema function warning -->
+                    <Message v-if="rule.then_function === 'schema'" severity="warn" class="schema-warn-msg">
+                      The <code>schema</code> function requires JSON Schema syntax and cannot be configured here.
+                      Use the <strong>Raw YAML Override</strong> tab for full control.
+                    </Message>
+
                     <div class="field">
                       <label>Given (JSONPath) <span class="required">*</span></label>
+                      <!-- JSONPath preset dropdown -->
+                      <Select
+                        :model-value="givenPresetValue(rule.given)"
+                        :options="givenPresets"
+                        option-label="label"
+                        option-value="value"
+                        placeholder="Choose a preset…"
+                        class="w-full given-preset-select"
+                        @update:model-value="(v) => onGivenPreset(rule, v)"
+                      />
                       <InputText
                         v-model="rule.given"
-                        placeholder="e.g. $.paths[*][*].summary"
-                        class="w-full"
-                        font-family="monospace"
+                        placeholder="e.g. $.paths[*][*]"
+                        class="w-full given-input"
+                        style="font-family: monospace"
                       />
                     </div>
 
@@ -113,7 +135,7 @@
                           v-model="rule.functionOptions.match"
                           placeholder="e.g. ^[a-z]+"
                           class="w-full"
-                          font-family="monospace"
+                          style="font-family: monospace"
                         />
                       </div>
                     </template>
@@ -173,16 +195,29 @@
         <!-- ── Raw YAML tab ─────────────────────────────────────── -->
         <TabPanel value="yaml">
           <div class="yaml-tab">
-            <p class="tab-hint">
-              Write a full <a href="https://docs.stoplight.io/docs/spectral/e5b9616d6d50c-rulesets" target="_blank" rel="noopener">Spectral ruleset</a> in YAML.
-              When present, this overrides the Structured Rules above.
-              <code>extends: spectral:oas</code> is injected automatically if omitted.
-            </p>
+            <div class="yaml-hint-row">
+              <p class="tab-hint">
+                Write a full <a href="https://docs.stoplight.io/docs/spectral/e5b9616d6d50c-rulesets" target="_blank" rel="noopener">Spectral ruleset</a> in YAML.
+                When present, this overrides the Structured Rules above.
+                <code>extends: spectral:oas</code> is injected automatically if omitted.
+              </p>
+              <span class="spectral-version-badge">Spectral 6.16.0</span>
+            </div>
+            <div class="yaml-toolbar">
+              <Button
+                v-if="!rawYaml.trim()"
+                label="Insert starter template"
+                icon="pi pi-file-edit"
+                severity="secondary"
+                size="small"
+                @click="insertStarterTemplate"
+              />
+            </div>
             <Textarea
               v-model="rawYaml"
               :rows="18"
               class="yaml-editor w-full"
-              placeholder="# Example&#10;rules:&#10;  operation-summary-required:&#10;    given: '$.paths[*][*]'&#10;    severity: warn&#10;    then:&#10;      function: truthy&#10;      field: summary"
+              placeholder="extends: spectral:oas&#10;rules:&#10;  # Example: require a summary on every operation&#10;  operation-summary-required:&#10;    given: '$.paths[*][*]'&#10;    severity: warn&#10;    then:&#10;      function: truthy&#10;      field: summary&#10;    message: 'Operation must have a summary.'"
               spellcheck="false"
               autocomplete="off"
             />
@@ -240,6 +275,7 @@ import Accordion from "primevue/accordion";
 import AccordionContent from "primevue/accordioncontent";
 import AccordionHeader from "primevue/accordionheader";
 import AccordionPanel from "primevue/accordionpanel";
+import Tooltip from "primevue/tooltip";
 import { deleteLintRuleset, getLintRuleset, putLintRuleset } from "../api/lint";
 
 const SEVERITY_OPTIONS = [
@@ -258,6 +294,63 @@ const FUNCTION_OPTIONS = [
   { label: "length — string/array length check", value: "length" },
   { label: "schema — field must match a JSON Schema", value: "schema" },
 ];
+
+const FUNCTION_TOOLTIPS = {
+  truthy: "Passes if the selected field exists and is non-empty (non-null, non-zero, non-empty string or array).",
+  falsy: "Passes if the selected field is absent, null, an empty string, 0, or false.",
+  pattern: "Passes if the selected field value matches (or does not match) a regular expression you provide.",
+  enumeration: "Passes if the selected field value is one of the allowed values you list.",
+  length: "Passes if the length of the selected string or array is within the min/max bounds you set.",
+  schema: "Passes if the selected value validates against an inline JSON Schema. Requires JSON Schema syntax — use Raw YAML Override for this function.",
+};
+
+/** Common JSONPath presets for the given field. */
+const GIVEN_PRESETS = [
+  { label: "Every operation (GET, POST, …)", value: "$.paths[*][*]" },
+  { label: "Every path string (/users, /orders, …)", value: "$.paths~" },
+  { label: "Every response object", value: "$.paths[*][*].responses[*]" },
+  { label: "Every component schema", value: "$.components.schemas[*]" },
+  { label: "Info object", value: "$.info" },
+  { label: "Custom (type below)…", value: "__custom__" },
+];
+
+/** Starter template inserted when Raw YAML tab is empty. */
+const STARTER_TEMPLATE = `extends: spectral:oas
+rules:
+  # ── Override a default spectral:oas rule ──────────────────────
+  # Silence the info-contact warning (remove '#' to activate)
+  # info-contact: off
+
+  # ── Custom rules ──────────────────────────────────────────────
+
+  # Enforce kebab-case path segments (active)
+  path-kebab-case:
+    given: "$.paths~"
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/[a-z0-9-]+)+$"
+    message: "Path must use kebab-case segments."
+
+  # Require a summary on every operation (uncomment to activate)
+  # operation-summary-required:
+  #   given: "$.paths[*][*]"
+  #   severity: warn
+  #   then:
+  #     function: truthy
+  #     field: summary
+  #   message: "Operation must have a summary."
+
+  # Require operationId on every operation (uncomment to activate)
+  # require-operation-id:
+  #   given: "$.paths[*][*]"
+  #   severity: error
+  #   then:
+  #     function: truthy
+  #     field: operationId
+  #   message: "Every operation must have an operationId."
+`;
 
 /** Return a fresh empty rule object. */
 function emptyRule() {
@@ -292,6 +385,10 @@ export default {
     Textarea,
   },
 
+  directives: {
+    tooltip: Tooltip,
+  },
+
   props: {
     /** Controls dialog visibility — use v-model:open */
     open: {
@@ -321,6 +418,7 @@ export default {
 
     const severityOptions = SEVERITY_OPTIONS;
     const functionOptions = FUNCTION_OPTIONS;
+    const givenPresets = GIVEN_PRESETS;
 
     // --- Sync visibility with the `open` prop ---
     watch(
@@ -388,6 +486,38 @@ export default {
           structuredRules.value.splice(idx, 1);
         },
       });
+    }
+
+    /** Return tooltip text for the currently selected function. */
+    function functionTooltip(fnValue) {
+      return FUNCTION_TOOLTIPS[fnValue] ?? "";
+    }
+
+    /**
+     * Match a given value back to a preset value, or return null if it's a
+     * custom expression not in the preset list.
+     */
+    function givenPresetValue(givenValue) {
+      if (!givenValue) return null;
+      const match = GIVEN_PRESETS.find((p) => p.value === givenValue);
+      return match ? match.value : "__custom__";
+    }
+
+    /**
+     * When a preset is selected: if it's a real preset, populate the given
+     * field; if it's "Custom", clear the field so the user can type.
+     */
+    function onGivenPreset(rule, presetValue) {
+      if (presetValue === "__custom__") {
+        rule.given = "";
+      } else {
+        rule.given = presetValue;
+      }
+    }
+
+    /** Pre-fill the Raw YAML textarea with the starter template. */
+    function insertStarterTemplate() {
+      rawYaml.value = STARTER_TEMPLATE;
     }
 
     async function onSave() {
@@ -474,9 +604,14 @@ export default {
       hasExistingRuleset,
       severityOptions,
       functionOptions,
+      givenPresets,
       canAddRule,
       addRule,
       removeRule,
+      functionTooltip,
+      givenPresetValue,
+      onGivenPreset,
+      insertStarterTemplate,
       onSave,
       onDelete,
       onCancel,
@@ -622,6 +757,20 @@ export default {
   gap: 12px;
 }
 
+.field-row > .field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Severity takes 1 part, Function takes 2 parts */
+.field-row > .field-severity {
+  flex: 1 1 0;
+}
+
+.field-row > .field-function {
+  flex: 2 1 0;
+}
+
 .w-full {
   width: 100%;
 }
@@ -630,7 +779,65 @@ export default {
   align-self: flex-start;
 }
 
-/* ── Raw YAML editor ───────────────────────────────────────── */
+/* ── Function label with help icon ─────────────────────────── */
+.label-with-help {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.help-icon {
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color, #9ca3af);
+  cursor: help;
+}
+
+.help-icon:hover {
+  color: var(--p-primary-color, #6366f1);
+}
+
+/* ── schema warning message ────────────────────────────────── */
+.schema-warn-msg {
+  font-size: 0.82rem;
+}
+
+/* ── Given field: preset + manual input stacked ────────────── */
+.given-preset-select {
+  margin-bottom: 4px;
+}
+
+.given-input {
+  font-family: "Fira Code", "Cascadia Code", "Consolas", monospace !important;
+  font-size: 0.83rem;
+}
+
+/* ── Raw YAML tab ──────────────────────────────────────────── */
+.yaml-hint-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.spectral-version-badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--p-surface-section, #f1f5f9);
+  color: var(--p-text-muted-color, #6c757d);
+  border: 1px solid var(--p-surface-border, #e2e8f0);
+  white-space: nowrap;
+  align-self: center;
+}
+
+.yaml-toolbar {
+  display: flex;
+  gap: 8px;
+  min-height: 28px;
+}
+
 .yaml-editor {
   font-family: "Fira Code", "Cascadia Code", "Consolas", monospace;
   font-size: 0.85rem;

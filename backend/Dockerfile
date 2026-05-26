@@ -24,8 +24,8 @@ RUN apt-get update \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     # Pre-cache the Spectral CLI so first lint is fast (avoids cold npx download)
-    && npm install -g @stoplight/spectral-cli \
-    && npm install @stoplight/spectral-rulesets \
+    && npm install -g @stoplight/spectral-cli@6.16.0 \
+    && npm install @stoplight/spectral-rulesets@6.16.0 \
     # Clean up apt lists and build deps
     && apt-get purge -y --auto-remove build-essential gcc curl \
     && rm -rf /var/lib/apt/lists/*

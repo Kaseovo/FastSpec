@@ -11,6 +11,53 @@ There are two authoring modes:
 
 ---
 
+## Structured Rules UI
+
+The Structured Rules tab provides a guided form to build rules without writing YAML.
+
+### JSONPath preset dropdown
+
+Above the **Given (JSONPath)** text field, a preset dropdown lets you pick a common target in one click:
+
+| Preset label | JSONPath value |
+|---|---|
+| Every operation (GET, POST, …) | `$.paths[*][*]` |
+| Every path string (/users, …) | `$.paths~` |
+| Every response object | `$.paths[*][*].responses[*]` |
+| Every component schema | `$.components.schemas[*]` |
+| Info object | `$.info` |
+| Custom (type below)… | *(clears field — type your own expression)* |
+
+Selecting a preset populates the text field. You can then edit it freely.
+
+### Function tooltip
+
+The **Function** label has an ⓘ icon. Hovering it shows a brief description of what the selected function does, so you don't need to leave the dialog to understand your options.
+
+### `schema` function warning
+
+If you select `schema` as the function, an inline warning appears:
+
+> *"The schema function requires JSON Schema syntax. Use the Raw YAML Override tab for full control."*
+
+`schema` is not configurable via the form — use the Raw YAML Override tab for rules that need it.
+
+---
+
+## Raw YAML Override
+
+The Raw YAML tab accepts a complete Spectral ruleset. A **Spectral 6.16.0** version badge is shown in the tab header — this is the version running in FastSpec's Docker container. Use this version reference when consulting external Spectral documentation.
+
+### Starter template
+
+When the Raw YAML field is empty, an **Insert starter template** button appears. Clicking it pre-fills the editor with a working template that includes:
+
+- One active rule (`path-kebab-case`) as a concrete example
+- A commented-out default rule override (`info-contact: off`) showing how to silence built-in rules
+- Two additional rules commented out (`operation-summary-required`, `require-operation-id`) ready to uncomment
+
+---
+
 ## How a rule works
 
 Every rule has four mandatory parts:
@@ -114,6 +161,8 @@ then:
       minLength: 1
 ```
 
+> **Note:** `schema` requires JSON Schema syntax and cannot be configured in the Structured Rules form. Use Raw YAML Override for rules that need it.
+
 ---
 
 ## Overriding default `spectral:oas` rules
@@ -133,7 +182,7 @@ rules:
 
 ## Verified working examples
 
-These have been tested against Spectral 6.16.0 (the version running in FastSpec's Docker container).
+These have been tested against **Spectral 6.16.0** (the version pinned in FastSpec's Docker container).
 
 ### Silence a noisy default rule
 
@@ -220,17 +269,18 @@ rules:
 
 ### Combined ruleset (good starting point)
 
+This is also the content inserted by the **Insert starter template** button in the Raw YAML tab.
+
 ```yaml
 extends: spectral:oas
 rules:
-  info-contact: off
-  operation-summary-required:
-    given: "$.paths[*][*]"
-    severity: warn
-    then:
-      function: truthy
-      field: summary
-    message: "Operation must have a summary."
+  # ── Override a default spectral:oas rule ──────────────────────
+  # Silence the info-contact warning (remove '#' to activate)
+  # info-contact: off
+
+  # ── Custom rules ──────────────────────────────────────────────
+
+  # Enforce kebab-case path segments (active)
   path-kebab-case:
     given: "$.paths~"
     severity: error
@@ -239,13 +289,24 @@ rules:
       functionOptions:
         match: "^(/[a-z0-9-]+)+$"
     message: "Path must use kebab-case segments."
-  require-operation-id:
-    given: "$.paths[*][*]"
-    severity: error
-    then:
-      function: truthy
-      field: operationId
-    message: "Every operation must have an operationId."
+
+  # Require a summary on every operation (uncomment to activate)
+  # operation-summary-required:
+  #   given: "$.paths[*][*]"
+  #   severity: warn
+  #   then:
+  #     function: truthy
+  #     field: summary
+  #   message: "Operation must have a summary."
+
+  # Require operationId on every operation (uncomment to activate)
+  # require-operation-id:
+  #   given: "$.paths[*][*]"
+  #   severity: error
+  #   then:
+  #     function: truthy
+  #     field: operationId
+  #   message: "Every operation must have an operationId."
 ```
 
 ---
