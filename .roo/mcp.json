@@ -15,13 +15,14 @@
 				"ghcr.io/github/github-mcp-server"
 			],
 			"env": {
-				"GITHUB_PERSONAL_ACCESS_TOKEN": "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",
+				"GITHUB_PERSONAL_ACCESS_TOKEN": "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",
 				"GITHUB_TOOLSETS": "",
 				"GITHUB_READ_ONLY": "0"
 			},
 			"alwaysAllow": [
 				"issue_write",
-				"get_label"
+				"get_label",
+				"get_me"
 			]
 		}
 	}

@@ -1,5 +1,26 @@
 # FastSpec — Domain Glossary
 
+## Deployment Environment
+
+One of four named runtime targets: **local** (`http://localhost`, floci only), **dev** (`dev.fastspec.kaseovo.com`), **staging** (`staging.fastspec.kaseovo.com`), or **prod** (`fastspec.kaseovo.com`). Each environment is an independent CDK stack driven by `--context env=local|dev|staging|prod`. The `local` environment runs entirely inside floci with no real AWS resources.
+
+## Deployment Stack
+
+The full set of AWS resources that together run FastSpec in a given Deployment Environment: an ECS Fargate service (backend), S3 + CloudFront distributions (frontend, landing-page), an ALB (ingress), RDS (PostgreSQL), ElastiCache (Redis), ACM certificates, and Route53 records.
+
+## floci Environment
+
+A local replica of the Deployment Stack running on a developer's machine or in CI, powered by floci. Replaces `docker-compose`. Consumes the same CDK IaC definitions as a real AWS Deployment Stack, ensuring local and production behaviour are identical.
+
+## Spectral Sidecar
+
+A dedicated container that runs the Spectral CLI as an HTTP service. Accepts a Spec and a Lint Ruleset YAML string via `POST /lint` and returns structured lint output. Runs alongside the backend in the same ECS task. The backend calls it over localhost — they share the task network namespace.
+
+## Migration Task
+
+An ECS Run Task (one-off, short-lived) that executes `alembic upgrade head` against the target RDS instance before each new service version is rolled out. Ensures the database schema matches the current SQLAlchemy models. Replaces the former `Base.metadata.create_all()` startup call.
+
+
 ## Lint Ruleset
 
 The set of Spectral rules applied when linting a Spec. Always extends the `spectral:oas` baseline. A user may have one optional **User Lint Ruleset** that layers on top of the baseline — adding new rules and/or overriding the severity of default rules.
