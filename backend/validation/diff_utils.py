@@ -306,6 +306,12 @@ def compare_schema(current: Dict[str, Any], previous: Dict[str, Any]) -> Dict[st
 def generate_markdown_report(diff: Dict[str, Any]) -> str:
     """
     Generate a markdown report from the diff.
+
+    Consumes the dict produced by compare_specs(), whose keys are:
+    has_changes, added, removed, modified,
+    infoAdded, infoModified, infoRemoved,
+    serverAdded, serverRemoved, serverModified,
+    schemaAdded, schemaModified, schemaRemoved.
     """
     if not diff["has_changes"]:
         return "## No changes detected\n\nThe specifications are identical."
@@ -313,16 +319,28 @@ def generate_markdown_report(diff: Dict[str, Any]) -> str:
     report = "# OpenAPI Specification Changes\n\n"
 
     # Info changes
-    if diff["info_changes"]:
-        report += "## API Information Changes\n\n"
-        for field, change in diff["info_changes"].items():
-            report += f"- **{field}**: `{change['old']}` → `{change['new']}`\n"
+    if diff.get("infoAdded"):
+        report += "## ➕ Added API Information\n\n"
+        for item in diff["infoAdded"]:
+            report += f"- **{item['key']}**: `{item['value']}`\n"
+        report += "\n"
+
+    if diff.get("infoModified"):
+        report += "## ✏️ Modified API Information\n\n"
+        for item in diff["infoModified"]:
+            report += f"- **{item['key']}**: `{item['old']}` → `{item['new']}`\n"
+        report += "\n"
+
+    if diff.get("infoRemoved"):
+        report += "## ➖ Removed API Information\n\n"
+        for item in diff["infoRemoved"]:
+            report += f"- **{item['key']}**: `{item['value']}`\n"
         report += "\n"
 
     # Added endpoints
-    if diff["added_endpoints"]:
+    if diff.get("added"):
         report += "## ✅ Added Endpoints\n\n"
-        for endpoint in diff["added_endpoints"]:
+        for endpoint in diff["added"]:
             report += f"- **{endpoint['method'].upper()} {endpoint['path']}**"
             if endpoint.get("summary"):
                 report += f" - {endpoint['summary']}"
@@ -330,9 +348,9 @@ def generate_markdown_report(diff: Dict[str, Any]) -> str:
         report += "\n"
 
     # Removed endpoints
-    if diff["removed_endpoints"]:
+    if diff.get("removed"):
         report += "## ❌ Removed Endpoints\n\n"
-        for endpoint in diff["removed_endpoints"]:
+        for endpoint in diff["removed"]:
             report += f"- **{endpoint['method'].upper()} {endpoint['path']}**"
             if endpoint.get("summary"):
                 report += f" - {endpoint['summary']}"
@@ -340,9 +358,9 @@ def generate_markdown_report(diff: Dict[str, Any]) -> str:
         report += "\n"
 
     # Modified endpoints
-    if diff["modified_endpoints"]:
+    if diff.get("modified"):
         report += "## 🔄 Modified Endpoints\n\n"
-        for endpoint in diff["modified_endpoints"]:
+        for endpoint in diff["modified"]:
             report += f"### {endpoint['method'].upper()} {endpoint['path']}\n\n"
 
             if endpoint.get("summary_changed"):
