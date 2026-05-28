@@ -145,6 +145,27 @@ def compare_specs(
             diff["modified"].append(changes)
             diff["has_changes"] = True
 
+    # Compare components.schemas
+    current_schemas = current_spec.get("components", {}).get("schemas", {})
+    previous_schemas = previous_spec.get("components", {}).get("schemas", {})
+
+    current_schema_names = set(current_schemas.keys())
+    previous_schema_names = set(previous_schemas.keys())
+
+    for name in current_schema_names - previous_schema_names:
+        diff["schemaAdded"].append({"name": name, "schema": current_schemas[name]})
+        diff["has_changes"] = True
+
+    for name in previous_schema_names - current_schema_names:
+        diff["schemaRemoved"].append({"name": name, "schema": previous_schemas[name]})
+        diff["has_changes"] = True
+
+    for name in current_schema_names & previous_schema_names:
+        schema_changes = compare_schema(current_schemas[name], previous_schemas[name])
+        if schema_changes["has_changes"]:
+            diff["schemaModified"].append({"name": name, "changes": schema_changes})
+            diff["has_changes"] = True
+
     return diff
 
 
