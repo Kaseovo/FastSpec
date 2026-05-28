@@ -5,10 +5,8 @@ Tests:
   - GET  /lint/ruleset
   - PUT  /lint/ruleset
   - DELETE /lint/ruleset
-  - Ruleset forwarded to run_spectral during ad-hoc lint
+  - Ruleset forwarded to LintService during ad-hoc lint
 """
-
-from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,6 +16,8 @@ from auth.dependencies import get_current_user
 from database import SessionLocal
 from main import app
 from models import User
+from tests.fakes import FakeSpectralClient
+from validation.spectral_client import get_spectral_client
 
 client = TestClient(app)
 
@@ -29,12 +29,6 @@ VALID_SPEC = {
     "openapi": "3.0.0",
     "info": {"title": "Test API", "version": "1.0.0"},
     "paths": {},
-}
-
-_SPECTRAL_CLEAN_RESULT = {
-    "score": 100,
-    "summary": {"error": 0, "warn": 0, "info": 0, "hint": 0},
-    "results": [],
 }
 
 _user_counter = 0
@@ -54,6 +48,7 @@ def _clear_dependency_overrides():
     """Ensure dependency overrides are reset after every test to avoid bleed-through."""
     yield
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_spectral_client, None)
 
 
 def _make_user(session: Session) -> User:
@@ -252,56 +247,51 @@ def test_get_after_delete_returns_404(db_session):
 
 
 # ---------------------------------------------------------------------------
-# Ruleset forwarded to run_spectral during lint
+# Ruleset forwarded to LintService during lint
 # ---------------------------------------------------------------------------
 
 
 def test_lint_adhoc_forwards_user_ruleset(db_session):
-    """When a user has a saved ruleset, run_spectral receives it as user_ruleset."""
+    """When a user has a saved ruleset, LintService passes it to SpectralClient."""
     user = _make_user(db_session)
     app.dependency_overrides[get_current_user] = lambda: user
 
-    # Save a ruleset first
     raw = "extends: spectral:oas\nrules:\n  info-contact: off\n"
     client.put("/lint/ruleset", json={"raw_yaml": raw})
 
-    captured = {}
+    fake = FakeSpectralClient()
+    app.dependency_overrides[get_spectral_client] = lambda: fake
 
-    def _capture(spec_json, ruleset="spectral:oas", timeout=60, user_ruleset=None):
-        captured["user_ruleset"] = user_ruleset
-        return _SPECTRAL_CLEAN_RESULT
-
-    with patch("routers.lint.run_spectral", side_effect=_capture):
-        resp = client.post("/lint", json={"spec_json": VALID_SPEC})
-
+    resp = client.post("/lint", json={"spec_json": VALID_SPEC})
     assert resp.status_code == 200
-    assert captured["user_ruleset"] is not None
-    assert captured["user_ruleset"]["raw_yaml"] == raw
+    # The ruleset YAML forwarded to the client must contain the user's override
+    assert len(fake.calls) == 1
+    _, ruleset_yaml = fake.calls[0]
+    assert "info-contact" in ruleset_yaml
 
 
-def test_lint_adhoc_no_ruleset_passes_none(db_session):
-    """When a user has no saved ruleset, run_spectral is called with user_ruleset=None."""
+def test_lint_adhoc_no_ruleset_passes_baseline(db_session):
+    """When a user has no saved ruleset, LintService passes the spectral:oas baseline."""
     user = _make_user(db_session)
     app.dependency_overrides[get_current_user] = lambda: user
 
-    captured = {}
+    fake = FakeSpectralClient()
+    app.dependency_overrides[get_spectral_client] = lambda: fake
 
-    def _capture(spec_json, ruleset="spectral:oas", timeout=60, user_ruleset=None):
-        captured["user_ruleset"] = user_ruleset
-        return _SPECTRAL_CLEAN_RESULT
-
-    with patch("routers.lint.run_spectral", side_effect=_capture):
-        resp = client.post("/lint", json={"spec_json": VALID_SPEC})
-
+    resp = client.post("/lint", json={"spec_json": VALID_SPEC})
     assert resp.status_code == 200
-    assert captured["user_ruleset"] is None
+    assert len(fake.calls) == 1
+    _, ruleset_yaml = fake.calls[0]
+    assert ruleset_yaml == "extends: spectral:oas\n"
 
 
 def test_lint_with_ruleset_that_overrides_default_rule(db_session):
     """
     Saving a raw_yaml ruleset that sets info-contact: off, then running lint,
-    forwards the override to run_spectral — confirming the full CRUD → lint path.
+    forwards the override to SpectralClient — confirming the full CRUD → lint path.
     """
+    import yaml
+
     user = _make_user(db_session)
     app.dependency_overrides[get_current_user] = lambda: user
 
@@ -309,22 +299,13 @@ def test_lint_with_ruleset_that_overrides_default_rule(db_session):
     put_resp = client.put("/lint/ruleset", json={"raw_yaml": raw})
     assert put_resp.status_code == 200
 
-    captured = {}
+    fake = FakeSpectralClient()
+    app.dependency_overrides[get_spectral_client] = lambda: fake
 
-    def _capture(spec_json, ruleset="spectral:oas", timeout=60, user_ruleset=None):
-        captured["user_ruleset"] = user_ruleset
-        return _SPECTRAL_CLEAN_RESULT
-
-    with patch("routers.lint.run_spectral", side_effect=_capture):
-        resp = client.post("/lint", json={"spec_json": VALID_SPEC})
-
+    resp = client.post("/lint", json={"spec_json": VALID_SPEC})
     assert resp.status_code == 200
-    # The override dict must have reached run_spectral
-    assert captured["user_ruleset"]["raw_yaml"] == raw
-    # Verify build_ruleset_yaml would produce YAML with the override
-    from validation.spectral_linter import build_ruleset_yaml
-    import yaml
 
-    produced = yaml.safe_load(build_ruleset_yaml(captured["user_ruleset"]))
+    _, ruleset_yaml = fake.calls[0]
+    produced = yaml.safe_load(ruleset_yaml)
     # YAML 1.1 parses bare 'off' as boolean False
     assert produced["rules"]["info-contact"] is False

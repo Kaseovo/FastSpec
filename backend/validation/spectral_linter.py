@@ -5,11 +5,8 @@ Runs @stoplight/spectral-cli as a subprocess and parses its JSON output
 into a structured response with a quality score.
 """
 
-import json
 import logging
 import os
-import subprocess
-import tempfile
 from typing import Any, Dict, List, Optional
 
 import yaml
@@ -171,108 +168,4 @@ def _parse_result(raw: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def run_spectral(
-    spec_json: Dict[str, Any],
-    ruleset: str = "spectral:oas",
-    timeout: int = 60,
-    user_ruleset: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """
-    Run Spectral CLI on the provided OpenAPI spec dict.
 
-    Writes the spec to a temporary JSON file, builds a temporary ruleset YAML
-    file (merging ``user_ruleset`` on top of ``spectral:oas`` when provided),
-    invokes the Spectral CLI subprocess, parses the JSON output, and returns
-    a structured result.
-
-    Args:
-        spec_json:    The parsed OpenAPI spec as a Python dict.
-        ruleset:      Legacy parameter kept for backward compatibility (ignored
-                      when ``user_ruleset`` is provided).
-        timeout:      Maximum seconds to wait for the subprocess.
-        user_ruleset: Optional dict with keys ``rules_json`` and/or ``raw_yaml``
-                      loaded from the ``UserLintRuleset`` DB row for the
-                      authenticated user.
-
-    Returns:
-        A dict with keys: score (int), summary (dict), results (list).
-
-    Raises:
-        RuntimeError: If Spectral is not found or returns unexpected output.
-    """
-    tmp_spec_path: Optional[str] = None
-    tmp_ruleset_path: Optional[str] = None
-
-    try:
-        # Write spec to temp file
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".json",
-            delete=False,
-            encoding="utf-8",
-        ) as tmp_spec:
-            json.dump(spec_json, tmp_spec, indent=2)
-            tmp_spec_path = tmp_spec.name
-
-        # Build ruleset YAML and write to temp file
-        ruleset_yaml_content = build_ruleset_yaml(user_ruleset)
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".spectral.yaml",
-            delete=False,
-            encoding="utf-8",
-        ) as tmp_ruleset:
-            tmp_ruleset.write(ruleset_yaml_content)
-            tmp_ruleset_path = tmp_ruleset.name
-
-        cmd = _build_command(tmp_spec_path, tmp_ruleset_path)
-        logger.debug("Running Spectral: %s", " ".join(cmd))
-        logger.debug("Environment PATH: %s", os.environ.get("PATH"))
-
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-
-        # Spectral exits with code 1 when lint issues are found — that's normal.
-        # It exits with code 2+ for actual failures (e.g. ruleset not found).
-        if proc.returncode >= 2:
-            stderr = proc.stderr.strip()
-            raise RuntimeError(
-                f"Spectral CLI failed (exit {proc.returncode}): {stderr}"
-            )
-
-        stdout = proc.stdout.strip()
-        if not stdout:
-            # No output = zero issues (perfect spec)
-            return {
-                "score": 100,
-                "summary": {"error": 0, "warn": 0, "info": 0, "hint": 0},
-                "results": [],
-            }
-
-        try:
-            raw = json.loads(stdout)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(
-                f"Failed to parse Spectral output as JSON: {exc}\nOutput: {stdout[:500]}"
-            ) from exc
-
-        return _parse_result(raw)
-
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(f"Spectral CLI timed out after {timeout} seconds")
-    except FileNotFoundError as exc:
-        raise RuntimeError(
-            "Spectral CLI not found. Ensure Node.js and npx are available in PATH, "
-            "or set the SPECTRAL_PATH environment variable."
-        ) from exc
-    finally:
-        for path in (tmp_spec_path, tmp_ruleset_path):
-            if path:
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass

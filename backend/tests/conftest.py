@@ -47,3 +47,11 @@ def _create_tables():
     Base.metadata.create_all(bind=test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture
+def fake_spectral_client():
+    """Return a default FakeSpectralClient (score=100, no issues)."""
+    from tests.fakes import FakeSpectralClient
+
+    return FakeSpectralClient()

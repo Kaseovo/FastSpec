@@ -1,9 +1,14 @@
 """
 Lint endpoints – run Stoplight Spectral against stored or ad-hoc OpenAPI specs.
+
+This router is intentionally thin: it handles HTTP concerns only.
+- Spec ownership checks are delegated to SpecService.get_spec().
+- Lint orchestration is delegated to LintService.
+- Ruleset CRUD is delegated to LintRulesetRepository.
+- SpectralError → HTTP 502 conversion lives here (and only here).
 """
 
 import logging
-import uuid
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -11,50 +16,21 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
-from models import OpenAPISpec, SpecVersion, User, UserLintRuleset
+from models import User
 from schemas import (
     LintRequest,
     LintResponse,
     LintRulesetResponse,
     LintRulesetUpsertRequest,
-    LintSummary,
     StructuredRule,
 )
-from validation.spectral_linter import run_spectral
+from services.lint_ruleset_repository import LintRulesetRepository
+from services.lint_service import LintService
+from services.spec_service import SpecService
+from validation.spectral_client import SpectralClient, SpectralError, get_spectral_client
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _fetch_user_ruleset(user_id: int, db: Session) -> dict | None:
-    """Return the user's lint ruleset as a plain dict, or None if not set."""
-    row = db.query(UserLintRuleset).filter(UserLintRuleset.user_id == user_id).first()
-    if row is None:
-        return None
-    return {"rules_json": row.rules_json, "raw_yaml": row.raw_yaml}
-
-
-def _do_lint(spec_json: dict, user_ruleset: dict | None) -> LintResponse:
-    """Shared helper: run Spectral and coerce result into LintResponse."""
-    try:
-        raw = run_spectral(spec_json, user_ruleset=user_ruleset)
-    except RuntimeError as exc:
-        logger.error("Spectral lint failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Linting failed: {exc}",
-        ) from exc
-
-    return LintResponse(
-        score=raw["score"],
-        summary=LintSummary(**raw["summary"]),
-        results=raw["results"],
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -80,17 +56,14 @@ async def lint_spec_by_id(
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    spectral_client: SpectralClient = Depends(get_spectral_client),
 ) -> LintResponse:
-    spec = (
-        db.query(OpenAPISpec)
-        .filter(OpenAPISpec.id == str(spec_id), OpenAPISpec.user_id == current_user.id)
-        .first()
-    )
-    if not spec:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Spec with id {spec_id} not found",
-        )
+    # Ownership check via SpecService (raises 404 if absent or not owned)
+    spec_service = SpecService(db)
+    spec_service.get_spec(current_user, spec_id)
+
+    # Resolve the specific version
+    from models import SpecVersion
 
     spec_version = (
         db.query(SpecVersion)
@@ -103,8 +76,14 @@ async def lint_spec_by_id(
             detail=f"Version {version} for spec {spec_id} not found",
         )
 
-    user_ruleset = _fetch_user_ruleset(current_user.id, db)
-    return _do_lint(spec_version.content, user_ruleset)
+    try:
+        return LintService(db, spectral_client).lint(spec_version.content, current_user.id)
+    except SpectralError as exc:
+        logger.error("Spectral lint failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Linting failed: {exc}",
+        ) from exc
 
 
 @router.post(
@@ -121,9 +100,16 @@ async def lint_spec_adhoc(
     body: LintRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    spectral_client: SpectralClient = Depends(get_spectral_client),
 ) -> LintResponse:
-    user_ruleset = _fetch_user_ruleset(current_user.id, db)
-    return _do_lint(body.spec_json, user_ruleset)
+    try:
+        return LintService(db, spectral_client).lint(body.spec_json, current_user.id)
+    except SpectralError as exc:
+        logger.error("Spectral lint failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Linting failed: {exc}",
+        ) from exc
 
 
 @router.post(
@@ -141,17 +127,11 @@ async def lint_draft(
     body: LintRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    spectral_client: SpectralClient = Depends(get_spectral_client),
 ) -> LintResponse:
-    spec = (
-        db.query(OpenAPISpec)
-        .filter(OpenAPISpec.id == str(spec_id), OpenAPISpec.user_id == current_user.id)
-        .first()
-    )
-    if not spec:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Spec with id {spec_id} not found",
-        )
+    # Ownership check via SpecService (raises 404 if absent or not owned)
+    spec_service = SpecService(db)
+    spec_service.get_spec(current_user, spec_id)
 
     if not isinstance(body.spec_json, dict):
         raise HTTPException(
@@ -159,8 +139,14 @@ async def lint_draft(
             detail="spec_json must be a JSON object",
         )
 
-    user_ruleset = _fetch_user_ruleset(current_user.id, db)
-    return _do_lint(body.spec_json, user_ruleset)
+    try:
+        return LintService(db, spectral_client).lint(body.spec_json, current_user.id)
+    except SpectralError as exc:
+        logger.error("Spectral lint failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Linting failed: {exc}",
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -178,11 +164,7 @@ async def get_lint_ruleset(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> LintRulesetResponse:
-    row = (
-        db.query(UserLintRuleset)
-        .filter(UserLintRuleset.user_id == current_user.id)
-        .first()
-    )
+    row = LintRulesetRepository(db).get(current_user.id)
     if row is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -210,7 +192,7 @@ async def upsert_lint_ruleset(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> LintRulesetResponse:
-    # Validate raw_yaml syntax at save time
+    # YAML syntax validation is an input concern — stays in the router
     if body.raw_yaml is not None:
         try:
             yaml.safe_load(body.raw_yaml)
@@ -224,26 +206,7 @@ async def upsert_lint_ruleset(
         [r.model_dump() for r in body.rules] if body.rules is not None else None
     )
 
-    row = (
-        db.query(UserLintRuleset)
-        .filter(UserLintRuleset.user_id == current_user.id)
-        .first()
-    )
-    if row is None:
-        row = UserLintRuleset(
-            id=str(uuid.uuid4()),
-            user_id=current_user.id,
-            rules_json=rules_json,
-            raw_yaml=body.raw_yaml,
-        )
-        db.add(row)
-    else:
-        row.rules_json = rules_json
-        row.raw_yaml = body.raw_yaml
-
-    db.commit()
-    db.refresh(row)
-
+    row = LintRulesetRepository(db).upsert(current_user.id, rules_json, body.raw_yaml)
     return LintRulesetResponse(
         rules=[StructuredRule(**r) for r in row.rules_json] if row.rules_json else None,
         raw_yaml=row.raw_yaml,
@@ -264,16 +227,5 @@ async def delete_lint_ruleset(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
-    row = (
-        db.query(UserLintRuleset)
-        .filter(UserLintRuleset.user_id == current_user.id)
-        .first()
-    )
-    if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No custom ruleset configured for this user.",
-        )
-    db.delete(row)
-    db.commit()
+    LintRulesetRepository(db).delete(current_user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -58,3 +58,6 @@ fastspec.db
 
 # Backups
 frontend-nextjs-backup/
+
+# Kilo
+.kilo/

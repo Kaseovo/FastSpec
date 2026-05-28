@@ -220,3 +220,34 @@ def test_structured_rules_can_override_default_rule_by_name():
     parsed = yaml.safe_load(ruleset)
     assert "info-contact" in parsed["rules"]
     assert parsed["rules"]["info-contact"]["severity"] == "off"
+
+
+# ---------------------------------------------------------------------------
+# Score calculation (_parse_result)
+# ---------------------------------------------------------------------------
+
+
+def test_score_calculation_floors_at_zero():
+    from validation.spectral_linter import _parse_result
+
+    # 11 errors × 10 = 110 penalty → score should be 0, not negative
+    many_errors = [
+        {"code": "err", "message": "e", "severity": 0, "path": [], "range": {}}
+        for _ in range(11)
+    ]
+    result = _parse_result(many_errors)
+    assert result["score"] == 0
+
+
+def test_score_calculation_mixed():
+    from validation.spectral_linter import _parse_result
+
+    issues = [
+        {"code": "e1", "message": "m", "severity": 0, "path": [], "range": {}},  # error -10
+        {"code": "w1", "message": "m", "severity": 1, "path": [], "range": {}},  # warn  -3
+        {"code": "i1", "message": "m", "severity": 2, "path": [], "range": {}},  # info  -1
+        {"code": "h1", "message": "m", "severity": 3, "path": [], "range": {}},  # hint  -0
+    ]
+    result = _parse_result(issues)
+    assert result["score"] == 100 - 10 - 3 - 1
+    assert result["summary"] == {"error": 1, "warn": 1, "info": 1, "hint": 1}
