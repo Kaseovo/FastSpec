@@ -20,9 +20,13 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # JWT Configuration
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "3600"))
-API_KEY_TTL_DAYS = int(os.getenv("API_KEY_TTL_DAYS", "30"))
-SHORT_JWT_TTL_SECONDS = int(os.getenv("SHORT_JWT_TTL_SECONDS", "300"))
+def _int_env(key: str, default: str) -> int:
+    return int(os.getenv(key, default).split("#")[0].strip())
+
+
+ACCESS_TOKEN_EXPIRE_MINUTES = _int_env("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "3600")
+API_KEY_TTL_DAYS = _int_env("API_KEY_TTL_DAYS", "30")
+SHORT_JWT_TTL_SECONDS = _int_env("SHORT_JWT_TTL_SECONDS", "300")
 
 
 def create_access_token(user_id: int, email: str, db_session=None) -> str:
