@@ -1,0 +1,21 @@
+services:
+  floci:
+    image: floci/floci:latest
+    container_name: fastspec-floci
+    environment:
+      - FLOCI_HOSTNAME=floci
+      - FLOCI_STORAGE_MODE=hybrid
+    ports:
+      - "4566:4566"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - floci-data:/var/lib/floci
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_floci/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+volumes:
+  floci-data: {}
