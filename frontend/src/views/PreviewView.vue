@@ -15,24 +15,23 @@
 
 <script>
 import PreviewPanel from "../components/PreviewPanel.vue";
-import { useApp } from "../composables/useApp";
-import { onMounted } from "vue";
+import { inject } from "vue";
 import { useRoute } from "vue-router";
 
 export default {
   name: "PreviewView",
   components: { PreviewPanel },
   setup() {
-    const app = useApp();
+    const specEditor = inject("specEditor");
     const route = useRoute();
 
     // if route has :id param, load spec
     if (route.params.id) {
-      app.loadSpec(route.params.id).catch(() => {});
+      specEditor.loadSpec(route.params.id);
     }
 
     return {
-      ...app,
+      parsedSpec: specEditor.parsedSpec,
     };
   },
 };

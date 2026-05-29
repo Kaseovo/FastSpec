@@ -68,9 +68,9 @@ import FormEditor from "../components/FormEditor.vue";
 import LintPanel from "../components/LintPanel.vue";
 import PreviewPanel from "../components/PreviewPanel.vue";
 import ErrorBoundary from "../components/ErrorBoundary.vue";
-import { useApp } from "../composables/useApp";
-import { computed, inject } from "vue";
+import { computed, ref, inject, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth";
 
 export default {
   name: "EditorView",
@@ -83,7 +83,11 @@ export default {
     ErrorBoundary,
   },
   setup() {
-    const app = useApp();
+    const specEditor = inject("specEditor");
+    const lint = inject("lint");
+    const auth = useAuthStore();
+    const isAuthenticated = computed(() => auth.isAuthenticated);
+
     const route = useRoute();
     const router = useRouter();
 
@@ -91,15 +95,49 @@ export default {
 
     // if route has :id param, load spec
     if (route.params.id) {
-      app.loadSpec(route.params.id).catch(() => {});
+      specEditor.loadSpec(route.params.id);
     }
 
     const sidebarCollapsed = inject("sidebarCollapsed", { value: false });
 
+    // Local state
+    const showLivePreview = ref(false);
+    const toggleLivePreview = () => {
+      showLivePreview.value = !showLivePreview.value;
+    };
+
+    const editorPanelRef = ref(null);
+    const handleGoToLine = (result) => {
+      router.push({ name: "editor", query: { view: "code" } }).catch(() => {});
+      nextTick(() => {
+        editorPanelRef.value?.goToLine(result);
+      });
+    };
+
+    const selectedSpecId = computed(
+      () =>
+        specEditor.currentSpec.value?.id ??
+        (specEditor.unsavedSpec.value ? "__unsaved" : null),
+    );
+
     return {
-      ...app,
+      isAuthenticated,
+      loadSpec: specEditor.loadSpec,
+      parsedSpec: specEditor.parsedSpec,
+      specContent: specEditor.specContent,
+      updateFromForm: specEditor.updateFromForm,
+      updatePreview: specEditor.updatePreview,
+      lintResults: lint.lintResults,
+      lintLoading: lint.lintLoading,
+      lintError: lint.lintError,
+      runLint: lint.runLint,
       mode,
       sidebarCollapsed,
+      showLivePreview,
+      toggleLivePreview,
+      editorPanelRef,
+      handleGoToLine,
+      selectedSpecId,
     };
   },
 };
