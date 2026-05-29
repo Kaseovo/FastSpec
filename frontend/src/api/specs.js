@@ -4,6 +4,21 @@ import { useAuthStore } from "../stores/auth";
 const API_BASE = "/api/specs";
 const LINT_BASE = "/api/lint";
 
+function redirectToLogin() {
+  const isLocal =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+  if (isLocal) {
+    // Lazy-import to avoid circular dependency at module load time
+    import("../router").then(({ getRouter }) => {
+      const router = getRouter();
+      if (router) router.push({ name: "login" });
+    });
+  } else {
+    window.location.href = "/";
+  }
+}
+
 // Create axios instance
 export const api = axios.create({
   baseURL: API_BASE,
@@ -30,8 +45,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const auth = useAuthStore();
       auth.clearAuth();
-      // Redirect to login page
-      window.location.href = "/";
+      redirectToLogin();
     }
     return Promise.reject(error);
   },
@@ -55,7 +69,7 @@ lintApi.interceptors.response.use(
     if (error.response?.status === 401) {
       const auth = useAuthStore();
       auth.clearAuth();
-      window.location.href = "/";
+      redirectToLogin();
     }
     return Promise.reject(error);
   },

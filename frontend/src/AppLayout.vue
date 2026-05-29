@@ -44,17 +44,6 @@
       @save="saveSpec"
     />
 
-    <!-- Login Dialog -->
-    <Dialog
-      :visible="showLoginDialog"
-      @update:visible="(val) => (showLoginDialog = val)"
-      header="Sign In to FastSpec"
-      :modal="true"
-      :style="{ width: '450px' }"
-    >
-      <LoginPage :inline="true" @close="showLoginDialog = false" />
-    </Dialog>
-
     <!-- Token Manager Dialog -->
     <Dialog
       :visible="showTokenDialog"
@@ -84,7 +73,6 @@ import EditorPanel from "./components/EditorPanel.vue";
 import FormEditor from "./components/FormEditor.vue";
 import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
-import LoginPage from "./components/LoginPage.vue";
 import TokenManager from "./components/TokenManager.vue";
 import LintPanel from "./components/LintPanel.vue";
 import AppHeader from "./AppHeader.vue";
@@ -110,7 +98,6 @@ export default {
     FormEditor,
     PreviewPanel,
     SaveDialog,
-    LoginPage,
     TokenManager,
     LintPanel,
     AppHeader,
@@ -122,7 +109,6 @@ export default {
     const router = useRouter();
 
     // UI state moved from useApp
-    const showLoginDialog = ref(false);
     const showTokenDialog = ref(false);
     const viewModeOptions = ref([
       { label: "Form", value: "form", icon: "pi pi-list" },
@@ -169,7 +155,6 @@ export default {
 
     return {
       ...app,
-      showLoginDialog,
       showTokenDialog,
       viewModeOptions,
       selectedView,

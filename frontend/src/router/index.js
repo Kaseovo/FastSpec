@@ -30,11 +30,15 @@ router.beforeEach((to) => {
 
   const authStore = useAuthStore();
   if (!authStore.isAuthenticated) {
-    // Redirect to the landing page (served by the landing-page container)
-    window.location.href = "/";
+    const landingUrl = import.meta.env.VITE_LANDING_URL || "";
+    window.location.href = landingUrl ? landingUrl + "/" : "/";
     return false;
   }
   return true;
 });
+
+export function getRouter() {
+  return router;
+}
 
 export default router;

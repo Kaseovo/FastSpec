@@ -1,119 +1,120 @@
 # FastSpec
 
-A modern full-stack application for creating, editing, validating, and managing OpenAPI 3.0 specifications with OAuth2 authentication.
+A full-stack application for creating, editing, validating, and managing OpenAPI 3.0 specifications with OAuth2 authentication.
 
 ## Architecture
 
-- **Backend**: FastAPI with SQLAlchemy ORM
-- **Frontend**: Vue.js 3 + PrimeVue UI components
+- **Backend**: FastAPI + SQLAlchemy ORM, running on ECS Fargate
+- **Frontend**: Vue.js 3 + PrimeVue, served via S3/CloudFront (prod) or Vite dev server (local)
+- **Landing page**: Static nginx container served at `/`
 - **Authentication**: OAuth2 (Google & GitHub) with JWT tokens
-- **Editor**: Monaco Editor (VS Code editor)
-- **Preview**: Swagger UI integration
-- **Database**: SQLite (default)
+- **Editor**: Monaco Editor
+- **Preview**: Swagger UI
+- **Database**: PostgreSQL (RDS in AWS, emulated via floci locally)
+- **Infrastructure**: AWS CDK — `DataStack` (RDS + ElastiCache) and `ComputeStack` (ECS + ALB)
 
-## Features
+## Local Development
 
-- 🔐 **Authentication** - OAuth2 login with Google and GitHub
-- 👤 **Private Specs** - Each user's specifications are private
-- 📝 **JSON Editor** - Monaco Editor with syntax highlighting
-- 👁️ **Live Preview** - Real-time Swagger UI rendering
-- ✅ **Validation** - OpenAPI 3.0 spec validation
-- 💾 **Version Control** - Track changes between versions
-- 📊 **Diff Viewer** - Compare specification versions
-- 🎨 **Modern UI** - Beautiful PrimeVue components
-
-## Quick Start
+Local dev runs against **floci** — a local AWS emulator (free alternative to LocalStack). CDK deploys the same stacks locally as in production.
 
 ### Prerequisites
 
-- **Python 3.11+** with pip
-- **Node.js 18+** with npm
+- Docker (with Compose v2)
+- Node.js 18+
+- Python 3.11+
+- AWS CDK CLI: `npm install -g aws-cdk`
 
-### Development Setup
+### First-time setup
 
-> **⚠️ Authentication Required**: FastSpec now requires OAuth2 authentication. See [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) for setup and configuration.
-
-1. **Clone the repository:**
+1. **Clone and install dependencies:**
 
    ```bash
    git clone https://github.com/DishWatcher/FastSpec.git
    cd FastSpec
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r backend/requirements.txt
+   cd frontend && npm install && cd ..
+   cd infra && npm install && cd ..
    ```
 
-2. **Set up authentication** (Required - 5 minutes):
-
-   Follow the [Authentication Guide](docs/AUTHENTICATION.md) to:
-   - Get OAuth credentials from Google and GitHub
-   - Configure environment variables
-   - Run database migration
-
-3. **Start both servers:**
+2. **Configure environment variables:**
 
    ```bash
-   chmod +x start-dev.sh
-   ./start-dev.sh
+   cp .env.example .env
+   # Fill in OAuth credentials (Google, GitHub) and JWT secret key
    ```
 
-   This will:
-   - Create a Python virtual environment
-   - Install backend dependencies
-   - Install frontend dependencies
-   - Start FastAPI backend on port 8000
-   - Start Vue.js frontend on port 3000
+### Starting local dev
 
-4. **Access the application:**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
-
-5. **Sign in:**
-   - Click "Continue with Google" or "Continue with GitHub"
-   - Complete OAuth flow
-   - Start creating specs!
-
-### Alternative: Start Servers Separately
-
-**Backend only:**
+Run everything with one command:
 
 ```bash
-chmod +x start-backend.sh
-./start-backend.sh
+make dev
 ```
 
-**Frontend only:**
+This runs the following steps in order:
+
+| Step | Command | What it does |
+|------|---------|-------------|
+| 1 | `make up` | Starts the floci container (local AWS emulator) on port 4566 |
+| 2 | `make secrets` | Seeds `.env` values into floci SSM as SecureString parameters |
+| 3 | `make infra` | CDK deploys `DataStack` (Postgres + Redis) and `ComputeStack` (ECS + ALB) against floci |
+| 4 | `make migrate` | Runs the database migration ECS task inside floci |
+| 5 | `make landing` | Builds and runs the landing page container on `http://localhost:3000` |
+| 6 | `make frontend` | Starts the Vite dev server (hot-reload) — this step is blocking |
+
+Once running:
+
+- **App (editor)**: `http://localhost:5173/specs`
+- **Landing page**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8000`
+- **API docs**: `http://localhost:8000/docs`
+
+Unauthenticated users are redirected to the landing page at `http://localhost:3000`.
+
+### Running backend and frontend separately
+
+If you only need to iterate on the backend or frontend without the full floci stack:
 
 ```bash
-chmod +x start-frontend.sh
-./start-frontend.sh
+# Start Postgres and Redis locally (without floci)
+make db
+
+# Start the FastAPI backend with hot-reload
+make backend
+
+# Start the Vite frontend dev server
+make frontend
 ```
 
-### Manual Setup
-
-**Backend:**
+### Individual make targets
 
 ```bash
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start FastAPI server
-uvicorn backend.main:app --reload --port 8000
+make up        # Start floci container
+make down      # Stop and remove floci container
+make db        # Start Postgres + Redis (for make backend)
+make secrets   # Seed .env into floci SSM
+make infra     # CDK deploy all stacks against floci
+make migrate   # Run database migrations in floci
+make landing   # Build and run landing page on port 3000
+make backend   # Start FastAPI dev server (requires make db first)
+make frontend  # Start Vite dev server
+make logs      # Tail backend ECS container logs from floci
+make help      # List all available targets
 ```
 
-**Frontend:**
+## Testing
 
 ```bash
-# Navigate to frontend directory
-cd frontend
+# Backend tests
+cd backend && python -m pytest tests --tb=short
 
-# Install dependencies
-npm install
+# Frontend tests
+cd frontend && npm test
 
-# Start Vite dev server
-npm run dev
+# Both
+cd backend && python -m pytest tests --tb=short && cd ../frontend && npm test
 ```
 
 ## Project Structure
@@ -196,183 +197,28 @@ Notes:
 
 ## Environment Variables
 
-Create a `.env` file (see `.env.example` or [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1)):
+Create a `.env` file at the repo root (see `.env.example`):
 
 ```env
-# JWT Configuration
-JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+# JWT
+JWT_SECRET_KEY=your-secret-key
 JWT_ALGORITHM=HS256
-# Access token expiry in minutes
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=3600  # 7 days
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=3600
 
 # OAuth2 - Google
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/auth/callback
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=http://localhost:5173/auth/callback
 
 # OAuth2 - GitHub
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
-GITHUB_REDIRECT_URI=http://localhost:3000/auth/callback
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+GITHUB_REDIRECT_URI=http://localhost:5173/auth/callback
 
-# Application
-DATABASE_URL=sqlite:///./fastspec.db
-FRONTEND_URL=http://localhost:3000
-CORS_ORIGINS=http://localhost:3000
+# App
+FRONTEND_URL=http://localhost:5173
+CORS_ORIGINS=http://localhost:5173
 ```
-
-**Required for authentication** - See authentication docs for obtaining OAuth credentials.
-
-## Production Deployment
-
-### Backend
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run with Gunicorn
-gunicorn backend.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-```
-
-### Frontend
-
-```bash
-cd frontend
-
-# Build for production
-npm run build
-
-# Serve the dist/ directory with a web server
-# (e.g., nginx, Apache, or a static hosting service)
-```
-
-## Development
-
-### Local development with Docker Compose
-
-Two Docker Compose files are provided:
-
-- [`docker-compose.yml`](docker-compose.yml:1) — base composition for running the backend, frontend, and database in a production-like configuration.
-- [`docker-compose.dev.yml`](docker-compose.dev.yml:1) — development overrides: mounts local source code into containers, enables hot-reload for backend/frontend, and sets development environment variables (including DEBUG).
-
-To start the application for local development (build images and apply dev overrides):
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-This command combines the base compose file with the development overrides so containers use local source and run in watch/reload mode.
-
-### DEBUG mode
-
-Set the environment variable `DEBUG=true` (in your `.env` or via the dev compose file) to enable development behavior:
-
-- Backend: runs with auto-reload (uvicorn --reload) and more verbose logging.
-- Frontend: runs the Vite dev server with hot-module replacement.
-
-The `docker-compose.dev.yml` file already configures the containers for DEBUG-friendly development; override or unset DEBUG for production-like runs.
-
-### Backend Development
-
-- **FastAPI** with automatic OpenAPI documentation
-- **SQLAlchemy** ORM for database operations
-- **Pydantic** for data validation
-- **openapi-spec-validator** for OpenAPI validation
-
-### Frontend Development
-
-- **Vue 3** Composition API
-- **PrimeVue** UI component library
-- **Monaco Editor** for code editing
-- **Swagger UI** for API preview
-- **Axios** for HTTP requests
-- **Vite** for fast builds
-
-### Code Style
-
-Backend follows PEP 8. Frontend uses Vue 3 style guide.
-
-## Database
-
-Default: SQLite (`fastspec.db`)
-
-To use PostgreSQL:
-
-```env
-DATABASE_URL=postgresql://user:password@localhost/fastspec
-```
-
-## Testing
-
-```bash
-# Backend tests
-pytest
-
-# Frontend tests
-cd frontend && npm test
-```
-
-## Troubleshooting
-
-### Port Already in Use
-
-Change ports in `.env` or start scripts:
-
-Backend:
-
-```bash
-uvicorn backend.main:app --reload --port 8001
-```
-
-Frontend:
-
-```bash
-cd frontend && npm run dev -- --port 3001
-```
-
-### Database Issues
-
-Delete and recreate:
-
-```bash
-rm fastspec.db
-# Database will be recreated on next backend start
-```
-
-### Frontend Build Issues
-
-```bash
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
-```
-
-## Migration from Django
-
-This project was migrated from Django to FastAPI + Vue.js. Legacy Django code has been removed from the repository.
-
-If you find any remaining Django artifacts, please open issue AM-11 to track their removal.
-
-## Developer Documentation
-
-Detailed project documentation is available under the `docs/` directory. See the following files for scoped, implementation-focused documentation:
-
-- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md:1) — high-level overview and quick start
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md:1) — data flow, components, and deployment notes
-- [`docs/API.md`](docs/API.md:1) — endpoint reference and request/response shapes
-- [`docs/FRONTEND.md`](docs/FRONTEND.md:1) — frontend structure and development notes
-- [`docs/BACKEND.md`](docs/BACKEND.md:1) — backend routes, auth, validation, and database
-- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md:1) — docker-compose and local setup instructions
-- [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) — detailed authentication setup and security guidance
-
-These files provide implementation details, setup steps, and architectural context for contributors.
-
-## Authentication Documentation
-
-- **Quick Start**: [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) - quick setup and configuration
-- **Full Documentation**: [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) - Complete authentication guide
-- **Security**: See authentication docs for production best practices
 
 ## License
 
