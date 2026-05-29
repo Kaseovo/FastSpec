@@ -10,7 +10,15 @@ The full set of AWS resources that together run FastSpec in a given Deployment E
 
 ## floci Environment
 
-A local replica of the Deployment Stack running on a developer's machine or in CI, powered by floci. Replaces `docker-compose`. Consumes the same CDK IaC definitions as a real AWS Deployment Stack, ensuring local and production behaviour are identical.
+A local replica of the Deployment Stack running on a developer's machine or in CI, powered by floci. Replaces `docker-compose`. Consumes the same CDK IaC definitions as a real AWS Deployment Stack, ensuring local and production behaviour are identical. Secret values are seeded into floci's SSM Parameter Store from the local `.env` file before the stacks are deployed. Frontend and landing-page are excluded from the floci Environment and run as plain local processes (Vite dev server).
+
+## DataStack
+
+The CDK stack responsible for stateful infrastructure: an RDS instance (PostgreSQL) and an ElastiCache cluster (Redis). Exports connection endpoints consumed by the ComputeStack. Deployed independently so the compute layer can be updated without risking data-layer replacement.
+
+## ComputeStack
+
+The CDK stack responsible for compute and ingress: the ECS Fargate service (backend), the ALB with listener rules, and SSM secret references wired into the ECS task definition. Imports connection endpoints from the DataStack. For the `local` Deployment Environment, ALB listener rules are scoped to backend routes only (`/api`, `/auth`); frontend and landing-page routes are added for `dev`, `staging`, and `prod`.
 
 ## Spectral Sidecar
 
@@ -18,7 +26,7 @@ A dedicated container that runs the Spectral CLI as an HTTP service. Accepts a S
 
 ## Migration Task
 
-An ECS Run Task (one-off, short-lived) that executes `alembic upgrade head` against the target RDS instance before each new service version is rolled out. Ensures the database schema matches the current SQLAlchemy models. Replaces the former `Base.metadata.create_all()` startup call.
+An ECS Run Task (one-off, short-lived) that executes `alembic upgrade head` against the target RDS instance before each new service version is rolled out. Ensures the database schema matches the current SQLAlchemy models. Replaces the former `Base.metadata.create_all()` startup call. The CDK construct for the Migration Task is defined from the start; the task is a no-op stub until Alembic is bootstrapped in the backend.
 
 
 ## Lint Ruleset
