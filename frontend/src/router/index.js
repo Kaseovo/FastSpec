@@ -30,7 +30,8 @@ router.beforeEach((to) => {
 
   const authStore = useAuthStore();
   if (!authStore.isAuthenticated) {
-    window.location.href = "/";
+    const landingUrl = import.meta.env.VITE_LANDING_URL || "";
+    window.location.href = landingUrl ? landingUrl + "/" : "/";
     return false;
   }
   return true;

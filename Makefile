@@ -44,14 +44,21 @@ backend:
 
 ## frontend: Start the Vite dev server on port 5173 pointed at the local ALB
 frontend:
-	cd frontend && VITE_API_BASE_URL=http://localhost:8000 npm run dev
+	cd frontend && VITE_API_BASE_URL=http://localhost:8000 VITE_LANDING_URL=http://localhost:3000 npm run dev
 
 ## logs: Tail backend ECS container logs from floci
 logs:
 	$(FLOCI_AWS_VARS) aws logs tail /ecs/fastspec-backend --follow
 
-## dev: Full local dev workflow — up, secrets, infra, migrate, frontend
-dev: up secrets infra migrate frontend
+## landing: Build and run the landing page container on http://localhost:3000
+landing:
+	docker build -t fastspec-landing-page -f landing-page/Dockerfile .
+	docker rm -f fastspec-landing-page 2>/dev/null || true
+	docker run -d --name fastspec-landing-page -p 3000:80 fastspec-landing-page
+	@echo "✓ landing page running at http://localhost:3000"
+
+## dev: Full local dev workflow — up, secrets, infra, migrate, landing, frontend
+dev: up secrets infra migrate landing frontend
 
 ## help: List available targets
 help:
