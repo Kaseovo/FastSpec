@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
+import { vi } from "vitest";
 import LintPanel from "../LintPanel.vue";
 
 // Stub PrimeVue components that are not relevant to unit-testing logic
@@ -7,6 +8,7 @@ const stubComponents = {
   Button: { template: '<button @click="$emit(\'click\')"><slot /></button>', emits: ["click"] },
   Message: { template: "<div><slot /></div>" },
   ProgressSpinner: { template: "<div class='spinner' />" },
+  LintRulesetDialog: { template: "<div />" },
 };
 
 const LINT_RESULTS_CLEAN = {
@@ -49,7 +51,7 @@ const LINT_RESULTS_MULTI_SEVERITY = {
 
 describe("LintPanel", () => {
   afterEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
   });
 
   // ── Empty / initial state ──────────────────────────────────────────────────
@@ -69,7 +71,7 @@ describe("LintPanel", () => {
       props: { results: null, loading: false, error: null },
       global: { components: stubComponents },
     });
-    await wrapper.findComponent({ name: "Button" }).trigger("click");
+    await wrapper.find(".lint-empty button").trigger("click");
     expect(wrapper.emitted("run-lint")).toBeTruthy();
   });
 
@@ -132,10 +134,11 @@ describe("LintPanel", () => {
       global: { components: stubComponents },
     });
     const pills = wrapper.findAll(".severity-pill");
-    expect(pills).toHaveLength(4);
+    // severities array has 5 entries: "All" + error + warn + info + hint
+    expect(pills).toHaveLength(5);
 
-    // Each pill should show count 1
-    pills.forEach((pill) => {
+    // Each pill should show count 1 (skip "All" pill at index 0 which has no count)
+    pills.slice(1).forEach((pill) => {
       expect(pill.find(".pill-count").text()).toBe("1");
     });
   });
@@ -237,6 +240,6 @@ describe("LintPanel", () => {
       global: { components: stubComponents },
     });
     expect(wrapper.find(".lint-no-results").exists()).toBe(true);
-    expect(wrapper.find(".lint-no-results").text()).toContain("No  issues found");
+    expect(wrapper.find(".lint-no-results").text()).toContain("No issues found.");
   });
 });

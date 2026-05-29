@@ -1,6 +1,7 @@
-import axios from "axios";
 import MockAdapter from "axios-mock-adapter";
+import { createPinia, setActivePinia } from "pinia";
 import {
+  api,
   listSpecVersions,
   createSpecVersion,
   getSpecVersion,
@@ -10,9 +11,12 @@ import {
   updateSpec,
 } from "./specs";
 
-const mock = new MockAdapter(axios);
+const mock = new MockAdapter(api);
 
 describe("specs API client", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
   afterEach(() => mock.reset());
 
   test("listSpecVersions calls GET and returns data", async () => {

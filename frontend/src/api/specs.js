@@ -5,7 +5,7 @@ const API_BASE = "/api/specs";
 const LINT_BASE = "/api/lint";
 
 // Create axios instance
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_BASE,
 });
 

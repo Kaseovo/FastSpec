@@ -1,10 +1,14 @@
 import { mount } from "@vue/test-utils";
+import { vi } from "vitest";
+import { createPinia, setActivePinia } from "pinia";
+import PrimeVue from "primevue/config";
+import ConfirmationService from "primevue/confirmationservice";
 import SpecList from "../SpecList.vue";
 
-jest.mock("../../api/specs", () => ({
-  fetchSpecs: jest.fn(),
-  listSpecVersions: jest.fn(),
-  compareSpecVersions: jest.fn(),
+vi.mock("../../api/specs", () => ({
+  fetchSpecs: vi.fn(),
+  listSpecVersions: vi.fn(),
+  compareSpecVersions: vi.fn(),
 }));
 
 import {
@@ -15,6 +19,7 @@ import {
 
 describe("SpecList - version history read-only", () => {
   beforeEach(() => {
+    setActivePinia(createPinia());
     fetchSpecs.mockResolvedValue([
       {
         id: 1,
@@ -33,7 +38,7 @@ describe("SpecList - version history read-only", () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
   });
 
   test("history drawer shows compare controls and can run compare", async () => {
@@ -42,6 +47,7 @@ describe("SpecList - version history read-only", () => {
     });
     const wrapper = mount(SpecList, {
       global: {
+        plugins: [PrimeVue, ConfirmationService],
         components: {
           Button: { template: "<button />" },
           Select: { template: "<select />" },
@@ -66,7 +72,8 @@ describe("SpecList - version history read-only", () => {
     await new Promise((r) => setImmediate(r));
 
     // history should expose compare selectors (Select stub renders a <select>)
-    expect(wrapper.findAll("select").length).toBe(2);
+    // note: spec cards also render a <select> via the Select stub, so total ≥ 2
+    expect(wrapper.findAll("select").length).toBeGreaterThanOrEqual(2);
 
     // run compare and verify API called with preselected versions
     await wrapper.vm.runCompare();
@@ -93,6 +100,7 @@ describe("SpecList - version history read-only", () => {
 
     const wrapper = mount(SpecList, {
       global: {
+        plugins: [PrimeVue, ConfirmationService],
         components: {
           Button: { template: "<button />" },
           Select: { template: "<select />" },

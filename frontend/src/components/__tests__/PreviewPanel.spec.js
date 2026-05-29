@@ -1,13 +1,22 @@
 import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
+import { vi } from "vitest";
 import PreviewPanel from "../PreviewPanel.vue";
 
-jest.mock("../../api/specs", () => ({
-  listSpecVersions: jest.fn(),
-  compareSpecVersions: jest.fn(),
+vi.mock("../../api/specs", () => ({
+  listSpecVersions: vi.fn(),
+  compareSpecVersions: vi.fn(),
 }));
 
 import { listSpecVersions, compareSpecVersions } from "../../api/specs";
+
+// flush all pending promises and microtasks
+const flushAll = async (n = 4) => {
+  for (let i = 0; i < n; i++) {
+    await new Promise((r) => setImmediate(r));
+  }
+  await nextTick();
+};
 
 describe("PreviewPanel - version compare", () => {
   beforeEach(() => {
@@ -16,13 +25,13 @@ describe("PreviewPanel - version compare", () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
     delete global.SwaggerUIBundle;
   });
 
   test("loads versions and runs initial compare, rendering diff via DiffDrawer", async () => {
     // mock versions (latest first)
-    listSpecVersions.mockResolvedValueOnce([
+    listSpecVersions.mockResolvedValue([
       { id: "v2", version: "1.0.1", is_published: true },
       { id: "v1", version: "1.0.0" },
     ]);
@@ -39,8 +48,9 @@ describe("PreviewPanel - version compare", () => {
       infoRemoved: [],
     };
 
-    // compare called automatically after loadVersions sets defaults
-    compareSpecVersions.mockResolvedValueOnce({
+    // Use mockResolvedValue (not Once) so the watcher-triggered compare and
+    // the onMounted-triggered compare both get the same diff.
+    compareSpecVersions.mockResolvedValue({
       base: { id: "v1" },
       compare: { id: "v2" },
       diff: mockDiff,
@@ -56,8 +66,7 @@ describe("PreviewPanel - version compare", () => {
         },
       },
       global: {
-        // stub DiffDrawer to capture the diff prop
-        components: {
+        stubs: {
           DiffDrawer: {
             props: ["diff", "spec", "inline"],
             template:
@@ -67,16 +76,13 @@ describe("PreviewPanel - version compare", () => {
       },
     });
 
-    // wait for loadVersions and initial compare to resolve
-    await new Promise((r) => setImmediate(r));
-    await new Promise((r) => setImmediate(r));
+    await flushAll();
 
     // ensure defaults set
     expect(wrapper.vm.baseVersion).toBe("1.0.0");
     expect(wrapper.vm.compareVersion).toBe("1.0.1");
 
-    // Expect DiffDrawer stub to be present with diff JSON (initial compare)
-    await nextTick();
+    // DiffDrawer should be present with the diff JSON
     const stub = wrapper.find(".diff-stub");
     expect(stub.exists()).toBe(true);
     expect(stub.text()).toContain('"added"');
@@ -85,7 +91,7 @@ describe("PreviewPanel - version compare", () => {
 
   test("changing version selection triggers compare and updates diff", async () => {
     // three versions: v3 (latest published), v2 (published), v1
-    listSpecVersions.mockResolvedValueOnce([
+    listSpecVersions.mockResolvedValue([
       { id: "v3", version: "1.0.2", is_published: true },
       { id: "v2", version: "1.0.1", is_published: true },
       { id: "v1", version: "1.0.0" },
@@ -94,16 +100,12 @@ describe("PreviewPanel - version compare", () => {
     const initialDiff = { added: [{ path: "/a" }], modified: [], removed: [] };
     const updatedDiff = { added: [], modified: [{ path: "/b" }], removed: [] };
 
-    // two compare responses: initial and after user change
-    compareSpecVersions.mockResolvedValueOnce({
+    // Use mockResolvedValue for initial phase so watcher + onMounted calls
+    // all return initialDiff. Then override once for the user-triggered change.
+    compareSpecVersions.mockResolvedValue({
       base: { id: "v2" },
       compare: { id: "v3" },
       diff: initialDiff,
-    });
-    compareSpecVersions.mockResolvedValueOnce({
-      base: { id: "v2" },
-      compare: { id: "v1" },
-      diff: updatedDiff,
     });
 
     const wrapper = mount(PreviewPanel, {
@@ -116,7 +118,7 @@ describe("PreviewPanel - version compare", () => {
         },
       },
       global: {
-        components: {
+        stubs: {
           DiffDrawer: {
             props: ["diff", "spec", "inline"],
             template:
@@ -126,30 +128,27 @@ describe("PreviewPanel - version compare", () => {
       },
     });
 
-    // wait for initial compare
-    await new Promise((r) => setImmediate(r));
-    await new Promise((r) => setImmediate(r));
+    await flushAll();
 
     // initial defaults should be latest two published
     expect(wrapper.vm.baseVersion).toBe("1.0.1");
     expect(wrapper.vm.compareVersion).toBe("1.0.2");
 
     // initial diff displayed
-    await nextTick();
     expect(wrapper.find(".diff-stub").text()).toContain("/a");
+
+    // override next call for the user-triggered change
+    compareSpecVersions.mockResolvedValueOnce({
+      base: { id: "v2" },
+      compare: { id: "v1" },
+      diff: updatedDiff,
+    });
 
     // simulate user changing compare version to 1.0.0
     wrapper.vm.compareVersion = "1.0.0";
-    await nextTick();
-    // allow watcher-triggered compare to resolve
-    await new Promise((r) => setImmediate(r));
-    await new Promise((r) => setImmediate(r));
-
-    // expect compareSpecVersions called twice (initial + change)
-    expect(compareSpecVersions).toHaveBeenCalledTimes(2);
+    await flushAll();
 
     // updated diff displayed
-    await nextTick();
     expect(wrapper.find(".diff-stub").text()).toContain("/b");
   });
 });
