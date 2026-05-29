@@ -88,9 +88,12 @@ import LoginPage from "./components/LoginPage.vue";
 import TokenManager from "./components/TokenManager.vue";
 import LintPanel from "./components/LintPanel.vue";
 import AppHeader from "./AppHeader.vue";
-import { computed, ref, provide } from "vue";
+import { computed, ref, provide, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApp } from "./composables/useApp";
+import { useAuthStore } from "./stores/auth";
+import { useToast } from "primevue/usetoast";
+import { validateSpec } from "./api/specs";
 
 export default {
   name: "AppLayout",
@@ -114,8 +117,44 @@ export default {
   },
   setup() {
     const app = useApp();
+    const auth = useAuthStore();
     const route = useRoute();
     const router = useRouter();
+
+    // UI state moved from useApp
+    const showLoginDialog = ref(false);
+    const showTokenDialog = ref(false);
+    const viewModeOptions = ref([
+      { label: "Form", value: "form", icon: "pi pi-list" },
+      { label: "Code", value: "code", icon: "pi pi-code" },
+      { label: "Preview", value: "preview", icon: "pi pi-eye" },
+      { label: "Lint", value: "lint", icon: "pi pi-search" },
+    ]);
+
+    // Lifecycle moved from useApp
+    onMounted(() => {
+      auth.initAuth();
+      app.fetchOpenApiFile().catch(() => {});
+    });
+
+    // Provides moved from useApp
+    provide("showTokenDialog", () => (showTokenDialog.value = true));
+
+    const toast = useToast();
+    const specEditor = app.specEditor ?? null;
+    provide("validateCurrentSpec", async () => {
+      try {
+        const spec_json = JSON.parse(app.specContent.value);
+        const result = await validateSpec(spec_json);
+        if (result.valid)
+          toast.add({ severity: "success", summary: "Valid", detail: "✓ Specification is valid!", life: 4000 });
+        else
+          toast.add({ severity: "error", summary: "Invalid", detail: "Validation failed", life: 4000 });
+      } catch (e) {
+        toast.add({ severity: "error", summary: "Invalid JSON", detail: e.message, life: 6000 });
+      }
+    });
+
     // selected view mirrors router query 'view'
     const selectedView = computed(() => route.query.view || "form");
     const onViewChange = (value) => {
@@ -130,6 +169,9 @@ export default {
 
     return {
       ...app,
+      showLoginDialog,
+      showTokenDialog,
+      viewModeOptions,
       selectedView,
       onViewChange,
     };

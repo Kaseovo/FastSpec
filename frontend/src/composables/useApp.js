@@ -1,23 +1,23 @@
-import { ref, computed, provide, onMounted, nextTick } from "vue";
-import { useToast } from "primevue/usetoast";
+import { ref, computed, provide, nextTick } from "vue";
 
-// Singleton instance so multiple calls to useApp() return the same app state
-let _appInstance = null;
 import { useAuthStore } from "../stores/auth";
-import { lintSpec, lintSpecById, validateSpec } from "../api/specs";
-import { useSpecEditor } from "../composables/useSpecEditor";
-import { useSpecSave } from "../composables/useSpecSave";
-import { useSpecDiff } from "../composables/useSpecDiff";
-import { useAlerts } from "../composables/useAlerts";
+import { useSpecEditor } from "./useSpecEditor";
+import { useSpecSave } from "./useSpecSave";
+import { useSpecDiff } from "./useSpecDiff";
+import { useAlerts } from "./useAlerts";
+import { useLint } from "./useLint";
 
 export function useApp() {
-  if (_appInstance) return _appInstance;
   const auth = useAuthStore();
   const isAuthenticated = computed(() => auth.isAuthenticated);
 
   const alerts = useAlerts();
   const editor = useSpecEditor();
   const diff = useSpecDiff();
+  const lint = useLint({
+    specContentRef: editor.specContent,
+    currentSpecRef: editor.currentSpec,
+  });
   const saver = useSpecSave({
     isAuthenticatedRef: isAuthenticated,
     specContentRef: editor.specContent,
@@ -26,69 +26,9 @@ export function useApp() {
     showAlert: alerts.showAlert,
   });
 
-  // viewMode removed; expose view options for router-driven navigation
-  const viewModeOptions = ref([
-    { label: "Form", value: "form", icon: "pi pi-list" },
-    { label: "Code", value: "code", icon: "pi pi-code" },
-    { label: "Preview", value: "preview", icon: "pi pi-eye" },
-    { label: "Lint", value: "lint", icon: "pi pi-search" },
-  ]);
-
-  const editorPanelRef = ref(null);
-
-  const lintResults = ref(null);
-  const lintLoading = ref(false);
-  const lintError = ref(null);
-
-  const runLint = async () => {
-    lintLoading.value = true;
-    lintError.value = null;
-    try {
-      let specJson;
-      try {
-        specJson = JSON.parse(editor.specContent.value);
-      } catch {
-        lintError.value = "Cannot lint: the editor contains invalid JSON.";
-        return;
-      }
-
-      if (
-        editor.currentSpec.value?.id &&
-        editor.currentSpec.value?.version &&
-        editor.currentSpec.value.id !== "__unsaved"
-      ) {
-        lintResults.value = await lintSpecById(
-          editor.currentSpec.value.id,
-          editor.currentSpec.value.version,
-        );
-      } else {
-        lintResults.value = await lintSpec(specJson);
-      }
-    } catch (err) {
-      lintError.value =
-        err.response?.data?.detail ?? err.message ?? "Lint failed";
-    } finally {
-      lintLoading.value = false;
-    }
-  };
-
-  const handleGoToLine = (result, router) => {
-    // navigate to code view; router should be provided by caller
-    if (router)
-      router.push({ name: "editor", query: { view: "code" } }).catch(() => {});
-    nextTick(() => {
-      editorPanelRef.value?.goToLine(result);
-    });
-  };
+  const { lintResults, lintLoading, lintError, runLint } = lint;
 
   const specListKey = ref(0);
-  const showLoginDialog = ref(false);
-  const showTokenDialog = ref(false);
-  const showLivePreview = ref(false);
-
-  const toggleLivePreview = () => {
-    showLivePreview.value = !showLivePreview.value;
-  };
 
   const saveSpec = async (payload) => {
     try {
@@ -123,112 +63,7 @@ export function useApp() {
     }
   };
 
-  const loadTemplate = () => {
-    const templateSpec = {
-      openapi: "3.0.0",
-      info: {
-        title: "Sample API",
-        version: "1.0.0",
-        description: "A sample API with common endpoints",
-        contact: { name: "API Support", email: "support@example.com" },
-      },
-      servers: [
-        {
-          url: "https://api.example.com/v1",
-          description: "Production server",
-        },
-      ],
-      paths: {
-        "/users": {
-          get: {
-            summary: "List users",
-            description: "Get a list of all users",
-            tags: ["Users"],
-            responses: {
-              200: {
-                description: "Successful response",
-                content: {
-                  "application/json": {
-                    schema: {
-                      type: "array",
-                      items: { $ref: "#/components/schemas/User" },
-                    },
-                  },
-                },
-              },
-            },
-          },
-          post: {
-            summary: "Create user",
-            description: "Create a new user",
-            tags: ["Users"],
-            requestBody: {
-              required: true,
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/User" },
-                },
-              },
-            },
-            responses: { 201: { description: "User created" } },
-          },
-        },
-        "/users/{id}": {
-          get: {
-            summary: "Get user",
-            description: "Get a specific user by ID",
-            tags: ["Users"],
-            parameters: [
-              {
-                name: "id",
-                in: "path",
-                required: true,
-                schema: { type: "integer" },
-              },
-            ],
-            responses: {
-              200: {
-                description: "Successful response",
-                content: {
-                  "application/json": {
-                    schema: { $ref: "#/components/schemas/User" },
-                  },
-                },
-              },
-              404: { description: "User not found" },
-            },
-          },
-        },
-      },
-      components: {
-        schemas: {
-          User: {
-            type: "object",
-            required: ["id", "email"],
-            properties: {
-              id: { type: "integer" },
-              email: { type: "string", format: "email" },
-              name: { type: "string" },
-              createdAt: { type: "string", format: "date-time" },
-            },
-          },
-        },
-      },
-    };
-
-    editor.currentSpec.value = null;
-    editor.specContent.value = JSON.stringify(templateSpec, null, 2);
-    editor.initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
-    editor.unsavedSpec.value = {
-      id: "__unsaved",
-      name: "Untitled Spec",
-      spec_json: templateSpec,
-      version: templateSpec.info?.version || "1.0.0",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    editor.updatePreview();
-  };
+  const loadTemplate = editor.loadTemplate;
 
   const togglePreview = (router) => {
     if (router) {
@@ -261,16 +96,12 @@ export function useApp() {
     }
   };
 
-  onMounted(() => {
-    auth.initAuth();
-    diff.fetchOpenApiFile().catch(() => {});
-  });
-
   // provide grouped composables
   provide("specEditor", editor);
   provide("specSave", saver);
   provide("specDiff", diff);
   provide("alerts", alerts);
+  provide("lint", lint);
 
   // legacy provides
   // Wrap editor.newSpec so it also triggers spec list refresh and updates parsed preview
@@ -318,38 +149,18 @@ export function useApp() {
     }
   });
   provide("openSaveDialog", saver.openSaveDialog);
-  const toast = useToast();
-  provide("validateCurrentSpec", async () => {
-    try {
-      const spec_json = JSON.parse(editor.specContent.value);
-      const result = await validateSpec(spec_json);
-      if (result.valid)
-        toast.add({ severity: "success", summary: "Valid", detail: "✓ Specification is valid!", life: 4000 });
-      else
-        toast.add({ severity: "error", summary: "Invalid", detail: "Validation failed", life: 4000 });
-    } catch (e) {
-      toast.add({ severity: "error", summary: "Invalid JSON", detail: e.message, life: 6000 });
-    }
-  });
   provide("loadTemplate", loadTemplate);
   provide("togglePreview", togglePreview);
   provide("toggleDiff", toggleDiff);
   // legacy viewMode provide kept for compatibility; value is query-driven in views
   provide("viewMode", ref("form"));
   provide("refreshSpecList", specListKey);
-  provide("showTokenDialog", () => (showTokenDialog.value = true));
   provide("unsavedSpec", editor.unsavedSpec);
   provide("hasUnsavedChanges", editor.hasUnsavedChanges);
   provide("discardUnsaved", () => {
     editor.unsavedSpec.value = null;
     editor.hasUnsavedChanges.value = false;
   });
-  const selectedSpecId = computed(
-    () =>
-      editor.currentSpec.value?.id ??
-      (editor.unsavedSpec.value ? "__unsaved" : null),
-  );
-  provide("selectedSpecId", selectedSpecId);
   provide("getCurrentEditorSpec", () => editor.parsedSpec.value);
   provide(
     "lintScore",
@@ -371,28 +182,19 @@ export function useApp() {
     currentSpec: editor.currentSpec,
     specContent: editor.specContent,
     parsedSpec: editor.parsedSpec,
-    selectedSpecId,
     showSaveDialog: saver.showSaveDialog,
-    showLoginDialog,
-    showTokenDialog,
     alert: alerts.alert,
-    viewModeOptions,
     showAlert: alerts.showAlert,
     closeAlert: alerts.closeAlert,
     updatePreview: editor.updatePreview,
     updateFromForm: editor.updateFromForm,
     loadSpec: loadSpec,
-    // expose loadTemplate so templates using @load-template="loadTemplate" work
     loadTemplate,
     saveSpec,
-    editorPanelRef,
     lintResults,
     lintLoading,
     lintError,
     runLint,
-    handleGoToLine,
-    showLivePreview,
-    toggleLivePreview,
     fetchOpenApiFile: diff.fetchOpenApiFile,
     openapiFileRaw: diff.openapiFileRaw,
     openapiBaseline: diff.openapiBaseline,
@@ -401,7 +203,6 @@ export function useApp() {
     formattedOpenapiFileDiff: diff.formattedOpenapiFileDiff,
     copyOpenapiFileDiff: diff.copyOpenapiFileDiff,
   };
-  // store singleton and return
-  _appInstance = app;
+  // store and return
   return app;
 }
