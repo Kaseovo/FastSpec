@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { EnvConfig } from './config';
@@ -62,7 +63,13 @@ export class ComputeStack extends cdk.Stack {
         ),
       },
       portMappings: [{ containerPort: 8000 }],
-      logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'backend' }),
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: 'backend',
+        logGroup: new logs.LogGroup(this, 'BackendLogGroup', {
+          logGroupName: '/ecs/fastspec-backend',
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        }),
+      }),
     });
 
     // ── ECS Fargate Service ───────────────────────────────────────────────────
@@ -127,6 +134,22 @@ export class ComputeStack extends cdk.Stack {
       image: ecs.ContainerImage.fromRegistry('amazon/amazon-ecs-sample'),
       command: ['echo', 'migration stub — Alembic not yet bootstrapped'],
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'migrate' }),
+    });
+
+    // ── Stack Outputs (used by scripts/run-migrate.sh) ────────────────────────
+    new cdk.CfnOutput(this, 'ClusterName', {
+      value: cluster.clusterName,
+      exportName: `${this.stackName}-ClusterName`,
+    });
+
+    new cdk.CfnOutput(this, 'MigrateTaskDefArn', {
+      value: migrateDef.taskDefinitionArn,
+      exportName: `${this.stackName}-MigrateTaskDefArn`,
+    });
+
+    new cdk.CfnOutput(this, 'VpcId', {
+      value: vpc.vpcId,
+      exportName: `${this.stackName}-VpcId`,
     });
   }
 }

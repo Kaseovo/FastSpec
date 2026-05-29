@@ -20,6 +20,7 @@ build/
 *.min.css
 .next/
 out/
+cdk.out/
 
 # Logs
 *.log
