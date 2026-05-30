@@ -30,6 +30,10 @@
             <span>Paths</span>
           </Tab>
           <Tab value="3">
+            <i class="pi pi-tag"></i>
+            <span>Tags</span>
+          </Tab>
+          <Tab value="4">
             <i class="pi pi-box"></i>
             <span>Components</span>
           </Tab>
@@ -330,6 +334,7 @@
                                   multiple
                                   typeahead
                                   v-model="formData.paths[selectedPath][selectedMethod].tags"
+                                  :suggestions="globalTagNames"
                                   placeholder="Add tag and press Enter"
                                   @keydown.enter.prevent="addChipOnEnter($event, formData.paths[selectedPath][selectedMethod], 'tags')"
                                 />
@@ -1759,8 +1764,86 @@
             </div>
           </TabPanel>
 
-          <!-- Components Tab -->
+          <!-- Tags Tab -->
           <TabPanel value="3">
+            <div class="form-section">
+              <div class="section-header">
+                <h4>Tags</h4>
+                <Button
+                  label="Add Tag"
+                  icon="pi pi-plus"
+                  size="small"
+                  @click="addTag"
+                  :disabled="hasEmptyTagName || hasDuplicateTagName"
+                  v-tooltip.left="hasEmptyTagName ? 'Please fill in the name for all existing tags before adding a new one.' : hasDuplicateTagName ? 'Tag names must be unique. Please resolve duplicates first.' : ''"
+                />
+              </div>
+
+              <div v-if="formData.tags.length === 0" class="empty-state">
+                <i class="pi pi-tag"></i>
+                <p>No tags defined. Add one to get started.</p>
+              </div>
+
+              <div
+                v-for="(tag, index) in formData.tags"
+                :key="index"
+                class="list-item"
+              >
+                <div class="list-item-content">
+                  <div class="form-field">
+                    <label class="required">Name</label>
+                    <InputText
+                      v-model="tag.name"
+                      placeholder="pet"
+                    />
+                  </div>
+                  <div class="form-field">
+                    <label>Description</label>
+                    <InputText
+                      v-model="tag.description"
+                      placeholder="Everything about your Pets"
+                    />
+                  </div>
+                  <div class="form-field">
+                    <div
+                      class="external-docs-toggle"
+                      @click="tag._showExternalDocs = !tag._showExternalDocs"
+                      style="cursor: pointer; display: flex; align-items: center; gap: 0.4rem; color: var(--p-primary-color, #6366f1); font-size: 0.85rem; user-select: none;"
+                    >
+                      <i :class="tag._showExternalDocs ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" style="font-size: 0.75rem;"></i>
+                      <span>External Docs</span>
+                    </div>
+                    <div v-if="tag._showExternalDocs" class="external-docs-fields" style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                      <div class="form-field" style="margin-bottom: 0;">
+                        <label>Docs Description</label>
+                        <InputText
+                          v-model="tag.externalDocs.description"
+                          placeholder="Find out more"
+                        />
+                      </div>
+                      <div class="form-field" style="margin-bottom: 0;">
+                        <label>Docs URL</label>
+                        <InputText
+                          v-model="tag.externalDocs.url"
+                          placeholder="https://example.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  @click="removeTag(index)"
+                />
+              </div>
+            </div>
+          </TabPanel>
+
+          <!-- Components Tab -->
+          <TabPanel value="4">
             <div class="form-section">
               <div class="section-header">
                 <h4>Component Schemas</h4>
@@ -2897,6 +2980,7 @@ export default {
         license: { name: "", url: "" },
       },
       servers: [],
+      tags: [],
       paths: {},
       components: {
         schemas: {},
@@ -3243,6 +3327,15 @@ export default {
           if (!formData.value.info.contact) formData.value.info.contact = {};
           if (!formData.value.info.license) formData.value.info.license = {};
           if (!formData.value.servers) formData.value.servers = [];
+          if (!formData.value.tags) formData.value.tags = [];
+          else {
+            // Ensure each tag has the internal _showExternalDocs flag and externalDocs object
+            formData.value.tags = formData.value.tags.map(t => ({
+              ...t,
+              externalDocs: t.externalDocs || { description: '', url: '' },
+              _showExternalDocs: !!(t.externalDocs?.description || t.externalDocs?.url),
+            }));
+          }
           if (!formData.value.paths) formData.value.paths = {};
           if (!formData.value.components) formData.value.components = {};
           if (!formData.value.components.schemas)
@@ -3274,6 +3367,22 @@ export default {
             ) {
               delete cleaned.info.license;
             }
+          }
+          // Clean tags: strip internal _showExternalDocs flag; omit empty externalDocs
+          if (cleaned.tags) {
+            cleaned.tags = cleaned.tags
+              .filter((t) => t.name && t.name.trim())
+              .map((t) => {
+                const out = { name: t.name };
+                if (t.description) out.description = t.description;
+                if (t.externalDocs?.url || t.externalDocs?.description) {
+                  out.externalDocs = {};
+                  if (t.externalDocs.description) out.externalDocs.description = t.externalDocs.description;
+                  if (t.externalDocs.url) out.externalDocs.url = t.externalDocs.url;
+                }
+                return out;
+              });
+            if (cleaned.tags.length === 0) delete cleaned.tags;
           }
           emit("update:modelValue", cleanRefsForOutput(cleaned));
         } catch (e) {
@@ -3359,6 +3468,78 @@ export default {
         reject: () => {
           confirm.close();
         }
+      });
+    };
+
+    // ── Tag helpers ─────────────────────────────────────────────────────────
+
+    const hasEmptyTagName = computed(() => {
+      return (formData.value.tags || []).some((tag) => !tag.name || tag.name.trim() === "");
+    });
+
+    const hasDuplicateTagName = computed(() => {
+      const names = (formData.value.tags || []).map((t) => (t.name || "").trim()).filter(Boolean);
+      return names.length !== new Set(names).size;
+    });
+
+    const globalTagNames = computed(() =>
+      (formData.value.tags || []).map((t) => t.name).filter(Boolean)
+    );
+
+    const addTag = () => {
+      if (hasEmptyTagName.value) {
+        toast.add({
+          severity: "error",
+          summary: "Cannot Add Tag",
+          detail: "Please fill in the name for all existing tags first.",
+          life: 3000,
+        });
+        return;
+      }
+      if (hasDuplicateTagName.value) {
+        toast.add({
+          severity: "error",
+          summary: "Cannot Add Tag",
+          detail: "Tag names must be unique. Please resolve duplicate names first.",
+          life: 3000,
+        });
+        return;
+      }
+      formData.value.tags.push({ name: "", description: "", externalDocs: { description: "", url: "" }, _showExternalDocs: false });
+      toast.add({
+        severity: "success",
+        summary: "Tag Added",
+        detail: "A new tag entry has been added.",
+        life: 3000,
+      });
+    };
+
+    const removeTag = (index) => {
+      confirm.require({
+        message: "Are you sure you want to delete this tag?",
+        header: "Confirm Deletion",
+        icon: "pi pi-exclamation-triangle",
+        acceptProps: {
+          label: "Yes",
+          severity: "danger",
+        },
+        rejectProps: {
+          label: "No",
+          outlined: true,
+        },
+        accept: () => {
+          formData.value.tags.splice(index, 1);
+          toast.add({
+            severity: "success",
+            summary: "Tag Deleted",
+            detail: "The tag has been removed.",
+            life: 3000,
+          });
+          confirm.close();
+        },
+        reject: () => {
+          confirm.close();
+        },
       });
     };
 
@@ -4587,6 +4768,11 @@ export default {
       currentMethodData,
       addServer,
       removeServer,
+      addTag,
+      removeTag,
+      hasEmptyTagName,
+      hasDuplicateTagName,
+      globalTagNames,
       addPath,
       removePath,
       removeMethod,
