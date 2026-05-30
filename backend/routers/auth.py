@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 from database import get_db
 from models import User, AuthToken, APIKey
@@ -36,6 +36,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 class TokenCreateRequest(BaseModel):
     actions: List[str]
+    name: Optional[str] = None
 
 
 class ApiKeyExchangeRequest(BaseModel):
@@ -117,6 +118,7 @@ async def list_api_keys(
         result.append(
             {
                 "id": t.id,
+                "name": t.name,
                 "actions": t.get_actions(),
                 "expires_at": exp,
                 "revoked": t.revoked,
@@ -137,6 +139,9 @@ async def create_api_key_route(
     if not set(payload.actions).issubset(ALLOWED_ACTIONS):
         raise HTTPException(status_code=400, detail="Invalid actions")
     raw, rt, expires_at = create_api_key(db, current_user, payload.actions)
+    rt.name = payload.name
+    db.add(rt)
+    db.commit()
     return {"api_key": raw, "id": rt.id, "expires_at": expires_at}
 
 
@@ -181,12 +186,15 @@ async def update_api_key_actions(
     if not set(payload.actions).issubset(ALLOWED_ACTIONS):
         raise HTTPException(status_code=400, detail="Invalid actions")
     rt.set_actions(payload.actions)
+    if payload.name is not None:
+        rt.name = payload.name
     db.add(rt)
     db.commit()
     db.refresh(rt)
     return {
         "message": "api_key actions updated",
         "actions": rt.get_actions(),
+        "name": rt.name,
     }
 
 

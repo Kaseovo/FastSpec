@@ -15,11 +15,24 @@ from routers import specs, auth
 from routers import lint
 
 
+def _apply_schema_patches():
+    """Apply additive schema changes that create_all won't handle on existing tables."""
+    from sqlalchemy import text, inspect
+    with engine.connect() as conn:
+        inspector = inspect(engine)
+        cols = {c["name"] for c in inspector.get_columns("api_keys")}
+        if "name" not in cols:
+            conn.execute(text("ALTER TABLE api_keys ADD COLUMN name VARCHAR(255)"))
+            conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     # Create database tables
     Base.metadata.create_all(bind=engine)
+    # Add columns introduced after initial table creation
+    _apply_schema_patches()
     yield
 
 

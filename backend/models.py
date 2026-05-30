@@ -152,6 +152,7 @@ class APIKey(Base):
     )
     # Short non-secret prefix used for lookup (nullable until migration completes)
     key_prefix = Column(String(16), index=True, nullable=True)
+    name = Column(String(255), nullable=True)
     token_hash = Column(String(255), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     actions = Column(Text, nullable=False, default="[]")

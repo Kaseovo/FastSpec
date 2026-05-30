@@ -57,9 +57,10 @@ class TokenData(BaseModel):
 
 
 class ApiKeyActionsUpdateRequest(BaseModel):
-    """Request schema for updating api_key actions by id (payload only contains actions)"""
+    """Request schema for updating api_key actions and optional name by id"""
 
     actions: List[str]
+    name: Optional[str] = None
 
 
 class ApiKeyActionsResponse(BaseModel):
@@ -67,6 +68,7 @@ class ApiKeyActionsResponse(BaseModel):
 
     message: str
     actions: List[str]
+    name: Optional[str] = None
 
 
 # OpenAPI Spec Schemas

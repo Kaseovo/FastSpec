@@ -81,6 +81,14 @@ The OpenAPI version declared in the `openapi` field of a Spec (`3.0.x` or `3.1.x
 
 An HTTP status code entry under an Operation's `responses` map. Each Response has a status code key (numeric string or `"default"`), a description, an optional content type, and an optional Response Schema. A single Operation may have multiple Responses with distinct status codes (e.g. `200`, `201`, `409`). Status codes are selected via a two-step picker (category → code) that surfaces the standard name and a contextual hint for each code (e.g. `409 Conflict — State conflict (e.g. duplicate)`). The status code of an existing Response can be changed without losing its definition.
 
-## Response Schema
+## API Key
+
+A long-lived credential issued to a user that authenticates MCP tool calls. Stored as a bcrypt hash; the raw value is shown once at creation and never again. Carries a set of **Actions** that bound what operations the holder may perform. Has an optional user-defined **name** — a short display label with no uniqueness constraint. When no name is set, the UI falls back to displaying the truncated UUID. Identified internally by a UUID `id`.
+
+## Action
+
+A permission string that can be granted to an API Key (e.g. `read:specs`, `write:specs`). Controls which MCP tool calls the key is authorised to make. The special value `All` grants every available action.
+
+
 
 The schema attached to a Response's content type. Supports the same three modes as the Request Body Schema: **reference** (a `$ref` to a Component Schema), **inline object** (a property builder with `$ref`-capable properties, array item types, and constraints), and **inline primitive/array** (type selector with constraints). Inline Response Schemas are normalised through the same `_itemSchemas` / `cleanRefsForOutput` pipeline as Request Body Schemas.

@@ -2,15 +2,99 @@
   <div class="token-manager">
     <Toast />
 
+    <!-- Create API Key dialog -->
     <Dialog
-      v-model:visible="editDialogVisible"
-      header="Edit Actions"
+      v-model:visible="createDialogVisible"
+      header="New API Key"
       :modal="true"
       :closable="true"
       class="edit-dialog"
       :style="{ width: '520px' }"
     >
       <div>
+        <label class="field-label">Name (optional)</label>
+        <InputText
+          v-model="keyName"
+          placeholder="e.g. production, ci-pipeline"
+          class="w-full"
+          style="margin-bottom: 0.75rem"
+        />
+        <label class="field-label">Select actions</label>
+        <MultiSelect
+          v-model="actionsSelected"
+          :options="actionOptions"
+          optionLabel="label"
+          optionValue="value"
+          :optionDisabled="(opt) => allSelected && opt.value !== 'All'"
+          placeholder="Select actions"
+          class="w-full"
+        >
+          <template #option="{ option }">
+            <div class="action-option">
+              <span class="action-option-value">{{ option.value }}</span>
+              <span class="action-option-desc">{{ option.description }}</span>
+            </div>
+          </template>
+        </MultiSelect>
+        <p v-if="createError" class="error">{{ createError }}</p>
+
+        <!-- created API key shown inside dialog after creation -->
+        <div v-if="createdToken" class="created-result full-width" style="margin-top: 1rem">
+          <label class="field-label">API Key (shown once)</label>
+          <div class="token-line" style="display: flex; gap: 0.5rem; align-items: center">
+            <InputText
+              ref="createdInput"
+              :value="createdToken.api_key || createdToken.refresh_token"
+              readonly
+              aria-readonly="true"
+              class="w-full"
+            />
+            <Button icon="pi pi-copy" class="p-ml-2" @click="copyCreated" />
+          </div>
+          <div
+            class="note"
+            style="margin-top: 0.5rem; color: var(--text-color, #6b7280); font-size: 0.875rem;"
+          >
+            Copy and store the raw API key safely — it will not be shown again.
+          </div>
+          <div class="meta">Expires at: {{ formatTime(createdToken.expires_at) }}</div>
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Cancel" severity="secondary" @click="closeCreateDialog" />
+        <Button
+          v-if="!createdToken"
+          label="Create API Key"
+          class="p-button-primary"
+          :loading="creating"
+          @click="handleCreate"
+        />
+        <Button
+          v-else
+          label="Done"
+          class="p-button-primary"
+          @click="closeCreateDialog"
+        />
+      </template>
+    </Dialog>
+
+    <!-- Edit API Key dialog -->
+    <Dialog
+      v-model:visible="editDialogVisible"
+      header="Edit API Key"
+      :modal="true"
+      :closable="true"
+      class="edit-dialog"
+      :style="{ width: '520px' }"
+    >
+      <div>
+        <label class="field-label">Name (optional)</label>
+        <InputText
+          v-model="editName"
+          placeholder="e.g. production, ci-pipeline"
+          class="w-full"
+          style="margin-bottom: 0.75rem"
+        />
         <label class="field-label">Select actions</label>
         <MultiSelect
           v-model="editActionsSelected"
@@ -43,99 +127,20 @@
 
     <div
       class="token-manager-grid"
-      style="
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        align-items: stretch;
-      "
+      style="display: flex; flex-direction: column; gap: 16px; align-items: stretch;"
     >
-      <Card class="p-mb-4" style="width: 100%">
-        <template #title>
-          <div class="card-title">Create New API Key</div>
-        </template>
-        <template #content>
-          <div class="create-grid">
-            <div class="actions-list">
-              <label class="field-label">Select actions</label>
-              <MultiSelect
-                v-model="actionsSelected"
-                :options="actionOptions"
-                optionLabel="label"
-                optionValue="value"
-                :optionDisabled="(opt) => allSelected && opt.value !== 'All'"
-                placeholder="Select actions"
-                class="w-full"
-              >
-                <template #option="{ option }">
-                  <div class="action-option">
-                    <span class="action-option-value">{{ option.value }}</span>
-                    <span class="action-option-desc">{{ option.description }}</span>
-                  </div>
-                </template>
-              </MultiSelect>
-              <p v-if="createError" class="error">{{ createError }}</p>
-            </div>
-
-            <div class="create-controls">
-              <div
-                style="
-                  display: flex;
-                  justify-content: flex-end;
-                  align-items: center;
-                "
-              >
-                <Button
-                  label="Create API Key"
-                  @click="handleCreate"
-                  :loading="creating"
-                  class="p-button-primary"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- created API key shown full-width below the grid -->
-          <div
-            v-if="createdToken"
-            class="created-result full-width"
-            style="margin-top: 1rem"
-          >
-            <label class="field-label">API Key (shown once)</label>
-            <div
-              class="token-line"
-              style="display: flex; gap: 0.5rem; align-items: center"
-            >
-              <InputText
-                ref="createdInput"
-                :value="createdToken.api_key || createdToken.refresh_token"
-                readonly
-                aria-readonly="true"
-                class="w-full"
-              />
-              <Button icon="pi pi-copy" class="p-ml-2" @click="copyCreated" />
-            </div>
-            <div
-              class="note"
-              style="
-                margin-top: 0.5rem;
-                color: var(--text-color, #6b7280);
-                font-size: 0.875rem;
-              "
-            >
-              Copy and store the raw API key safely — it will not be shown
-              again.
-            </div>
-            <div class="meta">
-              Expires at: {{ formatTime(createdToken.expires_at) }}
-            </div>
-          </div>
-        </template>
-      </Card>
-
       <Card style="width: 100%">
         <template #title>
-          <div class="card-title">Existing API Keys</div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="card-title">API Keys</span>
+            <Button
+              label="New API Key"
+              icon="pi pi-plus"
+              class="p-button-primary"
+              size="small"
+              @click="openCreateDialog"
+            />
+          </div>
         </template>
         <template #content>
           <div v-if="listError" class="error mb-3">{{ listError }}</div>
@@ -146,10 +151,10 @@
             :rows="10"
             responsiveLayout="scroll"
           >
-            <Column field="id" header="ID" style="max-width: 320px">
+            <Column field="name" header="Name" style="max-width: 320px">
               <template #body="slotProps">
                 <span class="id" :title="slotProps.data.id">{{
-                  slotProps.data.id
+                  slotProps.data.name || slotProps.data.id
                 }}</span>
               </template>
             </Column>
@@ -249,9 +254,26 @@ export default {
     const toast = useToast();
     const actionOptions = ref([]);
     const actionsSelected = ref([]);
+    const keyName = ref("");
+    // Create dialog state
+    const createDialogVisible = ref(false);
     const creating = ref(false);
     const createError = ref("");
     const createdToken = ref(null);
+
+    const openCreateDialog = () => {
+      keyName.value = "";
+      actionsSelected.value = [];
+      createError.value = "";
+      createdToken.value = null;
+      createDialogVisible.value = true;
+    };
+
+    const closeCreateDialog = () => {
+      createDialogVisible.value = false;
+      createdToken.value = null;
+      createError.value = "";
+    };
 
     const tokens = ref([]);
     const listError = ref("");
@@ -264,6 +286,7 @@ export default {
     const editDialogVisible = ref(false);
     const editingId = ref(null);
     const editActionsSelected = ref([]);
+    const editName = ref("");
     const editLoading = ref(false);
     const editError = ref("");
 
@@ -332,12 +355,13 @@ export default {
 
       creating.value = true;
       try {
-        const res = await createApiKey(actions);
+        const res = await createApiKey(actions, keyName.value || null);
         // res: { api_key, refresh_token?, id, expires_at }
         createdToken.value = res;
 
         tokens.value.unshift({
           id: res.id,
+          name: keyName.value || null,
           actions: actions,
           created_at: new Date().toISOString(),
           expires_at: res.expires_at,
@@ -405,6 +429,7 @@ export default {
     const openEditDialog = (token) => {
       editError.value = "";
       editActionsSelected.value = [...(token.actions || [])];
+      editName.value = token.name || "";
       editingId.value = token.id;
       editDialogVisible.value = true;
     };
@@ -418,11 +443,12 @@ export default {
           ? ["All"]
           : (editActionsSelected.value || []).filter(Boolean);
 
-        await updateApiKeyActions(editingId.value, actions);
+        await updateApiKeyActions(editingId.value, actions, editName.value || undefined);
 
         const idx = tokens.value.findIndex((t) => t.id === editingId.value);
         if (idx !== -1) {
           tokens.value[idx].actions = actions;
+          tokens.value[idx].name = editName.value || null;
         }
 
         toast.add({
@@ -483,21 +509,27 @@ export default {
       actionOptions,
       actionsSelected,
       allSelected,
+      keyName,
+      // create dialog
+      createDialogVisible,
       creating,
       createError,
       createdToken,
+      createdInput,
+      openCreateDialog,
+      closeCreateDialog,
+      handleCreate,
+      copyCreated,
       tokens,
       listError,
       revoking,
-      createdInput,
-      handleCreate,
       handleRevoke,
       formatTime,
-      copyCreated,
       // edit dialog
       editDialogVisible,
       editActionsSelected,
       editAllSelected,
+      editName,
       editLoading,
       editError,
       openEditDialog,

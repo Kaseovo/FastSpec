@@ -65,16 +65,20 @@ const getAuthHeaders = () => {
  * Create an API key (server returns the raw API key once)
  * POST /auth/refresh
  * @param {Array<string>} actions - e.g. ['A','B']
+ * @param {string|null} name - optional user-defined label
  * @returns {Promise<Object>} Created API key data { api_key, id, expires_at }
  */
-export const createApiKey = async (actions) => {
+export const createApiKey = async (actions, name = null) => {
   const normalized = (actions || [])
     .map((a) => (typeof a === "string" ? a : (a && a.value) || a || ""))
     .filter(Boolean);
 
+  const body = { actions: normalized };
+  if (name) body.name = name;
+
   const response = await axios.post(
     `${API_BASE}/refresh`,
-    { actions: normalized },
+    body,
     { headers: getAuthHeaders() },
   );
 
@@ -110,16 +114,19 @@ export const revokeApiKey = async (id) => {
 };
 
 /**
- * Update actions for an API key by id
+ * Update actions (and optionally name) for an API key by id
  * PUT /auth/refresh/{id}/actions
  * @param {string} id
  * @param {Array<string>} actions
+ * @param {string|null} name - optional new name (omitted means no change)
  * @returns {Promise<Object>}
  */
-export const updateApiKeyActions = async (id, actions) => {
+export const updateApiKeyActions = async (id, actions, name = undefined) => {
+  const body = { actions };
+  if (name !== undefined) body.name = name;
   const response = await axios.put(
     `${API_BASE}/refresh/${encodeURIComponent(id)}/actions`,
-    { actions },
+    body,
     { headers: getAuthHeaders() },
   );
   return response.data;
