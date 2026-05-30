@@ -30,7 +30,7 @@ A `Makefile` provides the developer workflow entry point (`make dev`, `make infr
 
 **CDK in Python (matching the backend).** Rejected because CDK's TypeScript bindings are first-class — better type coverage, more examples, and the CDK constructs library is authored in TypeScript. The IaC language is a separate concern from the application language.
 
-**Full floci parity for frontend (S3 + CloudFront locally).** Rejected because it eliminates Vite HMR, which is the primary feedback loop for frontend development. Floci's CloudFront emulation provides no benefit that justifies that cost.
+**Full floci parity for frontend and landing-page (S3 + CloudFront locally).** Rejected for two reasons. First, floci's CloudFront support is **management-plane only** — distributions, cache policies, and OAC can be created, but actual content delivery through a CloudFront domain is not emulated. Files would have to be accessed via the raw S3 endpoint (`localhost:4566`), which is a worse local experience than the current dev servers. Second, including the frontend means replacing the Vite dev server with a build → S3-sync loop, eliminating HMR. The CDK S3 + CloudFront construct definitions are validated through CDK assertion tests instead (see Consequences).
 
 ## Consequences
 
@@ -38,3 +38,4 @@ A `Makefile` provides the developer workflow entry point (`make dev`, `make infr
 - The Spectral Sidecar (defined in CONTEXT.md) is deferred — the initial ECS task has a single backend container. It is introduced in a subsequent piece of work without changing the stack structure.
 - The Migration Task CDK construct is stubbed until Alembic is bootstrapped in the backend. Until then, `Base.metadata.create_all()` remains in the backend startup path.
 - Local development requires Docker, the floci CLI (or `docker compose` pointing at the floci image), and the AWS CDK CLI with `AWS_ENDPOINT_URL=http://localhost:4566`.
+- The S3 + CloudFront CDK constructs (excluded from the `local` Deployment Environment) are covered by **CDK assertion tests** (`aws-cdk-lib/assertions`) that run against the synthesised CloudFormation template. This ensures construct configuration (OAC, bucket policies, distribution settings) is validated in CI without requiring floci content-delivery emulation.
