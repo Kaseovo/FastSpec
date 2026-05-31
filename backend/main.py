@@ -10,29 +10,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 
-from database import engine, Base
+from database import engine  # noqa: F401 – kept for potential direct use
 from routers import specs, auth
 from routers import lint
 
 
-def _apply_schema_patches():
-    """Apply additive schema changes that create_all won't handle on existing tables."""
-    from sqlalchemy import text, inspect
-    with engine.connect() as conn:
-        inspector = inspect(engine)
-        cols = {c["name"] for c in inspector.get_columns("api_keys")}
-        if "name" not in cols:
-            conn.execute(text("ALTER TABLE api_keys ADD COLUMN name VARCHAR(255)"))
-            conn.commit()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown events"""
-    # Create database tables
-    Base.metadata.create_all(bind=engine)
-    # Add columns introduced after initial table creation
-    _apply_schema_patches()
+    """Startup and shutdown events.
+
+    Schema management is now handled by Alembic migrations.
+    Run ``alembic upgrade head`` before starting the application.
+    """
     yield
 
 
