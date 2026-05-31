@@ -30,10 +30,35 @@ export class ComputeStack extends cdk.Stack {
     super(scope, id, props);
 
     const { config } = props;
-
     const vpc = props.vpc;
 
     const cluster = new ecs.Cluster(this, 'Cluster', { vpc });
+
+    // ── Application Load Balancer ─────────────────────────────────────────────
+    const albSg = new ec2.SecurityGroup(this, 'AlbSg', {
+      vpc,
+      description: 'ALB security group',
+      allowAllOutbound: true,
+    });
+    albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'Allow HTTP from internet');
+
+    const alb = new elbv2.ApplicationLoadBalancer(this, 'Alb', {
+      vpc,
+      internetFacing: true,
+      securityGroup: albSg,
+    });
+
+    // ── Fargate Security Group ────────────────────────────────────────────────
+    const fargateSg = new ec2.SecurityGroup(this, 'FargateSg', {
+      vpc,
+      description: 'Fargate backend service security group',
+      allowAllOutbound: true,
+    });
+    fargateSg.addIngressRule(
+      ec2.Peer.securityGroupId(albSg.securityGroupId),
+      ec2.Port.tcp(8000),
+      'Allow port 8000 from ALB SG only',
+    );
 
     // ── Backend Task Definition ───────────────────────────────────────────────
     const taskDef = new ecs.FargateTaskDefinition(this, 'BackendTaskDef', {
@@ -41,22 +66,51 @@ export class ComputeStack extends cdk.Stack {
       cpu: 256,
     });
 
+    const env = config.env;
+
     taskDef.addContainer('backend', {
-      image: ecs.ContainerImage.fromRegistry('amazon/amazon-ecs-sample'),
+      image: ecs.ContainerImage.fromAsset('../', {
+        file: 'backend/Dockerfile',
+        exclude: ['infra/cdk.out', 'infra/node_modules', '.git', 'frontend/node_modules'],
+      }),
       environment: {
         DB_ENDPOINT: props.dbEndpoint,
         REDIS_ENDPOINT: props.redisEndpoint,
-        ENV: config.env,
+        ENV: env,
+        FRONTEND_URL: `https://${env}.fastspec.io`,
+        CORS_ORIGINS: `https://${env}.fastspec.io`,
+        REDIS_HOST: props.redisEndpoint.split(':')[0],
+        REDIS_PORT: props.redisEndpoint.split(':')[1] ?? '6379',
       },
       secrets: {
         SECRET_KEY: ecs.Secret.fromSsmParameter(
           ssm.StringParameter.fromSecureStringParameterAttributes(this, 'SecretKey', {
-            parameterName: `/${config.env}/fastspec/secret-key`,
+            parameterName: `/${env}/fastspec/secret-key`,
           }),
         ),
         DB_PASSWORD: ecs.Secret.fromSsmParameter(
           ssm.StringParameter.fromSecureStringParameterAttributes(this, 'DbPassword', {
-            parameterName: `/${config.env}/fastspec/db-password`,
+            parameterName: `/${env}/fastspec/db-password`,
+          }),
+        ),
+        GOOGLE_CLIENT_ID: ecs.Secret.fromSsmParameter(
+          ssm.StringParameter.fromSecureStringParameterAttributes(this, 'GoogleClientId', {
+            parameterName: `/${env}/fastspec/google-client-id`,
+          }),
+        ),
+        GOOGLE_CLIENT_SECRET: ecs.Secret.fromSsmParameter(
+          ssm.StringParameter.fromSecureStringParameterAttributes(this, 'GoogleClientSecret', {
+            parameterName: `/${env}/fastspec/google-client-secret`,
+          }),
+        ),
+        GITHUB_CLIENT_ID: ecs.Secret.fromSsmParameter(
+          ssm.StringParameter.fromSecureStringParameterAttributes(this, 'GithubClientId', {
+            parameterName: `/${env}/fastspec/github-client-id`,
+          }),
+        ),
+        GITHUB_CLIENT_SECRET: ecs.Secret.fromSsmParameter(
+          ssm.StringParameter.fromSecureStringParameterAttributes(this, 'GithubClientSecret', {
+            parameterName: `/${env}/fastspec/github-client-secret`,
           }),
         ),
       },
@@ -75,12 +129,9 @@ export class ComputeStack extends cdk.Stack {
       cluster,
       taskDefinition: taskDef,
       desiredCount: 1,
-    });
-
-    // ── Application Load Balancer ─────────────────────────────────────────────
-    const alb = new elbv2.ApplicationLoadBalancer(this, 'Alb', {
-      vpc,
-      internetFacing: true,
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      assignPublicIp: true,
+      securityGroups: [fargateSg],
     });
 
     const listener = alb.addListener('HttpListener', {
