@@ -1,1 +1,11 @@
-{}
+{
+  "availability-zones:account=000000000000:region=ap-southeast-1": [
+    "ap-southeast-1a",
+    "ap-southeast-1b",
+    "ap-southeast-1c"
+  ],
+  "hosted-zone:account=000000000000:domainName=dev.fastspec.kaseovo.com:region=ap-southeast-1": {
+    "Id": "/hostedzone/Z09735562A1Z2YRC3A6EL",
+    "Name": "dev.fastspec.kaseovo.com."
+  }
+}

@@ -3,27 +3,32 @@ name: Deploy and Version
 on:
   workflow_dispatch:
     inputs:
-      deploy:
-        description: 'Deploy to device via SSH'
-        required: false
-        default: false
-        type: boolean
       version_bump:
-        description: 'Bump version (patch, minor, major)'
+        description: 'Bump version'
         required: false
         default: ''
         type: choice
         options:
           - ''
-          - patch
+          - hotfix
           - minor
           - major
+      env:
+        description: 'Deployment environment'
+        required: false
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
   deploy_and_version:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write   # required for OIDC
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,6 +42,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      # ── Version bump ──────────────────────────────────────────────────────────
 
       - name: Bump version and tag (if requested)
         if: ${{ github.event.inputs.version_bump != '' }}
@@ -84,18 +91,129 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy via SSH (if requested)
-        if: ${{ github.event.inputs.deploy }}
-        uses: appleboy/ssh-action@v1.0.3
+      # ── AWS credentials (OIDC) ────────────────────────────────────────────────
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          command_timeout: 30m
-          script: |
-            cd ${{ vars.REPO_PATH }}
-            git fetch origin
-            git reset --hard origin/main
-            docker compose down
-            docker compose up -d --build
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-1
+
+      # ── CDK deploy ────────────────────────────────────────────────────────────
+
+      - name: Install CDK dependencies
+        run: npm ci
+        working-directory: infra
+
+      - name: Deploy DataStack
+        run: npx cdk deploy FastSpec-Data-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        working-directory: infra
+
+      - name: Deploy ComputeStack
+        run: npx cdk deploy FastSpec-Compute-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        working-directory: infra
+
+      # ── Migration Task ────────────────────────────────────────────────────────
+
+      - name: Run migration task
+        run: |
+          ENV=${{ github.event.inputs.env }}
+          STACK="FastSpec-Compute-${ENV}"
+
+          CLUSTER=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='ClusterName'].OutputValue" \
+            --output text)
+
+          TASK_DEF=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='MigrateTaskDefArn'].OutputValue" \
+            --output text)
+
+          SUBNET=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetId'].OutputValue" \
+            --output text)
+
+          SG=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='FargateSgId'].OutputValue" \
+            --output text)
+
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$CLUSTER" \
+            --task-definition "$TASK_DEF" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNET],securityGroups=[$SG],assignPublicIp=ENABLED}" \
+            --query "tasks[0].taskArn" \
+            --output text)
+
+          echo "Waiting for migration task $TASK_ARN to complete..."
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster "$CLUSTER" \
+            --tasks "$TASK_ARN" \
+            --query "tasks[0].containers[0].exitCode" \
+            --output text)
+
+          echo "Migration task exited with code $EXIT_CODE"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Migration task failed" >&2
+            exit 1
+          fi
+
+      # ── FrontendStack + S3 sync ───────────────────────────────────────────────
+
+      - name: Deploy CertStack
+        run: npx cdk deploy FastSpec-Cert-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        working-directory: infra
+
+      - name: Deploy FrontendStack
+        run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        working-directory: infra
+
+      - name: Get S3 bucket names and CloudFront distribution ID
+        id: infra_outputs
+        run: |
+          ENV=${{ github.event.inputs.env }}
+          STACK="FastSpec-Frontend-${ENV}"
+
+          FRONTEND_BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" \
+            --output text)
+
+          LANDING_BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='LandingBucketName'].OutputValue" \
+            --output text)
+
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text)
+
+          echo "frontend_bucket=$FRONTEND_BUCKET" >> $GITHUB_OUTPUT
+          echo "landing_bucket=$LANDING_BUCKET" >> $GITHUB_OUTPUT
+          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+
+      - name: Build frontend SPA
+        run: npm ci && npm run build
+        working-directory: frontend
+
+      - name: Sync frontend SPA to S3
+        run: |
+          aws s3 sync frontend/dist/ s3://${{ steps.infra_outputs.outputs.frontend_bucket }}/ --delete
+
+      - name: Sync landing-page to S3
+        run: |
+          aws s3 sync landing-page/ s3://${{ steps.infra_outputs.outputs.landing_bucket }}/ --delete \
+            --exclude "Dockerfile" \
+            --exclude "nginx.conf"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.infra_outputs.outputs.distribution_id }} \
+            --paths "/*"

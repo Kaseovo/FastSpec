@@ -212,5 +212,15 @@ export class ComputeStack extends cdk.Stack {
       value: migrateDef.taskDefinitionArn,
       exportName: `${this.stackName}-MigrateTaskDefArn`,
     });
+
+    new cdk.CfnOutput(this, 'FargateSgId', {
+      value: fargateSg.securityGroupId,
+      exportName: `${this.stackName}-FargateSgId`,
+    });
+
+    new cdk.CfnOutput(this, 'PublicSubnetId', {
+      value: vpc.publicSubnets[0].subnetId,
+      exportName: `${this.stackName}-PublicSubnetId`,
+    });
   }
 }
