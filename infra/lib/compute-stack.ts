@@ -184,8 +184,21 @@ export class ComputeStack extends cdk.Stack {
     });
 
     migrateDef.addContainer('migrate', {
-      image: ecs.ContainerImage.fromRegistry('amazon/amazon-ecs-sample'),
-      command: ['echo', 'migration stub — Alembic not yet bootstrapped'],
+      image: ecs.ContainerImage.fromAsset('../', {
+        file: 'backend/Dockerfile',
+        exclude: ['infra/cdk.out', 'infra/node_modules', '.git', 'frontend/node_modules'],
+      }),
+      command: ['alembic', 'upgrade', 'head'],
+      environment: {
+        DB_ENDPOINT: props.dbEndpoint,
+      },
+      secrets: {
+        DB_PASSWORD: ecs.Secret.fromSsmParameter(
+          ssm.StringParameter.fromSecureStringParameterAttributes(this, 'MigrateDbPassword', {
+            parameterName: `/${env}/fastspec/db-password`,
+          }),
+        ),
+      },
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'migrate' }),
     });
 

@@ -93,12 +93,37 @@ describe('ComputeStack — local', () => {
     template.resourceCountIs('AWS::ECS::TaskDefinition', 2);
   });
 
-  test('migration task runs a no-op stub command', () => {
+  test('migration task container command is alembic upgrade head', () => {
     template.hasResourceProperties('AWS::ECS::TaskDefinition', {
       ContainerDefinitions: [
         {
           Name: 'migrate',
-          Command: ['echo', 'migration stub — Alembic not yet bootstrapped'],
+          Command: ['alembic', 'upgrade', 'head'],
+        },
+      ],
+    });
+  });
+
+  test('migration task definition includes db-password SSM secret', () => {
+    const resources = template.findResources('AWS::ECS::TaskDefinition');
+    const taskDefs = Object.values(resources);
+    const migrateDef = taskDefs.find((r: any) =>
+      r.Properties?.ContainerDefinitions?.some((c: any) => c.Name === 'migrate'),
+    ) as any;
+    const secrets: Array<{ Name: string; ValueFrom: any }> =
+      migrateDef.Properties.ContainerDefinitions.find((c: any) => c.Name === 'migrate').Secrets ?? [];
+    const valueFromStrings = secrets.map((s) => JSON.stringify(s.ValueFrom));
+    expect(valueFromStrings.some((v) => v.includes('db-password'))).toBe(true);
+  });
+
+  test('migration task definition includes DB_ENDPOINT environment variable', () => {
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: [
+        {
+          Name: 'migrate',
+          Environment: Match.arrayWith([
+            Match.objectLike({ Name: 'DB_ENDPOINT', Value: 'db.example.com:5432' }),
+          ]),
         },
       ],
     });
