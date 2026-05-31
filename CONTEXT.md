@@ -6,7 +6,7 @@ One of four named runtime targets: **local** (`http://localhost`, floci only), *
 
 ## Deployment Stack
 
-The full set of AWS resources that together run FastSpec in a given Deployment Environment: an ECS Fargate service (backend), S3 + CloudFront distributions (frontend, landing-page), an ALB (ingress), RDS (PostgreSQL), ElastiCache (Redis), ACM certificates, and Route53 records.
+The full set of AWS resources that together run FastSpec in a given Deployment Environment: an ECS Fargate service (backend), S3 buckets (frontend, landing-page), a CloudFront distribution (public entry point), an internal ALB (ingress from CloudFront to backend), RDS (PostgreSQL), ElastiCache (Redis), ACM certificates, and Route53 records. CloudFront is the sole public entry point: a single distribution routes `/api*` and `/auth*` to the ALB, `/specs*` to the frontend S3 bucket, and `/*` to the landing-page S3 bucket. The ALB is internal (not internet-facing) and is accessible only from the CloudFront distribution.
 
 ## floci Environment
 
@@ -18,11 +18,11 @@ The CDK stack responsible for stateful infrastructure: an RDS instance (PostgreS
 
 ## ComputeStack
 
-The CDK stack responsible for compute and ingress: the ECS Fargate service (backend), the ALB with listener rules, and SSM secret references wired into the ECS task definition. Imports connection endpoints from the DataStack. For the `local` Deployment Environment, ALB listener rules are scoped to backend routes only (`/api`, `/auth`); frontend and landing-page routes are added for `dev`, `staging`, and `prod`.
+The CDK stack responsible for compute and ingress: the ECS Fargate service (backend), the ALB with listener rules, and SSM secret references wired into the ECS task definition. Imports connection endpoints from the DataStack. Fargate tasks run in public subnets with `assignPublicIp: true`. The ALB is `internetFacing: false` and is accessible only from the CloudFront distribution. For the `local` Deployment Environment, ALB listener rules are scoped to backend routes only (`/api`, `/auth`); frontend and landing-page routes are added for `dev`, `staging`, and `prod`.
 
-## Spectral Sidecar
+## Spectral CLI
 
-A dedicated container that runs the Spectral CLI as an HTTP service. Accepts a Spec and a Lint Ruleset YAML string via `POST /lint` and returns structured lint output. Runs alongside the backend in the same ECS task. The backend calls it over localhost — they share the task network namespace.
+A Spectral CLI binary installed into the backend Docker image. Invoked in-process by the backend to lint a Spec against a Lint Ruleset. No inter-process communication is involved — Spectral runs as a child process within the backend container, not as a separate sidecar container or HTTP service.
 
 ## Migration Task
 
