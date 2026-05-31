@@ -1,9 +1,9 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { DataStack } from '../lib/data-stack';
-import { getConfig } from '../lib/config';
+import { getConfig, Env } from '../lib/config';
 
-function buildStack(env: 'local' | 'prod') {
+function buildStack(env: Env) {
   const app = new cdk.App();
   const config = getConfig(env);
   return new DataStack(app, `FastSpec-Data-${env}`, { config });
@@ -94,6 +94,58 @@ describe('DataStack — prod', () => {
   test('uses a production ElastiCache node type', () => {
     template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
       CacheNodeType: 'cache.r6g.large',
+    });
+  });
+
+  test('RDS has DeletionProtection enabled', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      DeletionProtection: true,
+    });
+  });
+
+  test('RDS has DeletionPolicy: Retain', () => {
+    template.hasResource('AWS::RDS::DBInstance', {
+      DeletionPolicy: 'Retain',
+    });
+  });
+
+  test('ElastiCache replication group has encryption at rest enabled', () => {
+    template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
+      AtRestEncryptionEnabled: true,
+    });
+  });
+
+  test('ElastiCache replication group has encryption in transit enabled', () => {
+    template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
+      TransitEncryptionEnabled: true,
+    });
+  });
+});
+
+describe('DataStack — dev', () => {
+  let template: Template;
+
+  beforeAll(() => {
+    template = Template.fromStack(buildStack('dev'));
+  });
+
+  test('RDS does not have DeletionProtection enabled', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      DeletionProtection: false,
+    });
+  });
+});
+
+describe('DataStack — staging', () => {
+  let template: Template;
+
+  beforeAll(() => {
+    template = Template.fromStack(buildStack('staging'));
+  });
+
+  test('RDS does not have DeletionProtection enabled', () => {
+    template.hasResourceProperties('AWS::RDS::DBInstance', {
+      DeletionProtection: false,
     });
   });
 });
