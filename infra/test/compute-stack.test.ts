@@ -1,13 +1,16 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
+import { DataStack } from '../lib/data-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { getConfig } from '../lib/config';
 
 function buildStack(env: 'local' | 'dev') {
   const app = new cdk.App();
   const config = getConfig(env);
+  const dataStack = new DataStack(app, `FastSpec-Data-${env}`, { config });
   return new ComputeStack(app, `FastSpec-Compute-${env}`, {
     config,
+    vpc: dataStack.vpc,
     dbEndpoint: 'db.example.com:5432',
     redisEndpoint: 'redis.example.com:6379',
   });

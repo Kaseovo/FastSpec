@@ -39,6 +39,8 @@ function sizingFor(config: EnvConfig): DataSizing {
  * Exports connection endpoints consumed by ComputeStack.
  */
 export class DataStack extends cdk.Stack {
+  /** Shared VPC exported for ComputeStack. */
+  public readonly vpc: ec2.Vpc;
   /** RDS endpoint exported for ComputeStack. */
   public readonly dbEndpoint: string;
   /** ElastiCache endpoint exported for ComputeStack. */
@@ -54,6 +56,8 @@ export class DataStack extends cdk.Stack {
       maxAzs: config.env === 'prod' ? 3 : 2,
       natGateways: config.env === 'prod' ? 1 : 0,
     });
+
+    this.vpc = vpc;
 
     const vpcSubnets: ec2.SubnetSelection =
       config.env === 'prod'
@@ -110,6 +114,11 @@ export class DataStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'RedisEndpoint', {
       value: `${redisCluster.attrPrimaryEndPointAddress}:${redisCluster.attrPrimaryEndPointPort}`,
       description: 'ElastiCache Redis endpoint',
+    });
+
+    new cdk.CfnOutput(this, 'VpcId', {
+      value: vpc.vpcId,
+      description: 'Shared VPC ID',
     });
 
     this.dbEndpoint = `${dbEndpointAddress}:${dbEndpointPort}`;

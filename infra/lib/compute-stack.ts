@@ -9,6 +9,7 @@ import { EnvConfig } from './config';
 
 export interface ComputeStackProps extends cdk.StackProps {
   config: EnvConfig;
+  vpc: ec2.IVpc;
   dbEndpoint: string;
   redisEndpoint: string;
 }
@@ -30,10 +31,7 @@ export class ComputeStack extends cdk.Stack {
 
     const { config } = props;
 
-    const vpc = new ec2.Vpc(this, 'Vpc', {
-      maxAzs: 2,
-      natGateways: 0,
-    });
+    const vpc = props.vpc;
 
     const cluster = new ecs.Cluster(this, 'Cluster', { vpc });
 
@@ -145,11 +143,6 @@ export class ComputeStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'MigrateTaskDefArn', {
       value: migrateDef.taskDefinitionArn,
       exportName: `${this.stackName}-MigrateTaskDefArn`,
-    });
-
-    new cdk.CfnOutput(this, 'VpcId', {
-      value: vpc.vpcId,
-      exportName: `${this.stackName}-VpcId`,
     });
   }
 }

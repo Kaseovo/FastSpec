@@ -36,6 +36,10 @@ describe('DataStack — local', () => {
     template.hasOutput('RedisEndpoint', {});
   });
 
+  test('exports a VpcId CloudFormation output', () => {
+    template.hasOutput('VpcId', {});
+  });
+
   test('uses a burstable instance class for RDS', () => {
     template.hasResourceProperties('AWS::RDS::DBInstance', {
       DBInstanceClass: 'db.t3.micro',

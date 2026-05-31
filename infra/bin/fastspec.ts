@@ -13,6 +13,7 @@ const dataStack = new DataStack(app, `FastSpec-Data-${env}`, { config });
 
 new ComputeStack(app, `FastSpec-Compute-${env}`, {
   config,
+  vpc: dataStack.vpc,
   dbEndpoint: dataStack.dbEndpoint,
   redisEndpoint: dataStack.redisEndpoint,
 });
