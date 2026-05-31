@@ -26,6 +26,9 @@ function isLocal(config: EnvConfig): boolean {
  * For dev/staging/prod they also cover frontend and landing-page routes.
  */
 export class ComputeStack extends cdk.Stack {
+  /** The Application Load Balancer — used by FrontendStack for ALB origins. */
+  readonly alb: elbv2.ApplicationLoadBalancer;
+
   constructor(scope: Construct, id: string, props: ComputeStackProps) {
     super(scope, id, props);
 
@@ -133,6 +136,7 @@ export class ComputeStack extends cdk.Stack {
       assignPublicIp: true,
       securityGroups: [fargateSg],
     });
+    this.alb = alb;
 
     const listener = alb.addListener('HttpListener', {
       port: 80,
