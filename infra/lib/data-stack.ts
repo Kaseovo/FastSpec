@@ -99,6 +99,7 @@ export class DataStack extends cdk.Stack {
       cacheNodeType: sizing.cacheNodeType,
       engine: 'redis',
       numCacheClusters: 1,
+      automaticFailoverEnabled: false,
       cacheSubnetGroupName: cacheSubnetGroup.ref,
       atRestEncryptionEnabled: true,
       transitEncryptionEnabled: true,
