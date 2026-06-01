@@ -13,6 +13,7 @@ function buildStack(env: 'local' | 'dev') {
     vpc: dataStack.vpc,
     dbEndpoint: 'db.example.com:5432',
     redisEndpoint: 'redis.example.com:6379',
+    dbSecurityGroup: dataStack.dbSecurityGroup,
   });
 }
 

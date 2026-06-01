@@ -47,6 +47,8 @@ export class DataStack extends cdk.Stack {
   public readonly redisEndpoint: string;
   /** RDS instance identifier exported for WakeStack. */
   public readonly rdsInstanceId: string;
+  /** RDS security group — allow Fargate SG ingress on port 5432. */
+  public readonly dbSecurityGroup: ec2.ISecurityGroup;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
@@ -83,6 +85,7 @@ export class DataStack extends cdk.Stack {
       deletionProtection: config.env === 'prod',
       removalPolicy:
         config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.SNAPSHOT,
+      databaseName: 'fastspec',
     });
 
     // ── ElastiCache Redis ─────────────────────────────────────────────────────
@@ -127,5 +130,6 @@ export class DataStack extends cdk.Stack {
     this.dbEndpoint = `${dbEndpointAddress}:${dbEndpointPort}`;
     this.redisEndpoint = `${redisCluster.attrPrimaryEndPointAddress}:${redisCluster.attrPrimaryEndPointPort}`;
     this.rdsInstanceId = dbInstance.instanceIdentifier;
+    this.dbSecurityGroup = dbInstance.connections.securityGroups[0];
   }
 }
