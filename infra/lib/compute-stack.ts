@@ -176,6 +176,7 @@ export class ComputeStack extends cdk.Stack {
         port: 8000,
         protocol: elbv2.ApplicationProtocol.HTTP,
         targets: [service],
+        healthCheck: { path: '/api/health' },
         priority: 30,
         conditions: [elbv2.ListenerCondition.pathPatterns(['/*'])],
       });
