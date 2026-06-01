@@ -12,7 +12,6 @@ export interface ComputeStackProps extends cdk.StackProps {
   vpc: ec2.IVpc;
   dbEndpoint: string;
   redisEndpoint: string;
-  dbSecurityGroup: ec2.ISecurityGroup;
 }
 
 function isLocal(config: EnvConfig): boolean {
@@ -66,13 +65,6 @@ export class ComputeStack extends cdk.Stack {
       ec2.Peer.securityGroupId(albSg.securityGroupId),
       ec2.Port.tcp(8000),
       'Allow port 8000 from ALB SG only',
-    );
-
-    // Allow Fargate tasks (API + migration) to reach RDS on port 5432
-    props.dbSecurityGroup.addIngressRule(
-      ec2.Peer.securityGroupId(fargateSg.securityGroupId),
-      ec2.Port.tcp(5432),
-      'Allow PostgreSQL from Fargate SG',
     );
 
     // ── Backend Task Definition ───────────────────────────────────────────────

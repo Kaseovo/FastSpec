@@ -51,7 +51,6 @@ function buildFrontendStack() {
     vpc: dataStack.vpc,
     dbEndpoint: 'db.example.com:5432',
     redisEndpoint: 'redis.example.com:6379',
-    dbSecurityGroup: dataStack.dbSecurityGroup,
   });
 
   const frontendStack = new FrontendStack(app, 'FastSpec-Frontend-prod', {
@@ -293,7 +292,6 @@ describe('deployFrontend guard', () => {
       vpc: dataStack.vpc,
       dbEndpoint: 'db.example.com:5432',
       redisEndpoint: 'redis.example.com:6379',
-      dbSecurityGroup: dataStack.dbSecurityGroup,
     });
     if (config.deployFrontend) {
       // Should not reach here for local

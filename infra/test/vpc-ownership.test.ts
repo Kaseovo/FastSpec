@@ -16,7 +16,6 @@ function buildBothStacks(env: 'local' | 'dev' | 'prod') {
     vpc: dataStack.vpc,
     dbEndpoint: dataStack.dbEndpoint,
     redisEndpoint: dataStack.redisEndpoint,
-    dbSecurityGroup: dataStack.dbSecurityGroup,
   });
   return { dataStack, computeStack };
 }
