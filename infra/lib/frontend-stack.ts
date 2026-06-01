@@ -10,8 +10,12 @@ import { EnvConfig } from './config';
 
 export interface FrontendStackProps extends cdk.StackProps {
   config: EnvConfig;
-  /** ACM certificate (must be in us-east-1) — passed from CertificateStack. */
-  certificate: acm.ICertificate;
+  /**
+   * ARN of the ACM certificate in us-east-1.
+   * Imported via Certificate.fromCertificateArn — no CDK cross-region export
+   * machinery involved, which avoids CrossRegionExportWriter churn.
+   */
+  certificateArn: string;
   /** DNS name of the ALB in ComputeStack — used for /api* and /auth* origins. */
   albDnsName: string;
   /**
@@ -34,6 +38,14 @@ export class FrontendStack extends cdk.Stack {
     super(scope, id, props);
 
     const { config } = props;
+
+    // ── ACM Certificate (imported by ARN — avoids CDK cross-region exports) ────
+
+    const certificate = acm.Certificate.fromCertificateArn(
+      this,
+      'ViewerCert',
+      props.certificateArn,
+    );
 
     // ── S3 Buckets (private, no public access) ────────────────────────────────
 
@@ -98,7 +110,7 @@ export class FrontendStack extends cdk.Stack {
             cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         },
       },
-      certificate: props.certificate,
+      certificate,
       domainNames: [config.domain],
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
     });

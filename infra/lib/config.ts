@@ -9,6 +9,13 @@ export interface EnvConfig {
   domain: string;
   /** Whether S3 + CloudFront stacks should be deployed (false for local). */
   deployFrontend: boolean;
+  /**
+   * ARN of the ACM certificate in us-east-1 used by CloudFront.
+   * Required when deployFrontend is true.
+   * Obtain by deploying FastSpec-Cert-<env> first, then reading the certificate
+   * ARN from the AWS Console (ACM → us-east-1) and setting it here.
+   */
+  certificateArn?: string;
   /** Override AWS endpoint (floci). Only set for the local environment. */
   awsEndpoint?: string;
 }
@@ -18,16 +25,20 @@ const CONFIGS: Record<Env, EnvConfig> = {
     env: 'prod',
     domain: 'fastspec.kaseovo.com',
     deployFrontend: true,
+    // Run `cdk deploy FastSpec-Cert-prod` first, then set this ARN.
+    certificateArn: undefined,
   },
   staging: {
     env: 'staging',
     domain: 'staging.fastspec.kaseovo.com',
     deployFrontend: true,
+    certificateArn: undefined,
   },
   dev: {
     env: 'dev',
     domain: 'dev.fastspec.kaseovo.com',
     deployFrontend: true,
+    certificateArn: 'arn:aws:acm:us-east-1:000000000000:certificate/00000000-0000-0000-0000-000000000000',
   },
   local: {
     env: 'local',

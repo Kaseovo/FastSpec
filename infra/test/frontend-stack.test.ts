@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import { getConfig } from '../lib/config';
 import { DataStack } from '../lib/data-stack';
@@ -20,27 +19,18 @@ function buildCertStack() {
 }
 
 /**
- * Build FrontendStack for prod using injected (fake) certificate and hosted
- * zone so we avoid cross-region SSM machinery and Route53 context lookups
- * in unit tests.
+ * Build FrontendStack for prod using an injected (fake) certificate ARN and
+ * hosted zone so we avoid cross-region SSM machinery and Route53 context
+ * lookups in unit tests.
  */
 function buildFrontendStack() {
   const app = new cdk.App();
   const config = getConfig('prod');
 
-  // Helper stack that acts as a scope for imported constructs
-  const helperStack = new cdk.Stack(app, 'HelperStack', {
-    env: { account: '123456789012', region: 'us-east-1' },
-  });
-
-  const certificate = acm.Certificate.fromCertificateArn(
-    helperStack,
-    'FakeCert',
-    'arn:aws:acm:us-east-1:123456789012:certificate/fake-cert-id',
-  );
-
   const hostedZone = route53.HostedZone.fromHostedZoneAttributes(
-    helperStack,
+    new cdk.Stack(app, 'HelperStack', {
+      env: { account: '123456789012', region: 'us-east-1' },
+    }),
     'FakeHZ',
     { hostedZoneId: 'Z1FAKEHZID', zoneName: config.domain },
   );
@@ -55,7 +45,7 @@ function buildFrontendStack() {
 
   const frontendStack = new FrontendStack(app, 'FastSpec-Frontend-prod', {
     config,
-    certificate,
+    certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/fake-cert-id',
     albDnsName: computeStack.alb.loadBalancerDnsName,
     hostedZone,
   });
