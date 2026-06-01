@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
 import { EnvConfig } from './config';
 
@@ -14,8 +15,8 @@ export interface CertificateStackProps extends cdk.StackProps {
  * distribution is deployed.  This stack is always deployed with
  * `env: { region: 'us-east-1' }` in bin/fastspec.ts.
  *
- * The certificate is validated via DNS and the ARN is passed to FrontendStack
- * using CDK's `crossRegionReferences: true` mechanism.
+ * The certificate is validated via DNS. CDK automatically creates the required
+ * Route 53 validation CNAME record so no manual DNS step is needed.
  */
 export class CertificateStack extends cdk.Stack {
   /** ACM certificate — pass to FrontendStack via crossRegionReferences. */
@@ -25,9 +26,13 @@ export class CertificateStack extends cdk.Stack {
     // Force region to us-east-1 regardless of caller's region
     super(scope, id, { ...props, env: { ...props.env, region: 'us-east-1' } });
 
+    const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
+      domainName: props.config.domain,
+    });
+
     this.certificate = new acm.Certificate(this, 'ViewerCert', {
       domainName: props.config.domain,
-      validation: acm.CertificateValidation.fromDns(),
+      validation: acm.CertificateValidation.fromDns(hostedZone),
     });
   }
 }
