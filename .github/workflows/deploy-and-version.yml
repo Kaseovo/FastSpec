@@ -169,8 +169,18 @@ jobs:
         run: npx cdk deploy FastSpec-Cert-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
         working-directory: infra
 
+      - name: Read certificate ARN from CertStack output
+        id: cert
+        run: |
+          ARN=$(aws cloudformation describe-stacks \
+            --stack-name FastSpec-Cert-${{ github.event.inputs.env }} \
+            --region us-east-1 \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
+            --output text)
+          echo "arn=$ARN" >> $GITHUB_OUTPUT
+
       - name: Deploy FrontendStack
-        run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --context certificateArn=${{ steps.cert.outputs.arn }} --require-approval never
         working-directory: infra
 
       - name: Deploy WakeStack

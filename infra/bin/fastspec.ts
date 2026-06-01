@@ -29,13 +29,6 @@ const computeStack = new ComputeStack(app, `FastSpec-Compute-${env}`, {
 });
 
 if (config.deployFrontend) {
-  if (!config.certificateArn) {
-    throw new Error(
-      `Missing certificateArn for env "${env}". ` +
-      'Deploy FastSpec-Cert-<env> first, then set certificateArn in infra/lib/config.ts.',
-    );
-  }
-
   // ACM certificate must live in us-east-1 for CloudFront.
   // The stack provisions/renews the cert; FrontendStack imports it by ARN
   // to avoid CDK CrossRegionExportWriter churn.
@@ -44,9 +37,19 @@ if (config.deployFrontend) {
     env: { account: awsEnv.account, region: 'us-east-1' },
   });
 
+  // certificateArn is read from CDK context, populated by the CI after deploying
+  // CertStack: cdk deploy ... --context certificateArn=<arn>
+  const certificateArn: string | undefined = app.node.tryGetContext('certificateArn');
+  if (!certificateArn) {
+    throw new Error(
+      'Missing CDK context variable "certificateArn". ' +
+      'Deploy FastSpec-Cert-<env> first, then pass --context certificateArn=<arn>.',
+    );
+  }
+
   new FrontendStack(app, `FastSpec-Frontend-${env}`, {
     config,
-    certificateArn: config.certificateArn,
+    certificateArn,
     albDnsName: computeStack.alb.loadBalancerDnsName,
     // hostedZone omitted — FrontendStack performs HostedZone.fromLookup at synth
     env: awsEnv,

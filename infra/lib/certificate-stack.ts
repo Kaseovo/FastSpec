@@ -34,5 +34,11 @@ export class CertificateStack extends cdk.Stack {
       domainName: props.config.domain,
       validation: acm.CertificateValidation.fromDns(hostedZone),
     });
+
+    new cdk.CfnOutput(this, 'CertificateArn', {
+      value: this.certificate.certificateArn,
+      exportName: `${this.stackName}-CertificateArn`,
+      description: 'ACM certificate ARN — pass to FrontendStack via --context certificateArn=<value>',
+    });
   }
 }
