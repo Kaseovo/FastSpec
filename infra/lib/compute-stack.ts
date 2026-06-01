@@ -28,6 +28,10 @@ function isLocal(config: EnvConfig): boolean {
 export class ComputeStack extends cdk.Stack {
   /** The Application Load Balancer — used by FrontendStack for ALB origins. */
   readonly alb: elbv2.ApplicationLoadBalancer;
+  /** ECS service name — used by WakeStack. */
+  readonly serviceName: string;
+  /** ECS cluster — used by WakeStack. */
+  readonly cluster: ecs.Cluster;
 
   constructor(scope: Construct, id: string, props: ComputeStackProps) {
     super(scope, id, props);
@@ -137,6 +141,8 @@ export class ComputeStack extends cdk.Stack {
       securityGroups: [fargateSg],
     });
     this.alb = alb;
+    this.serviceName = service.serviceName;
+    this.cluster = cluster;
 
     const listener = alb.addListener('HttpListener', {
       port: 80,
@@ -203,6 +209,11 @@ export class ComputeStack extends cdk.Stack {
     });
 
     // ── Stack Outputs (used by scripts/run-migrate.sh) ────────────────────────
+    new cdk.CfnOutput(this, 'AlbArn', {
+      value: alb.loadBalancerArn,
+      exportName: `${this.stackName}-AlbArn`,
+    });
+
     new cdk.CfnOutput(this, 'ClusterName', {
       value: cluster.clusterName,
       exportName: `${this.stackName}-ClusterName`,

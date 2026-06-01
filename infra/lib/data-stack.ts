@@ -45,6 +45,8 @@ export class DataStack extends cdk.Stack {
   public readonly dbEndpoint: string;
   /** ElastiCache endpoint exported for ComputeStack. */
   public readonly redisEndpoint: string;
+  /** RDS instance identifier exported for WakeStack. */
+  public readonly rdsInstanceId: string;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
@@ -123,5 +125,6 @@ export class DataStack extends cdk.Stack {
 
     this.dbEndpoint = `${dbEndpointAddress}:${dbEndpointPort}`;
     this.redisEndpoint = `${redisCluster.attrPrimaryEndPointAddress}:${redisCluster.attrPrimaryEndPointPort}`;
+    this.rdsInstanceId = dbInstance.instanceIdentifier;
   }
 }

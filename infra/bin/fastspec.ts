@@ -6,6 +6,7 @@ import { DataStack } from '../lib/data-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { CertificateStack } from '../lib/certificate-stack';
 import { FrontendStack } from '../lib/frontend-stack';
+import { WakeStack } from '../lib/wake-stack';
 
 const app = new cdk.App();
 const env = resolveEnv(app);
@@ -42,5 +43,13 @@ if (config.deployFrontend) {
     // hostedZone omitted — FrontendStack performs HostedZone.fromLookup at synth
     env: awsEnv,
     crossRegionReferences: true,
+  });
+
+  new WakeStack(app, `FastSpec-Wake-${env}`, {
+    config,
+    clusterName: computeStack.cluster.clusterName,
+    serviceName: computeStack.serviceName,
+    rdsInstanceId: dataStack.rdsInstanceId,
+    env: awsEnv,
   });
 }

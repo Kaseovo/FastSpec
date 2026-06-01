@@ -1,0 +1,101 @@
+name: Dev Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action'
+        required: true
+        type: choice
+        options:
+          - start
+          - stop
+
+jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Resolve action
+        id: resolve
+        run: |
+          echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-1
+
+      # ── RDS ───────────────────────────────────────────────────────────────────
+
+      - name: Get RDS instance identifier
+        id: rds
+        run: |
+          STACK="FastSpec-Data-dev"
+          # RDS instance ID is tagged with the stack name — find it
+          INSTANCE_ID=$(aws rds describe-db-instances \
+            --query "DBInstances[?TagList[?Key=='aws:cloudformation:stack-name'&&Value=='$STACK']].DBInstanceIdentifier" \
+            --output text)
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Start RDS
+        if: steps.resolve.outputs.action == 'start'
+        run: |
+          STATUS=$(aws rds describe-db-instances \
+            --db-instance-identifier ${{ steps.rds.outputs.instance_id }} \
+            --query "DBInstances[0].DBInstanceStatus" --output text)
+          if [ "$STATUS" = "stopped" ]; then
+            aws rds start-db-instance --db-instance-identifier ${{ steps.rds.outputs.instance_id }}
+            aws rds wait db-instance-available --db-instance-identifier ${{ steps.rds.outputs.instance_id }}
+            echo "RDS started"
+          else
+            echo "RDS already running (status: $STATUS)"
+          fi
+
+      - name: Stop RDS
+        if: steps.resolve.outputs.action == 'stop'
+        run: |
+          STATUS=$(aws rds describe-db-instances \
+            --db-instance-identifier ${{ steps.rds.outputs.instance_id }} \
+            --query "DBInstances[0].DBInstanceStatus" --output text)
+          if [ "$STATUS" = "available" ]; then
+            aws rds stop-db-instance --db-instance-identifier ${{ steps.rds.outputs.instance_id }}
+            echo "RDS stopped"
+          else
+            echo "RDS already stopped (status: $STATUS)"
+          fi
+
+      # ── ECS Fargate desired count ─────────────────────────────────────────────
+
+      - name: Get ECS cluster and service name
+        id: ecs
+        run: |
+          STACK="FastSpec-Compute-dev"
+          CLUSTER=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='ClusterName'].OutputValue" \
+            --output text)
+          SERVICE=$(aws ecs list-services --cluster "$CLUSTER" \
+            --query "serviceArns[0]" --output text | xargs basename)
+          echo "cluster=$CLUSTER" >> $GITHUB_OUTPUT
+          echo "service=$SERVICE" >> $GITHUB_OUTPUT
+
+      - name: Start Fargate (desiredCount=1)
+        if: steps.resolve.outputs.action == 'start'
+        run: |
+          aws ecs update-service \
+            --cluster ${{ steps.ecs.outputs.cluster }} \
+            --service ${{ steps.ecs.outputs.service }} \
+            --desired-count 1
+
+      - name: Stop Fargate (desiredCount=0)
+        if: steps.resolve.outputs.action == 'stop'
+        run: |
+          aws ecs update-service \
+            --cluster ${{ steps.ecs.outputs.cluster }} \
+            --service ${{ steps.ecs.outputs.service }} \
+            --desired-count 0

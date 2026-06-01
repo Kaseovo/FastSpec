@@ -173,30 +173,41 @@ jobs:
         run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
         working-directory: infra
 
-      - name: Get S3 bucket names and CloudFront distribution ID
+      - name: Deploy WakeStack
+        run: npx cdk deploy FastSpec-Wake-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        working-directory: infra
+
+      - name: Get S3 bucket names, CloudFront distribution ID and Wake URL
         id: infra_outputs
         run: |
           ENV=${{ github.event.inputs.env }}
-          STACK="FastSpec-Frontend-${ENV}"
+          FRONTEND_STACK="FastSpec-Frontend-${ENV}"
+          WAKE_STACK="FastSpec-Wake-${ENV}"
 
           FRONTEND_BUCKET=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
+            --stack-name "$FRONTEND_STACK" \
             --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" \
             --output text)
 
           LANDING_BUCKET=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
+            --stack-name "$FRONTEND_STACK" \
             --query "Stacks[0].Outputs[?OutputKey=='LandingBucketName'].OutputValue" \
             --output text)
 
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
+            --stack-name "$FRONTEND_STACK" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text)
+
+          WAKE_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$WAKE_STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='WakeFunctionUrl'].OutputValue" \
             --output text)
 
           echo "frontend_bucket=$FRONTEND_BUCKET" >> $GITHUB_OUTPUT
           echo "landing_bucket=$LANDING_BUCKET" >> $GITHUB_OUTPUT
           echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+          echo "wake_url=$WAKE_URL" >> $GITHUB_OUTPUT
 
       - name: Build frontend SPA
         run: npm ci && npm run build
@@ -205,6 +216,11 @@ jobs:
       - name: Sync frontend SPA to S3
         run: |
           aws s3 sync frontend/dist/ s3://${{ steps.infra_outputs.outputs.frontend_bucket }}/ --delete
+
+      - name: Inject wake URL and secret into wake.html
+        run: |
+          sed -i "s|__WAKE_URL__|${{ steps.infra_outputs.outputs.wake_url }}|g" landing-page/wake.html
+          sed -i "s|__WAKE_SECRET__|${{ secrets.WAKE_SECRET }}|g" landing-page/wake.html
 
       - name: Sync landing-page to S3
         run: |
