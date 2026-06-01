@@ -73,6 +73,26 @@ export class FrontendStack extends cdk.Stack {
     // patched in below at the L1 (CfnDistribution) level so the ARN is
     // embedded verbatim — no CrossRegionExportWriter involved.
 
+    // Replicates nginx `try_files $uri $uri/ $uri/index.html =404`:
+    // - /log-in   → /log-in/index.html
+    // - /log-in/  → /log-in/index.html
+    // - /assets/foo.svg → unchanged (has a file extension)
+    const urlRewriteFn = new cloudfront.Function(this, 'UrlRewriteFn', {
+      code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var uri = event.request.uri;
+  if (!uri.includes('.')) {
+    if (!uri.endsWith('/')) {
+      uri = uri + '/';
+    }
+    event.request.uri = uri + 'index.html';
+  }
+  return event.request;
+}
+      `.trim()),
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+    });
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       defaultRootObject: 'index.html',
       defaultBehavior: {
@@ -80,6 +100,10 @@ export class FrontendStack extends cdk.Stack {
           originAccessControl: oac,
         }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        functionAssociations: [{
+          function: urlRewriteFn,
+          eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+        }],
       },
       additionalBehaviors: {
         '/specs*': {
