@@ -165,12 +165,8 @@ jobs:
 
       # ── FrontendStack + S3 sync ───────────────────────────────────────────────
 
-      - name: Deploy CertStack
-        run: npx cdk deploy FastSpec-Cert-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
-        working-directory: infra
-
-      - name: Deploy FrontendStack
-        run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+      - name: Deploy CertStack and FrontendStack
+        run: npx cdk deploy FastSpec-Cert-${{ github.event.inputs.env }} FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
         working-directory: infra
 
       - name: Deploy WakeStack
