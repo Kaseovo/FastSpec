@@ -27,7 +27,6 @@ cdk.out/
 
 # Dependencies
 node_modules/
-frontend/package-lock.json
 yarn.lock
 
 # Python
