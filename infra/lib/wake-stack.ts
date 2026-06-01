@@ -32,7 +32,6 @@ export class WakeStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/wake')),
       timeout: cdk.Duration.seconds(30),
-      reservedConcurrentExecutions: 1,
       environment: {
         ENV: config.env,
         CLUSTER_NAME: props.clusterName,
