@@ -1,5 +1,4 @@
 import * as cdk from 'aws-cdk-lib';
-import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as route53 from 'aws-cdk-lib/aws-route53';
@@ -12,8 +11,9 @@ export interface FrontendStackProps extends cdk.StackProps {
   config: EnvConfig;
   /**
    * ARN of the ACM certificate in us-east-1.
-   * Imported via Certificate.fromCertificateArn — no CDK cross-region export
-   * machinery involved, which avoids CrossRegionExportWriter churn.
+   * Injected directly into the CloudFormation Distribution resource via L1
+   * property override — bypasses CDK's cross-region certificate region check
+   * and avoids CrossRegionExportWriter entirely.
    */
   certificateArn: string;
   /** DNS name of the ALB in ComputeStack — used for /api* and /auth* origins. */
@@ -38,14 +38,6 @@ export class FrontendStack extends cdk.Stack {
     super(scope, id, props);
 
     const { config } = props;
-
-    // ── ACM Certificate (imported by ARN — avoids CDK cross-region exports) ────
-
-    const certificate = acm.Certificate.fromCertificateArn(
-      this,
-      'ViewerCert',
-      props.certificateArn,
-    );
 
     // ── S3 Buckets (private, no public access) ────────────────────────────────
 
@@ -74,9 +66,14 @@ export class FrontendStack extends cdk.Stack {
     });
 
     // ── CloudFront Distribution ───────────────────────────────────────────────
+    //
+    // `certificate` and `domainNames` are intentionally omitted from the L2
+    // props to avoid CDK's synth-time validation that rejects certificates not
+    // scoped to a us-east-1 construct.  ViewerCertificate and Aliases are
+    // patched in below at the L1 (CfnDistribution) level so the ARN is
+    // embedded verbatim — no CrossRegionExportWriter involved.
 
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
-      // Default behaviour → landing-page bucket
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(landingBucket, {
           originAccessControl: oac,
@@ -84,14 +81,12 @@ export class FrontendStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       additionalBehaviors: {
-        // SPA assets
         '/specs*': {
           origin: origins.S3BucketOrigin.withOriginAccessControl(frontendBucket, {
             originAccessControl: oac,
           }),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
-        // API — forward to ALB, no caching
         '/api*': {
           origin: albOrigin,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.ALLOW_ALL,
@@ -100,7 +95,6 @@ export class FrontendStack extends cdk.Stack {
           originRequestPolicy:
             cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         },
-        // Auth — forward to ALB, no caching
         '/auth*': {
           origin: albOrigin,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.ALLOW_ALL,
@@ -110,10 +104,18 @@ export class FrontendStack extends cdk.Stack {
             cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         },
       },
-      certificate,
-      domainNames: [config.domain],
-      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
     });
+
+    // Patch ViewerCertificate and Aliases directly on the L1 resource.
+    // Equivalent to `certificate` + `domainNames` + `minimumProtocolVersion`
+    // on the L2, but skips CDK's us-east-1 region assertion for the cert object.
+    const cfnDistribution = distribution.node.defaultChild as cloudfront.CfnDistribution;
+    cfnDistribution.addPropertyOverride('DistributionConfig.ViewerCertificate', {
+      AcmCertificateArn: props.certificateArn,
+      SslSupportMethod: 'sni-only',
+      MinimumProtocolVersion: 'TLSv1.2_2021',
+    });
+    cfnDistribution.addPropertyOverride('DistributionConfig.Aliases', [config.domain]);
 
     // ── Route53 alias ─────────────────────────────────────────────────────────
 

@@ -28,9 +28,7 @@ function buildFrontendStack() {
   const config = getConfig('prod');
 
   const hostedZone = route53.HostedZone.fromHostedZoneAttributes(
-    new cdk.Stack(app, 'HelperStack', {
-      env: { account: '123456789012', region: 'us-east-1' },
-    }),
+    new cdk.Stack(app, 'HelperStack'),
     'FakeHZ',
     { hostedZoneId: 'Z1FAKEHZID', zoneName: config.domain },
   );
@@ -43,14 +41,12 @@ function buildFrontendStack() {
     redisEndpoint: 'redis.example.com:6379',
   });
 
-  const frontendStack = new FrontendStack(app, 'FastSpec-Frontend-prod', {
+  return new FrontendStack(app, 'FastSpec-Frontend-prod', {
     config,
     certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/fake-cert-id',
     albDnsName: computeStack.alb.loadBalancerDnsName,
     hostedZone,
   });
-
-  return frontendStack;
 }
 
 // ── CertificateStack ──────────────────────────────────────────────────────────
