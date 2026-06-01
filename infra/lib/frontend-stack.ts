@@ -73,7 +73,8 @@ export class FrontendStack extends cdk.Stack {
     // patched in below at the L1 (CfnDistribution) level so the ARN is
     // embedded verbatim — no CrossRegionExportWriter involved.
 
-    // Replicates nginx `try_files $uri $uri/ $uri/index.html =404`:
+    // Replicates nginx `try_files $uri $uri/ $uri/index.html =404` for the
+    // landing page (multi-page static site — each route has its own index.html):
     // - /log-in   → /log-in/index.html
     // - /log-in/  → /log-in/index.html
     // - /assets/foo.svg → unchanged (has a file extension)
@@ -86,6 +87,22 @@ function handler(event) {
       uri = uri + '/';
     }
     event.request.uri = uri + 'index.html';
+  }
+  return event.request;
+}
+      `.trim()),
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+    });
+
+    // SPA rewrite: all /specs* routes (including deep links and query strings)
+    // must resolve to the single /index.html entry point in frontendBucket.
+    // Static assets under /specs/assets/* are passed through unchanged.
+    const spaRewriteFn = new cloudfront.Function(this, 'SpaRewriteFn', {
+      code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var uri = event.request.uri;
+  if (!uri.includes('.')) {
+    event.request.uri = '/index.html';
   }
   return event.request;
 }
@@ -111,6 +128,10 @@ function handler(event) {
             originAccessControl: oac,
           }),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          functionAssociations: [{
+            function: spaRewriteFn,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          }],
         },
         '/api*': {
           origin: albOrigin,
