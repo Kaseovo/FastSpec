@@ -39,13 +39,11 @@ if (config.deployFrontend) {
 
   // certificateArn is read from CDK context, populated by the CI after deploying
   // CertStack: cdk deploy ... --context certificateArn=<arn>
-  const certificateArn: string | undefined = app.node.tryGetContext('certificateArn');
-  if (!certificateArn) {
-    throw new Error(
-      'Missing CDK context variable "certificateArn". ' +
-      'Deploy FastSpec-Cert-<env> first, then pass --context certificateArn=<arn>.',
-    );
-  }
+  // A placeholder is used at synth time when deploying other stacks (e.g. DataStack)
+  // so the app synthesises cleanly. CloudFormation will reject an invalid ARN at
+  // deploy time if FrontendStack is actually targeted without the real value.
+  const certificateArn: string =
+    app.node.tryGetContext('certificateArn') ?? 'CERTIFICATE_ARN_REQUIRED';
 
   new FrontendStack(app, `FastSpec-Frontend-${env}`, {
     config,
