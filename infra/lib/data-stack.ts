@@ -83,17 +83,7 @@ export class DataStack extends cdk.Stack {
       deletionProtection: config.env === 'prod',
       removalPolicy:
         config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.SNAPSHOT,
-      databaseName: 'fastspec',
     });
-
-    // Allow any resource within the VPC to reach RDS on port 5432.
-    // This covers both the Fargate service and the migration task without
-    // requiring a cross-stack security-group reference (which causes a cycle).
-    dbInstance.connections.allowFrom(
-      ec2.Peer.ipv4(vpc.vpcCidrBlock),
-      ec2.Port.tcp(5432),
-      'Allow PostgreSQL from within the VPC',
-    );
 
     // ── ElastiCache Redis ─────────────────────────────────────────────────────
     const cacheSubnetGroup = new elasticache.CfnSubnetGroup(this, 'RedisSubnetGroup', {
