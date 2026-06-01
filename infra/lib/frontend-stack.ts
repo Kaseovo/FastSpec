@@ -74,6 +74,7 @@ export class FrontendStack extends cdk.Stack {
     // embedded verbatim — no CrossRegionExportWriter involved.
 
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
+      defaultRootObject: 'index.html',
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(landingBucket, {
           originAccessControl: oac,
