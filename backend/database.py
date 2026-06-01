@@ -14,9 +14,14 @@ Base = declarative_base()
 # Importing here avoids circular imports elsewhere when creating tables on startup
 from models import User, OpenAPISpec, SpecVersion, AuthToken, APIKey
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql://fastspec:fastspec@postgres:5432/fastspec"
-)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if not DATABASE_URL:
+    # Assemble from separate CDK-injected vars (ECS deployment)
+    db_endpoint = os.environ.get("DB_ENDPOINT", "postgres:5432")
+    db_password = os.environ.get("DB_PASSWORD", "fastspec")
+    db_host, db_port = (db_endpoint.split(":") + ["5432"])[:2]
+    DATABASE_URL = f"postgresql://postgres:{db_password}@{db_host}:{db_port}/fastspec"
 
 engine = create_engine(
     DATABASE_URL,

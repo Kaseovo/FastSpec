@@ -21,15 +21,17 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import Base (and all models so their tables are registered on the metadata).
-from database import Base  # noqa: E402
+from database import Base, DATABASE_URL as _assembled_db_url  # noqa: E402
 import models  # noqa: E402, F401 – registers all ORM classes on Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url from the DATABASE_URL environment variable if set.
-database_url = os.environ.get("DATABASE_URL")
+# Override sqlalchemy.url: prefer DATABASE_URL env var, then the value assembled
+# in database.py from DB_ENDPOINT + DB_PASSWORD (used in ECS deployments where
+# no single DATABASE_URL env var is injected).
+database_url = os.environ.get("DATABASE_URL") or _assembled_db_url
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
 

@@ -84,13 +84,13 @@ export class ComputeStack extends cdk.Stack {
         DB_ENDPOINT: props.dbEndpoint,
         REDIS_ENDPOINT: props.redisEndpoint,
         ENV: env,
-        FRONTEND_URL: `https://${env}.fastspec.io`,
-        CORS_ORIGINS: `https://${env}.fastspec.io`,
+        FRONTEND_URL: `https://${config.domain}`,
+        CORS_ORIGINS: `https://${config.domain}`,
         REDIS_HOST: props.redisEndpoint.split(':')[0],
         REDIS_PORT: props.redisEndpoint.split(':')[1] ?? '6379',
       },
       secrets: {
-        SECRET_KEY: ecs.Secret.fromSsmParameter(
+        JWT_SECRET_KEY: ecs.Secret.fromSsmParameter(
           ssm.StringParameter.fromSecureStringParameterAttributes(this, 'SecretKey', {
             parameterName: `/${env}/fastspec/secret-key`,
           }),
