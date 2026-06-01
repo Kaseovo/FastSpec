@@ -85,6 +85,15 @@ export class DataStack extends cdk.Stack {
         config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.SNAPSHOT,
     });
 
+    // Allow any resource within the VPC (Fargate service + migration task) to
+    // reach RDS on port 5432. Using VPC CIDR avoids a cross-stack SG reference
+    // that would create a dependency cycle with ComputeStack.
+    dbInstance.connections.allowFrom(
+      ec2.Peer.ipv4(vpc.vpcCidrBlock),
+      ec2.Port.tcp(5432),
+      'Allow PostgreSQL from within the VPC',
+    );
+
     // ── ElastiCache Redis ─────────────────────────────────────────────────────
     const cacheSubnetGroup = new elasticache.CfnSubnetGroup(this, 'RedisSubnetGroup', {
       description: `${config.env} Redis subnet group`,

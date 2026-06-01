@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -78,6 +79,7 @@ export class ComputeStack extends cdk.Stack {
     taskDef.addContainer('backend', {
       image: ecs.ContainerImage.fromAsset('../', {
         file: 'backend/Dockerfile',
+        platform: ecr_assets.Platform.LINUX_AMD64,
         exclude: ['infra/cdk.out', 'infra/node_modules', '.git', 'frontend/node_modules'],
       }),
       environment: {
@@ -193,6 +195,7 @@ export class ComputeStack extends cdk.Stack {
     migrateDef.addContainer('migrate', {
       image: ecs.ContainerImage.fromAsset('../', {
         file: 'backend/Dockerfile',
+        platform: ecr_assets.Platform.LINUX_AMD64,
         exclude: ['infra/cdk.out', 'infra/node_modules', '.git', 'frontend/node_modules'],
       }),
       command: ['python', 'migrate.py'],
