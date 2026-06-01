@@ -27,12 +27,13 @@ def build_admin_url() -> str:
     parts = db_endpoint.split(":")
     db_host = parts[0]
     db_port = parts[1] if len(parts) > 1 else "5432"
-    return f"postgresql://postgres:{db_password}@{db_host}:{db_port}/postgres"
+    return f"postgresql://postgres:{db_password}@{db_host}:{db_port}/postgres?sslmode=require"
 
 
 def ensure_database() -> None:
     admin_url = build_admin_url()
-    engine = sqlalchemy.create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    engine = sqlalchemy.create_engine(admin_url, isolation_level="AUTOCOMMIT",
+                                      connect_args={"sslmode": "require"})
     with engine.connect() as conn:
         result = conn.execute(
             sqlalchemy.text("SELECT 1 FROM pg_database WHERE datname = 'fastspec'")

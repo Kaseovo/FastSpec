@@ -23,10 +23,14 @@ if not DATABASE_URL:
     db_host, db_port = (db_endpoint.split(":") + ["5432"])[:2]
     DATABASE_URL = f"postgresql://postgres:{db_password}@{db_host}:{db_port}/fastspec"
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
-)
+# Require SSL for RDS connections; ignored for local sqlite/postgres without SSL
+_connect_args: dict = {}
+if "sqlite" in DATABASE_URL:
+    _connect_args["check_same_thread"] = False
+elif "rds.amazonaws.com" in DATABASE_URL or os.environ.get("DB_ENDPOINT"):
+    _connect_args["sslmode"] = "require"
+
+engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
