@@ -6,6 +6,7 @@ export const useAuthStore = defineStore("auth", {
     token: null,
     apiKey: null,
     isLoading: false,
+    oauthError: null,
   }),
   getters: {
     isAuthenticated: (state) => !!state.token && !!state.user,
@@ -60,6 +61,12 @@ export const useAuthStore = defineStore("auth", {
     },
     setLoading(loading) {
       this.isLoading = loading;
+    },
+    setOauthError(message) {
+      this.oauthError = message;
+    },
+    clearOauthError() {
+      this.oauthError = null;
     },
   },
 });

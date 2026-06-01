@@ -118,15 +118,24 @@ export default {
     ]);
 
     // Lifecycle moved from useApp
+    const toast = useToast();
     onMounted(() => {
       auth.initAuth();
       app.fetchOpenApiFile().catch(() => {});
+      if (auth.oauthError) {
+        toast.add({
+          severity: "error",
+          summary: "Sign-in failed",
+          detail: auth.oauthError,
+          life: 8000,
+        });
+        auth.clearOauthError();
+      }
     });
 
     // Provides moved from useApp
     provide("showTokenDialog", () => (showTokenDialog.value = true));
 
-    const toast = useToast();
     const specEditor = app.specEditor ?? null;
     provide("validateCurrentSpec", async () => {
       try {

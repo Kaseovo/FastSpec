@@ -258,12 +258,12 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         # Generate JWT token and persist it
         access_token = create_access_token(user.id, user.email, db_session=db)
 
-        # Redirect to frontend with token (only access token)
-        redirect_url = f"{FRONTEND_URL}/?token={access_token}"
+        # Redirect to frontend SPA (served under /specs) with token
+        redirect_url = f"{FRONTEND_URL}/specs?token={access_token}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
-        error_url = f"{FRONTEND_URL}/?error={str(e)}"
+        error_url = f"{FRONTEND_URL}/specs?error={str(e)}"
         return RedirectResponse(url=error_url)
 
 
@@ -324,12 +324,12 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
         # Generate JWT token and persist it
         access_token = create_access_token(user.id, user.email, db_session=db)
 
-        # Redirect to frontend with token (only access token)
-        redirect_url = f"{FRONTEND_URL}/?token={access_token}"
+        # Redirect to frontend SPA (served under /specs) with token
+        redirect_url = f"{FRONTEND_URL}/specs?token={access_token}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
-        error_url = f"{FRONTEND_URL}/?error={str(e)}"
+        error_url = f"{FRONTEND_URL}/specs?error={str(e)}"
         return RedirectResponse(url=error_url)
 
 

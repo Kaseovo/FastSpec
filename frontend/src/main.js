@@ -79,6 +79,7 @@ const handleRootToken = async () => {
   try {
     if (errorParam) {
       console.error("OAuth error:", errorParam);
+      auth.setOauthError(errorParam);
     } else if (token) {
       const user = await getCurrentUser(token);
       auth.setAuth(token, user);
