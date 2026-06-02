@@ -58,6 +58,26 @@
             Copy and store the raw API key safely — it will not be shown again.
           </div>
           <div class="meta">Expires at: {{ formatTime(createdToken.expires_at) }}</div>
+
+          <!-- MCP Server URL shown after creation -->
+          <div class="mcp-url-section" style="margin-top: 1rem">
+            <label class="field-label">MCP Server URL</label>
+            <div class="token-line" style="display: flex; gap: 0.5rem; align-items: center">
+              <InputText
+                :value="mcpUrl"
+                readonly
+                aria-readonly="true"
+                class="w-full"
+              />
+              <Button icon="pi pi-copy" class="p-ml-2" @click="copyMcpUrl" />
+            </div>
+            <div
+              class="note"
+              style="margin-top: 0.5rem; color: var(--text-color, #6b7280); font-size: 0.875rem;"
+            >
+              Use this URL in your AI client (e.g. Claude Desktop, Cursor) together with your API key.
+            </div>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -482,6 +502,28 @@ export default {
       )} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     };
 
+    const mcpUrl = import.meta.env.VITE_MCP_URL || "";
+
+    const copyMcpUrl = async () => {
+      try {
+        await navigator.clipboard.writeText(mcpUrl);
+        toast.add({
+          severity: "success",
+          summary: "Copied",
+          detail: "MCP Server URL copied to clipboard",
+          life: 2000,
+        });
+      } catch (e) {
+        console.error("Copy failed", e);
+        toast.add({
+          severity: "error",
+          summary: "Copy Failed",
+          detail: e.message || "Unable to copy",
+          life: 3000,
+        });
+      }
+    };
+
     const copyCreated = async () => {
       try {
         const val =
@@ -520,6 +562,8 @@ export default {
       closeCreateDialog,
       handleCreate,
       copyCreated,
+      mcpUrl,
+      copyMcpUrl,
       tokens,
       listError,
       revoking,
