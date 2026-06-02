@@ -1,16 +1,22 @@
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
-from fastmcp_server.middleware import LoggingMiddleware, AuthenticationMiddleware
 from fastmcp.exceptions import ToolError
+from fastmcp_server.middleware import LoggingMiddleware, AuthenticationMiddleware
 from fastmcp_server.authentication import get_current_user, TokenPayload
 from database import SessionLocal
 from models import OpenAPISpec, SpecVersion
 from permissions import Action
-import json
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 mcp = FastMCP(name="My MCP Server")
 mcp.add_middleware(LoggingMiddleware())
 mcp.add_middleware(AuthenticationMiddleware())
+
+
+@mcp.custom_route("/api/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
+    return JSONResponse({"status": "ok"})
 
 
 @mcp.tool()
