@@ -9,6 +9,8 @@ export interface WakeStackProps extends cdk.StackProps {
   config: EnvConfig;
   clusterName: string;
   serviceName: string;
+  /** MCP ECS service name — woken alongside the backend service. */
+  mcpServiceName: string;
   rdsInstanceId: string;
 }
 
@@ -36,6 +38,7 @@ export class WakeStack extends cdk.Stack {
         ENV: config.env,
         CLUSTER_NAME: props.clusterName,
         SERVICE_NAME: props.serviceName,
+        MCP_SERVICE_NAME: props.mcpServiceName,
         RDS_INSTANCE_ID: props.rdsInstanceId,
       },
     });

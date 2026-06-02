@@ -96,12 +96,20 @@ def handler(event, context):
     except Exception as e:
         print(f"RDS error: {e}")
 
-    # Set ECS desired count to 1
+    # Set ECS desired count to 1 — backend and MCP are woken independently
     ecs = boto3.client('ecs')
     try:
         ecs.update_service(cluster=cluster, service=service, desiredCount=1)
         print(f"ECS service {service} desired count set to 1")
     except Exception as e:
-        print(f"ECS error: {e}")
+        print(f"ECS error (backend): {e}")
+
+    mcp_service = os.environ.get('MCP_SERVICE_NAME', '')
+    if mcp_service:
+        try:
+            ecs.update_service(cluster=cluster, service=mcp_service, desiredCount=1)
+            print(f"ECS service {mcp_service} desired count set to 1")
+        except Exception as e:
+            print(f"ECS error (mcp): {e}")
 
     return cors_response(200, json.dumps({'status': 'starting'}))

@@ -57,6 +57,7 @@ if (config.deployFrontend) {
     config,
     clusterName: computeStack.cluster.clusterName,
     serviceName: computeStack.serviceName,
+    mcpServiceName: computeStack.mcpServiceName,
     rdsInstanceId: dataStack.rdsInstanceId,
     env: awsEnv,
   });
