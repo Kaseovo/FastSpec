@@ -185,7 +185,7 @@ export class ComputeStack extends cdk.Stack {
 
     mcpTaskDef.addContainer('mcp', {
       image: ecs.ContainerImage.fromAsset('../', {
-        file: 'Dockerfile-MCP',
+        file: 'backend/Dockerfile-MCP',
         platform: ecr_assets.Platform.LINUX_AMD64,
         exclude: ['infra/cdk.out', 'infra/node_modules', '.git', 'frontend/node_modules'],
       }),
