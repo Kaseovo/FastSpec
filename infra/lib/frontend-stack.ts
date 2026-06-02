@@ -94,16 +94,22 @@ function handler(event) {
       runtime: cloudfront.FunctionRuntime.JS_2_0,
     });
 
-    // SPA rewrite: all /specs* routes (including deep links and query strings)
-    // must resolve to the single /index.html entry point in frontendBucket.
-    // Static assets under /specs/assets/* are passed through unchanged.
+    // SPA rewrite for frontendBucket:
+    // - Strip the /specs prefix so S3 keys resolve correctly
+    //   (/specs/assets/foo.css → /assets/foo.css)
+    // - Rewrite any extensionless path to /index.html (SPA entry point)
+    //   (/specs, /specs/123, /specs/123/preview → /index.html)
     const spaRewriteFn = new cloudfront.Function(this, 'SpaRewriteFn', {
       code: cloudfront.FunctionCode.fromInline(`
 function handler(event) {
   var uri = event.request.uri;
+  // Strip leading /specs prefix
+  uri = uri.replace(/^\\/specs/, '') || '/';
+  // Extensionless paths → SPA entry point
   if (!uri.includes('.')) {
-    event.request.uri = '/index.html';
+    uri = '/index.html';
   }
+  event.request.uri = uri;
   return event.request;
 }
       `.trim()),
