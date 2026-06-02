@@ -31,6 +31,8 @@ export class ComputeStack extends cdk.Stack {
   readonly alb: elbv2.ApplicationLoadBalancer;
   /** ECS service name — used by WakeStack. */
   readonly serviceName: string;
+  /** MCP ECS service name — used by WakeStack. */
+  readonly mcpServiceName: string;
   /** ECS cluster — used by WakeStack. */
   readonly cluster: ecs.Cluster;
 
@@ -163,6 +165,79 @@ export class ComputeStack extends cdk.Stack {
       conditions: [elbv2.ListenerCondition.pathPatterns(['/api*'])],
     });
 
+    // ── MCP Security Group ────────────────────────────────────────────────────
+    const mcpSg = new ec2.SecurityGroup(this, 'McpSg', {
+      vpc,
+      description: 'Fargate MCP service security group',
+      allowAllOutbound: true,
+    });
+    mcpSg.addIngressRule(
+      ec2.Peer.securityGroupId(albSg.securityGroupId),
+      ec2.Port.tcp(9000),
+      'Allow port 9000 from ALB SG only',
+    );
+
+    // ── MCP Task Definition ───────────────────────────────────────────────────
+    const mcpTaskDef = new ecs.FargateTaskDefinition(this, 'McpTaskDef', {
+      memoryLimitMiB: 512,
+      cpu: 256,
+    });
+
+    mcpTaskDef.addContainer('mcp', {
+      image: ecs.ContainerImage.fromAsset('../', {
+        file: 'Dockerfile-MCP',
+        platform: ecr_assets.Platform.LINUX_AMD64,
+        exclude: ['infra/cdk.out', 'infra/node_modules', '.git', 'frontend/node_modules'],
+      }),
+      environment: {
+        DB_ENDPOINT: props.dbEndpoint,
+        REDIS_ENDPOINT: props.redisEndpoint,
+        REDIS_HOST: props.redisEndpoint.split(':')[0],
+        REDIS_PORT: props.redisEndpoint.split(':')[1] ?? '6379',
+        ENV: env,
+      },
+      secrets: {
+        JWT_SECRET_KEY: ecs.Secret.fromSsmParameter(
+          ssm.StringParameter.fromSecureStringParameterAttributes(this, 'McpSecretKey', {
+            parameterName: `/${env}/fastspec/secret-key`,
+          }),
+        ),
+        DB_PASSWORD: ecs.Secret.fromSsmParameter(
+          ssm.StringParameter.fromSecureStringParameterAttributes(this, 'McpDbPassword', {
+            parameterName: `/${env}/fastspec/db-password`,
+          }),
+        ),
+      },
+      portMappings: [{ containerPort: 9000 }],
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: 'mcp',
+        logGroup: new logs.LogGroup(this, 'McpLogGroup', {
+          logGroupName: '/ecs/fastspec-mcp',
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        }),
+      }),
+    });
+
+    // ── MCP Fargate Service ───────────────────────────────────────────────────
+    const mcpService = new ecs.FargateService(this, 'McpService', {
+      cluster,
+      taskDefinition: mcpTaskDef,
+      desiredCount: 1,
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      assignPublicIp: true,
+      securityGroups: [mcpSg],
+    });
+    this.mcpServiceName = mcpService.serviceName;
+
+    listener.addTargets('McpTargetGroup', {
+      port: 9000,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      targets: [mcpService],
+      healthCheck: { path: '/api/health' },
+      priority: 15,
+      conditions: [elbv2.ListenerCondition.pathPatterns(['/mcp*'])],
+    });
+
     listener.addTargets('AuthTargetGroup', {
       port: 8000,
       protocol: elbv2.ApplicationProtocol.HTTP,
@@ -236,6 +311,11 @@ export class ComputeStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'PublicSubnetId', {
       value: vpc.publicSubnets[0].subnetId,
       exportName: `${this.stackName}-PublicSubnetId`,
+    });
+
+    new cdk.CfnOutput(this, 'McpServiceName', {
+      value: mcpService.serviceName,
+      exportName: `${this.stackName}-McpServiceName`,
     });
   }
 }

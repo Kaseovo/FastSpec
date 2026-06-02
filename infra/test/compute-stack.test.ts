@@ -81,7 +81,7 @@ describe('ComputeStack — local', () => {
         {
           Name: 'backend',
           Secrets: Match.arrayWith([
-            Match.objectLike({ Name: 'SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' }),
             Match.objectLike({ Name: 'DB_PASSWORD' }),
           ]),
         },
@@ -90,7 +90,7 @@ describe('ComputeStack — local', () => {
   });
 
   test('provisions a separate Migration Task definition', () => {
-    template.resourceCountIs('AWS::ECS::TaskDefinition', 2);
+    template.resourceCountIs('AWS::ECS::TaskDefinition', 3);
   });
 
   test('migration task container command is alembic upgrade head', () => {
@@ -98,7 +98,7 @@ describe('ComputeStack — local', () => {
       ContainerDefinitions: [
         {
           Name: 'migrate',
-          Command: ['alembic', 'upgrade', 'head'],
+          Command: ['python', 'migrate.py'],
         },
       ],
     });
@@ -153,7 +153,7 @@ describe('ComputeStack — issue #91: real image, public subnet, SG, SSM secrets
         {
           Name: 'backend',
           Secrets: Match.arrayWith([
-            Match.objectLike({ Name: 'SECRET_KEY' }),
+            Match.objectLike({ Name: 'JWT_SECRET_KEY' }),
             Match.objectLike({ Name: 'DB_PASSWORD' }),
             Match.objectLike({ Name: 'GOOGLE_CLIENT_ID' }),
             Match.objectLike({ Name: 'GOOGLE_CLIENT_SECRET' }),
@@ -232,13 +232,55 @@ describe('ComputeStack — issue #91: real image, public subnet, SG, SSM secrets
 });
 
 describe('ComputeStack — isLocal() guard', () => {
-  test('local template has exactly 2 backend listener rules (api + auth only)', () => {
+  test('local template has exactly 3 backend listener rules (api + mcp + auth only)', () => {
     const localTemplate = Template.fromStack(buildStack('local'));
-    localTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 2);
+    localTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 3);
   });
 
-  test('non-local template has more than 2 listener rules (frontend placeholder added)', () => {
+  test('non-local template has more than 3 listener rules (frontend placeholder added)', () => {
     const devTemplate = Template.fromStack(buildStack('dev'));
-    devTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 3);
+    devTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 4);
+  });
+});
+
+describe('ComputeStack — MCP Fargate service (issue #103)', () => {
+  let template: Template;
+
+  beforeAll(() => {
+    template = Template.fromStack(buildStack('local'));
+  });
+
+  test('exactly two FargateService resources exist in the stack', () => {
+    template.resourceCountIs('AWS::ECS::Service', 2);
+  });
+
+  test('ALB has a listener rule for /mcp* at priority 15 targeting port 9000', () => {
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::ListenerRule', {
+      Priority: 15,
+      Conditions: [{ Field: 'path-pattern', PathPatternConfig: { Values: ['/mcp*'] } }],
+      Actions: Match.arrayWith([
+        Match.objectLike({ Type: 'forward' }),
+      ]),
+    });
+  });
+
+  test('MCP task definition does not include OAuth secret references', () => {
+    const resources = template.findResources('AWS::ECS::TaskDefinition');
+    const taskDefs = Object.values(resources);
+    const mcpDef = taskDefs.find((r: any) =>
+      r.Properties?.ContainerDefinitions?.some((c: any) => c.Name === 'mcp'),
+    ) as any;
+    expect(mcpDef).toBeDefined();
+    const secrets: Array<{ Name: string; ValueFrom: any }> =
+      mcpDef.Properties.ContainerDefinitions.find((c: any) => c.Name === 'mcp').Secrets ?? [];
+    const secretNames = secrets.map((s) => s.Name);
+    expect(secretNames).not.toContain('GOOGLE_CLIENT_ID');
+    expect(secretNames).not.toContain('GOOGLE_CLIENT_SECRET');
+    expect(secretNames).not.toContain('GITHUB_CLIENT_ID');
+    expect(secretNames).not.toContain('GITHUB_CLIENT_SECRET');
+  });
+
+  test('mcpServiceName is emitted as a CfnOutput', () => {
+    template.hasOutput('McpServiceName', {});
   });
 });
