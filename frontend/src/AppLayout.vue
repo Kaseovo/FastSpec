@@ -120,7 +120,6 @@ export default {
     // Lifecycle moved from useApp
     const toast = useToast();
     onMounted(() => {
-      auth.initAuth();
       app.fetchOpenApiFile().catch(() => {});
       if (auth.oauthError) {
         toast.add({
