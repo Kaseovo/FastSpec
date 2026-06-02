@@ -134,4 +134,4 @@ def get_spec_details(
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", host="0.0.0.0", port=9000, path="/")
+    mcp.run(transport="http", host="0.0.0.0", port=9000, path="/mcp")
