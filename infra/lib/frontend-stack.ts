@@ -134,6 +134,7 @@ function handler(event) {
             originAccessControl: oac,
           }),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS,
           functionAssociations: [{
             function: spaRewriteFn,
             eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
