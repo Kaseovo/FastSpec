@@ -108,7 +108,7 @@ jobs:
         run: |
           for region in ap-southeast-1 us-east-1; do
             aws s3api head-bucket --bucket cdk-hnb659fds-assets-000000000000-$region 2>/dev/null \
-              || npx cdk bootstrap aws://000000000000/$region
+              || npx cdk bootstrap aws://000000000000/$region --context env=${{ github.event.inputs.env }}
           done
         working-directory: infra
 
