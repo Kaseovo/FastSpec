@@ -104,12 +104,12 @@ jobs:
         run: npm ci
         working-directory: infra
 
-      - name: Bootstrap CDK environment
+      - name: Verify CDK bootstrap
         run: |
           for region in ap-southeast-1 us-east-1; do
-            npx cdk bootstrap aws://000000000000/$region --context env=${{ github.event.inputs.env }}
+            aws s3api head-bucket --bucket cdk-hnb659fds-assets-000000000000-$region \
+              || { echo "ERROR: CDK not bootstrapped in $region. Run: npx cdk bootstrap aws://000000000000/$region" >&2; exit 1; }
           done
-        working-directory: infra
 
       - name: Deploy DataStack
         run: npx cdk deploy FastSpec-Data-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
