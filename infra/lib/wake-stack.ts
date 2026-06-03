@@ -15,7 +15,7 @@ export interface WakeStackProps extends cdk.StackProps {
 }
 
 /**
- * WakeStack — Lambda Function URL that starts the dev environment on demand.
+ * WakeStack — Lambda Function URL that starts the environment on demand.
  *
  * Validates a shared secret before touching RDS or ECS.
  * The IAM role is scoped to start-only operations — no stop, no other access.

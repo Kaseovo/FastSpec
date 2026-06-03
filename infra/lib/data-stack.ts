@@ -16,16 +16,7 @@ interface DataSizing {
   cacheNodeType: string;
 }
 
-function sizingFor(config: EnvConfig): DataSizing {
-  if (config.env === 'prod') {
-    return {
-      rdsInstanceClass: ec2.InstanceClass.R6G,
-      rdsInstanceSize: ec2.InstanceSize.LARGE,
-      rdsMultiAz: true,
-      cacheNodeType: 'cache.r6g.large',
-    };
-  }
-  // local / dev / staging — burstable minimal
+function sizingFor(_config: EnvConfig): DataSizing {
   return {
     rdsInstanceClass: ec2.InstanceClass.T3,
     rdsInstanceSize: ec2.InstanceSize.MICRO,
@@ -55,16 +46,12 @@ export class DataStack extends cdk.Stack {
     const sizing = sizingFor(config);
 
     const vpc = new ec2.Vpc(this, 'Vpc', {
-      maxAzs: config.env === 'prod' ? 3 : 2,
-      natGateways: config.env === 'prod' ? 1 : 0,
+      maxAzs: 2,
+      natGateways: 0,
     });
-
     this.vpc = vpc;
 
-    const vpcSubnets: ec2.SubnetSelection =
-      config.env === 'prod'
-        ? { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
-        : { subnetType: ec2.SubnetType.PRIVATE_ISOLATED };
+    const vpcSubnets: ec2.SubnetSelection = { subnetType: ec2.SubnetType.PRIVATE_ISOLATED };
 
     // ── RDS PostgreSQL ────────────────────────────────────────────────────────
     const dbInstance = new rds.DatabaseInstance(this, 'Postgres', {
@@ -97,10 +84,7 @@ export class DataStack extends cdk.Stack {
     // ── ElastiCache Redis ─────────────────────────────────────────────────────
     const cacheSubnetGroup = new elasticache.CfnSubnetGroup(this, 'RedisSubnetGroup', {
       description: `${config.env} Redis subnet group`,
-      subnetIds:
-        config.env === 'prod'
-          ? vpc.privateSubnets.map((s) => s.subnetId)
-          : vpc.isolatedSubnets.map((s) => s.subnetId),
+      subnetIds: vpc.isolatedSubnets.map((s) => s.subnetId),
     });
 
     const redisCluster = new elasticache.CfnReplicationGroup(this, 'Redis', {

@@ -1,4 +1,4 @@
-name: Dev Environment
+name: Prod Environment
 
 on:
   workflow_dispatch:
@@ -35,7 +35,7 @@ jobs:
       - name: Get RDS instance identifier
         id: rds
         run: |
-          STACK="FastSpec-Data-dev"
+          STACK="FastSpec-Data-prod"
           # RDS instance ID is tagged with the stack name — find it
           INSTANCE_ID=$(aws rds describe-db-instances \
             --query "DBInstances[?TagList[?Key=='aws:cloudformation:stack-name'&&Value=='$STACK']].DBInstanceIdentifier" \
@@ -74,7 +74,7 @@ jobs:
       - name: Get ECS cluster and service name
         id: ecs
         run: |
-          STACK="FastSpec-Compute-dev"
+          STACK="FastSpec-Compute-prod"
           CLUSTER=$(aws cloudformation describe-stacks \
             --stack-name "$STACK" \
             --query "Stacks[0].Outputs[?OutputKey=='ClusterName'].OutputValue" \

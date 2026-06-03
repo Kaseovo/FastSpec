@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run-migrate.sh — run Alembic migrations for local development.
 # For local env, Alembic is invoked directly (no ECS task).
-# In CI/staging/prod this would be replaced by an ECS run-task invocation.
+# In CI prod this would be replaced by an ECS run-task invocation.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

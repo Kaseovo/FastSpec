@@ -4,12 +4,12 @@
     "ap-southeast-1b",
     "ap-southeast-1c"
   ],
-  "hosted-zone:account=000000000000:domainName=dev.fastspec.kaseovo.com:region=ap-southeast-1": {
+  "hosted-zone:account=000000000000:domainName=fastspec.kaseovo.com:region=ap-southeast-1": {
     "Id": "/hostedzone/Z09735562A1Z2YRC3A6EL",
-    "Name": "dev.fastspec.kaseovo.com."
+    "Name": "fastspec.kaseovo.com."
   },
-  "hosted-zone:account=000000000000:domainName=dev.fastspec.kaseovo.com:region=us-east-1": {
+  "hosted-zone:account=000000000000:domainName=fastspec.kaseovo.com:region=us-east-1": {
     "Id": "/hostedzone/Z09735562A1Z2YRC3A6EL",
-    "Name": "dev.fastspec.kaseovo.com."
+    "Name": "fastspec.kaseovo.com."
   }
 }

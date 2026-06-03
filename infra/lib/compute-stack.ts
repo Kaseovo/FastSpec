@@ -24,7 +24,7 @@ function isLocal(config: EnvConfig): boolean {
  * Imports connection endpoints from DataStack.
  *
  * For the `local` environment ALB listener rules cover /api and /auth only.
- * For dev/staging/prod they also cover frontend and landing-page routes.
+ * For prod they also cover frontend and landing-page routes.
  */
 export class ComputeStack extends cdk.Stack {
   /** The Application Load Balancer — used by FrontendStack for ALB origins. */

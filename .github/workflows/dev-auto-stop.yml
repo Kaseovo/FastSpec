@@ -1,4 +1,4 @@
-name: Dev Auto-Stop
+name: Auto-Stop
 
 on:
   schedule:
@@ -22,7 +22,7 @@ jobs:
       - name: Check if environment is running
         id: check
         run: |
-          STACK="FastSpec-Compute-dev"
+          STACK="FastSpec-Compute-prod"
 
           CLUSTER=$(aws cloudformation describe-stacks \
             --stack-name "$STACK" \
@@ -55,7 +55,7 @@ jobs:
         id: traffic
         if: steps.check.outputs.running == 'true'
         run: |
-          STACK="FastSpec-Compute-dev"
+          STACK="FastSpec-Compute-prod"
 
           ALB_ARN=$(aws cloudformation describe-stacks \
             --stack-name "$STACK" \
@@ -91,7 +91,7 @@ jobs:
       - name: Stop idle environment
         if: steps.check.outputs.running == 'true' && steps.traffic.outputs.idle == 'true'
         run: |
-          echo "No traffic in 60 minutes — stopping dev environment"
+          echo "No traffic in 60 minutes — stopping prod environment"
 
           # Stop Fargate
           aws ecs update-service \
@@ -100,7 +100,7 @@ jobs:
             --desired-count 0
 
           # Stop RDS
-          STACK="FastSpec-Data-dev"
+          STACK="FastSpec-Data-prod"
           INSTANCE_ID=$(aws rds describe-db-instances \
             --query "DBInstances[?TagList[?Key=='aws:cloudformation:stack-name'&&Value=='$STACK']].DBInstanceIdentifier" \
             --output text)
@@ -115,7 +115,7 @@ jobs:
             echo "RDS stopped"
           fi
 
-          echo "Dev environment stopped due to inactivity"
+          echo "Prod environment stopped due to inactivity"
 
       - name: Environment still active
         if: steps.check.outputs.running == 'true' && steps.traffic.outputs.idle == 'false'
@@ -123,4 +123,4 @@ jobs:
 
       - name: Environment already stopped
         if: steps.check.outputs.running == 'false'
-        run: echo "Dev environment is already stopped — nothing to do"
+        run: echo "Prod environment is already stopped — nothing to do"

@@ -5,8 +5,8 @@ import { WakeStack } from '../lib/wake-stack';
 
 function buildWakeStack() {
   const app = new cdk.App();
-  const config = getConfig('dev');
-  return new WakeStack(app, 'FastSpec-Wake-dev', {
+  const config = getConfig('prod');
+  return new WakeStack(app, 'FastSpec-Wake-prod', {
     config,
     clusterName: 'my-cluster',
     serviceName: 'backend-svc',

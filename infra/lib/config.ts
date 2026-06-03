@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 
-export type Env = 'local' | 'dev' | 'staging' | 'prod';
+export type Env = 'local' | 'prod';
 
 export interface EnvConfig {
   /** The Deployment Environment name. */
@@ -19,16 +19,6 @@ const CONFIGS: Record<Env, EnvConfig> = {
     domain: 'fastspec.kaseovo.com',
     deployFrontend: true,
   },
-  staging: {
-    env: 'staging',
-    domain: 'staging.fastspec.kaseovo.com',
-    deployFrontend: true,
-  },
-  dev: {
-    env: 'dev',
-    domain: 'dev.fastspec.kaseovo.com',
-    deployFrontend: true,
-  },
   local: {
     env: 'local',
     domain: 'localhost',
@@ -44,7 +34,7 @@ const CONFIGS: Record<Env, EnvConfig> = {
 export function getConfig(env: Env): EnvConfig {
   const config = CONFIGS[env];
   if (!config) {
-    throw new Error(`Unknown deployment environment: "${env}". Valid values: local, dev, staging, prod.`);
+    throw new Error(`Unknown deployment environment: "${env}". Valid values: local, prod.`);
   }
   return config;
 }
@@ -56,9 +46,9 @@ export function getConfig(env: Env): EnvConfig {
 export function resolveEnv(node: cdk.App): Env {
   const raw: unknown = node.node.tryGetContext('env');
   if (raw === undefined || raw === null) {
-    throw new Error('Missing required CDK context variable "env". Pass --context env=local|dev|staging|prod.');
+    throw new Error('Missing required CDK context variable "env". Pass --context env=local|prod.');
   }
-  const valid: Env[] = ['local', 'dev', 'staging', 'prod'];
+  const valid: Env[] = ['local', 'prod'];
   if (!valid.includes(raw as Env)) {
     throw new Error(`Invalid CDK context "env": "${raw}". Valid values: ${valid.join(', ')}.`);
   }

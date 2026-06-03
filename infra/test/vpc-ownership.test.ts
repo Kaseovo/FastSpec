@@ -7,7 +7,7 @@ import { getConfig } from '../lib/config';
 /**
  * Builds both stacks in the same CDK App to verify cross-stack VPC sharing.
  */
-function buildBothStacks(env: 'local' | 'dev' | 'prod') {
+function buildBothStacks(env: 'local' | 'prod') {
   const app = new cdk.App();
   const config = getConfig(env);
   const dataStack = new DataStack(app, `FastSpec-Data-${env}`, { config });

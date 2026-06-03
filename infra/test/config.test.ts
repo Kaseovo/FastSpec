@@ -17,22 +17,6 @@ describe('getConfig', () => {
     expect(config.awsEndpoint).toBe('http://localhost:4566');
   });
 
-  test("dev resolves to dev.fastspec.kaseovo.com with frontend deployment", () => {
-    const config = getConfig('dev');
-    expect(config.env).toBe('dev');
-    expect(config.domain).toBe('dev.fastspec.kaseovo.com');
-    expect(config.deployFrontend).toBe(true);
-    expect(config.awsEndpoint).toBeUndefined();
-  });
-
-  test("staging resolves to staging.fastspec.kaseovo.com with frontend deployment", () => {
-    const config = getConfig('staging');
-    expect(config.env).toBe('staging');
-    expect(config.domain).toBe('staging.fastspec.kaseovo.com');
-    expect(config.deployFrontend).toBe(true);
-    expect(config.awsEndpoint).toBeUndefined();
-  });
-
   test("unknown env value throws a descriptive error", () => {
     expect(() => getConfig('noop' as any)).toThrow(/Unknown deployment environment/);
   });

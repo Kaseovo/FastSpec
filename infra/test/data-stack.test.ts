@@ -79,21 +79,21 @@ describe('DataStack — prod', () => {
     template = Template.fromStack(buildStack('prod'));
   });
 
-  test('uses a production instance class for RDS', () => {
+  test('uses t3.micro instance class for RDS', () => {
     template.hasResourceProperties('AWS::RDS::DBInstance', {
-      DBInstanceClass: 'db.r6g.large',
+      DBInstanceClass: 'db.t3.micro',
     });
   });
 
-  test('enables multi-AZ for RDS', () => {
+  test('does not enable multi-AZ for RDS', () => {
     template.hasResourceProperties('AWS::RDS::DBInstance', {
-      MultiAZ: true,
+      MultiAZ: false,
     });
   });
 
-  test('uses a production ElastiCache node type', () => {
+  test('uses t3.micro ElastiCache node type', () => {
     template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
-      CacheNodeType: 'cache.r6g.large',
+      CacheNodeType: 'cache.t3.micro',
     });
   });
 
@@ -122,30 +122,3 @@ describe('DataStack — prod', () => {
   });
 });
 
-describe('DataStack — dev', () => {
-  let template: Template;
-
-  beforeAll(() => {
-    template = Template.fromStack(buildStack('dev'));
-  });
-
-  test('RDS does not have DeletionProtection enabled', () => {
-    template.hasResourceProperties('AWS::RDS::DBInstance', {
-      DeletionProtection: false,
-    });
-  });
-});
-
-describe('DataStack — staging', () => {
-  let template: Template;
-
-  beforeAll(() => {
-    template = Template.fromStack(buildStack('staging'));
-  });
-
-  test('RDS does not have DeletionProtection enabled', () => {
-    template.hasResourceProperties('AWS::RDS::DBInstance', {
-      DeletionProtection: false,
-    });
-  });
-});

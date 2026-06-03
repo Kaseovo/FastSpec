@@ -4,7 +4,7 @@ import { DataStack } from '../lib/data-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { getConfig } from '../lib/config';
 
-function buildStack(env: 'local' | 'dev') {
+function buildStack(env: 'local' | 'prod') {
   const app = new cdk.App();
   const config = getConfig(env);
   const dataStack = new DataStack(app, `FastSpec-Data-${env}`, { config });
@@ -238,8 +238,8 @@ describe('ComputeStack — isLocal() guard', () => {
   });
 
   test('non-local template has more than 3 listener rules (frontend placeholder added)', () => {
-    const devTemplate = Template.fromStack(buildStack('dev'));
-    devTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 4);
+    const prodTemplate = Template.fromStack(buildStack('prod'));
+    prodTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 4);
   });
 });
 

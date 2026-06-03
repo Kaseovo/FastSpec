@@ -132,7 +132,7 @@ class HttpSpectralClient:
     """
     Call the Spectral Sidecar over HTTP.
 
-    Used in ``dev``, ``staging``, and ``prod`` when ``SPECTRAL_MODE=http``.
+    Used in ``prod`` when ``SPECTRAL_MODE=http``.
     The sidecar URL is read from the ``SPECTRAL_SIDECAR_URL`` environment
     variable (default: ``http://localhost:3001``).
     """
