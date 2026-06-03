@@ -40,7 +40,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # ── Version bump ──────────────────────────────────────────────────────────
 
@@ -102,6 +102,14 @@ jobs:
 
       - name: Install CDK dependencies
         run: npm ci
+        working-directory: infra
+
+      - name: Bootstrap CDK environment
+        run: |
+          for region in ap-southeast-1 us-east-1; do
+            aws cloudformation describe-stacks --stack-name CDKToolkit --region $region &>/dev/null \
+              || npx cdk bootstrap aws://000000000000/$region
+          done
         working-directory: infra
 
       - name: Deploy DataStack
