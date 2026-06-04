@@ -179,7 +179,7 @@ jobs:
           echo "arn=$ARN" >> $GITHUB_OUTPUT
 
       - name: Deploy FrontendStack
-        run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --context certificateArn=${{ steps.cert.outputs.arn }} --require-approval never
+        run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --context certificateArn=${{ steps.cert.outputs.arn }} --context deployId=${{ github.run_number }} --require-approval never
         working-directory: infra
 
       - name: Deploy WakeStack

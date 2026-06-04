@@ -116,7 +116,14 @@ function handler(event) {
       runtime: cloudfront.FunctionRuntime.JS_2_0,
     });
 
+    // Embed the CI run number (deployId context) as the distribution comment.
+    // This guarantees a non-empty CloudFormation changeset on every CI run,
+    // which forces CloudFormation to re-apply all distribution properties and
+    // automatically reconcile any drift introduced by manual console edits.
+    const deployId = this.node.tryGetContext('deployId') ?? 'local';
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
+      comment: `FastSpec-${config.env} #${deployId}`,
       defaultRootObject: 'index.html',
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(landingBucket, {
