@@ -5,11 +5,11 @@
     "ap-southeast-1c"
   ],
   "hosted-zone:account=000000000000:domainName=fastspec.kaseovo.com:region=ap-southeast-1": {
-    "Id": "/hostedzone/Z09735562A1Z2YRC3A6EL",
+    "Id": "/hostedzone/Z0000000000000EXAMPLE",
     "Name": "fastspec.kaseovo.com."
   },
   "hosted-zone:account=000000000000:domainName=fastspec.kaseovo.com:region=us-east-1": {
-    "Id": "/hostedzone/Z09735562A1Z2YRC3A6EL",
+    "Id": "/hostedzone/Z0000000000000EXAMPLE",
     "Name": "fastspec.kaseovo.com."
   }
 }
