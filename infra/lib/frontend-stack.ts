@@ -160,7 +160,7 @@ function handler(event) {
     // `certificate` and `domainNames` are omitted from L2 props to avoid CDK's
     // synth-time us-east-1 cert validation.  Patched in at L1 below.
 
-    const landingDistribution = new cloudfront.Distribution(this, 'LandingDistribution', {
+    const landingDistribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `FastSpec-Landing-${config.env} #${deployId}`,
       defaultRootObject: 'index.html',
       defaultBehavior: {
