@@ -1,7 +1,7 @@
 <template>
   <header class="app-header">
     <div class="header-left">
-      <a :href="landingUrl" class="logo-link">
+      <a href="/" class="logo-link">
         <img src="/logo.svg" alt="FastSpec" class="logo" />
       </a>
       <span v-if="version" class="version-badge">v{{ version }}</span>
@@ -16,7 +16,6 @@
 import { ref, onMounted } from 'vue'
 
 const version = ref(null)
-const landingUrl = import.meta.env.VITE_LANDING_URL || "/"
 
 onMounted(async () => {
   try {
@@ -28,7 +27,7 @@ onMounted(async () => {
     }
   } catch {}
   try {
-    const env = await fetch('/env.version')
+    const env = await fetch('/specs/env.version')
     if (env.ok) {
       const txt = await env.text()
       const m = txt.match(/REACT_APP_VERSION=(.+)/)
