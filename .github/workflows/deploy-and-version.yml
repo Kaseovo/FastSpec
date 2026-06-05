@@ -174,7 +174,7 @@ jobs:
           ARN=$(aws cloudformation describe-stacks \
             --stack-name FastSpec-Cert-${{ github.event.inputs.env }} \
             --region us-east-1 \
-            --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateArnV2'].OutputValue" \
             --output text)
           echo "arn=$ARN" >> $GITHUB_OUTPUT
 
@@ -186,7 +186,7 @@ jobs:
         run: npx cdk deploy FastSpec-Wake-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
         working-directory: infra
 
-      - name: Get S3 bucket names, CloudFront distribution ID and Wake URL
+      - name: Get S3 bucket names, CloudFront distribution IDs and Wake URL
         id: infra_outputs
         run: |
           ENV=${{ github.event.inputs.env }}
@@ -203,9 +203,14 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='LandingBucketName'].OutputValue" \
             --output text)
 
-          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+          LANDING_DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
             --stack-name "$FRONTEND_STACK" \
-            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='LandingDistributionId'].OutputValue" \
+            --output text)
+
+          APP_DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name "$FRONTEND_STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='AppDistributionId'].OutputValue" \
             --output text)
 
           WAKE_URL=$(aws cloudformation describe-stacks \
@@ -215,7 +220,8 @@ jobs:
 
           echo "frontend_bucket=$FRONTEND_BUCKET" >> $GITHUB_OUTPUT
           echo "landing_bucket=$LANDING_BUCKET" >> $GITHUB_OUTPUT
-          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+          echo "landing_distribution_id=$LANDING_DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+          echo "app_distribution_id=$APP_DISTRIBUTION_ID" >> $GITHUB_OUTPUT
           echo "wake_url=$WAKE_URL" >> $GITHUB_OUTPUT
 
       - name: Build frontend SPA
@@ -240,5 +246,8 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.infra_outputs.outputs.distribution_id }} \
+            --distribution-id ${{ steps.infra_outputs.outputs.landing_distribution_id }} \
+            --paths "/*"
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.infra_outputs.outputs.app_distribution_id }} \
             --paths "/*"

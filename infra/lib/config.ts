@@ -5,8 +5,10 @@ export type Env = 'local' | 'prod';
 export interface EnvConfig {
   /** The Deployment Environment name. */
   env: Env;
-  /** Public domain for this environment. */
+  /** Public domain for the landing page. */
   domain: string;
+  /** Public domain for the SPA app (separate CloudFront distribution). */
+  appDomain: string;
   /** Whether S3 + CloudFront stacks should be deployed (false for local). */
   deployFrontend: boolean;
   /** Override AWS endpoint (floci). Only set for the local environment. */
@@ -17,11 +19,13 @@ const CONFIGS: Record<Env, EnvConfig> = {
   prod: {
     env: 'prod',
     domain: 'fastspec.kaseovo.com',
+    appDomain: 'app.fastspec.kaseovo.com',
     deployFrontend: true,
   },
   local: {
     env: 'local',
     domain: 'localhost',
+    appDomain: 'localhost',
     deployFrontend: false,
     awsEndpoint: 'http://localhost:4566',
   },

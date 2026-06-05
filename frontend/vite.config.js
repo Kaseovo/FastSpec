@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       globals: true,
     },
     plugins: [vue()],
-    base: "/specs/",
+    base: "/",
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),

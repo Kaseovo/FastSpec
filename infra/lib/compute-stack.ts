@@ -88,8 +88,9 @@ export class ComputeStack extends cdk.Stack {
         DB_ENDPOINT: props.dbEndpoint,
         REDIS_ENDPOINT: props.redisEndpoint,
         ENV: env,
-        FRONTEND_URL: `https://${config.domain}`,
-        CORS_ORIGINS: `https://${config.domain}`,
+        FRONTEND_URL: `https://${config.appDomain}`,
+        // Allow both the landing page and the SPA to make API calls.
+        CORS_ORIGINS: `https://${config.domain},https://${config.appDomain}`,
         REDIS_HOST: props.redisEndpoint.split(':')[0],
         REDIS_PORT: props.redisEndpoint.split(':')[1] ?? '6379',
       },

@@ -95,7 +95,7 @@ export default {
         console.error("Logout error:", error);
       } finally {
         auth.clearAuth();
-        window.location.href = "/";
+        window.location.href = import.meta.env.VITE_LANDING_URL || "/";
       }
     };
 

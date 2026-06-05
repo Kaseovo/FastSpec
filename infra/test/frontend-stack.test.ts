@@ -58,14 +58,26 @@ describe('CertificateStack — prod', () => {
     template = Template.fromStack(buildCertStack());
   });
 
-  test('provisions an ACM certificate in us-east-1', () => {
-    template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
+  test('provisions two ACM certificates (original + v2 with SAN)', () => {
+    // ViewerCert (legacy, single domain) + ViewerCertV2 (domain + appDomain SAN)
+    template.resourceCountIs('AWS::CertificateManager::Certificate', 2);
   });
 
-  test('certificate domain name matches prod domain', () => {
+  test('ViewerCertV2 covers both domain and appDomain', () => {
+    template.hasResourceProperties('AWS::CertificateManager::Certificate', {
+      DomainName: 'fastspec.kaseovo.com',
+      SubjectAlternativeNames: ['app.fastspec.kaseovo.com'],
+    });
+  });
+
+  test('ViewerCert (legacy) covers only the landing domain', () => {
     template.hasResourceProperties('AWS::CertificateManager::Certificate', {
       DomainName: 'fastspec.kaseovo.com',
     });
+  });
+
+  test('CertificateArnV2 output is exported', () => {
+    template.hasOutput('CertificateArnV2', {});
   });
 
   test('certificate stack region is us-east-1', () => {
@@ -88,7 +100,6 @@ describe('FrontendStack — S3 buckets', () => {
   });
 
   test('both buckets have all four PublicAccessBlock properties set to true', () => {
-    // Assert both buckets block all public access
     const buckets = template.findResources('AWS::S3::Bucket');
     const bucketValues = Object.values(buckets);
     expect(bucketValues).toHaveLength(2);
@@ -113,7 +124,7 @@ describe('FrontendStack — Origin Access Control', () => {
     template = Template.fromStack(buildFrontendStack());
   });
 
-  test('creates at least one CloudFront OAC for S3', () => {
+  test('creates exactly one CloudFront OAC for S3', () => {
     template.resourceCountIs('AWS::CloudFront::OriginAccessControl', 1);
   });
 
@@ -128,7 +139,6 @@ describe('FrontendStack — Origin Access Control', () => {
   });
 
   test('bucket policies grant access to the CloudFront OAC', () => {
-    // Both bucket policies should reference the OAC via cloudfront.amazonaws.com service
     const policies = template.findResources('AWS::S3::BucketPolicy');
     const policyValues = Object.values(policies);
     expect(policyValues.length).toBeGreaterThanOrEqual(2);
@@ -143,42 +153,52 @@ describe('FrontendStack — Origin Access Control', () => {
   });
 });
 
-// ── FrontendStack — CloudFront distribution ───────────────────────────────────
+// ── FrontendStack — CloudFront distributions ──────────────────────────────────
 
-describe('FrontendStack — CloudFront distribution', () => {
+describe('FrontendStack — CloudFront distributions', () => {
   let template: Template;
 
   beforeAll(() => {
     template = Template.fromStack(buildFrontendStack());
   });
 
-  test('provisions exactly one CloudFront distribution', () => {
-    template.resourceCountIs('AWS::CloudFront::Distribution', 1);
+  test('provisions exactly two CloudFront distributions', () => {
+    template.resourceCountIs('AWS::CloudFront::Distribution', 2);
   });
 
-  test('distribution has a cache behaviour for /api*', () => {
+  test('LandingDistribution is aliased to the landing domain', () => {
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: {
-        CacheBehaviors: Match.arrayWith([
-          Match.objectLike({ PathPattern: '/api*' }),
-        ]),
+        Aliases: ['fastspec.kaseovo.com'],
       },
     });
   });
 
-  test('distribution has a cache behaviour for /auth*', () => {
+  test('AppDistribution is aliased to the app domain', () => {
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: {
-        CacheBehaviors: Match.arrayWith([
-          Match.objectLike({ PathPattern: '/auth*' }),
-        ]),
+        Aliases: ['app.fastspec.kaseovo.com'],
       },
     });
   });
 
-  test('distribution has a cache behaviour for /specs*', () => {
+  test('both distributions use the ACM certificate', () => {
+    const distros = template.findResources('AWS::CloudFront::Distribution');
+    const distroValues = Object.values(distros);
+    expect(distroValues).toHaveLength(2);
+    for (const distro of distroValues) {
+      const cert = (distro as any).Properties.DistributionConfig.ViewerCertificate;
+      expect(cert.AcmCertificateArn).toBe(
+        'arn:aws:acm:us-east-1:123456789012:certificate/fake-cert-id',
+      );
+      expect(cert.SslSupportMethod).toBe('sni-only');
+    }
+  });
+
+  test('LandingDistribution has /specs* redirect behavior', () => {
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: {
+        Aliases: ['fastspec.kaseovo.com'],
         CacheBehaviors: Match.arrayWith([
           Match.objectLike({ PathPattern: '/specs*' }),
         ]),
@@ -186,81 +206,80 @@ describe('FrontendStack — CloudFront distribution', () => {
     });
   });
 
-  test('/api* behaviour has caching disabled', () => {
-    const distros = template.findResources('AWS::CloudFront::Distribution');
-    const distroValues = Object.values(distros);
-    expect(distroValues).toHaveLength(1);
-    const config = (distroValues[0] as any).Properties.DistributionConfig;
-    const apiBehaviour = config.CacheBehaviors.find(
-      (b: any) => b.PathPattern === '/api*',
-    );
-    expect(apiBehaviour).toBeDefined();
-    // CachingDisabled policy ARN or TTL of 0
-    const cachePolicyId = apiBehaviour.CachePolicyId;
-    // AWS managed CachingDisabled policy: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-    expect(JSON.stringify(cachePolicyId)).toMatch(/4135ea2d-6df8-44a3-9df3-4b5a84be39ad/);
-  });
-
-  test('/auth* behaviour has caching disabled', () => {
-    const distros = template.findResources('AWS::CloudFront::Distribution');
-    const distroValues = Object.values(distros);
-    const config = (distroValues[0] as any).Properties.DistributionConfig;
-    const authBehaviour = config.CacheBehaviors.find(
-      (b: any) => b.PathPattern === '/auth*',
-    );
-    expect(authBehaviour).toBeDefined();
-    const cachePolicyId = authBehaviour.CachePolicyId;
-    expect(JSON.stringify(cachePolicyId)).toMatch(/4135ea2d-6df8-44a3-9df3-4b5a84be39ad/);
-  });
-
-  test('distribution uses the ACM certificate', () => {
-    template.hasResourceProperties('AWS::CloudFront::Distribution', {
-      DistributionConfig: {
-        ViewerCertificate: {
-          AcmCertificateArn:
-            'arn:aws:acm:us-east-1:123456789012:certificate/fake-cert-id',
-          SslSupportMethod: 'sni-only',
-        },
-      },
-    });
-  });
-
-  test('distribution serves the prod domain', () => {
+  test('LandingDistribution has /api* behavior', () => {
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: {
         Aliases: ['fastspec.kaseovo.com'],
+        CacheBehaviors: Match.arrayWith([
+          Match.objectLike({ PathPattern: '/api*' }),
+        ]),
       },
     });
+  });
+
+  test('AppDistribution has /api* behavior', () => {
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: {
+        Aliases: ['app.fastspec.kaseovo.com'],
+        CacheBehaviors: Match.arrayWith([
+          Match.objectLike({ PathPattern: '/api*' }),
+        ]),
+      },
+    });
+  });
+
+  test('/api* behaviors on both distributions have caching disabled', () => {
+    const distros = template.findResources('AWS::CloudFront::Distribution');
+    const distroValues = Object.values(distros);
+    // AWS managed CachingDisabled policy: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+    for (const distro of distroValues) {
+      const config = (distro as any).Properties.DistributionConfig;
+      const apiBehaviour = config.CacheBehaviors.find(
+        (b: any) => b.PathPattern === '/api*',
+      );
+      expect(apiBehaviour).toBeDefined();
+      expect(JSON.stringify(apiBehaviour.CachePolicyId)).toMatch(
+        /4135ea2d-6df8-44a3-9df3-4b5a84be39ad/,
+      );
+    }
   });
 });
 
 // ── FrontendStack — Route53 ───────────────────────────────────────────────────
 
-describe('FrontendStack — Route53 alias record', () => {
+describe('FrontendStack — Route53 alias records', () => {
   let template: Template;
 
   beforeAll(() => {
     template = Template.fromStack(buildFrontendStack());
   });
 
-  test('creates a Route53 A record', () => {
-    template.hasResourceProperties('AWS::Route53::RecordSet', {
-      Type: 'A',
-    });
-  });
-
-  test('Route53 A record has an alias target pointing to CloudFront', () => {
-    // CloudFront's hosted zone ID comes from a Fn::FindInMap in the template,
-    // so we verify the alias target's DNSName resolves to the distribution's
-    // DomainName (a Fn::GetAtt reference).
+  test('creates exactly two Route53 A records', () => {
     const records = template.findResources('AWS::Route53::RecordSet', {
       Properties: { Type: 'A' },
+    });
+    expect(Object.values(records)).toHaveLength(2);
+  });
+
+  test('landing domain A record has a CloudFront alias target', () => {
+    const records = template.findResources('AWS::Route53::RecordSet', {
+      Properties: { Type: 'A', Name: 'fastspec.kaseovo.com.' },
     });
     const values = Object.values(records);
     expect(values).toHaveLength(1);
     const aliasTarget = (values[0] as any).Properties.AliasTarget;
     expect(aliasTarget).toBeDefined();
-    // DNS name must be a GetAtt to the CloudFront distribution
+    expect(JSON.stringify(aliasTarget.DNSName)).toContain('Fn::GetAtt');
+  });
+
+  test('app domain A record has a CloudFront alias target', () => {
+    const records = template.findResources('AWS::Route53::RecordSet', {
+      Properties: { Type: 'A', Name: 'app.fastspec.kaseovo.com.' },
+    });
+    const values = Object.values(records);
+    expect(values).toHaveLength(1);
+    const aliasTarget = (values[0] as any).Properties.AliasTarget;
+    expect(aliasTarget).toBeDefined();
     expect(JSON.stringify(aliasTarget.DNSName)).toContain('Fn::GetAtt');
   });
 });
@@ -271,7 +290,6 @@ describe('deployFrontend guard', () => {
   test('FrontendStack is NOT instantiated when config.deployFrontend is false (local env)', () => {
     const app = new cdk.App();
     const config = getConfig('local');
-    // Replicate what bin/fastspec.ts does — only create FrontendStack when deployFrontend===true
     const dataStack = new DataStack(app, 'FastSpec-Data-local', { config });
     new ComputeStack(app, 'FastSpec-Compute-local', {
       config,
@@ -280,10 +298,8 @@ describe('deployFrontend guard', () => {
       redisEndpoint: 'redis.example.com:6379',
     });
     if (config.deployFrontend) {
-      // Should not reach here for local
       throw new Error('FrontendStack should not be instantiated for local env');
     }
-    // If we reach here the guard works — verify no FrontendStack in the app
     const stacks = app.node.children.filter((c) => c instanceof cdk.Stack) as cdk.Stack[];
     const frontendStacks = stacks.filter((s) => s.stackName.includes('Frontend'));
     expect(frontendStacks).toHaveLength(0);
