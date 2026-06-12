@@ -16,8 +16,8 @@ export interface FrontendStackProps extends cdk.StackProps {
    * and avoids CrossRegionExportWriter entirely.
    */
   certificateArn: string;
-  /** DNS name of the ALB in ComputeStack — used for /api*, /auth*, /mcp* origins. */
-  albDnsName: string;
+  /** Full Lambda Function URL (https://…) from LambdaStack — used for /api*, /auth*, /mcp* origins. */
+  lambdaFunctionUrl: string;
   /**
    * Route53 hosted zone for the environment domain.
    * Inject in tests via `HostedZone.fromHostedZoneAttributes`.
@@ -31,11 +31,11 @@ export interface FrontendStackProps extends cdk.StackProps {
  *
  * Two private S3 buckets (SPA assets + landing-page assets) served through a
  * single CloudFront distribution that also proxies `/api*`, `/auth*`, and
- * `/mcp*` to the ALB.
+ * `/mcp*` to the Lambda Function URL.
  *
  * - Default behavior → LandingBucket (multi-page static site)
  * - /specs* → FrontendBucket (Vue SPA)
- * - /api*, /auth*, /mcp* → ALB
+ * - /api*, /auth*, /mcp* → Lambda Function URL (HTTPS-only)
  *
  * Only deployed when `config.deployFrontend === true`.
  */
@@ -65,14 +65,20 @@ export class FrontendStack extends cdk.Stack {
       signing: cloudfront.Signing.SIGV4_ALWAYS,
     });
 
-    // ── ALB origin (used for /api*, /auth*, /mcp*) ────────────────────────────
-
-    const albOrigin = new origins.HttpOrigin(props.albDnsName, {
-      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+    // ── Lambda origin (used for /api*, /auth*, /mcp*) ────────────────────────
+    // Lambda Function URLs are of the form https://<id>.lambda-url.<region>.on.aws/
+    // We strip the scheme and trailing slash to get the hostname for HttpOrigin.
+    // Using cdk.Fn.select + cdk.Fn.split avoids new URL() which fails on CDK tokens.
+    const lambdaHostname = cdk.Fn.select(
+      2,
+      cdk.Fn.split('/', props.lambdaFunctionUrl),
+    );
+    const lambdaOrigin = new origins.HttpOrigin(lambdaHostname, {
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
     });
 
-    // Shared ALB behavior config.
-    const albBehaviorOptions = {
+    // Shared Lambda behavior config.
+    const lambdaBehaviorOptions = {
       viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.ALLOW_ALL,
       cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
       allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
@@ -160,16 +166,16 @@ function handler(event) {
           }],
         },
         '/api*': {
-          origin: albOrigin,
-          ...albBehaviorOptions,
+          origin: lambdaOrigin,
+          ...lambdaBehaviorOptions,
         },
         '/auth*': {
-          origin: albOrigin,
-          ...albBehaviorOptions,
+          origin: lambdaOrigin,
+          ...lambdaBehaviorOptions,
         },
         '/mcp*': {
-          origin: albOrigin,
-          ...albBehaviorOptions,
+          origin: lambdaOrigin,
+          ...lambdaBehaviorOptions,
         },
       },
     });

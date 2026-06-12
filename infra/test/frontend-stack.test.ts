@@ -3,7 +3,7 @@ import { Match, Template } from 'aws-cdk-lib/assertions';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import { getConfig } from '../lib/config';
 import { DataStack } from '../lib/data-stack';
-import { ComputeStack } from '../lib/compute-stack';
+import { LambdaStack } from '../lib/lambda-stack';
 import { CertificateStack } from '../lib/certificate-stack';
 import { FrontendStack } from '../lib/frontend-stack';
 
@@ -34,16 +34,15 @@ function buildFrontendStack() {
   );
 
   const dataStack = new DataStack(app, 'FastSpec-Data-prod', { config });
-  const computeStack = new ComputeStack(app, 'FastSpec-Compute-prod', {
+  const lambdaStack = new LambdaStack(app, 'FastSpec-Lambda-prod', {
     config,
-    vpc: dataStack.vpc,
     dbEndpoint: 'db.example.com:5432',
   });
 
   return new FrontendStack(app, 'FastSpec-Frontend-prod', {
     config,
     certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/fake-cert-id',
-    albDnsName: computeStack.alb.loadBalancerDnsName,
+    lambdaFunctionUrl: lambdaStack.functionUrl,
     hostedZone,
   });
 }
@@ -277,12 +276,7 @@ describe('deployFrontend guard', () => {
   test('FrontendStack is NOT instantiated when config.deployFrontend is false (local env)', () => {
     const app = new cdk.App();
     const config = getConfig('local');
-    const dataStack = new DataStack(app, 'FastSpec-Data-local', { config });
-    new ComputeStack(app, 'FastSpec-Compute-local', {
-      config,
-      vpc: dataStack.vpc,
-      dbEndpoint: 'db.example.com:5432',
-    });
+    new DataStack(app, 'FastSpec-Data-local', { config });
     if (config.deployFrontend) {
       throw new Error('FrontendStack should not be instantiated for local env');
     }

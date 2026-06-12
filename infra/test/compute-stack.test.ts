@@ -1,285 +1,98 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
-import { DataStack } from '../lib/data-stack';
-import { ComputeStack } from '../lib/compute-stack';
+import { LambdaStack } from '../lib/lambda-stack';
 import { getConfig } from '../lib/config';
 
 function buildStack(env: 'local' | 'prod') {
   const app = new cdk.App();
   const config = getConfig(env);
-  const dataStack = new DataStack(app, `FastSpec-Data-${env}`, { config });
-  return new ComputeStack(app, `FastSpec-Compute-${env}`, {
+  return new LambdaStack(app, `FastSpec-Lambda-${env}`, {
     config,
-    vpc: dataStack.vpc,
     dbEndpoint: 'db.example.com:5432',
   });
 }
 
-describe('ComputeStack — local', () => {
+describe('LambdaStack — local', () => {
   let template: Template;
 
   beforeAll(() => {
     template = Template.fromStack(buildStack('local'));
   });
 
-  test('provisions an ECS Cluster', () => {
-    template.resourceCountIs('AWS::ECS::Cluster', 1);
+  test('provisions a DockerImageFunction', () => {
+    template.resourceCountIs('AWS::Lambda::Function', 1);
   });
 
-  test('provisions a Fargate TaskDefinition for the backend', () => {
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      RequiresCompatibilities: ['FARGATE'],
-      NetworkMode: 'awsvpc',
+  test('function has 512 MB memory and 2-minute timeout', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      MemorySize: 512,
+      Timeout: 120,
     });
   });
 
-  test('backend task definition has a single backend container', () => {
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: [
-        {
-          Name: 'backend',
-        },
-      ],
+  test('function has a Function URL with AuthType NONE', () => {
+    template.hasResourceProperties('AWS::Lambda::Url', {
+      AuthType: 'NONE',
     });
   });
 
-  test('provisions an ECS Fargate Service', () => {
-    template.hasResourceProperties('AWS::ECS::Service', {
-      LaunchType: 'FARGATE',
-    });
-  });
-
-  test('provisions an Application Load Balancer', () => {
-    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
-      Type: 'application',
-    });
-  });
-
-  test('ALB has an HTTP listener', () => {
-    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
-      Port: 80,
-      Protocol: 'HTTP',
-    });
-  });
-
-  test('ALB has a listener rule for /api*', () => {
-    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::ListenerRule', {
-      Conditions: [{ Field: 'path-pattern', PathPatternConfig: { Values: ['/api*'] } }],
-    });
-  });
-
-  test('ALB has a listener rule for /auth*', () => {
-    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::ListenerRule', {
-      Conditions: [{ Field: 'path-pattern', PathPatternConfig: { Values: ['/auth*'] } }],
-    });
-  });
-
-  test('backend container has SSM-backed secrets (not plaintext)', () => {
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: [
-        {
-          Name: 'backend',
-          Secrets: Match.arrayWith([
-            Match.objectLike({ Name: 'JWT_SECRET_KEY' }),
-            Match.objectLike({ Name: 'DB_PASSWORD' }),
-          ]),
-        },
-      ],
-    });
-  });
-
-  test('provisions a separate Migration Task definition', () => {
-    template.resourceCountIs('AWS::ECS::TaskDefinition', 3);
-  });
-
-  test('migration task container command is alembic upgrade head', () => {
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: [
-        {
-          Name: 'migrate',
-          Command: ['python', 'migrate.py'],
-        },
-      ],
-    });
-  });
-
-  test('migration task definition includes db-password SSM secret', () => {
-    const resources = template.findResources('AWS::ECS::TaskDefinition');
-    const taskDefs = Object.values(resources);
-    const migrateDef = taskDefs.find((r: any) =>
-      r.Properties?.ContainerDefinitions?.some((c: any) => c.Name === 'migrate'),
-    ) as any;
-    const secrets: Array<{ Name: string; ValueFrom: any }> =
-      migrateDef.Properties.ContainerDefinitions.find((c: any) => c.Name === 'migrate').Secrets ?? [];
-    const valueFromStrings = secrets.map((s) => JSON.stringify(s.ValueFrom));
-    expect(valueFromStrings.some((v) => v.includes('db-password'))).toBe(true);
-  });
-
-  test('migration task definition includes DB_ENDPOINT environment variable', () => {
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: [
-        {
-          Name: 'migrate',
-          Environment: Match.arrayWith([
-            Match.objectLike({ Name: 'DB_ENDPOINT', Value: 'db.example.com:5432' }),
-          ]),
-        },
-      ],
-    });
-  });
-});
-
-describe('ComputeStack — issue #91: real image, public subnet, SG, SSM secrets', () => {
-  let template: Template;
-
-  beforeAll(() => {
-    template = Template.fromStack(buildStack('local'));
-  });
-
-  test('Fargate service has assignPublicIp ENABLED', () => {
-    template.hasResourceProperties('AWS::ECS::Service', {
-      NetworkConfiguration: {
-        AwsvpcConfiguration: {
-          AssignPublicIp: 'ENABLED',
-        },
+  test('function environment includes DB_ENDPOINT', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: Match.objectLike({
+          DB_ENDPOINT: 'db.example.com:5432',
+        }),
       },
     });
   });
 
-  test('all six SSM secrets are wired into the backend container', () => {
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: [
-        {
-          Name: 'backend',
-          Secrets: Match.arrayWith([
-            Match.objectLike({ Name: 'JWT_SECRET_KEY' }),
-            Match.objectLike({ Name: 'DB_PASSWORD' }),
-            Match.objectLike({ Name: 'GOOGLE_CLIENT_ID' }),
-            Match.objectLike({ Name: 'GOOGLE_CLIENT_SECRET' }),
-            Match.objectLike({ Name: 'GITHUB_CLIENT_ID' }),
-            Match.objectLike({ Name: 'GITHUB_CLIENT_SECRET' }),
-          ]),
-        },
-      ],
+  test('function environment includes SSM_WAKE_PARAM', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: Match.objectLike({
+          SSM_WAKE_PARAM: Match.stringLikeRegexp('wake-last-triggered'),
+        }),
+      },
     });
   });
 
-  test('SSM parameter names use /{env}/fastspec/ prefix', () => {
-    // The six SSM parameters must reference the expected path-based names.
-    // CDK renders SSM SecureString as a dynamic SSM reference; the parameter
-    // name appears in the IAM policy actions or in the task definition via
-    // the CFN parameter name.  We verify via the generated SSM parameter
-    // value-from references inside Secrets[].ValueFrom.
-    const resources = template.findResources('AWS::ECS::TaskDefinition');
-    const taskDefs = Object.values(resources);
-    const backendDef = taskDefs.find((r: any) =>
-      r.Properties?.ContainerDefinitions?.some((c: any) => c.Name === 'backend'),
-    ) as any;
-    const secrets: Array<{ Name: string; ValueFrom: any }> =
-      backendDef.Properties.ContainerDefinitions.find((c: any) => c.Name === 'backend').Secrets;
+  test('outputs LambdaFunctionUrl', () => {
+    template.hasOutput('LambdaFunctionUrl', {});
+  });
 
-    const valueFromStrings = secrets.map((s) => JSON.stringify(s.ValueFrom));
-    const expectedSuffixes = [
-      'secret-key',
-      'db-password',
-      'google-client-id',
-      'google-client-secret',
-      'github-client-id',
-      'github-client-secret',
-    ];
-    for (const suffix of expectedSuffixes) {
-      expect(valueFromStrings.some((v) => v.includes(suffix))).toBe(true);
+  test('outputs LambdaFunctionArn', () => {
+    template.hasOutput('LambdaFunctionArn', {});
+  });
+
+  test('outputs LambdaFunctionName', () => {
+    template.hasOutput('LambdaFunctionName', {});
+  });
+
+  test('no VPC attachment on the Lambda function', () => {
+    const resources = template.findResources('AWS::Lambda::Function');
+    const fns = Object.values(resources);
+    for (const fn of fns) {
+      expect((fn as any).Properties?.VpcConfig).toBeUndefined();
     }
-  });
-
-  test('Fargate security group allows port 8000 inbound from ALB SG only (not 0.0.0.0/0)', () => {
-    // Ensure NO security group ingress rule opens port 8000 to 0.0.0.0/0
-    const sgs = template.findResources('AWS::EC2::SecurityGroup');
-    for (const [, sg] of Object.entries(sgs) as [string, any][]) {
-      const ingress: any[] = sg.Properties?.SecurityGroupIngress ?? [];
-      const openPort8000 = ingress.some(
-        (rule) =>
-          rule.CidrIp === '0.0.0.0/0' &&
-          (rule.FromPort === 8000 || rule.ToPort === 8000),
-      );
-      expect(openPort8000).toBe(false);
-    }
-
-    // Ensure at least one SG has an ingress rule for port 8000 sourced from another SG
-    const hasSgSourcedPort8000 = Object.values(sgs).some((sg: any) => {
-      const ingress: any[] = sg.Properties?.SecurityGroupIngress ?? [];
-      return ingress.some(
-        (rule) =>
-          rule.SourceSecurityGroupId !== undefined &&
-          rule.FromPort === 8000 &&
-          rule.ToPort === 8000,
-      );
-    });
-    expect(hasSgSourcedPort8000).toBe(true);
-  });
-
-  test('container port mapping is 8000', () => {
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: [
-        {
-          Name: 'backend',
-          PortMappings: [{ ContainerPort: 8000, Protocol: 'tcp' }],
-        },
-      ],
-    });
   });
 });
 
-describe('ComputeStack — isLocal() guard', () => {
-  test('local template has exactly 3 backend listener rules (api + mcp + auth only)', () => {
-    const localTemplate = Template.fromStack(buildStack('local'));
-    localTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 3);
-  });
-
-  test('non-local template has more than 3 listener rules (frontend placeholder added)', () => {
-    const prodTemplate = Template.fromStack(buildStack('prod'));
-    prodTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 4);
-  });
-});
-
-describe('ComputeStack — MCP Fargate service (issue #103)', () => {
+describe('LambdaStack — prod', () => {
   let template: Template;
 
   beforeAll(() => {
-    template = Template.fromStack(buildStack('local'));
+    template = Template.fromStack(buildStack('prod'));
   });
 
-  test('exactly two FargateService resources exist in the stack', () => {
-    template.resourceCountIs('AWS::ECS::Service', 2);
+  test('provisions a DockerImageFunction', () => {
+    template.resourceCountIs('AWS::Lambda::Function', 1);
   });
 
-  test('ALB has a listener rule for /mcp* at priority 15 targeting port 9000', () => {
-    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::ListenerRule', {
-      Priority: 15,
-      Conditions: [{ Field: 'path-pattern', PathPatternConfig: { Values: ['/mcp*'] } }],
-      Actions: Match.arrayWith([
-        Match.objectLike({ Type: 'forward' }),
-      ]),
+  test('function URL CORS allows the prod domain', () => {
+    template.hasResourceProperties('AWS::Lambda::Url', {
+      Cors: Match.objectLike({
+        AllowOrigins: Match.arrayWith(['https://fastspec.kaseovo.com']),
+      }),
     });
-  });
-
-  test('MCP task definition does not include OAuth secret references', () => {
-    const resources = template.findResources('AWS::ECS::TaskDefinition');
-    const taskDefs = Object.values(resources);
-    const mcpDef = taskDefs.find((r: any) =>
-      r.Properties?.ContainerDefinitions?.some((c: any) => c.Name === 'mcp'),
-    ) as any;
-    expect(mcpDef).toBeDefined();
-    const secrets: Array<{ Name: string; ValueFrom: any }> =
-      mcpDef.Properties.ContainerDefinitions.find((c: any) => c.Name === 'mcp').Secrets ?? [];
-    const secretNames = secrets.map((s) => s.Name);
-    expect(secretNames).not.toContain('GOOGLE_CLIENT_ID');
-    expect(secretNames).not.toContain('GOOGLE_CLIENT_SECRET');
-    expect(secretNames).not.toContain('GITHUB_CLIENT_ID');
-    expect(secretNames).not.toContain('GITHUB_CLIENT_SECRET');
-  });
-
-  test('mcpServiceName is emitted as a CfnOutput', () => {
-    template.hasOutput('McpServiceName', {});
   });
 });

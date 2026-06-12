@@ -24,12 +24,14 @@ function sizingFor(_config: EnvConfig): DataSizing {
 
 /**
  * DataStack — stateful infrastructure: RDS (PostgreSQL).
- * Exports connection endpoints consumed by ComputeStack.
+ * Exports connection endpoints consumed by LambdaStack and WakeStack.
+ *
+ * RDS is publicly accessible (the Lambda runs outside a VPC). The VPC is an
+ * internal implementation detail required by CDK; it is no longer shared with
+ * other stacks.
  */
 export class DataStack extends cdk.Stack {
-  /** Shared VPC exported for ComputeStack. */
-  public readonly vpc: ec2.Vpc;
-  /** RDS endpoint exported for ComputeStack. */
+  /** RDS endpoint exported for LambdaStack. */
   public readonly dbEndpoint: string;
   /** RDS instance identifier exported for WakeStack. */
   public readonly rdsInstanceId: string;
@@ -40,13 +42,14 @@ export class DataStack extends cdk.Stack {
     const { config } = props;
     const sizing = sizingFor(config);
 
+    // VPC is required by CDK's DatabaseInstance construct. It is kept as an
+    // internal detail — public subnets only, no NAT gateways, no export.
     const vpc = new ec2.Vpc(this, 'Vpc', {
       maxAzs: 2,
-      natGateways: 0,
+      subnetConfiguration: [
+        { cidrMask: 24, name: 'Public', subnetType: ec2.SubnetType.PUBLIC },
+      ],
     });
-    this.vpc = vpc;
-
-    const vpcSubnets: ec2.SubnetSelection = { subnetType: ec2.SubnetType.PRIVATE_ISOLATED };
 
     // ── RDS PostgreSQL ────────────────────────────────────────────────────────
     const dbInstance = new rds.DatabaseInstance(this, 'Postgres', {
@@ -58,22 +61,20 @@ export class DataStack extends cdk.Stack {
         sizing.rdsInstanceSize,
       ),
       vpc,
-      vpcSubnets,
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       multiAz: sizing.rdsMultiAz,
       storageEncrypted: true,
-      publiclyAccessible: false,
+      publiclyAccessible: true,
       deletionProtection: config.env === 'prod',
       removalPolicy:
         config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.SNAPSHOT,
     });
 
-    // Allow any resource within the VPC (Fargate service + migration task) to
-    // reach RDS on port 5432. Using VPC CIDR avoids a cross-stack SG reference
-    // that would create a dependency cycle with ComputeStack.
+    // Lambda runs outside the VPC — allow inbound PostgreSQL from anywhere.
     dbInstance.connections.allowFrom(
-      ec2.Peer.ipv4(vpc.vpcCidrBlock),
+      ec2.Peer.anyIpv4(),
       ec2.Port.tcp(5432),
-      'Allow PostgreSQL from within the VPC',
+      'Allow PostgreSQL from public internet (Lambda is VPC-less)',
     );
 
     // ── CloudFormation outputs ────────────────────────────────────────────────
@@ -83,11 +84,6 @@ export class DataStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'DbEndpoint', {
       value: `${dbEndpointAddress}:${dbEndpointPort}`,
       description: 'RDS PostgreSQL endpoint',
-    });
-
-    new cdk.CfnOutput(this, 'VpcId', {
-      value: vpc.vpcId,
-      description: 'Shared VPC ID',
     });
 
     this.dbEndpoint = `${dbEndpointAddress}:${dbEndpointPort}`;

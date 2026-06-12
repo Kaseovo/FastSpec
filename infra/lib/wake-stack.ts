@@ -7,17 +7,15 @@ import { EnvConfig } from './config';
 
 export interface WakeStackProps extends cdk.StackProps {
   config: EnvConfig;
-  clusterName: string;
-  serviceName: string;
-  /** MCP ECS service name — woken alongside the backend service. */
-  mcpServiceName: string;
+  /** Lambda function name from LambdaStack — passed to the wake handler. */
+  lambdaFunctionName: string;
   rdsInstanceId: string;
 }
 
 /**
  * WakeStack — Lambda Function URL that starts the environment on demand.
  *
- * Validates a shared secret before touching RDS or ECS.
+ * Validates a shared secret before touching RDS or the backend Lambda.
  * The IAM role is scoped to start-only operations — no stop, no other access.
  */
 export class WakeStack extends cdk.Stack {
@@ -36,9 +34,7 @@ export class WakeStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         ENV: config.env,
-        CLUSTER_NAME: props.clusterName,
-        SERVICE_NAME: props.serviceName,
-        MCP_SERVICE_NAME: props.mcpServiceName,
+        LAMBDA_FUNCTION_NAME: props.lambdaFunctionName,
         RDS_INSTANCE_ID: props.rdsInstanceId,
       },
     });
@@ -55,12 +51,6 @@ export class WakeStack extends cdk.Stack {
     // Start RDS only — no stop
     fn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['rds:DescribeDBInstances', 'rds:StartDBInstance'],
-      resources: ['*'],
-    }));
-
-    // Update ECS service desired count — scoped to start (desiredCount=1)
-    fn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['ecs:UpdateService', 'ecs:DescribeServices'],
       resources: ['*'],
     }));
 

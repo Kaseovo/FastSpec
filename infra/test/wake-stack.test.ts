@@ -8,9 +8,7 @@ function buildWakeStack() {
   const config = getConfig('prod');
   return new WakeStack(app, 'FastSpec-Wake-prod', {
     config,
-    clusterName: 'my-cluster',
-    serviceName: 'backend-svc',
-    mcpServiceName: 'mcp-svc',
+    lambdaFunctionName: 'fastspec-backend-fn',
     rdsInstanceId: 'my-rds',
   });
 }
@@ -22,23 +20,27 @@ describe('WakeStack', () => {
     template = Template.fromStack(buildWakeStack());
   });
 
-  test('Lambda environment includes MCP_SERVICE_NAME', () => {
+  test('Lambda environment includes LAMBDA_FUNCTION_NAME', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Environment: {
         Variables: Match.objectLike({
-          MCP_SERVICE_NAME: 'mcp-svc',
+          LAMBDA_FUNCTION_NAME: 'fastspec-backend-fn',
         }),
       },
     });
   });
 
-  test('Lambda environment includes SERVICE_NAME', () => {
+  test('Lambda environment includes RDS_INSTANCE_ID', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Environment: {
         Variables: Match.objectLike({
-          SERVICE_NAME: 'backend-svc',
+          RDS_INSTANCE_ID: 'my-rds',
         }),
       },
     });
+  });
+
+  test('WakeFunctionUrl output is exported', () => {
+    template.hasOutput('WakeFunctionUrl', {});
   });
 });

@@ -3,7 +3,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { resolveEnv, getConfig } from '../lib/config';
 import { DataStack } from '../lib/data-stack';
-import { ComputeStack } from '../lib/compute-stack';
+import { LambdaStack } from '../lib/lambda-stack';
 import { CertificateStack } from '../lib/certificate-stack';
 import { FrontendStack } from '../lib/frontend-stack';
 import { WakeStack } from '../lib/wake-stack';
@@ -20,9 +20,8 @@ const awsEnv = {
 
 const dataStack = new DataStack(app, `FastSpec-Data-${env}`, { config, env: awsEnv });
 
-const computeStack = new ComputeStack(app, `FastSpec-Compute-${env}`, {
+const lambdaStack = new LambdaStack(app, `FastSpec-Lambda-${env}`, {
   config,
-  vpc: dataStack.vpc,
   dbEndpoint: dataStack.dbEndpoint,
   env: awsEnv,
 });
@@ -47,17 +46,15 @@ if (config.deployFrontend) {
   new FrontendStack(app, `FastSpec-Frontend-${env}`, {
     config,
     certificateArn,
-    albDnsName: computeStack.alb.loadBalancerDnsName,
+    lambdaFunctionUrl: lambdaStack.functionUrl,
     // hostedZone omitted — FrontendStack performs HostedZone.fromLookup at synth
     env: awsEnv,
   });
 
   new WakeStack(app, `FastSpec-Wake-${env}`, {
     config,
-    clusterName: computeStack.cluster.clusterName,
-    serviceName: computeStack.serviceName,
-    mcpServiceName: computeStack.mcpServiceName,
     rdsInstanceId: dataStack.rdsInstanceId,
+    lambdaFunctionName: lambdaStack.functionName,
     env: awsEnv,
   });
 }

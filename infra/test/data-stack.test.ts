@@ -26,10 +26,6 @@ describe('DataStack — local', () => {
     template.hasOutput('DbEndpoint', {});
   });
 
-  test('exports a VpcId CloudFormation output', () => {
-    template.hasOutput('VpcId', {});
-  });
-
   test('uses a burstable instance class for RDS', () => {
     template.hasResourceProperties('AWS::RDS::DBInstance', {
       DBInstanceClass: 'db.t3.micro',
@@ -42,9 +38,9 @@ describe('DataStack — local', () => {
     });
   });
 
-  test('RDS instance is not publicly accessible', () => {
+  test('RDS instance is publicly accessible', () => {
     template.hasResourceProperties('AWS::RDS::DBInstance', {
-      PubliclyAccessible: false,
+      PubliclyAccessible: true,
     });
   });
 });
