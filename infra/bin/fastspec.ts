@@ -54,7 +54,6 @@ if (config.deployFrontend) {
   new WakeStack(app, `FastSpec-Wake-${env}`, {
     config,
     rdsInstanceId: dataStack.rdsInstanceId,
-    lambdaFunctionName: lambdaStack.functionName,
     env: awsEnv,
   });
 }
