@@ -4,7 +4,7 @@ sqlalchemy
 pydantic
 openapi-spec-validator
 python-multipart
-authlib
+google-auth
 pyjwt
 python-jose[cryptography]
 passlib[bcrypt]

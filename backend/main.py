@@ -7,7 +7,6 @@ from config import JWT_SECRET_KEY
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 
 from database import engine  # noqa: F401 – kept for potential direct use
@@ -40,12 +39,6 @@ app = FastAPI(
 async def get_version():
     return {"version": __version__}
 
-
-# Session middleware for OAuth (required by Authlib)
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=JWT_SECRET_KEY,
-)
 
 # CORS middleware
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")

@@ -33,10 +33,13 @@ def db_session():
 
 
 def _make_user(session: Session) -> User:
+    import uuid as _uuid
+
+    uid = _uuid.uuid4().hex
     user = User(
-        email=f"lint_test_{id(session)}@example.com",
+        email=f"lint_test_{uid}@example.com",
         provider="test",
-        provider_user_id=f"uid_{id(session)}",
+        provider_user_id=f"uid_{uid}",
     )
     session.add(user)
     session.commit()

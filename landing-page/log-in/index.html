@@ -194,9 +194,11 @@
                   Choose your preferred authentication method
                 </p>
               </div>
-              <a
-                href="/auth/google"
+              <button
+                id="google-signin-btn"
+                type="button"
                 class="w-link ccbw1jm cs9dmk2 c1slub3s c1ja0wp7 ck8fyic c18wune3 c1uaty07 c1tnm35q cfbeh5 c1d8oa30 c1tdtvjs civrtzc c1i6u13o ccanaxu cuwsqp1 c1b8w41a co0w7fv c10olkz5 c1u4qls7 c1mucm95 c17skwfs c1ov2tmq cgs7y6p ccsyuqf c1lf7fm0 cp8q3ji c1pnksm3 c14kc0uq c1w68d12 cnm87ak czgkr9h c9ng0xy c16njo6f c96tm2i ctizaeu"
+                style="cursor:pointer;background:none;border:none;"
                 ><div class="w-html-embed c1i6u13o ct6xi25 c1v15jmv ccsyuqf">
                   <svg class="provider-icon" viewBox="0 0 24 24">
                     <path
@@ -219,8 +221,69 @@
                 </div>
                 <span class="w-element ccbw1jm ccsyuqf"
                   >Continue with Google</span
-                ></a
+                ></button
               >
+              <script src="https://accounts.google.com/gsi/client" async defer></script>
+              <script>
+                (function () {
+                  var GOOGLE_CLIENT_ID = "%%VITE_GOOGLE_CLIENT_ID%%";
+
+                  function initGoogleSignIn() {
+                    if (!window.google || !window.google.accounts) {
+                      setTimeout(initGoogleSignIn, 100);
+                      return;
+                    }
+                    window.google.accounts.id.initialize({
+                      client_id: GOOGLE_CLIENT_ID,
+                      callback: handleGoogleCredential,
+                    });
+                    document
+                      .getElementById("google-signin-btn")
+                      .addEventListener("click", function () {
+                        window.google.accounts.id.prompt();
+                      });
+                  }
+
+                  async function handleGoogleCredential(response) {
+                    try {
+                      var btn = document.getElementById("google-signin-btn");
+                      if (btn) btn.disabled = true;
+
+                      var res = await fetch("/auth/google/verify", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id_token: response.credential }),
+                      });
+
+                      if (!res.ok) {
+                        var err = await res.json().catch(function () { return {}; });
+                        throw new Error(err.detail || "Authentication failed");
+                      }
+
+                      var data = await res.json();
+                      localStorage.setItem("token", data.access_token);
+
+                      // Fetch user info and store it
+                      var userRes = await fetch("/auth/me", {
+                        headers: { Authorization: "Bearer " + data.access_token },
+                      });
+                      if (userRes.ok) {
+                        var user = await userRes.json();
+                        localStorage.setItem("user", JSON.stringify(user));
+                      }
+
+                      window.location.replace("/specs");
+                    } catch (e) {
+                      console.error("Google sign-in failed:", e);
+                      alert("Sign-in failed: " + e.message);
+                      var btn = document.getElementById("google-signin-btn");
+                      if (btn) btn.disabled = false;
+                    }
+                  }
+
+                  initGoogleSignIn();
+                })();
+              </script>
             </div>
           </div>
         </section>

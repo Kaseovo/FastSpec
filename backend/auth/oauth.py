@@ -1,44 +1,6 @@
 """
-OAuth2 provider configuration and utilities
+OAuth utilities — server-side OAuth has been replaced by the Google PKCE flow.
+
+The browser now handles Google sign-in via Google Identity Services and POSTs
+the resulting id_token to POST /auth/google/verify for server-side verification.
 """
-
-import os
-from authlib.integrations.starlette_client import OAuth
-
-# Initialize OAuth registry
-oauth = OAuth()
-
-# Google OAuth Configuration
-oauth.register(
-    name="google",
-    client_id=os.getenv("GOOGLE_CLIENT_ID"),
-    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-    client_kwargs={
-        "scope": "openid email profile",
-        "prompt": "select_account",
-    },
-    check_state=False,  # Disable state check for development
-)
-
-
-async def get_google_user_info(token: dict) -> dict:
-    """
-    Extract user information from Google OAuth token
-
-    Args:
-        token: OAuth token response from Google
-
-    Returns:
-        Dict with user information (email, name, avatar_url, provider_user_id)
-    """
-    user_info = token.get("userinfo", {})
-    return {
-        "email": user_info.get("email"),
-        "name": user_info.get("name"),
-        "avatar_url": user_info.get("picture"),
-        "provider_user_id": user_info.get("sub"),
-    }
-
-
-

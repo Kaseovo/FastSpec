@@ -4,12 +4,14 @@ Authentication routes for OAuth2 and JWT
 
 import os
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
+
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 from database import get_db
 from models import User, AuthToken, APIKey
@@ -18,7 +20,6 @@ from schemas import (
     ApiKeyActionsUpdateRequest,
     ApiKeyActionsResponse,
 )
-from auth.oauth import oauth, get_google_user_info
 from auth.jwt import (
     create_access_token,
     verify_token,
@@ -47,10 +48,78 @@ class ApiKeyRevokeRequest(BaseModel):
     api_key: str
 
 
+class GoogleVerifyRequest(BaseModel):
+    id_token: str
+
+
 @router.get("/actions")
 async def list_available_actions():
     """Return all available actions that can be assigned to API keys."""
     return get_actions_metadata()
+
+
+@router.post("/google/verify")
+async def verify_google_token(
+    payload: GoogleVerifyRequest, db: Session = Depends(get_db)
+):
+    """
+    Verify a Google ID token (from the PKCE / GIS client-side flow) and
+    return a FastSpec JWT.
+
+    Accepts: { "id_token": "<Google ID token>" }
+    Returns: { "access_token": "<FastSpec JWT>" }
+    """
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+
+    try:
+        id_info = id_token.verify_oauth2_token(
+            payload.id_token,
+            google_requests.Request(),
+            google_client_id,
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=401, detail="Invalid or expired Google ID token"
+        )
+
+    email = id_info.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not provided by Google")
+
+    name = id_info.get("name")
+    picture = id_info.get("picture")
+    provider_user_id = id_info.get("sub")
+
+    # Check if user exists
+    user = (
+        db.query(User)
+        .filter(User.email == email, User.provider == "google")
+        .first()
+    )
+
+    if user:
+        # Update existing user
+        user.name = name
+        user.avatar_url = picture
+        user.provider_user_id = provider_user_id
+    else:
+        # Create new user
+        user = User(
+            email=email,
+            name=name,
+            avatar_url=picture,
+            provider="google",
+            provider_user_id=provider_user_id,
+        )
+        db.add(user)
+
+    db.commit()
+    db.refresh(user)
+
+    # Generate FastSpec JWT
+    access_token = create_access_token(user.id, user.email, db_session=db)
+
+    return {"access_token": access_token}
 
 
 # New endpoint: exchange api_key for a short JWT
@@ -196,72 +265,6 @@ async def update_api_key_actions(
         "actions": rt.get_actions(),
         "name": rt.name,
     }
-
-
-@router.get("/google")
-async def login_google(request: Request):
-    """
-    Initiate Google OAuth flow
-    Redirects user to Google consent page
-    """
-    redirect_uri = os.getenv(
-        "GOOGLE_REDIRECT_URI", f"{FRONTEND_URL}/auth/google/callback"
-    )
-    return await oauth.google.authorize_redirect(request, redirect_uri)
-
-
-@router.get("/google/callback")
-async def google_callback(request: Request, db: Session = Depends(get_db)):
-    """
-    Handle Google OAuth callback
-    Exchange authorization code for access token and create/update user
-    """
-    try:
-        # Get access token from Google
-        token = await oauth.google.authorize_access_token(request)
-
-        # Extract user information
-        user_info = await get_google_user_info(token)
-
-        if not user_info.get("email"):
-            raise HTTPException(status_code=400, detail="Email not provided by Google")
-
-        # Check if user exists
-        user = (
-            db.query(User)
-            .filter(User.email == user_info["email"], User.provider == "google")
-            .first()
-        )
-
-        if user:
-            # Update existing user
-            user.name = user_info.get("name")
-            user.avatar_url = user_info.get("avatar_url")
-            user.provider_user_id = user_info.get("provider_user_id")
-        else:
-            # Create new user
-            user = User(
-                email=user_info["email"],
-                name=user_info.get("name"),
-                avatar_url=user_info.get("avatar_url"),
-                provider="google",
-                provider_user_id=user_info.get("provider_user_id"),
-            )
-            db.add(user)
-
-        db.commit()
-        db.refresh(user)
-
-        # Generate JWT token and persist it
-        access_token = create_access_token(user.id, user.email, db_session=db)
-
-        # Redirect to frontend SPA (served under /specs) with token
-        redirect_url = f"{FRONTEND_URL}/specs?token={access_token}"
-        return RedirectResponse(url=redirect_url)
-
-    except Exception as e:
-        error_url = f"{FRONTEND_URL}/specs?error={str(e)}"
-        return RedirectResponse(url=error_url)
 
 
 @router.get("/me", response_model=UserResponse)
