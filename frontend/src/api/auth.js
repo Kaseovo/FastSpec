@@ -11,13 +11,6 @@ export const loginWithGoogle = () => {
 };
 
 /**
- * Redirect to GitHub OAuth login
- */
-export const loginWithGitHub = () => {
-  window.location.href = `${API_BASE}/github`;
-};
-
-/**
  * Get current user information
  * @param {string} token - JWT access token
  * @returns {Promise<Object>} User data

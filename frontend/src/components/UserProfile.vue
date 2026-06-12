@@ -60,8 +60,6 @@ export default {
     const providerIcon = computed(() => {
       if (user.value?.provider === "google") {
         return "pi pi-google";
-      } else if (user.value?.provider === "github") {
-        return "pi pi-github";
       }
       return "pi pi-user";
     });
@@ -69,8 +67,6 @@ export default {
     const providerColor = computed(() => {
       if (user.value?.provider === "google") {
         return "#4285F4";
-      } else if (user.value?.provider === "github") {
-        return "#24292e";
       }
       return "#6b7280";
     });
@@ -78,8 +74,6 @@ export default {
     const providerText = computed(() => {
       if (user.value?.provider === "google") {
         return "Signed in with Google";
-      } else if (user.value?.provider === "github") {
-        return "Signed in with GitHub";
       }
       return "Signed in";
     });

@@ -21,20 +21,6 @@ oauth.register(
     check_state=False,  # Disable state check for development
 )
 
-# GitHub OAuth Configuration
-oauth.register(
-    name="github",
-    client_id=os.getenv("GITHUB_CLIENT_ID"),
-    client_secret=os.getenv("GITHUB_CLIENT_SECRET"),
-    access_token_url="https://github.com/login/oauth/access_token",
-    access_token_params=None,
-    authorize_url="https://github.com/login/oauth/authorize",
-    authorize_params=None,
-    api_base_url="https://api.github.com/",
-    client_kwargs={"scope": "user:email"},
-    check_state=False,  # Disable state check for development
-)
-
 
 async def get_google_user_info(token: dict) -> dict:
     """
@@ -55,46 +41,4 @@ async def get_google_user_info(token: dict) -> dict:
     }
 
 
-async def get_github_user_info(token: dict) -> dict:
-    """
-    Extract user information from GitHub OAuth token
 
-    Args:
-        token: OAuth token response from GitHub
-
-    Returns:
-        Dict with user information (email, name, avatar_url, provider_user_id)
-    """
-    # GitHub requires separate API calls for user info
-    import httpx
-
-    access_token = token.get("access_token")
-    headers = {
-        "Authorization": f"token {access_token}",
-        "Accept": "application/vnd.github.v3+json",
-    }
-
-    async with httpx.AsyncClient() as client:
-        # Get user profile
-        user_response = await client.get("https://api.github.com/user", headers=headers)
-        user_data = user_response.json()
-
-        # Get user emails if email is not public
-        email = user_data.get("email")
-        if not email:
-            emails_response = await client.get(
-                "https://api.github.com/user/emails", headers=headers
-            )
-            emails_data = emails_response.json()
-            # Get primary email
-            for email_obj in emails_data:
-                if email_obj.get("primary"):
-                    email = email_obj.get("email")
-                    break
-
-        return {
-            "email": email,
-            "name": user_data.get("name") or user_data.get("login"),
-            "avatar_url": user_data.get("avatar_url"),
-            "provider_user_id": str(user_data.get("id")),
-        }

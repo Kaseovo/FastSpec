@@ -18,7 +18,7 @@ from schemas import (
     ApiKeyActionsUpdateRequest,
     ApiKeyActionsResponse,
 )
-from auth.oauth import oauth, get_google_user_info, get_github_user_info
+from auth.oauth import oauth, get_google_user_info
 from auth.jwt import (
     create_access_token,
     verify_token,
@@ -198,9 +198,6 @@ async def update_api_key_actions(
     }
 
 
-# existing oauth routes and callbacks (unchanged) ...
-
-
 @router.get("/google")
 async def login_google(request: Request):
     """
@@ -248,72 +245,6 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
                 name=user_info.get("name"),
                 avatar_url=user_info.get("avatar_url"),
                 provider="google",
-                provider_user_id=user_info.get("provider_user_id"),
-            )
-            db.add(user)
-
-        db.commit()
-        db.refresh(user)
-
-        # Generate JWT token and persist it
-        access_token = create_access_token(user.id, user.email, db_session=db)
-
-        # Redirect to frontend SPA (served under /specs) with token
-        redirect_url = f"{FRONTEND_URL}/specs?token={access_token}"
-        return RedirectResponse(url=redirect_url)
-
-    except Exception as e:
-        error_url = f"{FRONTEND_URL}/specs?error={str(e)}"
-        return RedirectResponse(url=error_url)
-
-
-@router.get("/github")
-async def login_github(request: Request):
-    """
-    Initiate GitHub OAuth flow
-    Redirects user to GitHub authorization page
-    """
-    redirect_uri = os.getenv(
-        "GITHUB_REDIRECT_URI", f"{FRONTEND_URL}/auth/github/callback"
-    )
-    return await oauth.github.authorize_redirect(request, redirect_uri)
-
-
-@router.get("/github/callback")
-async def github_callback(request: Request, db: Session = Depends(get_db)):
-    """
-    Handle GitHub OAuth callback
-    Exchange authorization code for access token and create/update user
-    """
-    try:
-        # Get access token from GitHub
-        token = await oauth.github.authorize_access_token(request)
-
-        # Extract user information
-        user_info = await get_github_user_info(token)
-
-        if not user_info.get("email"):
-            raise HTTPException(status_code=400, detail="Email not provided by GitHub")
-
-        # Check if user exists
-        user = (
-            db.query(User)
-            .filter(User.email == user_info["email"], User.provider == "github")
-            .first()
-        )
-
-        if user:
-            # Update existing user
-            user.name = user_info.get("name")
-            user.avatar_url = user_info.get("avatar_url")
-            user.provider_user_id = user_info.get("provider_user_id")
-        else:
-            # Create new user
-            user = User(
-                email=user_info["email"],
-                name=user_info.get("name"),
-                avatar_url=user_info.get("avatar_url"),
-                provider="github",
                 provider_user_id=user_info.get("provider_user_id"),
             )
             db.add(user)
