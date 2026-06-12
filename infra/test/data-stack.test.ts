@@ -22,18 +22,8 @@ describe('DataStack — local', () => {
     });
   });
 
-  test('provisions an ElastiCache Redis replication group', () => {
-    template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
-      Engine: 'redis',
-    });
-  });
-
   test('exports a DbEndpoint CloudFormation output', () => {
     template.hasOutput('DbEndpoint', {});
-  });
-
-  test('exports a RedisEndpoint CloudFormation output', () => {
-    template.hasOutput('RedisEndpoint', {});
   });
 
   test('exports a VpcId CloudFormation output', () => {
@@ -43,19 +33,6 @@ describe('DataStack — local', () => {
   test('uses a burstable instance class for RDS', () => {
     template.hasResourceProperties('AWS::RDS::DBInstance', {
       DBInstanceClass: 'db.t3.micro',
-    });
-  });
-
-  test('uses a single-node ElastiCache cluster (no multi-AZ)', () => {
-    template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
-      NumCacheClusters: 1,
-    });
-  });
-
-  test('enables encryption at rest and in transit for Redis', () => {
-    template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
-      AtRestEncryptionEnabled: true,
-      TransitEncryptionEnabled: true,
     });
   });
 
@@ -91,12 +68,6 @@ describe('DataStack — prod', () => {
     });
   });
 
-  test('uses t3.micro ElastiCache node type', () => {
-    template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
-      CacheNodeType: 'cache.t3.micro',
-    });
-  });
-
   test('RDS has DeletionProtection enabled', () => {
     template.hasResourceProperties('AWS::RDS::DBInstance', {
       DeletionProtection: true,
@@ -108,17 +79,4 @@ describe('DataStack — prod', () => {
       DeletionPolicy: 'Retain',
     });
   });
-
-  test('ElastiCache replication group has encryption at rest enabled', () => {
-    template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
-      AtRestEncryptionEnabled: true,
-    });
-  });
-
-  test('ElastiCache replication group has encryption in transit enabled', () => {
-    template.hasResourceProperties('AWS::ElastiCache::ReplicationGroup', {
-      TransitEncryptionEnabled: true,
-    });
-  });
 });
-

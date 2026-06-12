@@ -38,7 +38,6 @@ function buildFrontendStack() {
     config,
     vpc: dataStack.vpc,
     dbEndpoint: 'db.example.com:5432',
-    redisEndpoint: 'redis.example.com:6379',
   });
 
   return new FrontendStack(app, 'FastSpec-Frontend-prod', {
@@ -283,7 +282,6 @@ describe('deployFrontend guard', () => {
       config,
       vpc: dataStack.vpc,
       dbEndpoint: 'db.example.com:5432',
-      redisEndpoint: 'redis.example.com:6379',
     });
     if (config.deployFrontend) {
       throw new Error('FrontendStack should not be instantiated for local env');

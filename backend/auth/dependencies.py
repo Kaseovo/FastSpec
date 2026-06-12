@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User, AuthToken
 from .jwt import verify_token
-from auth.redis_client import redis_client
 from datetime import datetime, timezone
 import logging
 
@@ -37,24 +36,6 @@ async def get_current_user(
     """
     token = credentials.credentials
 
-    # Try Redis cache for short JWTs
-    key = f"short_jwt:{token}"
-    try:
-        cached_user_id = redis_client.get(key)
-    except Exception as e:
-        logger.warning("Redis cache GET failed for key %s: %s", key, e)
-        cached_user_id = None
-
-    if cached_user_id:
-        try:
-            user_id = int(cached_user_id)
-        except Exception:
-            user_id = None
-        if user_id is not None:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                return user
-
     # Verify and decode token
     token_data = verify_token(token)
 
@@ -81,39 +62,6 @@ async def get_current_user(
             detail="Token revoked or expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    # If short token, cache user id in Redis to speed up subsequent auth
-    try:
-        if token_data.get("token_type") == "short":
-            exp = token_data.get("exp")
-            ttl = None
-            if exp is not None:
-                try:
-                    if isinstance(exp, (int, float)):
-                        ttl = int(int(exp) - datetime.now(timezone.utc).timestamp())
-                    else:
-                        # assume datetime-like; normalize tz to UTC if naive
-                        try:
-                            if getattr(exp, "tzinfo", None) is None:
-                                exp = exp.replace(tzinfo=timezone.utc)
-                            else:
-                                exp = exp.astimezone(timezone.utc)
-                        except Exception:
-                            pass
-                        ttl = int((exp - datetime.now(timezone.utc)).total_seconds())
-                except Exception:
-                    ttl = None
-            if ttl and ttl > 0:
-                try:
-                    redis_client.setex(key, ttl, str(token_data["user_id"]))
-                except Exception as e:
-                    # Don't let Redis failures block authentication, but log for observability
-                    logger.warning(
-                        "Redis cache SETEX failed for key %s ttl=%s: %s", key, ttl, e
-                    )
-    except Exception:
-        # Defensive: any unexpected error should not block authentication but must be logged
-        logger.exception("Unexpected error in get_current_user caching flow")
 
     # Get user from database
     user = db.query(User).filter(User.id == token_data["user_id"]).first()

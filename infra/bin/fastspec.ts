@@ -24,7 +24,6 @@ const computeStack = new ComputeStack(app, `FastSpec-Compute-${env}`, {
   config,
   vpc: dataStack.vpc,
   dbEndpoint: dataStack.dbEndpoint,
-  redisEndpoint: dataStack.redisEndpoint,
   env: awsEnv,
 });
 

@@ -12,7 +12,6 @@ function buildStack(env: 'local' | 'prod') {
     config,
     vpc: dataStack.vpc,
     dbEndpoint: 'db.example.com:5432',
-    redisEndpoint: 'redis.example.com:6379',
   });
 }
 

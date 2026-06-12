@@ -3,7 +3,6 @@ from typing import List, Dict, Any, Optional
 from fastmcp.tools import Tool
 from fastmcp.server.dependencies import get_http_request
 from auth.jwt import exchange_api_key_for_short_jwt, verify_short_jwt
-from auth.redis_client import get_redis
 from fastmcp.exceptions import ToolError
 from permissions import Action, user_has_action
 
@@ -33,16 +32,10 @@ def get_short_jwt_from_request() -> str:
     if not token:
         raise PermissionError("Missing auth token")
 
-    redis_client = get_redis()
-    if redis_client and not redis_client.exists(token):
-        short_jwt, expires_at = exchange_api_key_for_short_jwt(token)
+    short_jwt, expires_at = exchange_api_key_for_short_jwt(token)
 
-        if not short_jwt:
-            raise PermissionError("Invalid or expired token")
-
-        redis_client.set(token, short_jwt, exat=expires_at)
-    else:
-        short_jwt = redis_client.get(token)
+    if not short_jwt:
+        raise PermissionError("Invalid or expired token")
 
     return short_jwt
 

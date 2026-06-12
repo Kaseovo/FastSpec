@@ -12,7 +12,6 @@ export interface ComputeStackProps extends cdk.StackProps {
   config: EnvConfig;
   vpc: ec2.IVpc;
   dbEndpoint: string;
-  redisEndpoint: string;
 }
 
 function isLocal(config: EnvConfig): boolean {
@@ -86,12 +85,9 @@ export class ComputeStack extends cdk.Stack {
       }),
       environment: {
         DB_ENDPOINT: props.dbEndpoint,
-        REDIS_ENDPOINT: props.redisEndpoint,
         ENV: env,
         FRONTEND_URL: `https://${config.domain}`,
         CORS_ORIGINS: `https://${config.domain}`,
-        REDIS_HOST: props.redisEndpoint.split(':')[0],
-        REDIS_PORT: props.redisEndpoint.split(':')[1] ?? '6379',
       },
       secrets: {
         JWT_SECRET_KEY: ecs.Secret.fromSsmParameter(
@@ -191,9 +187,6 @@ export class ComputeStack extends cdk.Stack {
       }),
       environment: {
         DB_ENDPOINT: props.dbEndpoint,
-        REDIS_ENDPOINT: props.redisEndpoint,
-        REDIS_HOST: props.redisEndpoint.split(':')[0],
-        REDIS_PORT: props.redisEndpoint.split(':')[1] ?? '6379',
         ENV: env,
       },
       secrets: {
