@@ -1,0 +1,30 @@
+# Lambda container image for FastSpec (merged FastAPI + MCP server).
+#
+# Build context: repository root
+#   docker build -f backend/Dockerfile.lambda -t fastspec-lambda .
+#
+# The base image is Amazon Linux 2023; package management uses dnf.
+# Node.js is required to run @stoplight/spectral-cli for lint validation.
+
+FROM public.ecr.aws/lambda/python:3.12
+
+# Install Node.js 20 LTS (via NodeSource RPM) and Spectral CLI
+RUN dnf install -y curl tar gzip && \
+    curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
+    dnf install -y nodejs && \
+    npm install -g @stoplight/spectral-cli && \
+    dnf clean all && \
+    rm -rf /root/.npm
+
+# Point SPECTRAL_PATH at the globally installed binary (skips npx cold download)
+ENV SPECTRAL_PATH=/usr/local/bin/spectral
+
+# Install Python dependencies into the Lambda task root
+COPY backend/requirements.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+
+# Copy all backend source files into the Lambda task root
+COPY backend/ ${LAMBDA_TASK_ROOT}/
+
+# Lambda handler: lambda_handler.handler
+CMD ["lambda_handler.handler"]
