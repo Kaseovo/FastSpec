@@ -8,10 +8,8 @@
 
 FROM public.ecr.aws/lambda/python:3.12
 
-# Install Node.js 20 LTS (via NodeSource RPM) and Spectral CLI
-RUN dnf install -y curl tar gzip && \
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
-    dnf install -y nodejs && \
+# Install Node.js 20 LTS (Amazon Linux 2023 native package) and Spectral CLI
+RUN dnf install -y nodejs20 && \
     npm install -g @stoplight/spectral-cli && \
     dnf clean all && \
     rm -rf /root/.npm
