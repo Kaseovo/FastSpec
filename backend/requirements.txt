@@ -16,3 +16,4 @@ PyYAML>=6.0
 alembic
 mangum
 boto3
+requests
