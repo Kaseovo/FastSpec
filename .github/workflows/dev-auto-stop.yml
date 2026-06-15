@@ -19,60 +19,36 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-southeast-1
 
-      - name: Check if environment is running
+      - name: Get Lambda function name
         id: check
         run: |
-          STACK="FastSpec-Compute-prod"
+          STACK="FastSpec-Lambda-prod"
 
-          CLUSTER=$(aws cloudformation describe-stacks \
+          FUNCTION=$(aws cloudformation describe-stacks \
             --stack-name "$STACK" \
-            --query "Stacks[0].Outputs[?OutputKey=='ClusterName'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionName'].OutputValue" \
             --output text 2>/dev/null || echo "")
 
-          if [ -z "$CLUSTER" ]; then
+          if [ -z "$FUNCTION" ]; then
             echo "running=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          SERVICE=$(aws ecs list-services --cluster "$CLUSTER" \
-            --query "serviceArns[0]" --output text | xargs basename)
+          echo "running=true" >> $GITHUB_OUTPUT
+          echo "function=$FUNCTION" >> $GITHUB_OUTPUT
 
-          DESIRED=$(aws ecs describe-services \
-            --cluster "$CLUSTER" \
-            --services "$SERVICE" \
-            --query "services[0].desiredCount" \
-            --output text)
-
-          if [ "$DESIRED" = "0" ]; then
-            echo "running=false" >> $GITHUB_OUTPUT
-          else
-            echo "running=true" >> $GITHUB_OUTPUT
-            echo "cluster=$CLUSTER" >> $GITHUB_OUTPUT
-            echo "service=$SERVICE" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Check ALB traffic in last 60 minutes
+      - name: Check Lambda invocations in last 60 minutes
         id: traffic
         if: steps.check.outputs.running == 'true'
         run: |
-          STACK="FastSpec-Compute-prod"
-
-          ALB_ARN=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
-            --query "Stacks[0].Outputs[?OutputKey=='AlbArn'].OutputValue" \
-            --output text)
-
-          # CloudWatch dimension needs the suffix of the ARN: app/name/id
-          ALB_SUFFIX=$(echo "$ALB_ARN" | sed 's|.*:loadbalancer/||')
-
           END_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           START_TIME=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
             || date -u -v-60M +%Y-%m-%dT%H:%M:%SZ)  # macOS fallback
 
-          REQUEST_COUNT=$(aws cloudwatch get-metric-statistics \
-            --namespace AWS/ApplicationELB \
-            --metric-name RequestCount \
-            --dimensions Name=LoadBalancer,Value="$ALB_SUFFIX" \
+          INVOCATION_COUNT=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/Lambda \
+            --metric-name Invocations \
+            --dimensions Name=FunctionName,Value="${{ steps.check.outputs.function }}" \
             --start-time "$START_TIME" \
             --end-time "$END_TIME" \
             --period 3600 \
@@ -80,26 +56,19 @@ jobs:
             --query "Datapoints[0].Sum" \
             --output text)
 
-          echo "Request count in last 60 min: $REQUEST_COUNT"
+          echo "Invocation count in last 60 min: $INVOCATION_COUNT"
 
-          if [ "$REQUEST_COUNT" = "None" ] || [ "$REQUEST_COUNT" = "0.0" ] || [ -z "$REQUEST_COUNT" ]; then
+          if [ "$INVOCATION_COUNT" = "None" ] || [ "$INVOCATION_COUNT" = "0.0" ] || [ -z "$INVOCATION_COUNT" ]; then
             echo "idle=true" >> $GITHUB_OUTPUT
           else
             echo "idle=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Stop idle environment
+      - name: Stop idle RDS
         if: steps.check.outputs.running == 'true' && steps.traffic.outputs.idle == 'true'
         run: |
-          echo "No traffic in 60 minutes — stopping prod environment"
+          echo "No Lambda invocations in 60 minutes — stopping prod RDS"
 
-          # Stop Fargate
-          aws ecs update-service \
-            --cluster ${{ steps.check.outputs.cluster }} \
-            --service ${{ steps.check.outputs.service }} \
-            --desired-count 0
-
-          # Stop RDS
           STACK="FastSpec-Data-prod"
           INSTANCE_ID=$(aws rds describe-db-instances \
             --query "DBInstances[?TagList[?Key=='aws:cloudformation:stack-name'&&Value=='$STACK']].DBInstanceIdentifier" \
@@ -119,8 +88,8 @@ jobs:
 
       - name: Environment still active
         if: steps.check.outputs.running == 'true' && steps.traffic.outputs.idle == 'false'
-        run: echo "Traffic detected in last 60 min — keeping environment running"
+        run: echo "Lambda invocations detected in last 60 min — keeping RDS running"
 
       - name: Environment already stopped
         if: steps.check.outputs.running == 'false'
-        run: echo "Prod environment is already stopped — nothing to do"
+        run: echo "Lambda stack not found — nothing to do"

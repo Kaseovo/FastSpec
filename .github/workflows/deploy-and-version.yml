@@ -108,59 +108,33 @@ jobs:
         run: npx cdk deploy FastSpec-Data-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
         working-directory: infra
 
-      - name: Deploy ComputeStack
-        run: npx cdk deploy FastSpec-Compute-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+      - name: Deploy LambdaStack
+        run: npx cdk deploy FastSpec-Lambda-${{ github.event.inputs.env }} \
+          --context env=${{ github.event.inputs.env }} \
+          --require-approval never
         working-directory: infra
 
-      # ── Migration Task ────────────────────────────────────────────────────────
+      # ── Migration ─────────────────────────────────────────────────────────────
 
-      - name: Run migration task
+      - name: Run database migration
         run: |
           ENV=${{ github.event.inputs.env }}
-          STACK="FastSpec-Compute-${ENV}"
+          STACK="FastSpec-Lambda-${ENV}"
 
-          CLUSTER=$(aws cloudformation describe-stacks \
+          FUNCTION=$(aws cloudformation describe-stacks \
             --stack-name "$STACK" \
-            --query "Stacks[0].Outputs[?OutputKey=='ClusterName'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionName'].OutputValue" \
             --output text)
 
-          TASK_DEF=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
-            --query "Stacks[0].Outputs[?OutputKey=='MigrateTaskDefArn'].OutputValue" \
-            --output text)
+          aws lambda invoke \
+            --function-name "$FUNCTION" \
+            --payload '{"migrate": true}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
 
-          SUBNET=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
-            --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetId'].OutputValue" \
-            --output text)
-
-          SG=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
-            --query "Stacks[0].Outputs[?OutputKey=='FargateSgId'].OutputValue" \
-            --output text)
-
-          TASK_ARN=$(aws ecs run-task \
-            --cluster "$CLUSTER" \
-            --task-definition "$TASK_DEF" \
-            --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[$SUBNET],securityGroups=[$SG],assignPublicIp=ENABLED}" \
-            --query "tasks[0].taskArn" \
-            --output text)
-
-          echo "Waiting for migration task $TASK_ARN to complete..."
-          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
-
-          EXIT_CODE=$(aws ecs describe-tasks \
-            --cluster "$CLUSTER" \
-            --tasks "$TASK_ARN" \
-            --query "tasks[0].containers[0].exitCode" \
-            --output text)
-
-          echo "Migration task exited with code $EXIT_CODE"
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "Migration task failed" >&2
-            exit 1
-          fi
+          STATUS=$(python3 -c "import json; print(json.load(open('response.json')).get('statusCode', 500))")
+          echo "Migration status: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
 
       # ── FrontendStack + S3 sync ───────────────────────────────────────────────
 

@@ -69,33 +69,3 @@ jobs:
             echo "RDS already stopped (status: $STATUS)"
           fi
 
-      # ── ECS Fargate desired count ─────────────────────────────────────────────
-
-      - name: Get ECS cluster and service name
-        id: ecs
-        run: |
-          STACK="FastSpec-Compute-prod"
-          CLUSTER=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
-            --query "Stacks[0].Outputs[?OutputKey=='ClusterName'].OutputValue" \
-            --output text)
-          SERVICE=$(aws ecs list-services --cluster "$CLUSTER" \
-            --query "serviceArns[0]" --output text | xargs basename)
-          echo "cluster=$CLUSTER" >> $GITHUB_OUTPUT
-          echo "service=$SERVICE" >> $GITHUB_OUTPUT
-
-      - name: Start Fargate (desiredCount=1)
-        if: steps.resolve.outputs.action == 'start'
-        run: |
-          aws ecs update-service \
-            --cluster ${{ steps.ecs.outputs.cluster }} \
-            --service ${{ steps.ecs.outputs.service }} \
-            --desired-count 1
-
-      - name: Stop Fargate (desiredCount=0)
-        if: steps.resolve.outputs.action == 'stop'
-        run: |
-          aws ecs update-service \
-            --cluster ${{ steps.ecs.outputs.cluster }} \
-            --service ${{ steps.ecs.outputs.service }} \
-            --desired-count 0
