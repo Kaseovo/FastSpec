@@ -1,0 +1,30 @@
+# CDK output — must be excluded to prevent recursive asset staging
+infra/cdk.out
+
+# Version control
+.git
+
+# Node dependencies
+node_modules
+infra/node_modules
+frontend/node_modules
+
+# Frontend build output
+frontend/dist
+
+# Python caches
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.venv
+backend/.venv
+
+# Test artifacts
+.pytest_cache
+**/.pytest_cache
+htmlcov
+.coverage
+
+# Local env files
+.env
+**/.env
