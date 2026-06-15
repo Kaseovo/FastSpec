@@ -38,8 +38,8 @@ export class LambdaStack extends cdk.Stack {
 
     // ── Lambda Docker Function ─────────────────────────────────────────────────
     const fn = new lambda.DockerImageFunction(this, 'BackendFn', {
-      code: lambda.DockerImageCode.fromImageAsset('../backend', {
-        file: 'Dockerfile.lambda',
+      code: lambda.DockerImageCode.fromImageAsset('..', {
+        file: 'backend/Dockerfile.lambda',
       }),
       memorySize: 512,
       timeout: cdk.Duration.minutes(2),
