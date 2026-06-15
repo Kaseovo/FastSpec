@@ -1,9 +1,13 @@
 """AWS Lambda entry point for the merged FastSpec + MCP ASGI application.
 
 Cold-start behaviour:
-  - On each cold start, writes the current UTC timestamp to the SSM parameter
-    named by SSM_WAKE_PARAM (used by the WakeStack RDS idle timer so the stack
-    knows the Lambda is alive and keeps RDS warm).
+  - Fetches SecureString secrets (JWT_SECRET_KEY, DB_PASSWORD, GOOGLE_CLIENT_ID)
+    from SSM Parameter Store and injects them into os.environ so the rest of the
+    application reads them as normal env vars.  Parameter *names* are passed in
+    via SSM_JWT_SECRET_KEY, SSM_DB_PASSWORD, SSM_GOOGLE_CLIENT_ID env vars —
+    no plaintext secrets ever appear in the Lambda console or CloudFormation.
+  - Writes the current UTC timestamp to the SSM parameter named by SSM_WAKE_PARAM
+    (used by the WakeStack RDS idle timer).
   - Errors from SSM are silently swallowed — a missing env var or IAM permission
     must never crash the handler.
 
@@ -18,24 +22,44 @@ Handler export: ``lambda_handler.handler``
 import os
 from datetime import datetime, timezone
 
-from mangum import Mangum
+# ── Cold-start: fetch secrets from SSM and inject into environment ────────────
+try:
+    import boto3
 
-from app import application
+    _ssm = boto3.client("ssm")
 
-# ── Cold-start: write timestamp to SSM so WakeStack knows Lambda is alive ────
+    _secret_params = {
+        "JWT_SECRET_KEY":   os.environ.get("SSM_JWT_SECRET_KEY"),
+        "DB_PASSWORD":      os.environ.get("SSM_DB_PASSWORD"),
+        "GOOGLE_CLIENT_ID": os.environ.get("SSM_GOOGLE_CLIENT_ID"),
+    }
+
+    _names = [v for v in _secret_params.values() if v]
+    if _names:
+        _resp = _ssm.get_parameters(Names=_names, WithDecryption=True)
+        _by_name = {p["Name"]: p["Value"] for p in _resp["Parameters"]}
+        for env_key, param_name in _secret_params.items():
+            if param_name and param_name in _by_name:
+                os.environ[env_key] = _by_name[param_name]
+except Exception:
+    pass  # Never crash the Lambda due to a secret-fetch error
+
+# ── Cold-start: write timestamp to SSM so WakeStack knows Lambda is alive ─────
 try:
     _ssm_param = os.environ.get("SSM_WAKE_PARAM")
     if _ssm_param:
-        import boto3
-
         boto3.client("ssm").put_parameter(
             Name=_ssm_param,
-            Value=datetime.now(timezone.utc).isoformat(),
+            Value=str(datetime.now(timezone.utc).timestamp()),
             Type="String",
             Overwrite=True,
         )
 except Exception:
-    pass  # A missing env var or boto3 error must never crash the Lambda
+    pass
+
+from mangum import Mangum  # noqa: E402 — must come after env injection
+
+from app import application  # noqa: E402
 
 # ── Mangum ASGI adapter (used for normal HTTP invocations) ────────────────────
 _mangum_handler = Mangum(application)

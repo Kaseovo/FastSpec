@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { EnvConfig } from './config';
 
@@ -17,9 +16,10 @@ export interface LambdaStackProps extends cdk.StackProps {
  * Replaces the Fargate-based ComputeStack. The function runs outside a VPC and
  * reaches the now-publicly-accessible RDS instance over the internet.
  *
- * Secrets are loaded via SSM dynamic references so no plaintext appears in the
- * CloudFormation template. The execution role is granted `ssm:PutParameter`
- * on the wake-last-triggered parameter (used by the WakeStack mechanism).
+ * Secrets (JWT_SECRET_KEY, DB_PASSWORD, GOOGLE_CLIENT_ID) are stored as
+ * SecureString parameters in SSM Parameter Store under /{env}/fastspec/*.
+ * Their *names* are passed as env vars; the Lambda fetches the values via
+ * boto3 at cold start — no plaintext in CloudFormation or the Lambda console.
  */
 export class LambdaStack extends cdk.Stack {
   /** Full Lambda Function URL (https://…). Consumed by FrontendStack. */
@@ -34,21 +34,7 @@ export class LambdaStack extends cdk.Stack {
 
     const { config } = props;
     const env = config.env;
-
-    // Resolve SSM secrets via CloudFormation dynamic references.
-    // Parameters are expected to exist in Parameter Store before deployment.
-    const jwtSecretKey = ssm.StringParameter.valueForStringParameter(
-      this,
-      `/${env}/fastspec/secret-key`,
-    );
-    const dbPassword = ssm.StringParameter.valueForStringParameter(
-      this,
-      `/${env}/fastspec/db-password`,
-    );
-    const googleClientId = ssm.StringParameter.valueForStringParameter(
-      this,
-      `/${env}/fastspec/google-client-id`,
-    );
+    const ssmPrefix = `/${env}/fastspec`;
 
     // ── Lambda Docker Function ─────────────────────────────────────────────────
     const fn = new lambda.DockerImageFunction(this, 'BackendFn', {
@@ -62,19 +48,28 @@ export class LambdaStack extends cdk.Stack {
         ENV: env,
         FRONTEND_URL: `https://${config.domain}`,
         CORS_ORIGINS: `https://${config.domain}`,
-        SSM_WAKE_PARAM: `/${env}/fastspec/wake-last-triggered`,
-        JWT_SECRET_KEY: jwtSecretKey,
-        DB_PASSWORD: dbPassword,
-        GOOGLE_CLIENT_ID: googleClientId,
+        SSM_WAKE_PARAM: `${ssmPrefix}/wake-last-triggered`,
+        // Secret *names* only — values are fetched via boto3 at cold start.
+        SSM_JWT_SECRET_KEY:  `${ssmPrefix}/secret-key`,
+        SSM_DB_PASSWORD:     `${ssmPrefix}/db-password`,
+        SSM_GOOGLE_CLIENT_ID:`${ssmPrefix}/google-client-id`,
       },
     });
 
-    // ── IAM: allow Lambda to record the last-wake timestamp in SSM ────────────
+    // ── IAM: allow Lambda to read secrets + write wake timestamp ──────────────
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter', 'ssm:GetParameters'],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${ssmPrefix}/*`,
+        ],
+      }),
+    );
     fn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['ssm:PutParameter'],
         resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/${env}/fastspec/wake-last-triggered`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${ssmPrefix}/wake-last-triggered`,
         ],
       }),
     );
