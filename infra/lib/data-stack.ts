@@ -42,13 +42,13 @@ export class DataStack extends cdk.Stack {
     const { config } = props;
     const sizing = sizingFor(config);
 
-    // VPC is required by CDK's DatabaseInstance construct. It is kept as an
-    // internal detail — public subnets only, no NAT gateways, no export.
+    // Keep the original VPC definition unchanged — CDK cannot safely modify
+    // existing subnets in-place (CIDR conflicts). The VPC costs nothing
+    // (natGateways: 0). RDS is moved to the PUBLIC subnets so Lambda (which
+    // runs outside any VPC) can reach it over the internet.
     const vpc = new ec2.Vpc(this, 'Vpc', {
       maxAzs: 2,
-      subnetConfiguration: [
-        { cidrMask: 24, name: 'Public', subnetType: ec2.SubnetType.PUBLIC },
-      ],
+      natGateways: 0,
     });
 
     // ── RDS PostgreSQL ────────────────────────────────────────────────────────
