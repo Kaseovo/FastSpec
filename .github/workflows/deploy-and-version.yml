@@ -109,9 +109,7 @@ jobs:
         working-directory: infra
 
       - name: Deploy LambdaStack
-        run: npx cdk deploy FastSpec-Lambda-${{ github.event.inputs.env }} \
-          --context env=${{ github.event.inputs.env }} \
-          --require-approval never
+        run: npx cdk deploy FastSpec-Lambda-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
         working-directory: infra
 
       # ── Migration ─────────────────────────────────────────────────────────────
