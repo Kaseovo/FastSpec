@@ -282,6 +282,13 @@
                   }
 
                   initGoogleSignIn();
+
+                  // Expose global for Webstudio React hydration (button onClick)
+                  window.__startGoogleSignIn = function () {
+                    if (window.google && window.google.accounts) {
+                      window.google.accounts.id.prompt();
+                    }
+                  };
                 })();
               </script>
             </div>
