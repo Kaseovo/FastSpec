@@ -5,10 +5,10 @@ This router is intentionally thin: it handles HTTP concerns only.
 - Spec ownership checks are delegated to SpecService.get_spec().
 - Lint orchestration is delegated to LintService.
 - Ruleset CRUD is delegated to LintRulesetRepository.
-- SpectralError → HTTP 502 conversion lives here (and only here).
+- SpectralError → HTTP 502 conversion is a single FastAPI exception handler
+  registered in main.py; endpoints let it propagate rather than each
+  catching and converting it individually.
 """
-
-import logging
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -27,10 +27,10 @@ from schemas import (
 from services.lint_ruleset_repository import LintRulesetRepository
 from services.lint_service import LintService
 from services.spec_service import SpecService
-from validation.spectral_client import SpectralClient, SpectralError, get_spectral_client
+from validation.spectral_client import SpectralClient, spectral_client_dependency
+from validation.spectral_linter import RulesetSecurityError, validate_ruleset_yaml_is_safe
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
         "(if configured) is applied automatically."
     ),
 )
-async def lint_spec_by_id(
+def lint_spec_by_id(
     spec_id: str,
     version: str = Query(
         ...,
@@ -56,7 +56,7 @@ async def lint_spec_by_id(
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    spectral_client: SpectralClient = Depends(get_spectral_client),
+    spectral_client: SpectralClient = Depends(spectral_client_dependency),
 ) -> LintResponse:
     # Ownership check via SpecService (raises 404 if absent or not owned)
     spec_service = SpecService(db)
@@ -76,14 +76,7 @@ async def lint_spec_by_id(
             detail=f"Version {version} for spec {spec_id} not found",
         )
 
-    try:
-        return LintService(db, spectral_client).lint(spec_version.content, current_user.id)
-    except SpectralError as exc:
-        logger.error("Spectral lint failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Linting failed: {exc}",
-        ) from exc
+    return LintService(db, spectral_client).lint(spec_version.content, current_user.id)
 
 
 @router.post(
@@ -96,20 +89,13 @@ async def lint_spec_by_id(
         "The user's custom ruleset (if configured) is applied automatically."
     ),
 )
-async def lint_spec_adhoc(
+def lint_spec_adhoc(
     body: LintRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    spectral_client: SpectralClient = Depends(get_spectral_client),
+    spectral_client: SpectralClient = Depends(spectral_client_dependency),
 ) -> LintResponse:
-    try:
-        return LintService(db, spectral_client).lint(body.spec_json, current_user.id)
-    except SpectralError as exc:
-        logger.error("Spectral lint failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Linting failed: {exc}",
-        ) from exc
+    return LintService(db, spectral_client).lint(body.spec_json, current_user.id)
 
 
 @router.post(
@@ -122,12 +108,12 @@ async def lint_spec_adhoc(
         "The user's custom ruleset (if configured) is applied automatically."
     ),
 )
-async def lint_draft(
+def lint_draft(
     spec_id: str,
     body: LintRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    spectral_client: SpectralClient = Depends(get_spectral_client),
+    spectral_client: SpectralClient = Depends(spectral_client_dependency),
 ) -> LintResponse:
     # Ownership check via SpecService (raises 404 if absent or not owned)
     spec_service = SpecService(db)
@@ -139,14 +125,7 @@ async def lint_draft(
             detail="spec_json must be a JSON object",
         )
 
-    try:
-        return LintService(db, spectral_client).lint(body.spec_json, current_user.id)
-    except SpectralError as exc:
-        logger.error("Spectral lint failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Linting failed: {exc}",
-        ) from exc
+    return LintService(db, spectral_client).lint(body.spec_json, current_user.id)
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +139,7 @@ async def lint_draft(
     summary="Get the current user's custom lint ruleset",
     description="Returns the authenticated user's custom Spectral ruleset, or 404 if none is configured.",
 )
-async def get_lint_ruleset(
+def get_lint_ruleset(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> LintRulesetResponse:
@@ -187,12 +166,15 @@ async def get_lint_ruleset(
         "When `raw_yaml` is present it takes precedence over `rules` at lint time."
     ),
 )
-async def upsert_lint_ruleset(
+def upsert_lint_ruleset(
     body: LintRulesetUpsertRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> LintRulesetResponse:
-    # YAML syntax validation is an input concern — stays in the router
+    # YAML syntax + security validation are input concerns — stay in the router.
+    # raw_yaml is written straight to a file the Spectral CLI executes
+    # against, so `functions`/`functionsDir` (arbitrary JS from disk) and
+    # `extends` pointing at a URL (SSRF) must be rejected before it's stored.
     if body.raw_yaml is not None:
         try:
             yaml.safe_load(body.raw_yaml)
@@ -200,6 +182,13 @@ async def upsert_lint_ruleset(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid YAML in raw_yaml: {exc}",
+            ) from exc
+        try:
+            validate_ruleset_yaml_is_safe(body.raw_yaml)
+        except RulesetSecurityError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
             ) from exc
 
     rules_json = (
@@ -223,7 +212,7 @@ async def upsert_lint_ruleset(
         "Subsequent lint runs will fall back to the default `spectral:oas` ruleset."
     ),
 )
-async def delete_lint_ruleset(
+def delete_lint_ruleset(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:

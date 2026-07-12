@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # run-migrate.sh — run Alembic migrations for local development.
-# For local env, Alembic is invoked directly (no ECS task).
-# In CI prod this would be replaced by an ECS run-task invocation.
+# For local env, Alembic is invoked directly against floci.
+# In prod, the same "alembic upgrade head" runs inside the backend Lambda,
+# triggered by invoking it with {"migrate": true} (see
+# backend/lambda_handler.py and the "Run database migration" step in
+# .github/workflows/deploy-and-version.yml) — there is no ECS run-task.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

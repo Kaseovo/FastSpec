@@ -9,20 +9,18 @@ import os
 
 # Must be set before config.py is imported (it calls sys.exit(1) if missing)
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-pytest-only")
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 # Google OAuth config — endpoints fail fast (503) when unset
 os.environ.setdefault("GOOGLE_CLIENT_ID", "test-google-client-id")
 os.environ.setdefault("GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 os.environ.setdefault(
     "GOOGLE_REDIRECT_URI", "http://testserver/auth/google/callback"
 )
-os.environ.setdefault(
-    "REDIS_HOST", "localhost"
-)  # suppress any Redis connection attempts
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 # Now safe to import application modules
 from database import Base, engine as _default_engine
@@ -30,14 +28,17 @@ import database as _db_module
 import models  # noqa: F401 – ensure all models are registered on Base
 
 # ---------------------------------------------------------------------------
-# Override the engine with SQLite for tests
+# Override the engine with an in-memory SQLite DB for tests. StaticPool keeps
+# every connection on the same in-memory database for the life of the test
+# session (a plain in-memory URL would give each connection its own,
+# throwing away tables between calls). This also stops `test.db` files from
+# being left behind in the repo root — see docs/CODE_REVIEW.md §5.
 # ---------------------------------------------------------------------------
 
-TEST_DATABASE_URL = "sqlite:///./test.db"
-
 test_engine = create_engine(
-    TEST_DATABASE_URL,
+    "sqlite:///:memory:",
     connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
 )
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 

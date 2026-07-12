@@ -6,10 +6,11 @@ into a structured response with a quality score.
 """
 
 import logging
-import os
 from typing import Any, Dict, List, Optional
 
 import yaml
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +40,9 @@ def _find_spectral() -> str:
     1. SPECTRAL_PATH env var (allows pinning a pre-installed binary)
     2. npx @stoplight/spectral-cli (always available if Node.js is present)
     """
-    logger.debug("SPECTRAL_PATH env: %s", os.environ.get("SPECTRAL_PATH"))
-    custom = os.environ.get("SPECTRAL_PATH")
-    if custom:
-        return custom
+    logger.debug("SPECTRAL_PATH env: %s", settings.spectral_path)
+    if settings.spectral_path:
+        return settings.spectral_path
 
     raise RuntimeError("Error with Spectral CLI invocation: SPECTRAL_PATH not set.")
 
@@ -65,6 +65,51 @@ def _build_command(spec_path: str, ruleset_path: str) -> List[str]:
         "json",
         "--quiet",
     ]
+
+
+class RulesetSecurityError(ValueError):
+    """Raised when a user-supplied raw_yaml ruleset contains disallowed keys."""
+
+
+# Spectral rulesets support `functions`/`functionsDir` (arbitrary JS loaded
+# from disk) and `extends` (which can point at an arbitrary URL, an SSRF
+# vector, since Spectral will fetch it at lint time). Since raw_yaml is
+# attacker-controlled and gets written straight to a file the Spectral CLI
+# executes against, both classes of directive are rejected outright rather
+# than sandboxed.
+_DISALLOWED_RULESET_KEYS = {"functions", "functionsDir"}
+_ALLOWED_EXTENDS_VALUES = {"spectral:oas", "spectral:asyncapi"}
+
+
+def validate_ruleset_yaml_is_safe(raw_yaml: str) -> None:
+    """Reject a user-supplied raw_yaml ruleset that could cause the Spectral
+    CLI to load arbitrary code from disk (functions/functionsDir) or make an
+    SSRF-capable outbound request (extends pointing at a URL/file path).
+
+    Raises RulesetSecurityError if the ruleset is unsafe. Callers should have
+    already confirmed the YAML parses (yaml.safe_load) before calling this.
+    """
+    parsed = yaml.safe_load(raw_yaml)
+    if not isinstance(parsed, dict):
+        return
+
+    disallowed = _DISALLOWED_RULESET_KEYS & parsed.keys()
+    if disallowed:
+        raise RulesetSecurityError(
+            f"Ruleset key(s) not allowed: {', '.join(sorted(disallowed))}"
+        )
+
+    extends = parsed.get("extends")
+    if extends is not None:
+        values = extends if isinstance(extends, list) else [extends]
+        for value in values:
+            # Spectral's `extends` accepts a bare name or [name, "all"/"recommended"]
+            name = value[0] if isinstance(value, list) and value else value
+            if name not in _ALLOWED_EXTENDS_VALUES:
+                raise RulesetSecurityError(
+                    f"'extends' may only reference {sorted(_ALLOWED_EXTENDS_VALUES)}, "
+                    f"got: {name!r}"
+                )
 
 
 def build_ruleset_yaml(user_ruleset: Optional[Dict[str, Any]]) -> str:

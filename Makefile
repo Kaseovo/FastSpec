@@ -14,15 +14,16 @@ up:
 down:
 	docker compose -f docker-compose.floci.yml down
 
-## db: Start Postgres and Redis locally (needed for make backend)
+## db: Start Postgres locally (needed for make backend). No Redis — the app
+## has none; RDS/PostgreSQL is the only datastore in every environment.
 db:
-	docker compose up -d postgres redis
+	docker compose up -d postgres
 
 ## secrets: Seed .env key-value pairs into floci SSM as SecureString parameters
 secrets:
 	@bash scripts/seed-ssm.sh
 
-## infra: Bootstrap CDK then deploy all stacks (DataStack then ComputeStack) against floci
+## infra: Bootstrap CDK then deploy all stacks (DataStack, LambdaStack, FrontendStack, WakeStack) against floci
 infra:
 	cd infra && $(FLOCI_AWS_VARS) \
 	  npx cdk bootstrap --context env=local
@@ -31,7 +32,8 @@ infra:
 	  -v
 	@echo "✓ infra deployed"
 
-## migrate: Run the Migration ECS task to completion against floci
+## migrate: Run Alembic migrations locally (prod runs the same via a Lambda
+## {"migrate": true} invocation — see backend/lambda_handler.py — no ECS task)
 migrate:
 	@bash scripts/run-migrate.sh
 
@@ -39,16 +41,15 @@ migrate:
 backend:
 	cd backend && env $(shell grep -v '^#' .env | grep '=' | xargs) \
 	  DATABASE_URL=postgresql://fastspec:fastspec@localhost:5432/fastspec \
-	  REDIS_HOST=localhost \
 	  ../.venv/bin/uvicorn main:app --reload --port 8000
 
-## frontend: Start the Vite dev server on port 5173 pointed at the local ALB
+## frontend: Start the Vite dev server on port 5173 pointed at the local backend Lambda
 frontend:
 	cd frontend && VITE_API_BASE_URL=http://localhost:8000 VITE_LANDING_URL=http://localhost:3000 npm run dev
 
-## logs: Tail backend ECS container logs from floci
+## logs: Tail backend Lambda logs from floci
 logs:
-	$(FLOCI_AWS_VARS) aws logs tail /ecs/fastspec-backend --follow
+	$(FLOCI_AWS_VARS) aws logs tail /aws/lambda/fastspec-backend --follow
 
 ## landing: Build and run the landing page container on http://localhost:3000
 landing:

@@ -6,7 +6,6 @@ openapi-spec-validator
 python-multipart
 google-auth
 pyjwt
-python-jose[cryptography]
 passlib[bcrypt]
 httpx
 itsdangerous

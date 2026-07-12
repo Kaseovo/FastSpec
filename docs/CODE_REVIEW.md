@@ -42,12 +42,12 @@ writing — verify against current code before trusting "Fixed".
 
 | # | Bug | Status |
 |---|---|---|
-| 1 | `DELETE /specs/{id}/versions/{vid}` never deletes — missing `db.commit()` in [routers/specs.py](../backend/routers/specs.py) `delete_version`. `get_db` rolls back on close, so the row survives. | **Open** |
-| 2 | `POST /specs/{id}/versions/{vid}/publish` never persists — same missing-commit bug in `publish_version`. | **Open** |
+| 1 | `DELETE /specs/{id}/versions/{vid}` never deletes — missing `db.commit()` in [routers/specs.py](../backend/routers/specs.py) `delete_version`. `get_db` rolls back on close, so the row survives. | **Fixed** — version endpoints extracted into [`services/spec_version_service.py`](../backend/services/spec_version_service.py), which commits in one place; regression tests added in `test_specs_api.py`. |
+| 2 | `POST /specs/{id}/versions/{vid}/publish` never persists — same missing-commit bug in `publish_version`. | **Fixed** — same `SpecVersionService.publish`, with a regression test. |
 | 3 | Google token verification skipped the audience check when `GOOGLE_CLIENT_ID` was unset (`verify_oauth2_token(..., audience=None)` accepts tokens for *any* Google app). | **Fixed** — `/auth/google/*` now raises 503 via `_google_client_id()` if the client ID is missing, instead of silently passing `None`. |
-| 4 | `Depends(get_spectral_client)` used directly as a FastAPI dependency in [routers/lint.py](../backend/routers/lint.py) — FastAPI exposes its `mode` parameter as a public query param (`?mode=subprocess`), letting callers force the lint transport. | **Open** |
-| 5 | Silent `except Exception: pass` around `AuthToken` persistence in [auth/jwt.py](../backend/auth/jwt.py) `create_access_token` — a DB failure returns a JWT that is immediately invalid everywhere (jti lookup fails), with nothing logged. | **Open** |
-| 6 | MCP `tools/list` crashes unauthenticated: `AuthenticationMiddleware.on_list_tools` raises a bare `PermissionError` (not `ToolError`) when no Authorization header is present. | **Open** |
+| 4 | `Depends(get_spectral_client)` used directly as a FastAPI dependency in [routers/lint.py](../backend/routers/lint.py) — FastAPI exposes its `mode` parameter as a public query param (`?mode=subprocess`), letting callers force the lint transport. | **Fixed** — routes now depend on `spectral_client_dependency` (zero-arg wrapper) in [`validation/spectral_client.py`](../backend/validation/spectral_client.py). |
+| 5 | Silent `except Exception: pass` around `AuthToken` persistence in [auth/jwt.py](../backend/auth/jwt.py) `create_access_token` — a DB failure returns a JWT that is immediately invalid everywhere (jti lookup fails), with nothing logged. | **Fixed** — logs and raises a 500 instead of returning an unusable token. |
+| 6 | MCP `tools/list` crashes unauthenticated: `AuthenticationMiddleware.on_list_tools` raises a bare `PermissionError` (not `ToolError`) when no Authorization header is present. | **Fixed** — `on_list_tools`/`on_call_tool` now catch `PermissionError` and re-raise as `ToolError`. |
 
 ---
 
@@ -345,6 +345,12 @@ specs vertical.
 
 ## 14. Final Score
 
+Scores below are from the original 2026-07-11 review. See the 2026-07-12
+changelog entry for what has since been fixed — most Critical and High items
+are now addressed; scores have not been re-derived line-by-line but the
+overall posture is materially better (fewer live bugs, no plaintext-JWT/public-superuser
+password fallback in backend code, CI now runs tests, docs refreshed).
+
 | Category | Score | Justification |
 |---|---|---|
 | Architecture | 7 | Clean seams where refactored (lint); split-brain elsewhere; MCP bypasses layers |
@@ -382,3 +388,88 @@ to the standard its best module (the lint vertical) already sets.
   [`docs/AUTHENTICATION.md`](AUTHENTICATION.md) for the current flow and
   [`backend/tests/test_auth_google_redirect.py`](../backend/tests/test_auth_google_redirect.py)
   for coverage.
+
+- **2026-07-12** — Worked the bulk of this review's backlog in one pass:
+  - **Must-fix bugs #1, #2, #4, #5, #6**: all fixed (see table above).
+  - **Architecture/refactor**: extracted `SpecVersionService`
+    ([`backend/services/spec_version_service.py`](../backend/services/spec_version_service.py)),
+    collapsing the three disagreeing version-lookup variants into one
+    canonical `version_or_404`, and removing the dead
+    "creator of version" permission branch (unreachable once ownership is
+    checked via `owned_spec_or_404`). Router now delegates entirely.
+  - **API design**: `version` can now be passed in the `OpenAPISpecCreate`
+    body (query param kept as a deprecated fallback); duplicate-name and
+    version conflicts now return 409 instead of 400; `OpenAPISpecUpdate.version`
+    is now enforced as real optimistic concurrency (409 on mismatch) instead
+    of being accepted and ignored; `/specs/{id}/diff` and `/specs/{id}/compare`
+    now have real `response_model`s (`SpecDiffResponse`, `SpecCompareResponse`);
+    `GET /specs` accepts `skip`/`limit` (additive, backward compatible).
+  - **Performance**: `list_specs` N+1 fixed with a single join.
+  - **Security**: dropped the plaintext `AuthToken.token` column and the
+    dead `User.session_version` column (migration
+    `e21196ca7732_drop_dead_columns`); fixed the `ACCESS_TOKEN_EXPIRE_MINUTES`
+    name/value mismatch (was 3600 *minutes* ≈ 2.5 days, now defaults to 60);
+    added an allowlist check on user-supplied `raw_yaml` lint rulesets
+    rejecting `functions`/`functionsDir` (arbitrary JS from disk) and
+    non-`spectral:` `extends` targets (SSRF); added best-effort in-memory
+    rate limiting on `/auth/google/verify`, `/auth/google/callback` and
+    `/auth/api-keys/exchange`; `backend/database.py`'s DB-password fallback
+    now fails fast instead of defaulting to `"fastspec"` (mirrors
+    `JWT_SECRET_KEY`); migrated `python-jose` → `PyJWT` (drops the
+    unmaintained/CVE-affected dependency).
+  - **Code quality**: removed duplication (`exchange_api_key` route now
+    calls `exchange_api_key_for_short_jwt`; the three `SpectralError`→502
+    try/excepts collapsed into one FastAPI exception handler in `main.py`);
+    deleted dead code (`auth/oauth.py`, `get_current_active_user`, the
+    `greet` MCP tool, `Token`/`TokenData` schemas, the ignored
+    `LintRequest.ruleset` field); renamed `/auth/refresh` → `/auth/api-keys`
+    (backend, frontend, and docs updated together).
+  - **Python best practices**: adopted `pydantic-settings`
+    (`backend/config.py`) consolidating JWT/Google/CORS/Spectral env vars
+    that were previously scattered `os.getenv` calls with inconsistent
+    defaults; DB/subprocess-bound route handlers changed from `async def`
+    to plain `def` so FastAPI runs them in the threadpool instead of
+    blocking the event loop; fixed the `datetime.utcnow()` deprecation in
+    `spec_service.py`.
+  - **Testing**: added regression tests for the delete/publish persistence
+    bugs and the new ruleset-security validation; consolidated the test DB
+    setup onto in-memory SQLite + StaticPool (`conftest.py`), which also
+    stops `test.db` files from being left in the repo root.
+  - **Production readiness**: added `/health/ready` (does a real `SELECT 1`
+    so a stopped/waking RDS instance surfaces as 503 instead of a hung
+    request).
+  - **Infra/CI**: added `.github/workflows/test.yml` (pytest + vitest +
+    infra jest + `cdk synth` on PR); split the deploy workflow into
+    version-bump → validate → deploy jobs so `cdk deploy` can't run before
+    tests pass; scoped `wake-stack.ts`'s RDS start/stop IAM actions to the
+    instance ARN; moved the auto-stop Lambda's inline Python to a real file
+    (`infra/lambda/auto-stop/`) with its own tests; added a DLQ + retries on
+    its EventBridge target and CloudWatch alarms on Lambda errors; enforced
+    `rds.force_ssl=1` via a DB parameter group. The RDS public-ingress /
+    superuser-role items are **not** fully resolved — see
+    [`docs/adr/0002-rds-public-access-tradeoff.md`](adr/0002-rds-public-access-tradeoff.md)
+    for why (Lambda runs outside a VPC for cost reasons) and what a real fix
+    would require.
+  - **DX**: added ruff (`backend/pyproject.toml`) and eslint/prettier
+    (`frontend/`) configs, plus a pre-commit config; removed stray
+    `test.db`/`fastspec.db` files and the misplaced `backend/package-lock.json`.
+  - **Docs**: refreshed `README.md`, `docs/ARCHITECTURE.md`,
+    `docs/BACKEND.md`, `CONTEXT.md`, `.env.example`, `Makefile` and
+    `docker-compose*.yml` to describe the actual Lambda/RDS/no-Redis
+    architecture instead of the stale ECS+Redis description.
+  - **Frontend**: decomposed `DiffDrawer.vue` (3,464 → 1,231 lines) into
+    `frontend/src/components/diff-drawer/*`, `useDiffDrawer.js` and
+    `diffDisplay.js`. `FormEditor.vue` (6,052 → 5,311 lines) had its
+    smaller tabs/dialogs extracted (`form-editor/*`,
+    `openApiFormHelpers.js`); the Paths and Components/schemas tabs
+    (~2,500 lines) were deliberately left alone — they share a single
+    mutable `formData` ref across dozens of interlinked functions with no
+    existing test coverage, so a forced split risked the exact "blind
+    patch" failure mode this review warned about. Frontend build and test
+    suite (48/48) verified green after each extraction.
+  - **Not done in this pass** (tracked, not forgotten): moving MCP tools to
+    call `SpecService` instead of opening `SessionLocal()` directly; making
+    `backend` a real package (flat `from database import ...` imports);
+    unifying the backend/frontend diff-logic duplication; splitting the
+    remaining large Vue tabs; migrating off the Postgres `postgres`
+    superuser role.

@@ -56,12 +56,12 @@ const getAuthHeaders = () => {
 /**
  * --- API Key management ---
  * The following functions mirror the custom token endpoints but operate on
- * API keys via /auth/refresh and use `id` as the identifier.
+ * API keys via /auth/api-keys and use `id` as the identifier.
  */
 
 /**
  * Create an API key (server returns the raw API key once)
- * POST /auth/refresh
+ * POST /auth/api-keys
  * @param {Array<string>} actions - e.g. ['A','B']
  * @param {string|null} name - optional user-defined label
  * @returns {Promise<Object>} Created API key data { api_key, id, expires_at }
@@ -75,23 +75,23 @@ export const createApiKey = async (actions, name = null) => {
   if (name) body.name = name;
 
   const response = await axios.post(
-    `${API_BASE}/refresh`,
+    `${API_BASE}/api-keys`,
     body,
     { headers: getAuthHeaders() },
   );
 
-  // backend returns { refresh_token: raw, id, expires_at }
-  // the raw refresh token is shown once by the backend; return the full response
+  // backend returns { api_key: raw, id, expires_at }
+  // the raw api key is shown once by the backend; return the full response
   return response.data;
 };
 
 /**
  * List API keys for the current user
- * GET /auth/refresh
+ * GET /auth/api-keys
  * @returns {Promise<Array>} List of API key objects
  */
 export const listApiKeys = async () => {
-  const response = await axios.get(`${API_BASE}/refresh`, {
+  const response = await axios.get(`${API_BASE}/api-keys`, {
     headers: getAuthHeaders(),
   });
   return response.data;
@@ -99,13 +99,13 @@ export const listApiKeys = async () => {
 
 /**
  * Revoke an API key by id
- * DELETE /auth/refresh/{id}
+ * DELETE /auth/api-keys/{id}
  * @param {string} id
  * @returns {Promise<Object>}
  */
 export const revokeApiKey = async (id) => {
   const response = await axios.delete(
-    `${API_BASE}/refresh/${encodeURIComponent(id)}`,
+    `${API_BASE}/api-keys/${encodeURIComponent(id)}`,
     { headers: getAuthHeaders() },
   );
   return response.data;
@@ -113,7 +113,7 @@ export const revokeApiKey = async (id) => {
 
 /**
  * Update actions (and optionally name) for an API key by id
- * PUT /auth/refresh/{id}/actions
+ * PUT /auth/api-keys/{id}/actions
  * @param {string} id
  * @param {Array<string>} actions
  * @param {string|null} name - optional new name (omitted means no change)
@@ -123,7 +123,7 @@ export const updateApiKeyActions = async (id, actions, name = undefined) => {
   const body = { actions };
   if (name !== undefined) body.name = name;
   const response = await axios.put(
-    `${API_BASE}/refresh/${encodeURIComponent(id)}/actions`,
+    `${API_BASE}/api-keys/${encodeURIComponent(id)}/actions`,
     body,
     { headers: getAuthHeaders() },
   );

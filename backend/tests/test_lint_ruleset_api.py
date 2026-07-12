@@ -17,7 +17,7 @@ from database import SessionLocal
 from main import app
 from models import User
 from tests.fakes import FakeSpectralClient
-from validation.spectral_client import get_spectral_client
+from validation.spectral_client import spectral_client_dependency
 
 client = TestClient(app)
 
@@ -48,7 +48,7 @@ def _clear_dependency_overrides():
     """Ensure dependency overrides are reset after every test to avoid bleed-through."""
     yield
     app.dependency_overrides.pop(get_current_user, None)
-    app.dependency_overrides.pop(get_spectral_client, None)
+    app.dependency_overrides.pop(spectral_client_dependency, None)
 
 
 def _make_user(session: Session) -> User:
@@ -147,6 +147,31 @@ def test_put_ruleset_invalid_yaml_returns_400(db_session):
     resp = client.put("/lint/ruleset", json={"raw_yaml": "key: [unclosed"})
     assert resp.status_code == 400
     assert "Invalid YAML" in resp.json()["detail"]
+
+
+def test_put_ruleset_rejects_functions_dir():
+    """Regression test: raw_yaml is written to a file the Spectral CLI
+    executes against, so functionsDir (arbitrary JS from disk) must be
+    rejected rather than silently written to disk."""
+    user = _make_user(SessionLocal())
+    app.dependency_overrides[get_current_user] = lambda: user
+
+    raw = "extends: spectral:oas\nfunctionsDir: /tmp/evil\nrules: {}\n"
+    resp = client.put("/lint/ruleset", json={"raw_yaml": raw})
+    assert resp.status_code == 400
+    assert "functionsDir" in resp.json()["detail"]
+
+
+def test_put_ruleset_rejects_extends_url():
+    """Regression test: `extends` pointing at an arbitrary URL is an SSRF
+    vector (Spectral fetches it at lint time) and must be rejected."""
+    user = _make_user(SessionLocal())
+    app.dependency_overrides[get_current_user] = lambda: user
+
+    raw = "extends: http://169.254.169.254/latest/meta-data/\nrules: {}\n"
+    resp = client.put("/lint/ruleset", json={"raw_yaml": raw})
+    assert resp.status_code == 400
+    assert "extends" in resp.json()["detail"]
 
 
 def test_put_ruleset_updates_existing(db_session):
@@ -260,7 +285,7 @@ def test_lint_adhoc_forwards_user_ruleset(db_session):
     client.put("/lint/ruleset", json={"raw_yaml": raw})
 
     fake = FakeSpectralClient()
-    app.dependency_overrides[get_spectral_client] = lambda: fake
+    app.dependency_overrides[spectral_client_dependency] = lambda: fake
 
     resp = client.post("/lint", json={"spec_json": VALID_SPEC})
     assert resp.status_code == 200
@@ -276,7 +301,7 @@ def test_lint_adhoc_no_ruleset_passes_baseline(db_session):
     app.dependency_overrides[get_current_user] = lambda: user
 
     fake = FakeSpectralClient()
-    app.dependency_overrides[get_spectral_client] = lambda: fake
+    app.dependency_overrides[spectral_client_dependency] = lambda: fake
 
     resp = client.post("/lint", json={"spec_json": VALID_SPEC})
     assert resp.status_code == 200
@@ -300,7 +325,7 @@ def test_lint_with_ruleset_that_overrides_default_rule(db_session):
     assert put_resp.status_code == 200
 
     fake = FakeSpectralClient()
-    app.dependency_overrides[get_spectral_client] = lambda: fake
+    app.dependency_overrides[spectral_client_dependency] = lambda: fake
 
     resp = client.post("/lint", json={"spec_json": VALID_SPEC})
     assert resp.status_code == 200

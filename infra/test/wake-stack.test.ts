@@ -79,14 +79,63 @@ describe('WakeStack', () => {
   });
 
   test('auto-stop role has rds:StopDBInstance permission', () => {
+    // A single-action PolicyStatement synthesizes `Action` as a plain string
+    // (not a 1-element array), so match either shape.
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: Match.arrayWith(['rds:StopDBInstance']),
+            Action: Match.anyValue(),
           }),
         ]),
       },
+    });
+
+    const policies = template.findResources('AWS::IAM::Policy');
+    const allStatements = Object.values(policies).flatMap((p: any) =>
+      p.Properties?.PolicyDocument?.Statement ?? [],
+    );
+    const hasStopDbInstance = allStatements.some((stmt: any) => {
+      const actions: string[] = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+      return actions.includes('rds:StopDBInstance');
+    });
+    expect(hasStopDbInstance).toBe(true);
+  });
+
+  test('rds:StartDBInstance and rds:StopDBInstance are scoped to the instance ARN, not "*"', () => {
+    const policies = template.findResources('AWS::IAM::Policy');
+    const allStatements = Object.values(policies).flatMap((p: any) =>
+      p.Properties?.PolicyDocument?.Statement ?? [],
+    );
+    const scopedActions = ['rds:StartDBInstance', 'rds:StopDBInstance'];
+    for (const stmt of allStatements) {
+      const actions: string[] = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+      if (actions.some((a) => scopedActions.includes(a))) {
+        const resources: string[] = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+        for (const resource of resources) {
+          expect(resource).not.toBe('*');
+        }
+      }
+    }
+  });
+
+  test('auto-stop EventBridge target has a dead-letter queue configured', () => {
+    const rules = template.findResources('AWS::Events::Rule');
+    const ruleWithDlq = Object.values(rules).find((r: any) =>
+      (r.Properties?.Targets ?? []).some((t: any) => t.DeadLetterConfig?.Arn != null),
+    );
+    expect(ruleWithDlq).toBeDefined();
+  });
+
+  test('DLQ SQS queue is provisioned', () => {
+    template.resourceCountIs('AWS::SQS::Queue', 1);
+  });
+
+  test('CloudWatch alarms exist for wake and auto-stop Lambda errors', () => {
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 2);
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      MetricName: 'Errors',
+      Namespace: 'AWS/Lambda',
     });
   });
 

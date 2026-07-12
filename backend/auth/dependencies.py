@@ -74,19 +74,3 @@ async def get_current_user(
         )
 
     return user
-
-
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """
-    Get the current active user (can be extended with additional checks)
-
-    Args:
-        current_user: Current authenticated user
-
-    Returns:
-        User object
-    """
-    # Can add additional checks here (e.g., user is_active flag)
-    return current_user

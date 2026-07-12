@@ -1,11 +1,11 @@
-from typing import List
+from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from models import OpenAPISpec, SpecVersion, User
 from schemas import OpenAPISpecCreate, OpenAPISpecUpdate, OpenAPISpecResponse
 from validation.validator import validate_openapi_spec
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class SpecService:
@@ -14,16 +14,19 @@ class SpecService:
     def __init__(self, db: Session):
         self.db = db
 
-    def _build_response(self, spec: OpenAPISpec) -> OpenAPISpecResponse:
+    def _build_response(
+        self, spec: OpenAPISpec, current_version: Optional[SpecVersion] = None
+    ) -> OpenAPISpecResponse:
         """Build an OpenAPISpecResponse from an ORM object, deriving title and spec_json from the current version."""
-        current_version = (
-            self.db.query(SpecVersion)
-            .filter(
-                SpecVersion.spec_id == spec.id,
-                SpecVersion.version == spec.version,
+        if current_version is None:
+            current_version = (
+                self.db.query(SpecVersion)
+                .filter(
+                    SpecVersion.spec_id == spec.id,
+                    SpecVersion.version == spec.version,
+                )
+                .first()
             )
-            .first()
-        )
         content = current_version.content if current_version else {}
         title = (
             content.get("info", {}).get("title", "Untitled") if content else "Untitled"
@@ -35,18 +38,29 @@ class SpecService:
             version=spec.version,
             spec_json=content,
             user_id=spec.user_id,
-            created_at=spec.created_at or datetime.utcnow(),
-            updated_at=spec.updated_at or spec.created_at or datetime.utcnow(),
+            created_at=spec.created_at or datetime.now(timezone.utc),
+            updated_at=spec.updated_at or spec.created_at or datetime.now(timezone.utc),
         )
 
-    def list_specs(self, user: User) -> List[OpenAPISpecResponse]:
-        specs = (
-            self.db.query(OpenAPISpec)
+    def list_specs(
+        self, user: User, skip: int = 0, limit: Optional[int] = None
+    ) -> List[OpenAPISpecResponse]:
+        # Single join instead of one SpecVersion query per spec (was N+1).
+        query = (
+            self.db.query(OpenAPISpec, SpecVersion)
+            .join(
+                SpecVersion,
+                (SpecVersion.spec_id == OpenAPISpec.id)
+                & (SpecVersion.version == OpenAPISpec.version),
+            )
             .filter(OpenAPISpec.user_id == user.id)
             .order_by(OpenAPISpec.created_at.desc())
-            .all()
+            .offset(skip)
         )
-        return [self._build_response(s) for s in specs]
+        if limit is not None:
+            query = query.limit(limit)
+        rows = query.all()
+        return [self._build_response(spec, current_version) for spec, current_version in rows]
 
     def get_spec(self, user: User, spec_id: str) -> OpenAPISpecResponse:
         spec = (
@@ -62,12 +76,15 @@ class SpecService:
         return self._build_response(spec)
 
     def create_spec(
-        self, user: User, data: OpenAPISpecCreate, version: str
+        self, user: User, data: OpenAPISpecCreate, version: Optional[str] = None
     ) -> OpenAPISpecResponse:
+        # Prefer the version carried in the create payload; the `version`
+        # query param is accepted for backward compatibility only.
+        version = data.version or version
         if not version:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Version query parameter is required",
+                detail="A version is required (pass it in the request body)",
             )
         spec_json = data.spec_json
         if "info" not in spec_json:
@@ -93,7 +110,7 @@ class SpecService:
         )
         if existing:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_409_CONFLICT,
                 detail=f"Spec with name '{data.name}' already exists",
             )
 
@@ -137,6 +154,15 @@ class SpecService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Only 'name' field can be updated via this endpoint",
             )
+        # Optimistic concurrency: the client must be looking at the version
+        # it's about to overwrite. This makes the `version` field on
+        # OpenAPISpecUpdate load-bearing rather than an accepted-but-ignored
+        # field the docstring merely claimed was enforced.
+        if data.version != spec.version:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Spec has changed since it was loaded; refresh and try again",
+            )
         # Duplicate name check
         conflict = (
             self.db.query(OpenAPISpec)
@@ -149,7 +175,7 @@ class SpecService:
         )
         if conflict:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_409_CONFLICT,
                 detail=f"Spec with name '{data.name}' already exists",
             )
         spec.name = data.name

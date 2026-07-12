@@ -1,3 +1,31 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# Pragmatic starter set — catches the classes of issue flagged in
+# docs/CODE_REVIEW.md (unused imports, bare/broad excepts, dead code) without
+# being so strict that adopting it requires a separate large reformatting PR.
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (unused imports/vars, undefined names)
+    "W",   # pycodestyle warnings
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear (common bugs/design issues)
+    "UP",  # pyupgrade (modernize syntax, e.g. datetime.utcnow())
+]
+ignore = [
+    "E501",  # line length handled by the formatter, not the linter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

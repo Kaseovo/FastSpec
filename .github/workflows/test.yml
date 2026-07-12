@@ -1,0 +1,34 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Backend — install deps and run pytest
+        run: |
+          pip install -r backend/requirements.txt
+          cd backend && python -m pytest tests --tb=short
+
+      - name: Frontend — install deps and run vitest
+        run: cd frontend && npm ci && npm test
+
+      - name: Infra — install deps, jest, and cdk synth
+        run: |
+          cd infra && npm ci
+          npm test
+          npx cdk synth --context env=local >/dev/null

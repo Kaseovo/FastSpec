@@ -16,7 +16,7 @@ from database import SessionLocal
 from models import User, OpenAPISpec
 from auth.dependencies import get_current_user
 from tests.fakes import FakeSpectralClient
-from validation.spectral_client import get_spectral_client
+from validation.spectral_client import spectral_client_dependency
 
 client = TestClient(app)
 
@@ -55,12 +55,12 @@ VALID_SPEC = {
 
 
 def _override_spectral(fake: FakeSpectralClient):
-    """Override get_spectral_client dependency with *fake*."""
-    app.dependency_overrides[get_spectral_client] = lambda: fake
+    """Override spectral_client_dependency dependency with *fake*."""
+    app.dependency_overrides[spectral_client_dependency] = lambda: fake
 
 
 def _clear_spectral_override():
-    app.dependency_overrides.pop(get_spectral_client, None)
+    app.dependency_overrides.pop(spectral_client_dependency, None)
 
 
 # ── POST /lint (ad-hoc) ───────────────────────────────────────────────────────

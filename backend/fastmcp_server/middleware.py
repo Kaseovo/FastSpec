@@ -81,8 +81,16 @@ class AuthenticationMiddleware(Middleware):
     async def on_list_tools(self, context: MiddlewareContext, call_next):
         tools = await call_next(context)  # This is a list of FastMCP Tool objects
 
-        # Ensure we have a request-scoped user in the mutable extra dict
-        user = self.get_user(context)
+        # Ensure we have a request-scoped user in the mutable extra dict.
+        # An unauthenticated tools/list request is a normal, expected case
+        # (e.g. an MCP client probing available tools before authenticating)
+        # and must surface as a client-facing ToolError, not a bare
+        # PermissionError that crashes the request.
+        try:
+            user = self.get_user(context)
+        except PermissionError as exc:
+            raise ToolError(str(exc)) from exc
+
         # You can inspect metadata like tool.tags or tool.meta here
         # Filter out tools with "private" tag
         filtered_tools = []
@@ -96,7 +104,10 @@ class AuthenticationMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         if context.fastmcp_context:
             # Ensure the request-scoped user is set on the fastmcp_context.extra
-            user = self.get_user(context)
+            try:
+                user = self.get_user(context)
+            except PermissionError as exc:
+                raise ToolError(str(exc)) from exc
             tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
 
             if not check_tool(tool, user):

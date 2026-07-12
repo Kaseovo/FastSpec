@@ -31,7 +31,6 @@ services:
       - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     depends_on:
-      - redis
       - postgres
     networks:
       - webnet
@@ -46,16 +45,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    restart: unless-stopped
-    networks:
-      - webnet
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
     restart: unless-stopped
     networks:
       - webnet
@@ -95,8 +84,6 @@ services:
   #     dockerfile: backend/Dockerfile-MCP
   #   restart: unless-stopped
   #   env_file: .env
-  #   depends_on:
-  #     - redis
   #   ports:
   #     - "9000:9000"
   #   labels:
@@ -115,5 +102,4 @@ networks:
   webnet: {}
 
 volumes:
-  redis-data: {}
   postgres-data: {}

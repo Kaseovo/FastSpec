@@ -42,135 +42,17 @@
         <TabPanels>
           <!-- API Info Tab -->
           <TabPanel value="0">
-            <div class="form-section">
-              <h4>API Information</h4>
-
-              <div class="form-field">
-                <label for="openapi-version" class="required">OpenAPI Version</label>
-                <InputText
-                  id="openapi-version"
-                  v-model="formData.openapi"
-                  placeholder="3.0.0"
-                />
-              </div>
-
-              <div class="form-field">
-                <label for="api-title" class="required">Title</label>
-                <InputText
-                  id="api-title"
-                  v-model="formData.info.title"
-                  placeholder="My API"
-                />
-              </div>
-
-              <div class="form-field">
-                <label for="api-version" class="required">Version</label>
-                <InputText
-                  id="api-version"
-                  v-model="formData.info.version"
-                  placeholder="1.0.0"
-                />
-              </div>
-
-              <div class="form-field">
-                <label for="api-description">Description</label>
-                <Textarea
-                  id="api-description"
-                  v-model="formData.info.description"
-                  rows="4"
-                  placeholder="API Description"
-                />
-              </div>
-
-              <div class="form-field">
-                <label for="api-contact-name">Contact Name</label>
-                <InputText
-                  id="api-contact-name"
-                  v-model="formData.info.contact.name"
-                  placeholder="API Support"
-                />
-              </div>
-
-              <div class="form-field">
-                <label for="api-contact-email">Contact Email</label>
-                <InputText
-                  id="api-contact-email"
-                  v-model="formData.info.contact.email"
-                  type="email"
-                  placeholder="support@example.com"
-                />
-              </div>
-
-              <div class="form-field">
-                <label for="api-license-name">License Name</label>
-                <InputText
-                  id="api-license-name"
-                  v-model="formData.info.license.name"
-                  placeholder="MIT"
-                />
-              </div>
-
-              <div class="form-field">
-                <label for="api-license-url">License URL</label>
-                <InputText
-                  id="api-license-url"
-                  v-model="formData.info.license.url"
-                  placeholder="https://opensource.org/licenses/MIT"
-                />
-              </div>
-            </div>
+            <ApiInfoTab :form-data="formData" />
           </TabPanel>
 
           <!-- Servers Tab -->
           <TabPanel value="1">
-            <div class="form-section">
-              <div class="section-header">
-                <h4>Servers</h4>
-                <Button
-                  label="Add Server"
-                  icon="pi pi-plus"
-                  size="small"
-                  @click="addServer"
-                  :disabled="hasEmptyServerUrl"
-                  v-tooltip.left="hasEmptyServerUrl ? 'Please fill in the URL for all existing servers before adding a new one.' : ''"
-                />
-              </div>
-
-              <div v-if="formData.servers.length === 0" class="empty-state">
-                <i class="pi pi-server"></i>
-                <p>No servers defined. Add one to get started.</p>
-              </div>
-
-              <div
-                v-for="(server, index) in formData.servers"
-                :key="index"
-                class="list-item"
-              >
-                <div class="list-item-content">
-                  <div class="form-field">
-                    <label class="required">URL</label>
-                    <InputText
-                      v-model="server.url"
-                      placeholder="https://api.example.com"
-                    />
-                  </div>
-                  <div class="form-field">
-                    <label>Description</label>
-                    <InputText
-                      v-model="server.description"
-                      placeholder="Production server"
-                    />
-                  </div>
-                </div>
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  @click="removeServer(index)"
-                />
-              </div>
-            </div>
+            <ServersTab
+              :form-data="formData"
+              :has-empty-server-url="hasEmptyServerUrl"
+              @add-server="addServer"
+              @remove-server="removeServer"
+            />
           </TabPanel>
 
           <!-- Paths Tab -->
@@ -1766,80 +1648,13 @@
 
           <!-- Tags Tab -->
           <TabPanel value="3">
-            <div class="form-section">
-              <div class="section-header">
-                <h4>Tags</h4>
-                <Button
-                  label="Add Tag"
-                  icon="pi pi-plus"
-                  size="small"
-                  @click="addTag"
-                  :disabled="hasEmptyTagName || hasDuplicateTagName"
-                  v-tooltip.left="hasEmptyTagName ? 'Please fill in the name for all existing tags before adding a new one.' : hasDuplicateTagName ? 'Tag names must be unique. Please resolve duplicates first.' : ''"
-                />
-              </div>
-
-              <div v-if="formData.tags.length === 0" class="empty-state">
-                <i class="pi pi-tag"></i>
-                <p>No tags defined. Add one to get started.</p>
-              </div>
-
-              <div
-                v-for="(tag, index) in formData.tags"
-                :key="index"
-                class="list-item"
-              >
-                <div class="list-item-content">
-                  <div class="form-field">
-                    <label class="required">Name</label>
-                    <InputText
-                      v-model="tag.name"
-                      placeholder="pet"
-                    />
-                  </div>
-                  <div class="form-field">
-                    <label>Description</label>
-                    <InputText
-                      v-model="tag.description"
-                      placeholder="Everything about your Pets"
-                    />
-                  </div>
-                  <div class="form-field">
-                    <div
-                      class="external-docs-toggle"
-                      @click="tag._showExternalDocs = !tag._showExternalDocs"
-                      style="cursor: pointer; display: flex; align-items: center; gap: 0.4rem; color: var(--p-primary-color, #6366f1); font-size: 0.85rem; user-select: none;"
-                    >
-                      <i :class="tag._showExternalDocs ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" style="font-size: 0.75rem;"></i>
-                      <span>External Docs</span>
-                    </div>
-                    <div v-if="tag._showExternalDocs" class="external-docs-fields" style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                      <div class="form-field" style="margin-bottom: 0;">
-                        <label>Docs Description</label>
-                        <InputText
-                          v-model="tag.externalDocs.description"
-                          placeholder="Find out more"
-                        />
-                      </div>
-                      <div class="form-field" style="margin-bottom: 0;">
-                        <label>Docs URL</label>
-                        <InputText
-                          v-model="tag.externalDocs.url"
-                          placeholder="https://example.com"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  @click="removeTag(index)"
-                />
-              </div>
-            </div>
+            <TagsTab
+              :form-data="formData"
+              :has-empty-tag-name="hasEmptyTagName"
+              :has-duplicate-tag-name="hasDuplicateTagName"
+              @add-tag="addTag"
+              @remove-tag="removeTag"
+            />
           </TabPanel>
 
           <!-- Components Tab -->
@@ -2701,206 +2516,57 @@
     </div>
 
     <!-- Add / Edit Response Code Dialog (two-step: category → code) -->
-    <Dialog
+    <ResponseCodeDialog
       :visible="showAddResponseDialog"
       @update:visible="showAddResponseDialog = $event"
-      :header="editingResponseCode ? 'Change Status Code' : 'Add Response'"
-      :style="{ width: '560px' }"
-      modal
-      :draggable="false"
-      @hide="resetResponseDialog"
-    >
-      <div class="dialog-content">
-        <!-- Step 1: category -->
-        <div v-if="responseDialogStep === 1" class="form-field">
-          <label>Category</label>
-          <div class="status-category-grid">
-            <button
-              v-for="cat in statusCodeCategories"
-              :key="cat.value"
-              :class="['status-category-btn', 'status-category-btn--' + cat.value, { 'status-category-btn--active': responseDialogCategory === cat.value }]"
-              @click="responseDialogCategory = cat.value; responseDialogStep = 2"
-            >
-              <span class="status-category-label">{{ cat.label }}</span>
-              <span class="status-category-desc">{{ cat.description }}</span>
-            </button>
-            <button
-              :class="['status-category-btn', 'status-category-btn--custom', { 'status-category-btn--active': responseDialogCategory === 'custom' }]"
-              @click="responseDialogCategory = 'custom'; responseDialogStep = 2"
-            >
-              <span class="status-category-label">Custom</span>
-              <span class="status-category-desc">Non-standard or wildcards (e.g. default, 4xx)</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Step 2: pick code from category -->
-        <div v-if="responseDialogStep === 2">
-          <div class="response-dialog-back">
-            <Button icon="pi pi-arrow-left" label="Back" text size="small" @click="responseDialogStep = 1" />
-            <span class="response-dialog-category-title">{{ statusCodeCategories.find(c => c.value === responseDialogCategory)?.label || 'Custom' }}</span>
-          </div>
-
-          <!-- custom: free-text input -->
-          <div v-if="responseDialogCategory === 'custom'" class="form-field" style="margin-top:12px;">
-            <label for="custom-status-code">Status Code</label>
-            <InputText id="custom-status-code" v-model="newResponseCode" placeholder="e.g. 418 or default" class="w-full" />
-            <small class="helper-text">Enter a numeric code or "default"</small>
-          </div>
-
-          <!-- code list from category -->
-          <div v-else class="status-code-list">
-            <button
-              v-for="entry in statusCodesForCategory(responseDialogCategory)"
-              :key="entry.code"
-              :class="[
-                'status-code-item',
-                { 'status-code-item--active': newResponseCode === String(entry.code) },
-                { 'status-code-item--used': isResponseCodeUsed(String(entry.code)) }
-              ]"
-              :disabled="isResponseCodeUsed(String(entry.code))"
-              @click="!isResponseCodeUsed(String(entry.code)) && (newResponseCode = String(entry.code))"
-            >
-              <Tag :value="String(entry.code)" :severity="getStatusSeverity(String(entry.code))" class="status-code-tag" />
-              <div class="status-code-info">
-                <span class="status-code-name">{{ entry.name }}</span>
-                <span class="status-code-hint">{{ isResponseCodeUsed(String(entry.code)) ? 'Already added' : entry.hint }}</span>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showAddResponseDialog = false; resetResponseDialog()" />
-        <Button
-          v-if="responseDialogStep === 2"
-          :label="editingResponseCode ? 'Change Code' : 'Add Response'"
-          icon="pi pi-check"
-          :disabled="!newResponseCode"
-          @click="confirmResponseDialog"
-        />
-      </template>
-    </Dialog>
+      :editing-response-code="editingResponseCode"
+      :step="responseDialogStep"
+      @update:step="responseDialogStep = $event"
+      :category="responseDialogCategory"
+      @update:category="responseDialogCategory = $event"
+      :new-response-code="newResponseCode"
+      @update:new-response-code="newResponseCode = $event"
+      :status-code-categories="statusCodeCategories"
+      :status-codes-for-category="statusCodesForCategory"
+      :is-response-code-used="isResponseCodeUsed"
+      :get-status-severity="getStatusSeverity"
+      @reset="resetResponseDialog"
+      @confirm="confirmResponseDialog"
+    />
 
     <!-- Add Path Dialog -->
-    <Dialog
+    <AddPathDialog
       :visible="showAddPathDialog"
       @update:visible="showAddPathDialog = $event"
-      header="Add New Path"
-      :style="{ width: '520px' }"
-      modal
-      :draggable="false"
-    >
-      <div class="dialog-content">
-        <div class="form-field">
-          <label class="required">HTTP Method</label>
-          <SelectButton
-            v-model="newMethod"
-            :options="httpMethods"
-            class="method-select-button"
-          >
-            <template #option="slotProps">
-              <span :class="['method-chip', 'method-' + slotProps.option.toLowerCase()]">
-                {{ slotProps.option.toUpperCase() }}
-              </span>
-            </template>
-          </SelectButton>
-        </div>
-        <div class="form-field">
-          <label for="new-path">Path</label>
-          <InputGroup>
-            <InputGroupAddon class="path-addon">/</InputGroupAddon>
-            <InputText
-              id="new-path"
-              v-model="newPath"
-              placeholder="users/{id}"
-              @keydown="handlePathKeydown"
-            />
-          </InputGroup>
-          <small class="helper-text">Use {param} for path variables — e.g. users/{id}</small>
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showAddPathDialog = false" />
-        <Button
-          label="Add Path"
-          icon="pi pi-plus"
-          @click="addPath"
-          :disabled="!newMethod"
-        />
-      </template>
-    </Dialog>
+      :http-methods="httpMethods"
+      :new-method="newMethod"
+      @update:new-method="newMethod = $event"
+      :new-path="newPath"
+      @update:new-path="newPath = $event"
+      @path-keydown="handlePathKeydown"
+      @confirm="addPath"
+    />
 
     <!-- Add Method Dialog -->
-    <Dialog
+    <AddMethodDialog
       :visible="showAddMethodDialogVisible"
       @update:visible="showAddMethodDialogVisible = $event"
-      header="Add Method to Path"
-      :style="{ width: '520px' }"
-      modal
-      :draggable="false"
-    >
-      <div class="dialog-content">
-        <div class="form-field">
-          <label class="required">HTTP Method</label>
-          <SelectButton
-            v-model="methodToAdd"
-            :options="availableMethodsForPath"
-            class="method-select-button"
-          >
-            <template #option="slotProps">
-              <span :class="['method-chip', 'method-' + slotProps.option.toLowerCase()]">
-                {{ slotProps.option.toUpperCase() }}
-              </span>
-            </template>
-          </SelectButton>
-        </div>
-      </div>
-      <template #footer>
-        <Button
-          label="Cancel"
-          text
-          @click="showAddMethodDialogVisible = false"
-        />
-        <Button label="Add Method" icon="pi pi-plus" @click="addMethodToPath" :disabled="!methodToAdd" />
-      </template>
-    </Dialog>
+      :available-methods="availableMethodsForPath"
+      :method-to-add="methodToAdd"
+      @update:method-to-add="methodToAdd = $event"
+      @confirm="addMethodToPath"
+    />
 
     <!-- Edit Path Dialog -->
-    <Dialog
+    <EditPathDialog
       :visible="showEditPathDialog"
       @update:visible="showEditPathDialog = $event"
-      header="Edit Path"
-      :style="{ width: '520px' }"
-      modal
-      :draggable="false"
-    >
-      <div class="dialog-content">
-        <div class="form-field">
-          <label for="edit-path">Path</label>
-          <InputGroup>
-            <InputGroupAddon class="path-addon">/</InputGroupAddon>
-            <InputText
-              id="edit-path"
-              v-model="editPathValue"
-              placeholder="users/{id}"
-              :class="{ 'p-invalid': editPathError }"
-              @keydown="handleEditPathKeydown"
-            />
-          </InputGroup>
-          <small v-if="editPathError" class="p-error">{{ editPathError }}</small>
-          <small v-else class="helper-text">Use {param} for path variables — e.g. users/{id}</small>
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showEditPathDialog = false" />
-        <Button
-          label="Save Path"
-          icon="pi pi-check"
-          @click="confirmEditPath"
-        />
-      </template>
-    </Dialog>
+      :edit-path-value="editPathValue"
+      @update:edit-path-value="editPathValue = $event"
+      :edit-path-error="editPathError"
+      @path-keydown="handleEditPathKeydown"
+      @confirm="confirmEditPath"
+    />
 
   </div>
 </template>
@@ -2931,6 +2597,26 @@ import InputGroup from "primevue/inputgroup";
 import InputGroupAddon from "primevue/inputgroupaddon";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
+import ApiInfoTab from "./form-editor/ApiInfoTab.vue";
+import ServersTab from "./form-editor/ServersTab.vue";
+import TagsTab from "./form-editor/TagsTab.vue";
+import AddPathDialog from "./form-editor/AddPathDialog.vue";
+import AddMethodDialog from "./form-editor/AddMethodDialog.vue";
+import EditPathDialog from "./form-editor/EditPathDialog.vue";
+import ResponseCodeDialog from "./form-editor/ResponseCodeDialog.vue";
+import {
+  normalizeRefsForForm,
+  cleanRefsForOutput,
+  extractPathParams,
+  buildPathParam,
+  computePathParamDiff,
+  getMethodSeverity,
+  getMethodDescription,
+  getStatusSeverity,
+  statusCodeCategories,
+  statusCodesForCategory,
+  getStatusName,
+} from "../utils/openApiFormHelpers";
 
 export default {
   name: "FormEditor",
@@ -2957,6 +2643,13 @@ export default {
     InputGroup,
     InputGroupAddon,
     MultiSelect,
+    ApiInfoTab,
+    ServersTab,
+    TagsTab,
+    AddPathDialog,
+    AddMethodDialog,
+    EditPathDialog,
+    ResponseCodeDialog,
   },
   props: {
     modelValue: {
@@ -3032,289 +2725,6 @@ export default {
       "head",
     ];
 
-    // Helper: normalize $ref properties on load for form editing
-    const normalizeRefsForForm = (obj) => {
-      if (!obj || typeof obj !== 'object') return obj;
-      if (obj.components && obj.components.schemas) {
-        for (const schemaName of Object.keys(obj.components.schemas)) {
-          const schema = obj.components.schemas[schemaName];
-          if (schema.properties) {
-            for (const propName of Object.keys(schema.properties)) {
-              const prop = schema.properties[propName];
-              if (prop.$ref && !prop.type) {
-                prop.type = '$ref';
-              }
-              if (prop.type === 'array' && prop.items && prop.items.$ref && !prop.items.type) {
-                prop.items.type = '$ref';
-              }
-            }
-          }
-          if (schema.type === 'array' && schema.items && schema.items.$ref && !schema.items.type) {
-            schema.items.type = '$ref';
-          }
-        }
-      }
-      // Normalize param items: flat or oneOf → _itemSchemas
-      if (obj.paths) {
-        for (const path of Object.values(obj.paths)) {
-          for (const op of Object.values(path)) {
-            if (!op || !op.parameters) continue;
-            for (const param of op.parameters) {
-              if (param.schema && param.schema.type === 'array') {
-                const items = param.schema.items;
-                const toItemSchema = (s) => {
-                  if (s.$ref) return { type: 'object', $ref: s.$ref };
-                  const schema = { type: s.type || 'string' };
-                  if (s.format !== undefined) schema.format = s.format;
-                  if (s.pattern !== undefined) schema.pattern = s.pattern;
-                  if (s.minLength !== undefined) schema.minLength = s.minLength;
-                  if (s.maxLength !== undefined) schema.maxLength = s.maxLength;
-                  if (s.minimum !== undefined) schema.minimum = s.minimum;
-                  if (s.maximum !== undefined) schema.maximum = s.maximum;
-                  if (s.multipleOf !== undefined) schema.multipleOf = s.multipleOf;
-                  if (s.exclusiveMinimum !== undefined) schema.exclusiveMinimum = s.exclusiveMinimum;
-                  if (s.exclusiveMaximum !== undefined) schema.exclusiveMaximum = s.exclusiveMaximum;
-                  return schema;
-                };
-                if (items && items.oneOf) {
-                  param.schema._itemSchemas = items.oneOf.map(toItemSchema);
-                } else if (items) {
-                  param.schema._itemSchemas = [toItemSchema(items)];
-                } else {
-                  param.schema._itemSchemas = [];
-                }
-              }
-            }
-          }
-        }
-      }
-      // Normalize $ref props and array _itemSchemas in inline request body schemas
-      if (obj.paths) {
-        for (const path of Object.values(obj.paths)) {
-          for (const op of Object.values(path)) {
-            if (!op || !op.requestBody || !op.requestBody.content) continue;
-            for (const ct of Object.values(op.requestBody.content)) {
-              const schema = ct && ct.schema;
-              if (!schema) continue;
-              // Normalize $ref properties
-              if (schema.properties) {
-                for (const propName of Object.keys(schema.properties)) {
-                  const prop = schema.properties[propName];
-                  if (prop.$ref && !prop.type) prop.type = '$ref';
-                  if (prop.type === 'array' && prop.items && prop.items.$ref && !prop.items.type) {
-                    prop.items.type = '$ref';
-                  }
-                }
-              }
-              // Normalize array _itemSchemas
-              if (schema.type === 'array') {
-                const items = schema.items;
-                const toItemSchema = (s) => {
-                  if (s.$ref) return { type: 'object', $ref: s.$ref };
-                  const out = { type: s.type || 'string' };
-                  ['format','pattern','minLength','maxLength','minimum','maximum','multipleOf','exclusiveMinimum','exclusiveMaximum'].forEach(k => { if (s[k] !== undefined) out[k] = s[k]; });
-                  return out;
-                };
-                if (items && items.oneOf) {
-                  schema._itemSchemas = items.oneOf.map(toItemSchema);
-                } else if (items) {
-                  schema._itemSchemas = [toItemSchema(items)];
-                } else {
-                  schema._itemSchemas = [];
-                }
-              }
-            }
-          }
-        }
-      }
-      // Normalize $ref props and array _itemSchemas in inline response schemas
-      if (obj.paths) {
-        for (const path of Object.values(obj.paths)) {
-          for (const op of Object.values(path)) {
-            if (!op || !op.responses) continue;
-            for (const resp of Object.values(op.responses)) {
-              if (!resp || !resp.content) continue;
-              for (const ct of Object.values(resp.content)) {
-                const schema = ct && ct.schema;
-                if (!schema) continue;
-                if (schema.properties) {
-                  for (const propName of Object.keys(schema.properties)) {
-                    const prop = schema.properties[propName];
-                    if (prop.$ref && !prop.type) prop.type = '$ref';
-                    if (prop.type === 'array' && prop.items && prop.items.$ref && !prop.items.type) {
-                      prop.items.type = '$ref';
-                    }
-                  }
-                }
-                if (schema.type === 'array') {
-                  const items = schema.items;
-                  const toItemSchema = (s) => {
-                    if (s.$ref) return { type: 'object', $ref: s.$ref };
-                    const out = { type: s.type || 'string' };
-                    ['format','pattern','minLength','maxLength','minimum','maximum','multipleOf','exclusiveMinimum','exclusiveMaximum'].forEach(k => { if (s[k] !== undefined) out[k] = s[k]; });
-                    return out;
-                  };
-                  if (items && items.oneOf) {
-                    schema._itemSchemas = items.oneOf.map(toItemSchema);
-                  } else if (items) {
-                    schema._itemSchemas = [toItemSchema(items)];
-                  } else {
-                    schema._itemSchemas = [];
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      return obj;
-    };
-
-    // Helper: clean $ref properties on emit for valid OpenAPI output
-    const cleanRefsForOutput = (obj) => {
-      if (!obj || typeof obj !== 'object') return obj;
-      if (obj.components && obj.components.schemas) {
-        for (const schemaName of Object.keys(obj.components.schemas)) {
-          const schema = obj.components.schemas[schemaName];
-          if (schema.properties) {
-            for (const propName of Object.keys(schema.properties)) {
-              const prop = schema.properties[propName];
-              if (prop.type === '$ref') {
-                const ref = prop.$ref || '';
-                schema.properties[propName] = { $ref: ref };
-              } else if (prop.type === 'array' && prop.items && prop.items.type === '$ref') {
-                const ref = prop.items.$ref || '';
-                prop.items = { $ref: ref };
-              }
-            }
-          }
-          if (schema.type === 'array' && schema.items && schema.items.type === '$ref') {
-            const ref = schema.items.$ref || '';
-            schema.items = { $ref: ref };
-          }
-        }
-      }
-      // Clean param items: _itemSchemas → flat or oneOf
-      if (obj.paths) {
-        for (const path of Object.values(obj.paths)) {
-          for (const op of Object.values(path)) {
-            if (!op || !op.parameters) continue;
-            for (const param of op.parameters) {
-              if (param.schema && param.schema.type === 'array') {
-                const schemas = param.schema._itemSchemas || [];
-                delete param.schema._itemSchemas;
-                const toOutput = (s) => {
-                  if (s.type === 'object') return s.$ref ? { $ref: s.$ref } : { type: 'object' };
-                  const out = { type: s.type };
-                  if (s.format) out.format = s.format;
-                  if (s.pattern) out.pattern = s.pattern;
-                  if (s.minLength != null) out.minLength = s.minLength;
-                  if (s.maxLength != null) out.maxLength = s.maxLength;
-                  if (s.minimum != null) out.minimum = s.minimum;
-                  if (s.maximum != null) out.maximum = s.maximum;
-                  if (s.multipleOf != null) out.multipleOf = s.multipleOf;
-                  if (s.exclusiveMinimum != null) out.exclusiveMinimum = s.exclusiveMinimum;
-                  if (s.exclusiveMaximum != null) out.exclusiveMaximum = s.exclusiveMaximum;
-                  return out;
-                };
-                if (schemas.length === 0) {
-                  // No item types chosen yet — omit items to avoid feeding 'string' back into the form via normalizeRefsForForm.
-                  // Swagger UI will still render the parameter; user must pick a type to get "Add item" working.
-                  delete param.schema.items;
-                } else if (schemas.length === 1) {
-                  param.schema.items = toOutput(schemas[0]);
-                } else {
-                  param.schema.items = { oneOf: schemas.map(toOutput) };
-                }
-              }
-            }
-          }
-        }
-      }
-      // Clean $ref props and _itemSchemas in inline request body schemas
-      if (obj.paths) {
-        for (const path of Object.values(obj.paths)) {
-          for (const op of Object.values(path)) {
-            if (!op || !op.requestBody || !op.requestBody.content) continue;
-            for (const ct of Object.values(op.requestBody.content)) {
-              const schema = ct && ct.schema;
-              if (!schema) continue;
-              // Clean $ref properties
-              if (schema.properties) {
-                for (const propName of Object.keys(schema.properties)) {
-                  const prop = schema.properties[propName];
-                  if (prop.type === '$ref') {
-                    const ref = prop.$ref || '';
-                    schema.properties[propName] = { $ref: ref };
-                  } else if (prop.type === 'array' && prop.items && prop.items.type === '$ref') {
-                    prop.items = { $ref: prop.items.$ref || '' };
-                  }
-                }
-              }
-              // Clean array _itemSchemas
-              if (schema.type === 'array') {
-                const schemas = schema._itemSchemas || [];
-                delete schema._itemSchemas;
-                const toOutput = (s) => {
-                  if (s.type === 'object') return s.$ref ? { $ref: s.$ref } : { type: 'object' };
-                  const out = { type: s.type };
-                  ['format','pattern','minLength','maxLength','minimum','maximum','multipleOf','exclusiveMinimum','exclusiveMaximum'].forEach(k => { if (s[k] != null) out[k] = s[k]; });
-                  return out;
-                };
-                if (schemas.length === 0) {
-                  delete schema.items;
-                } else if (schemas.length === 1) {
-                  schema.items = toOutput(schemas[0]);
-                } else {
-                  schema.items = { oneOf: schemas.map(toOutput) };
-                }
-              }
-            }
-          }
-        }
-      }
-      // Clean $ref props and _itemSchemas in inline response schemas
-      if (obj.paths) {
-        for (const path of Object.values(obj.paths)) {
-          for (const op of Object.values(path)) {
-            if (!op || !op.responses) continue;
-            for (const resp of Object.values(op.responses)) {
-              if (!resp || !resp.content) continue;
-              for (const ct of Object.values(resp.content)) {
-                const schema = ct && ct.schema;
-                if (!schema) continue;
-                // Clean $ref properties
-                if (schema.properties) {
-                  for (const propName of Object.keys(schema.properties)) {
-                    const prop = schema.properties[propName];
-                    if (prop.type === '$ref') {
-                      schema.properties[propName] = { $ref: prop.$ref || '' };
-                    } else if (prop.type === 'array' && prop.items && prop.items.type === '$ref') {
-                      prop.items = { $ref: prop.items.$ref || '' };
-                    }
-                  }
-                }
-                // Clean array _itemSchemas
-                if (schema.type === 'array') {
-                  const schemas = schema._itemSchemas || [];
-                  delete schema._itemSchemas;
-                  const toOutput = (s) => {
-                    if (s.type === 'object') return s.$ref ? { $ref: s.$ref } : { type: 'object' };
-                    const out = { type: s.type };
-                    ['format','pattern','minLength','maxLength','minimum','maximum','multipleOf','exclusiveMinimum','exclusiveMaximum'].forEach(k => { if (s[k] != null) out[k] = s[k]; });
-                    return out;
-                  };
-                  if (schemas.length === 0) { delete schema.items; }
-                  else if (schemas.length === 1) { schema.items = toOutput(schemas[0]); }
-                  else { schema.items = { oneOf: schemas.map(toOutput) }; }
-                }
-              }
-            }
-          }
-        }
-      }
-      return obj;
-    };
 
     // Initialize form data from prop
     watch(
@@ -3545,49 +2955,6 @@ export default {
 
     // ── Path Parameter helpers ──────────────────────────────────────────────
 
-    const extractPathParams = (path) => {
-      const matches = path.match(/\{([^}]+)\}/g) || [];
-      return matches.map((m) => m.slice(1, -1));
-    };
-
-    const isParamContentFilled = (param) => {
-      if (!param) return false;
-      return !!(
-        param.description ||
-        param.schema?.format ||
-        param.schema?.example ||
-        param.schema?.pattern ||
-        param.schema?.enum?.length ||
-        param.schema?.default !== undefined
-      );
-    };
-
-    const buildPathParam = (name) => ({
-      name,
-      in: "path",
-      description: "",
-      required: true,
-      schema: { type: "string" },
-    });
-
-    /**
-     * Syncs path parameters for a single method after a path template change.
-     * - Adds param entries for newly introduced tokens.
-     * - Removes entries for dropped tokens (calls onRemove for content-filled ones).
-     * - Preserves existing param definitions for surviving tokens.
-     * Returns a list of params-to-remove that have content (so caller can confirm).
-     */
-    const computePathParamDiff = (method, oldParamNames, newParamNames) => {
-      const existing = method.parameters || [];
-      const toAdd = newParamNames.filter(
-        (n) => !oldParamNames.includes(n) && !existing.find((p) => p.in === "path" && p.name === n)
-      );
-      const toRemove = oldParamNames.filter((n) => !newParamNames.includes(n));
-      const filledRemovals = toRemove
-        .map((n) => existing.find((p) => p.in === "path" && p.name === n))
-        .filter((p) => p && isParamContentFilled(p));
-      return { toAdd, toRemove, filledRemovals };
-    };
 
     const applyPathParamSync = (path, methodKey, toAdd, toRemove) => {
       const method = formData.value.paths[path]?.[methodKey];
@@ -3959,40 +3326,6 @@ export default {
       }
     };
 
-    const getMethodSeverity = (method) => {
-      const severityMap = {
-        get: "info",
-        post: "success",
-        put: "warn",
-        patch: "warn",
-        delete: "danger",
-        options: "secondary",
-        head: "secondary",
-      };
-      return severityMap[method.toLowerCase()] || "secondary";
-    };
-
-    const getMethodDescription = (method) => {
-      const descriptions = {
-        get: "Retrieve data",
-        post: "Create new resource",
-        put: "Update entire resource",
-        patch: "Partial update",
-        delete: "Remove resource",
-        options: "Describe options",
-        head: "Get headers only",
-      };
-      return descriptions[method.toLowerCase()] || "";
-    };
-
-    const getStatusSeverity = (statusCode) => {
-      const code = parseInt(statusCode);
-      if (code >= 200 && code < 300) return "success";
-      if (code >= 300 && code < 400) return "info";
-      if (code >= 400 && code < 500) return "warn";
-      if (code >= 500) return "danger";
-      return "secondary";
-    };
 
     // Computed properties for current method
     const currentMethodData = computed(() => {
@@ -4172,80 +3505,6 @@ export default {
       }
     );
 
-    // ── HTTP Status Code data ────────────────────────────────────────────────
-
-    const statusCodeCategories = [
-      { value: '2xx', label: '2xx Success', description: 'Request succeeded' },
-      { value: '3xx', label: '3xx Redirection', description: 'Further action needed' },
-      { value: '4xx', label: '4xx Client Error', description: 'Request has an issue' },
-      { value: '5xx', label: '5xx Server Error', description: 'Server failed to fulfill' },
-    ];
-
-    const allStatusCodes = {
-      '2xx': [
-        { code: 200, name: 'OK', hint: 'Standard success response' },
-        { code: 201, name: 'Created', hint: 'Resource was created' },
-        { code: 202, name: 'Accepted', hint: 'Request accepted, processing deferred' },
-        { code: 204, name: 'No Content', hint: 'Success with no response body' },
-        { code: 206, name: 'Partial Content', hint: 'Range request fulfilled' },
-        { code: 207, name: 'Multi-Status', hint: 'Multiple status codes (WebDAV)' },
-        { code: 208, name: 'Already Reported', hint: 'Already enumerated (WebDAV)' },
-        { code: 226, name: 'IM Used', hint: 'Deferred GET fulfilled' },
-      ],
-      '3xx': [
-        { code: 301, name: 'Moved Permanently', hint: 'Resource moved permanently' },
-        { code: 302, name: 'Found', hint: 'Temporary redirect' },
-        { code: 303, name: 'See Other', hint: 'Redirect with GET' },
-        { code: 304, name: 'Not Modified', hint: 'Cache is still valid' },
-        { code: 307, name: 'Temporary Redirect', hint: 'Temporary redirect, same method' },
-        { code: 308, name: 'Permanent Redirect', hint: 'Permanent redirect, same method' },
-      ],
-      '4xx': [
-        { code: 400, name: 'Bad Request', hint: 'Malformed request syntax' },
-        { code: 401, name: 'Unauthorized', hint: 'Authentication required' },
-        { code: 402, name: 'Payment Required', hint: 'Quota or billing error' },
-        { code: 403, name: 'Forbidden', hint: 'Authenticated but not authorised' },
-        { code: 404, name: 'Not Found', hint: 'Resource does not exist' },
-        { code: 405, name: 'Method Not Allowed', hint: 'HTTP method not supported' },
-        { code: 406, name: 'Not Acceptable', hint: 'No acceptable content type' },
-        { code: 408, name: 'Request Timeout', hint: 'Client took too long' },
-        { code: 409, name: 'Conflict', hint: 'State conflict (e.g. duplicate)' },
-        { code: 410, name: 'Gone', hint: 'Resource deleted permanently' },
-        { code: 411, name: 'Length Required', hint: 'Content-Length header missing' },
-        { code: 412, name: 'Precondition Failed', hint: 'Conditional request failed' },
-        { code: 413, name: 'Content Too Large', hint: 'Payload exceeds limit' },
-        { code: 415, name: 'Unsupported Media Type', hint: 'Content-Type not supported' },
-        { code: 416, name: 'Range Not Satisfiable', hint: 'Range header invalid' },
-        { code: 422, name: 'Unprocessable Entity', hint: 'Validation failed' },
-        { code: 423, name: 'Locked', hint: 'Resource is locked (WebDAV)' },
-        { code: 424, name: 'Failed Dependency', hint: 'Depends on failed action' },
-        { code: 425, name: 'Too Early', hint: 'Replay attack risk' },
-        { code: 426, name: 'Upgrade Required', hint: 'Switch protocol required' },
-        { code: 428, name: 'Precondition Required', hint: 'Conditional request required' },
-        { code: 429, name: 'Too Many Requests', hint: 'Rate limit exceeded' },
-        { code: 451, name: 'Unavailable For Legal Reasons', hint: 'Censored content' },
-      ],
-      '5xx': [
-        { code: 500, name: 'Internal Server Error', hint: 'Generic server error' },
-        { code: 501, name: 'Not Implemented', hint: 'Method not implemented' },
-        { code: 502, name: 'Bad Gateway', hint: 'Upstream returned bad response' },
-        { code: 503, name: 'Service Unavailable', hint: 'Server temporarily down' },
-        { code: 504, name: 'Gateway Timeout', hint: 'Upstream timed out' },
-        { code: 507, name: 'Insufficient Storage', hint: 'No storage left (WebDAV)' },
-        { code: 508, name: 'Loop Detected', hint: 'Infinite loop detected' },
-        { code: 511, name: 'Network Authentication Required', hint: 'Network auth needed' },
-      ],
-    };
-
-    const statusCodesForCategory = (cat) => allStatusCodes[cat] || [];
-
-    const getStatusName = (code) => {
-      for (const codes of Object.values(allStatusCodes)) {
-        const found = codes.find(e => String(e.code) === String(code));
-        if (found) return found.name;
-      }
-      return '';
-    };
 
     // Returns true if the given status code is already used by the current operation
     // In edit mode (editingResponseCode set), the original code being renamed is excluded

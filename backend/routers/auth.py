@@ -9,7 +9,6 @@ Google sign-in supports two flows:
   Google ID token obtained client-side and returns a FastSpec JWT.
 """
 
-import os
 import secrets
 from datetime import datetime, timezone
 from urllib.parse import quote, urlencode
@@ -26,7 +25,7 @@ from typing import List, Optional
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-from config import JWT_SECRET_KEY
+from config import JWT_SECRET_KEY, settings
 
 from database import get_db
 from models import User, AuthToken, APIKey
@@ -39,15 +38,23 @@ from auth.jwt import (
     create_access_token,
     verify_token,
     find_api_key_by_raw,
-    create_short_jwt,
+    exchange_api_key_for_short_jwt,
     create_api_key,
 )
 from auth.dependencies import get_current_user
 from permissions import ALLOWED_ACTIONS, get_actions_metadata
+from rate_limit import rate_limit
 
 router = APIRouter()
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+# Each of these endpoints triggers a real outbound call (Google token
+# verification/exchange, or a pbkdf2 hash check) that costs money per
+# invocation on Lambda — see docs/CODE_REVIEW.md §6.
+_google_verify_rate_limit = rate_limit(max_requests=20, window_seconds=60)
+_google_callback_rate_limit = rate_limit(max_requests=20, window_seconds=60)
+_api_key_exchange_rate_limit = rate_limit(max_requests=30, window_seconds=60)
+
+FRONTEND_URL = settings.frontend_url
 
 # --- Google OAuth redirect-flow configuration ---
 
@@ -69,7 +76,7 @@ def _state_serializer() -> URLSafeTimedSerializer:
 
 
 def _google_client_id() -> str:
-    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_id = settings.google_client_id
     if not client_id:
         # Never call Google verification with a missing audience — google-auth
         # would skip the audience check and accept tokens minted for any app.
@@ -78,9 +85,7 @@ def _google_client_id() -> str:
 
 
 def _google_redirect_uri() -> str:
-    return os.getenv(
-        "GOOGLE_REDIRECT_URI", "http://localhost:3000/auth/google/callback"
-    )
+    return settings.google_redirect_uri
 
 
 def _login_page_redirect(fragment: str) -> RedirectResponse:
@@ -141,13 +146,13 @@ class GoogleVerifyRequest(BaseModel):
 
 
 @router.get("/actions")
-async def list_available_actions():
+def list_available_actions():
     """Return all available actions that can be assigned to API keys."""
     return get_actions_metadata()
 
 
 @router.get("/google/login")
-async def google_login():
+def google_login():
     """
     Start the Google OAuth 2.0 Authorization Code flow (full-page redirect).
 
@@ -181,7 +186,7 @@ async def google_login():
     return response
 
 
-@router.get("/google/callback")
+@router.get("/google/callback", dependencies=[Depends(_google_callback_rate_limit)])
 async def google_callback(
     request: Request,
     code: Optional[str] = None,
@@ -217,7 +222,7 @@ async def google_callback(
         )
 
     client_id = _google_client_id()
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    client_secret = settings.google_client_secret
     if not client_secret:
         return _login_page_redirect(
             f"error={quote('Google sign-in is not configured')}"
@@ -260,8 +265,8 @@ async def google_callback(
     return _login_page_redirect(f"token={access_token}")
 
 
-@router.post("/google/verify")
-async def verify_google_token(
+@router.post("/google/verify", dependencies=[Depends(_google_verify_rate_limit)])
+def verify_google_token(
     payload: GoogleVerifyRequest, db: Session = Depends(get_db)
 ):
     """
@@ -294,32 +299,18 @@ async def verify_google_token(
 
 
 # New endpoint: exchange api_key for a short JWT
-@router.post("/refresh/exchange")
-async def exchange_api_key(
+@router.post("/api-keys/exchange", dependencies=[Depends(_api_key_exchange_rate_limit)])
+def exchange_api_key(
     payload: ApiKeyExchangeRequest, db: Session = Depends(get_db)
 ):
     """Validate an API key string and return a short-lived JWT with actions."""
-    api_key_raw = payload.api_key
-    token_rec = find_api_key_by_raw(db, api_key_raw)
-    now = datetime.now(timezone.utc)
-    if not token_rec or token_rec.revoked or token_rec.expires_at < now:
-        raise HTTPException(status_code=401, detail="Invalid or revoked api_key")
-
-    # Issue short JWT with actions embedded
-    actions = token_rec.get_actions()
-    short_jwt, expires_at = create_short_jwt(token_rec.user_id, actions)
-
-    # update last_used_at
-    token_rec.last_used_at = now
-    db.add(token_rec)
-    db.commit()
-
+    short_jwt, expires_at = exchange_api_key_for_short_jwt(payload.api_key, db_session=db)
     return {"access_token": short_jwt, "expires_at": expires_at}
 
 
 # New endpoint: revoke an api_key (requires short JWT auth)
-@router.post("/refresh/revoke")
-async def revoke_api_key(
+@router.post("/api-keys/revoke")
+def revoke_api_key(
     payload: ApiKeyRevokeRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -334,8 +325,8 @@ async def revoke_api_key(
     return {"message": "api_key revoked"}
 
 
-@router.get("/refresh")
-async def list_api_keys(
+@router.get("/api-keys")
+def list_api_keys(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     tokens = (
@@ -369,8 +360,8 @@ async def list_api_keys(
     return result
 
 
-@router.post("/refresh")
-async def create_api_key_route(
+@router.post("/api-keys")
+def create_api_key_route(
     payload: TokenCreateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -385,8 +376,8 @@ async def create_api_key_route(
     return {"api_key": raw, "id": rt.id, "expires_at": expires_at}
 
 
-@router.delete("/refresh/{id}")
-async def refresh_api_key(
+@router.delete("/api-keys/{id}")
+def revoke_api_key_by_id(
     id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -404,8 +395,8 @@ async def refresh_api_key(
     return {"message": "api_key revoked"}
 
 
-@router.put("/refresh/{id}/actions", response_model=ApiKeyActionsResponse)
-async def update_api_key_actions(
+@router.put("/api-keys/{id}/actions", response_model=ApiKeyActionsResponse)
+def update_api_key_actions(
     id: str,
     payload: ApiKeyActionsUpdateRequest,
     db: Session = Depends(get_db),
@@ -439,7 +430,7 @@ async def update_api_key_actions(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
+def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current authenticated user information
     Requires valid JWT token in Authorization header
@@ -448,7 +439,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout(
+def logout(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

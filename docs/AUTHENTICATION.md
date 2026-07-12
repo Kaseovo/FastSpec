@@ -41,36 +41,36 @@ retained for programmatic clients.
 
 Recent changes (summary)
 
-- Added API key management endpoints under the `/refresh` namespace: create, list, update actions, revoke, and exchange.
+- Added API key management endpoints under the `/api-keys` namespace: create, list, update actions, revoke, and exchange.
 - API keys are stored hashed (plaintext returned only once at creation).
 - A new short-lived JWT type (token_type="short") is introduced and used as the result of exchanging an API key. Short JWTs embed allowed actions and are time-limited.
 - Access tokens (regular JWTs) are persisted as AuthToken records; tokens include a `jti` and can be revoked via the `/logout` endpoint.
 
 Endpoints (high level)
 
-- POST /refresh
+- POST /api-keys
   - Create a new API key for the authenticated user.
   - Request body: { actions: ["A","B"] }
   - Response: { api_key: "<raw_key>", id: "<id>", expires_at: "<datetime>" }
 
-- GET /refresh
+- GET /api-keys
   - List active (non-expired) API keys for the authenticated user.
   - Response: array of API key metadata (id, actions, expires_at, revoked, created_at, last_used_at)
 
-- DELETE /refresh/{id}
+- DELETE /api-keys/{id}
   - Revoke (soft-delete) an API key by id (authenticated user must own the key).
 
-- PUT /refresh/{id}/actions
+- PUT /api-keys/{id}/actions
   - Update allowed actions for an API key (validates that provided actions are a subset of ALLOWED_ACTIONS).
   - Response: { message, actions }
 
-- POST /refresh/exchange
+- POST /api-keys/exchange
   - Exchange a raw API key string for a short-lived JWT containing the API key's actions.
   - Request body: { api_key: "<raw_api_key>" }
   - Response: { access_token: "<short_jwt>", expires_at: "<datetime>" }
   - The API key must be unrevoked and unexpired. The server updates the API key `last_used_at` timestamp on success.
 
-- POST /refresh/revoke
+- POST /api-keys/revoke
   - Revoke an API key by presenting its raw value (requires authentication with a short JWT belonging to the same user).
   - Request body: { api_key: "<raw_api_key>" }
   - Response: { message: "api_key revoked" }
@@ -108,7 +108,7 @@ Configuration / Environment variables
 - JWT_SIGNING_KEY (or JWT_SECRET_KEY) — signing secret used for JWTs.
 - JWT_ALGORITHM — default HS256.
 - JWT_ACCESS_TOKEN_EXPIRE_MINUTES — expiry minutes for regular access tokens.
-- SHORT_JWT_TTL_SECONDS — TTL (in seconds) for short JWTs returned by `/refresh/exchange` (default 300).
+- SHORT_JWT_TTL_SECONDS — TTL (in seconds) for short JWTs returned by `/api-keys/exchange` (default 300).
 - API_KEY_TTL_DAYS — default lifetime for newly created API keys (default 30).
 - FRONTEND_URL — used for OAuth redirects back to the frontend.
 - GOOGLE_REDIRECT_URI, GITHUB_REDIRECT_URI — provider-specific redirect URIs.
@@ -116,7 +116,7 @@ Configuration / Environment variables
 Files of interest
 
 - [`backend/auth/jwt.py`](backend/auth/jwt.py:1) — helpers for: creating/verifying access tokens, creating/verifying short JWTs, API key generation, hashing and lookup, and persistence helpers.
-- [`backend/routers/auth.py`](backend/routers/auth.py:1) — HTTP routes for OAuth flows, API key management (/refresh endpoints), token exchange and logout.
+- [`backend/routers/auth.py`](backend/routers/auth.py:1) — HTTP routes for OAuth flows, API key management (/api-keys endpoints), token exchange and logout.
 - [`backend/auth/dependencies.py`](backend/auth/dependencies.py:1) — FastAPI dependency used to inject the current authenticated user into routes.
 - [`frontend/src/api/auth.js`](frontend/src/api/auth.js:1) — client-side calls for auth flows (may need updates where the frontend exchanges API keys for short JWTs).
 - [`frontend/src/components/TokenManager.vue`](frontend/src/components/TokenManager.vue:1) — UI for listing/creating/revoking API keys in the frontend.
@@ -132,7 +132,7 @@ Examples
 
 Exchange raw API key for a short JWT (example JSON request):
 
-POST /refresh/exchange
+POST /api-keys/exchange
 
 Request:
 

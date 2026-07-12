@@ -19,11 +19,6 @@ async def health(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
-@mcp.tool()
-def greet() -> str:
-    return "Hello !"
-
-
 @mcp.tool(tags={"authentication"}, meta={"actions": [Action.READ_SPECS]})
 def who_am_i(user: TokenPayload = Depends(get_current_user)) -> dict:
     """

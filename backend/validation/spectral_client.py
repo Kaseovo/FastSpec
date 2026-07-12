@@ -24,6 +24,7 @@ from typing import Protocol, runtime_checkable
 
 import httpx
 
+from config import settings
 from validation.spectral_linter import _build_command, _parse_result
 
 logger = logging.getLogger(__name__)
@@ -142,9 +143,7 @@ class HttpSpectralClient:
         base_url: Optional[str] = None,
         timeout: int = 60,
     ) -> None:
-        self._base_url = base_url or os.environ.get(
-            "SPECTRAL_SIDECAR_URL", "http://localhost:3001"
-        )
+        self._base_url = base_url or settings.spectral_sidecar_url
         self._timeout = timeout
 
     def lint(self, spec_json: dict, ruleset_yaml: str) -> dict:
@@ -183,7 +182,7 @@ def get_spectral_client(mode: Optional[str] = None) -> SpectralClient:
     Raises:
         ValueError: if *mode* is not a recognised value.
     """
-    resolved = mode or os.environ.get("SPECTRAL_MODE", "subprocess")
+    resolved = mode or settings.spectral_mode
     if resolved == "subprocess":
         return SubprocessSpectralClient()
     if resolved == "http":
@@ -191,3 +190,19 @@ def get_spectral_client(mode: Optional[str] = None) -> SpectralClient:
     raise ValueError(
         f"Unknown SPECTRAL_MODE '{resolved}'. Expected 'subprocess' or 'http'."
     )
+
+
+def spectral_client_dependency() -> SpectralClient:
+    """
+    FastAPI dependency wrapper around get_spectral_client().
+
+    get_spectral_client() takes a `mode` parameter, and FastAPI's dependency
+    injection exposes any plain-function dependency's parameters as public
+    request inputs (query params for primitives). Using get_spectral_client
+    directly as `Depends(get_spectral_client)` therefore let callers pass
+    `?mode=subprocess` and force the lint transport. This zero-argument
+    wrapper is the one that should be used as a FastAPI dependency; call
+    get_spectral_client(mode=...) directly (not through DI) if a specific
+    mode is ever needed programmatically.
+    """
+    return get_spectral_client()

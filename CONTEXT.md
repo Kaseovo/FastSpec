@@ -6,7 +6,16 @@ One of four named runtime targets: **local** (`http://localhost`, floci only), *
 
 ## Deployment Stack
 
-The full set of AWS resources that together run FastSpec in a given Deployment Environment: an ECS Fargate service (backend), S3 buckets (frontend, landing-page), a CloudFront distribution (public entry point), an internal ALB (ingress from CloudFront to backend), RDS (PostgreSQL), ElastiCache (Redis), ACM certificates, and Route53 records. CloudFront is the sole public entry point: a single distribution routes `/api*` and `/auth*` to the ALB, `/specs*` to the frontend S3 bucket, and `/*` to the landing-page S3 bucket. The ALB is internal (not internet-facing) and is accessible only from the CloudFront distribution.
+**Stale note (2026-07-12):** this glossary entry originally described an ECS
+Fargate + ALB + ElastiCache architecture that predates the current CDK code.
+The actual current stack (see `infra/lib/`, `docs/adr/0001-*.md`, README.md)
+is: a backend Docker-image **Lambda** behind a Lambda Function URL (no ECS,
+no ALB, no Fargate), RDS PostgreSQL (no ElastiCache/Redis — nothing in this
+codebase uses Redis), S3 buckets for the frontend SPA and landing page, a
+CloudFront distribution as the sole public entry point, ACM certificates,
+and a Wake/AutoStop side-stack that starts/stops RDS on a schedule to keep
+idle cost near zero. CloudFront routes `/auth*` to the Lambda Function URL,
+`/specs*` to the frontend S3 bucket, and `/*` to the landing-page S3 bucket.
 
 ## floci Environment
 
@@ -14,19 +23,36 @@ A local replica of the Deployment Stack running on a developer's machine or in C
 
 ## DataStack
 
-The CDK stack responsible for stateful infrastructure: an RDS instance (PostgreSQL) and an ElastiCache cluster (Redis). Exports connection endpoints consumed by the ComputeStack. Deployed independently so the compute layer can be updated without risking data-layer replacement.
+The CDK stack (`infra/lib/data-stack.ts`) responsible for stateful
+infrastructure: an RDS PostgreSQL instance only — there is no ElastiCache/Redis
+in this stack, nor anywhere else in the codebase. Exports the DB endpoint and
+instance identifier, consumed by `LambdaStack` and `WakeStack` respectively.
+Deployed independently so the compute layer can be updated without risking
+data-layer replacement. RDS is publicly accessible because the backend
+Lambda runs outside a VPC — see `docs/adr/0002-rds-public-access-tradeoff.md`
+for the rationale and mitigations (`rds.force_ssl`, generated-secret master
+password).
 
-## ComputeStack
+## LambdaStack
 
-The CDK stack responsible for compute and ingress: the ECS Fargate service (backend), the ALB with listener rules, and SSM secret references wired into the ECS task definition. Imports connection endpoints from the DataStack. Fargate tasks run in public subnets with `assignPublicIp: true`. The ALB is `internetFacing: false` and is accessible only from the CloudFront distribution. For the `local` Deployment Environment, ALB listener rules are scoped to backend routes only (`/api`, `/auth`); frontend and landing-page routes are added for `dev`, `staging`, and `prod`.
+The CDK stack (`infra/lib/lambda-stack.ts`) responsible for compute: a
+Docker-image AWS Lambda running the merged FastAPI + FastMCP ASGI app,
+exposed via an unauthenticated Lambda Function URL (CORS-locked to the app
+domain). Imports the DB endpoint from `DataStack`. Runs outside any VPC —
+there is no ALB, no ECS/Fargate anywhere in this architecture (that was an
+earlier design, superseded — see `docs/adr/0001-*.md`).
 
 ## Spectral CLI
 
-A Spectral CLI binary installed into the backend Docker image. Invoked in-process by the backend to lint a Spec against a Lint Ruleset. No inter-process communication is involved — Spectral runs as a child process within the backend container, not as a separate sidecar container or HTTP service.
+A Spectral CLI binary installed into the backend Lambda's Docker image (see `backend/Dockerfile.lambda`). Invoked in-process by the backend to lint a Spec against a Lint Ruleset. No inter-process communication is involved — Spectral runs as a child process within the Lambda container, not as a separate sidecar container or HTTP service.
 
-## Migration Task
+## Migration invocation
 
-An ECS Run Task (one-off, short-lived) that executes `alembic upgrade head` against the target RDS instance before each new service version is rolled out. Ensures the database schema matches the current SQLAlchemy models. Replaces the former `Base.metadata.create_all()` startup call. The CDK construct for the Migration Task is defined from the start; the task is a no-op stub until Alembic is bootstrapped in the backend.
+Database migrations (`alembic upgrade head`) run inside the backend Lambda,
+triggered by invoking it directly with the payload `{"migrate": true}` (see
+`backend/lambda_handler.py` and the "Run database migration" step in
+`.github/workflows/deploy-and-version.yml`). There is no separate ECS Run
+Task — that was an earlier design that predates the Lambda migration.
 
 
 ## Lint Ruleset

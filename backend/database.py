@@ -2,6 +2,7 @@
 Database configuration for FastSpec
 """
 
+import sys
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -17,9 +18,18 @@ from models import User, OpenAPISpec, SpecVersion, AuthToken, APIKey
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if not DATABASE_URL:
-    # Assemble from separate CDK-injected vars (ECS deployment)
+    # Assemble from separate CDK-injected vars (Lambda deployment).
     db_endpoint = os.environ.get("DB_ENDPOINT", "postgres:5432")
-    db_password = os.environ.get("DB_PASSWORD", "fastspec")
+    db_password = os.environ.get("DB_PASSWORD")
+    if not db_password:
+        # Fail fast rather than silently connecting with a well-known
+        # default password (mirrors the JWT_SECRET_KEY check in config.py) —
+        # see docs/CODE_REVIEW.md §6 Critical #1.
+        print(
+            "FATAL: DATABASE_URL or DB_PASSWORD environment variable is required",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     db_host, db_port = (db_endpoint.split(":") + ["5432"])[:2]
     DATABASE_URL = f"postgresql://postgres:{db_password}@{db_host}:{db_port}/fastspec"
 

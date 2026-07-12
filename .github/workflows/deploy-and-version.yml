@@ -22,11 +22,12 @@ on:
           - prod
 
 jobs:
-  deploy_and_version:
+  # ── Version bump (separate job — no AWS credentials, no deploy) ────────────
+  version_bump:
+    if: ${{ github.event.inputs.version_bump != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write   # required for OIDC
 
     steps:
       - name: Checkout code
@@ -37,15 +38,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      # ── Version bump ──────────────────────────────────────────────────────────
-
-      - name: Bump version and tag (if requested)
-        if: ${{ github.event.inputs.version_bump != '' }}
+      - name: Bump version and tag
         run: |
           pip install bump2version
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -80,7 +73,6 @@ jobs:
           echo "$DELIM" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        if: ${{ github.event.inputs.version_bump != '' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
@@ -90,6 +82,66 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # ── Validate (tests + cdk synth) — must pass before anything is deployed ───
+  validate:
+    runs-on: ubuntu-latest
+    needs: [version_bump]
+    if: ${{ always() && (needs.version_bump.result == 'success' || needs.version_bump.result == 'skipped') }}
+
+    steps:
+      - name: Checkout code
+        # Check out the tag just pushed by version_bump (if any), so the
+        # deployed artifact always matches what was validated.
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Backend tests
+        run: |
+          pip install -r backend/requirements.txt
+          cd backend && python -m pytest tests --tb=short
+
+      - name: Frontend tests
+        run: cd frontend && npm ci && npm test
+
+      - name: Infra tests + cdk synth
+        run: |
+          cd infra && npm ci
+          npm test
+          npx cdk synth --context env=${{ github.event.inputs.env }} \
+            --context certificateArn=arn:aws:acm:us-east-1:000000000000:certificate/placeholder \
+            >/dev/null
+
+  # ── Deploy (only after validate passes) ─────────────────────────────────────
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [validate]
+    permissions:
+      contents: read
+      id-token: write   # required for OIDC
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       # ── AWS credentials (OIDC) ────────────────────────────────────────────────
 
       - name: Configure AWS credentials
@@ -98,14 +150,22 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-southeast-1
 
-      # ── CDK deploy ────────────────────────────────────────────────────────────
+      # ── CDK diff + deploy ────────────────────────────────────────────────────
 
       - name: Install CDK dependencies
         run: npm ci
         working-directory: infra
 
+      - name: cdk diff (DataStack, informational)
+        run: npx cdk diff FastSpec-Data-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} || true
+        working-directory: infra
+
       - name: Deploy DataStack
         run: npx cdk deploy FastSpec-Data-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        working-directory: infra
+
+      - name: cdk diff (LambdaStack, informational)
+        run: npx cdk diff FastSpec-Lambda-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} || true
         working-directory: infra
 
       - name: Deploy LambdaStack
@@ -149,6 +209,10 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
             --output text)
           echo "arn=$ARN" >> $GITHUB_OUTPUT
+
+      - name: cdk diff (FrontendStack, informational)
+        run: npx cdk diff FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --context certificateArn=${{ steps.cert.outputs.arn }} --context deployId=${{ github.run_number }} || true
+        working-directory: infra
 
       - name: Deploy FrontendStack
         run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --context certificateArn=${{ steps.cert.outputs.arn }} --context deployId=${{ github.run_number }} --require-approval never

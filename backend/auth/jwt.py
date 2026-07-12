@@ -2,11 +2,12 @@
 JWT token utilities for authentication
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from config import JWT_SECRET_KEY, JWT_ALGORITHM
-import os
-from jose import JWTError, jwt
+from config import JWT_SECRET_KEY, JWT_ALGORITHM, settings
+import jwt
+from jwt import PyJWTError as JWTError
 from fastapi import HTTPException, status
 import uuid
 import json
@@ -14,19 +15,16 @@ import secrets
 from database import SessionLocal
 from models import User, AuthToken, APIKey
 
+logger = logging.getLogger(__name__)
+
 # Hashing
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-# JWT Configuration
-def _int_env(key: str, default: str) -> int:
-    return int(os.getenv(key, default).split("#")[0].strip())
-
-
-ACCESS_TOKEN_EXPIRE_MINUTES = _int_env("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "3600")
-API_KEY_TTL_DAYS = _int_env("API_KEY_TTL_DAYS", "30")
-SHORT_JWT_TTL_SECONDS = _int_env("SHORT_JWT_TTL_SECONDS", "300")
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.jwt_access_token_expire_minutes
+API_KEY_TTL_DAYS = settings.api_key_ttl_days
+SHORT_JWT_TTL_SECONDS = settings.short_jwt_ttl_seconds
 
 
 def create_access_token(user_id: int, email: str, db_session=None) -> str:
@@ -45,22 +43,30 @@ def create_access_token(user_id: int, email: str, db_session=None) -> str:
     }
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
-    # Persist token if db_session provided
+    # Persist token if db_session provided. get_current_user requires a
+    # matching AuthToken row to accept this JWT, so a persistence failure
+    # here must not be swallowed: the caller would otherwise hand back a
+    # token that is immediately rejected as "revoked or expired" on every
+    # subsequent request, with no record of why.
     if db_session is not None:
         try:
-            expires_at = expire
             token_rec = AuthToken(
                 jti=jti,
                 user_id=user_id,
-                token=encoded_jwt,
-                expires_at=expires_at,
+                expires_at=expire,
             )
             db_session.add(token_rec)
             db_session.commit()
             db_session.refresh(token_rec)
-        except Exception:
-            # Don't fail token creation if DB persistence fails; log in real app
-            pass
+        except Exception as exc:
+            logger.exception(
+                "Failed to persist AuthToken for user_id=%s jti=%s", user_id, jti
+            )
+            db_session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not create session, please try again",
+            ) from exc
 
     return encoded_jwt
 
@@ -220,9 +226,18 @@ def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
     return None
 
 
-def exchange_api_key_for_short_jwt(api_key: str) -> tuple[str, datetime]:
-    """Validate an API key string and return a short-lived JWT with actions."""
-    db = SessionLocal()
+def exchange_api_key_for_short_jwt(
+    api_key: str, db_session=None
+) -> tuple[str, datetime]:
+    """Validate an API key string and return a short-lived JWT with actions.
+
+    If db_session is omitted (the MCP server's call path, which has no
+    request-scoped session to reuse), a session is opened and closed here.
+    Callers that already have a request-scoped session (e.g. the
+    /auth/api-keys/exchange route) should pass it in to avoid opening a
+    second, redundant connection per request.
+    """
+    db = db_session or SessionLocal()
     try:
         token_rec = find_api_key_by_raw(db, api_key)
         now = datetime.now(timezone.utc)
@@ -240,4 +255,5 @@ def exchange_api_key_for_short_jwt(api_key: str) -> tuple[str, datetime]:
 
         return short_jwt, expires_at
     finally:
-        db.close()
+        if db_session is None:
+            db.close()

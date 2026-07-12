@@ -41,21 +41,6 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Token(BaseModel):
-    """Schema for JWT token response"""
-
-    access_token: str
-    token_type: str = "bearer"
-    user: UserResponse
-
-
-class TokenData(BaseModel):
-    """Schema for JWT token data"""
-
-    user_id: Optional[int] = None
-    email: Optional[str] = None
-
-
 class ApiKeyActionsUpdateRequest(BaseModel):
     """Request schema for updating api_key actions and optional name by id"""
 
@@ -89,12 +74,18 @@ class OpenAPISpecBase(BaseModel):
 class OpenAPISpecCreate(OpenAPISpecBase):
     """Schema for creating a new spec"""
 
-    pass
+    version: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=50,
+        description="Version for the new spec. Preferred over the deprecated ?version= query param.",
+    )
 
 
 class OpenAPISpecUpdate(BaseModel):
     """Schema for updating a spec. Requires the base version the client is
-    updating from to enable optimistic concurrency control."""
+    updating from to enable optimistic concurrency control: the update is
+    rejected with 409 if `version` doesn't match the spec's current version."""
 
     # version is required and must be provided by clients to ensure they are
     # updating against the latest published version
@@ -125,21 +116,33 @@ class OpenAPISpecResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class DiffResponse(BaseModel):
-    """Schema for diff response"""
+class SpecDiffResponse(BaseModel):
+    """Response for GET /specs/{id}/diff.
 
-    has_changes: bool
+    Exactly one shape applies per request: `has_changes`/`message` when
+    there's no previous version to compare, `markdown` when
+    output_format=markdown, or `diff` for the default structured JSON diff
+    (see validation.diff_utils.compare_specs for its keys).
+    """
+
+    has_changes: Optional[bool] = None
     message: Optional[str] = None
-    added_endpoints: Optional[List[Dict[str, Any]]] = None
-    removed_endpoints: Optional[List[Dict[str, Any]]] = None
-    modified_endpoints: Optional[List[Dict[str, Any]]] = None
-    info_changes: Optional[Dict[str, Any]] = None
+    markdown: Optional[str] = None
+    diff: Optional[Dict[str, Any]] = None
 
 
-class MarkdownDiffResponse(BaseModel):
-    """Schema for markdown diff response"""
+class SpecCompareResponse(BaseModel):
+    """Response for POST /specs/{id}/compare.
 
-    markdown: str
+    `compare` is null when comparing against an inline draft rather than a
+    stored version. `markdown` is only populated when options.format ==
+    "markdown"; otherwise `diff` carries the structured comparison.
+    """
+
+    base: "SpecVersionResponse"
+    compare: Optional["SpecVersionResponse"] = None
+    diff: Optional[Dict[str, Any]] = None
+    markdown: Optional[str] = None
 
 
 # Spec Versioning Schemas
@@ -209,7 +212,6 @@ class LintRequest(BaseModel):
     """Request body for ad-hoc POST /lint"""
 
     spec_json: Dict[str, Any]
-    ruleset: Optional[str] = "spectral:oas"
 
 
 # Lint Ruleset Management Schemas

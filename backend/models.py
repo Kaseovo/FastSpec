@@ -37,8 +37,6 @@ class User(Base):
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
-    session_version = Column(Integer, nullable=False, server_default="0", default=0)
-
     specs = relationship(
         "OpenAPISpec", back_populates="owner", cascade="all, delete-orphan"
     )
@@ -131,7 +129,6 @@ class AuthToken(Base):
     )
     jti = Column(String(64), unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    token = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     revoked = Column(Boolean, nullable=False, server_default="false", default=False)
