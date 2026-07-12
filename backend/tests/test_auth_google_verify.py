@@ -205,17 +205,17 @@ def test_empty_body_returns_422():
 
 
 # ---------------------------------------------------------------------------
-# Old routes no longer exist
+# Redirect-flow routes exist (see test_auth_google_redirect.py for behavior)
 # ---------------------------------------------------------------------------
 
 
-def test_old_google_initiate_route_does_not_exist():
-    """GET /auth/google (redirect-initiation route) must return 404."""
-    resp = client.get("/auth/google")
-    assert resp.status_code == 404
+def test_google_login_route_exists():
+    """GET /auth/google/login starts the redirect flow (302 to Google)."""
+    resp = client.get("/auth/google/login", follow_redirects=False)
+    assert resp.status_code == 302
 
 
-def test_old_google_callback_route_does_not_exist():
-    """GET /auth/google/callback must return 404."""
-    resp = client.get("/auth/google/callback")
-    assert resp.status_code == 404
+def test_google_callback_route_exists():
+    """GET /auth/google/callback redirects to the log-in page (never 404s)."""
+    resp = client.get("/auth/google/callback", follow_redirects=False)
+    assert resp.status_code == 302

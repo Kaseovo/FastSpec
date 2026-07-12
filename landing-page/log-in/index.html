@@ -223,49 +223,41 @@
                   >Continue with Google</span
                 ></button
               >
-              <script src="https://accounts.google.com/gsi/client" async defer></script>
               <script>
                 (function () {
-                  var GOOGLE_CLIENT_ID = "%%VITE_GOOGLE_CLIENT_ID%%";
-
-                  function initGoogleSignIn() {
-                    if (!window.google || !window.google.accounts) {
-                      setTimeout(initGoogleSignIn, 100);
-                      return;
-                    }
-                    window.google.accounts.id.initialize({
-                      client_id: GOOGLE_CLIENT_ID,
-                      callback: handleGoogleCredential,
-                    });
-                    document
-                      .getElementById("google-signin-btn")
-                      .addEventListener("click", function () {
-                        window.google.accounts.id.prompt();
-                      });
+                  // Redirect-based Google sign-in (Authorization Code flow).
+                  // No popups: works in Brave and with popup blockers.
+                  function startGoogleSignIn() {
+                    var btn = document.getElementById("google-signin-btn");
+                    if (btn) btn.disabled = true;
+                    window.location.href = "/auth/google/login";
                   }
 
-                  async function handleGoogleCredential(response) {
+                  // The backend callback redirects here with the FastSpec JWT
+                  // (or an error) in the URL fragment: /log-in#token=… | #error=…
+                  async function handleCallbackFragment() {
+                    var hash = window.location.hash.replace(/^#/, "");
+                    if (!hash) return;
+                    var params = new URLSearchParams(hash);
+                    var token = params.get("token");
+                    var error = params.get("error");
+
+                    // Remove the fragment so the token never sits in the URL bar
+                    // or browser history.
+                    history.replaceState(null, "", window.location.pathname);
+
+                    if (error) {
+                      alert("Sign-in failed: " + error);
+                      return;
+                    }
+                    if (!token) return;
+
                     try {
-                      var btn = document.getElementById("google-signin-btn");
-                      if (btn) btn.disabled = true;
-
-                      var res = await fetch("/auth/google/verify", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id_token: response.credential }),
-                      });
-
-                      if (!res.ok) {
-                        var err = await res.json().catch(function () { return {}; });
-                        throw new Error(err.detail || "Authentication failed");
-                      }
-
-                      var data = await res.json();
-                      localStorage.setItem("token", data.access_token);
+                      localStorage.setItem("token", token);
 
                       // Fetch user info and store it
                       var userRes = await fetch("/auth/me", {
-                        headers: { Authorization: "Bearer " + data.access_token },
+                        headers: { Authorization: "Bearer " + token },
                       });
                       if (userRes.ok) {
                         var user = await userRes.json();
@@ -276,19 +268,16 @@
                     } catch (e) {
                       console.error("Google sign-in failed:", e);
                       alert("Sign-in failed: " + e.message);
-                      var btn = document.getElementById("google-signin-btn");
-                      if (btn) btn.disabled = false;
                     }
                   }
 
-                  initGoogleSignIn();
+                  var btn = document.getElementById("google-signin-btn");
+                  if (btn) btn.addEventListener("click", startGoogleSignIn);
 
                   // Expose global for Webstudio React hydration (button onClick)
-                  window.__startGoogleSignIn = function () {
-                    if (window.google && window.google.accounts) {
-                      window.google.accounts.id.prompt();
-                    }
-                  };
+                  window.__startGoogleSignIn = startGoogleSignIn;
+
+                  handleCallbackFragment();
                 })();
               </script>
             </div>

@@ -203,16 +203,10 @@ jobs:
           sed -i "s|__WAKE_URL__|${{ steps.infra_outputs.outputs.wake_url }}|g" landing-page/wake.html
           sed -i "s|__WAKE_SECRET__|${{ secrets.WAKE_SECRET }}|g" landing-page/wake.html
 
-      - name: Inject Google Client ID into landing page
+      - name: Patch landing page login bundle
         run: |
-          GOOGLE_CLIENT_ID=$(aws ssm get-parameter \
-            --name "/${{ github.event.inputs.env }}/fastspec/google-client-id" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text)
-          # Replace placeholder in login HTML
-          sed -i "s|%%VITE_GOOGLE_CLIENT_ID%%|${GOOGLE_CLIENT_ID}|g" landing-page/log-in/index.html
-          # Fix Webstudio JS bundle: replace href="/auth/google" link with onclick that triggers GIS popup
+          # Fix Webstudio JS bundle: replace href="/auth/google" link with onclick
+          # that starts the redirect-based sign-in (window.__startGoogleSignIn)
           sed -i 's|href:"/auth/google"|href:"#",onClick:function(ev){ev.preventDefault();if(window.__startGoogleSignIn)window.__startGoogleSignIn();}|g' landing-page/assets/entries/pages_log-in.*.js
           # Guard: fail deploy if the broken link is still present
           if grep -rq 'href:"/auth/google"' landing-page/assets/entries/pages_log-in.*.js 2>/dev/null; then

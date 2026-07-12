@@ -48,11 +48,15 @@ export class LambdaStack extends cdk.Stack {
         ENV: env,
         FRONTEND_URL: `https://${config.domain}`,
         CORS_ORIGINS: `https://${config.domain}`,
+        // OAuth redirect flow: Google sends the browser back through CloudFront
+        // (/auth* behavior) so cookies and the callback share the app domain.
+        GOOGLE_REDIRECT_URI: `https://${config.domain}/auth/google/callback`,
         SSM_WAKE_PARAM: `${ssmPrefix}/wake-last-triggered`,
         // Secret *names* only — values are fetched via boto3 at cold start.
         SSM_JWT_SECRET_KEY:  `${ssmPrefix}/secret-key`,
         SSM_DB_PASSWORD:     `${ssmPrefix}/db-password`,
         SSM_GOOGLE_CLIENT_ID:`${ssmPrefix}/google-client-id`,
+        SSM_GOOGLE_CLIENT_SECRET: `${ssmPrefix}/google-client-secret`,
       },
     });
 

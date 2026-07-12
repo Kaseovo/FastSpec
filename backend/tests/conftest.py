@@ -10,6 +10,12 @@ import os
 # Must be set before config.py is imported (it calls sys.exit(1) if missing)
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+# Google OAuth config — endpoints fail fast (503) when unset
+os.environ.setdefault("GOOGLE_CLIENT_ID", "test-google-client-id")
+os.environ.setdefault("GOOGLE_CLIENT_SECRET", "test-google-client-secret")
+os.environ.setdefault(
+    "GOOGLE_REDIRECT_URI", "http://testserver/auth/google/callback"
+)
 os.environ.setdefault(
     "REDIS_HOST", "localhost"
 )  # suppress any Redis connection attempts

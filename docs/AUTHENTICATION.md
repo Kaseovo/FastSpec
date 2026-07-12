@@ -5,8 +5,39 @@ This document describes authentication mechanisms implemented in FastSpec and do
 Overview
 
 - JWT-based authentication for API requests (access tokens issued at OAuth login or on sign-in).
-- OAuth2 login flows for Google and GitHub (configured via environment variables).
+- Google sign-in via the server-side OAuth 2.0 Authorization Code flow (full-page redirects, no popups).
 - API keys: long-lived, hashed tokens that can be exchanged for short-lived JWTs containing scoped actions.
+
+Google sign-in (redirect flow)
+
+The browser flow uses full-page redirects so it works in every browser,
+including Brave and browsers with popup blockers (the previous Google
+Identity Services popup/One-Tap flow did not):
+
+1. The log-in page sends the browser to `GET /auth/google/login`.
+2. The backend generates a signed, short-lived `state` (also mirrored in an
+   HttpOnly `SameSite=Lax` cookie for CSRF protection) and 302-redirects to
+   Google's consent screen (`response_type=code`).
+3. Google redirects back to `GET /auth/google/callback?code=…&state=…`
+   (the URI configured in `GOOGLE_REDIRECT_URI`, which must be registered in
+   the Google Cloud console under "Authorized redirect URIs").
+4. The backend validates the state against the cookie, exchanges the code at
+   Google's token endpoint (using `GOOGLE_CLIENT_SECRET`), verifies the ID
+   token's signature and audience, and creates/updates the user.
+5. The backend 302-redirects to `{FRONTEND_URL}/log-in#token=<FastSpec JWT>`.
+   The token travels in the URL *fragment* so it never reaches server logs.
+   On failure the redirect carries `#error=<message>` instead.
+6. The log-in page script stores the token, fetches `/auth/me`, and
+   navigates to the app (`/specs`). It strips the fragment from the URL
+   before doing anything else.
+
+In production, CloudFront routes `/auth*` to the backend Lambda on the same
+domain as the pages, so the state cookie and callback are first-party.
+Locally, the landing page nginx (port 3000) proxies `/auth/` to the backend
+(port 8000) for the same effect.
+
+`POST /auth/google/verify` (accepting a client-obtained Google ID token) is
+retained for programmatic clients.
 
 Recent changes (summary)
 

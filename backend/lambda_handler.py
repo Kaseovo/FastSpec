@@ -29,9 +29,10 @@ try:
     _ssm = boto3.client("ssm")
 
     _secret_params = {
-        "JWT_SECRET_KEY":   os.environ.get("SSM_JWT_SECRET_KEY"),
-        "DB_PASSWORD":      os.environ.get("SSM_DB_PASSWORD"),
-        "GOOGLE_CLIENT_ID": os.environ.get("SSM_GOOGLE_CLIENT_ID"),
+        "JWT_SECRET_KEY":       os.environ.get("SSM_JWT_SECRET_KEY"),
+        "DB_PASSWORD":          os.environ.get("SSM_DB_PASSWORD"),
+        "GOOGLE_CLIENT_ID":     os.environ.get("SSM_GOOGLE_CLIENT_ID"),
+        "GOOGLE_CLIENT_SECRET": os.environ.get("SSM_GOOGLE_CLIENT_SECRET"),
     }
 
     _names = [v for v in _secret_params.values() if v]

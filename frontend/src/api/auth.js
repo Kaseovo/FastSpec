@@ -3,90 +3,16 @@ import { useAuthStore } from "../stores/auth";
 
 const API_BASE = "/auth"; // Backend API base URL TODO: Move to config
 
-const GIS_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
-
 /**
- * Ensure the Google Identity Services script is loaded.
- * Returns a Promise that resolves once `window.google` is available.
- */
-const loadGISScript = () =>
-  new Promise((resolve, reject) => {
-    if (window.google && window.google.accounts) {
-      resolve();
-      return;
-    }
-    const existing = document.querySelector(`script[src="${GIS_SCRIPT_SRC}"]`);
-    if (existing) {
-      existing.addEventListener("load", resolve);
-      existing.addEventListener("error", () =>
-        reject(new Error("Failed to load Google Identity Services script"))
-      );
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = GIS_SCRIPT_SRC;
-    script.async = true;
-    script.defer = true;
-    script.onload = resolve;
-    script.onerror = () =>
-      reject(new Error("Failed to load Google Identity Services script"));
-    document.head.appendChild(script);
-  });
-
-/**
- * POST a Google ID token to the backend for verification.
- * Returns { access_token } on success.
- * @param {string} googleIdToken - The credential (id_token) from GIS
- * @returns {Promise<Object>} { access_token }
- */
-export const verifyGoogleToken = async (googleIdToken) => {
-  const response = await axios.post(`${API_BASE}/google/verify`, {
-    id_token: googleIdToken,
-  });
-  return response.data;
-};
-
-/**
- * Trigger the Google Identity Services One-Tap / popup sign-in flow (PKCE).
- * Loads the GIS script, initialises google.accounts.id, and prompts the user.
- * On success, verifies the id_token with the backend and stores the JWT in
- * the auth store.
+ * Start the Google sign-in flow (server-side Authorization Code flow).
  *
- * @returns {Promise<void>} Resolves when auth has been stored, rejects on failure.
+ * Performs a full-page redirect to the backend, which forwards to Google's
+ * consent screen and, on success, redirects back to the log-in page with the
+ * FastSpec JWT in the URL fragment. No popups — works in Brave and with
+ * popup blockers enabled.
  */
-export const loginWithGoogle = async () => {
-  await loadGISScript();
-
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-  return new Promise((resolve, reject) => {
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (response) => {
-        try {
-          const auth = useAuthStore();
-          const { access_token } = await verifyGoogleToken(response.credential);
-          const user = await getCurrentUser(access_token);
-          auth.setAuth(access_token, user);
-          resolve();
-        } catch (err) {
-          reject(err);
-        }
-      },
-    });
-
-    window.google.accounts.id.prompt((notification) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        reject(
-          new Error(
-            notification.getNotDisplayedReason() ||
-              notification.getSkippedReason() ||
-              "Google sign-in was not displayed"
-          )
-        );
-      }
-    });
-  });
+export const loginWithGoogle = () => {
+  window.location.href = `${API_BASE}/google/login`;
 };
 
 /**
