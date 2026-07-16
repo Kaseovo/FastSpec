@@ -264,7 +264,7 @@
                         localStorage.setItem("user", JSON.stringify(user));
                       }
 
-                      window.location.replace("/specs");
+                      window.location.replace("/specs/");
                     } catch (e) {
                       console.error("Google sign-in failed:", e);
                       alert("Sign-in failed: " + e.message);
@@ -654,7 +654,7 @@
             });
 
             if (res.ok) {
-              window.location.replace("/specs");
+              window.location.replace("/specs/");
             }
           } catch (e) {}
         })();
