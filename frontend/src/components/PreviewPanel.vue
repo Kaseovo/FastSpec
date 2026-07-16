@@ -49,7 +49,12 @@
       </div>
 
       <div v-if="diffResult" style="margin-bottom: 12px">
-        <DiffDrawer :diff="diffResult" :spec="spec" inline />
+        <DiffDrawer
+          :diff="diffResult"
+          :markdown="diffMarkdown"
+          :spec="spec"
+          inline
+        />
       </div>
 
       <div v-if="loading" class="loading">
@@ -110,6 +115,9 @@ export default {
     const compareVersion = ref(null);
     const comparing = ref(false);
     const diffResult = ref(null);
+    // Markdown rendering of diffResult, computed server-side by the same
+    // /compare call — avoids re-implementing the markdown formatter in JS.
+    const diffMarkdown = ref(null);
 
     const compareOptions = computed(() =>
       versions.value.filter((v) => v.version !== baseVersion.value)
@@ -161,6 +169,7 @@ export default {
       // Prevent comparing identical versions
       if (baseVersion.value === compareVersion.value) {
         diffResult.value = null;
+        diffMarkdown.value = null;
         return;
       }
       comparing.value = true;
@@ -174,6 +183,7 @@ export default {
         // adapt backend payload to diff object
         const diff = adaptBackendDiff(res);
         diffResult.value = diff;
+        diffMarkdown.value = res?.markdown || null;
       } catch (e) {
         console.error("Compare failed:", e);
         error.value = {
@@ -404,6 +414,7 @@ export default {
       comparing,
       runCompare,
       diffResult,
+      diffMarkdown,
       compareOptions,
     };
   },

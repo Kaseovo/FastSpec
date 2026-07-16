@@ -135,8 +135,11 @@ class SpecCompareResponse(BaseModel):
     """Response for POST /specs/{id}/compare.
 
     `compare` is null when comparing against an inline draft rather than a
-    stored version. `markdown` is only populated when options.format ==
-    "markdown"; otherwise `diff` carries the structured comparison.
+    stored version. `markdown` is always populated (rendered server-side
+    from `diff` via validation.diff_utils.generate_markdown_report) so
+    callers needing a human-readable report don't have to reimplement the
+    formatting client-side. When options.format == "markdown", `diff` is
+    omitted and only `markdown` is returned.
     """
 
     base: "SpecVersionResponse"

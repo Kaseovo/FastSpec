@@ -199,6 +199,15 @@ export default {
       type: Object,
       default: () => ({ info: null, added: [], modified: [], removed: [] }),
     },
+    // Optional pre-rendered markdown for the whole diff, computed
+    // server-side (validation.diff_utils.generate_markdown_report) for
+    // diffs sourced from saved spec versions via the /compare endpoint.
+    // When absent (e.g. the live/unsaved-edit diff path), it is generated
+    // client-side from `diff` as a fallback.
+    markdown: {
+      type: String,
+      default: null,
+    },
     spec: {
       type: Object,
       default: () => ({}),

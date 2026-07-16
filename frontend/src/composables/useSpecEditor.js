@@ -1,4 +1,14 @@
 import { ref } from "vue";
+// compareSpecs here diffs the in-progress editor buffer against the last
+// *loaded* content on every keystroke/form edit, purely to flip the
+// hasUnsavedChanges flag. Neither side of that comparison is ever
+// persisted server-side (the user hasn't saved yet), so there is nothing
+// on the backend to diff against and this cannot be replaced by a call to
+// GET /specs/{id}/diff or POST /specs/{id}/compare — those only compare
+// saved SpecVersion rows (or a draft against a saved base, which is a
+// different, already backend-backed flow — see SaveDialog.vue). This is
+// intentionally duplicated with backend/validation/diff_utils.py's
+// compare_specs, not dead code.
 import { compareSpecs } from "../utils/diffUtils";
 
 export function useSpecEditor({

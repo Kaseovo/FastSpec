@@ -1,10 +1,13 @@
+from types import SimpleNamespace
+
+from fastapi import HTTPException
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp_server.middleware import LoggingMiddleware, AuthenticationMiddleware
 from fastmcp_server.authentication import get_current_user, TokenPayload
 from database import SessionLocal
-from models import OpenAPISpec, SpecVersion
+from services.spec_service import SpecService
 from permissions import Action
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -39,41 +42,23 @@ def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> 
     Returns a list of OpenAPI specs saved by the authenticated user
     """
 
-    # See how can improve that
     user_id = int(user.sub)
 
     db = SessionLocal()
     try:
-        specs = (
-            db.query(OpenAPISpec)
-            .filter(OpenAPISpec.user_id == user_id)
-            .order_by(OpenAPISpec.created_at.desc())
-            .all()
-        )
-
-        result = []
-        for s in specs:
-            # Derive title from current version content
-            current_ver = (
-                db.query(SpecVersion)
-                .filter(SpecVersion.spec_id == s.id, SpecVersion.version == s.version)
-                .first()
-            )
-            title = ""
-            if current_ver and current_ver.content:
-                title = current_ver.content.get("info", {}).get("title", "")
-            result.append(
-                {
-                    "id": s.id,
-                    "name": s.name,
-                    "title": title,
-                    "version": s.version,
-                    "created_at": s.created_at.isoformat() if s.created_at else None,
-                    "updated_at": s.updated_at.isoformat() if s.updated_at else None,
-                }
-            )
-
-        return result
+        service = SpecService(db)
+        specs = service.list_specs(SimpleNamespace(id=user_id))
+        return [
+            {
+                "id": s.id,
+                "name": s.name,
+                "title": s.title,
+                "version": s.version,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+                "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+            }
+            for s in specs
+        ]
     except Exception as e:
         raise ToolError(f"Database error: {e}")
     finally:
@@ -92,36 +77,19 @@ def get_spec_details(
 
     db = SessionLocal()
     try:
-        spec = (
-            db.query(OpenAPISpec)
-            .filter(OpenAPISpec.id == spec_id, OpenAPISpec.user_id == user_id)
-            .first()
-        )
-
-        if not spec:
-            raise ToolError("Spec not found or access denied")
-
-        # Load content from the current version
-        current_version = (
-            db.query(SpecVersion)
-            .filter(SpecVersion.spec_id == spec_id, SpecVersion.version == spec.version)
-            .first()
-        )
-        title = ""
-        if current_version and current_version.content:
-            title = current_version.content.get("info", {}).get("title", "")
-
+        service = SpecService(db)
+        spec = service.get_spec(SimpleNamespace(id=user_id), spec_id)
         return {
             "id": spec.id,
             "name": spec.name,
-            "title": title,
+            "title": spec.title,
             "version": spec.version,
             "created_at": spec.created_at.isoformat() if spec.created_at else None,
             "updated_at": spec.updated_at.isoformat() if spec.updated_at else None,
-            "content": current_version.content if current_version else None,
+            "content": spec.spec_json,
         }
-    except ToolError:
-        raise
+    except HTTPException:
+        raise ToolError("Spec not found or access denied")
     except Exception as e:
         raise ToolError(f"Database error: {e}")
     finally:

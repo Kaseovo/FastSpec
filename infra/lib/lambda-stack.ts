@@ -54,7 +54,17 @@ export class LambdaStack extends cdk.Stack {
         SSM_WAKE_PARAM: `${ssmPrefix}/wake-last-triggered`,
         // Secret *names* only — values are fetched via boto3 at cold start.
         SSM_JWT_SECRET_KEY:  `${ssmPrefix}/secret-key`,
+        // Admin/master password — used only for migration steps
+        // (CREATE DATABASE, `alembic upgrade head`), never for the app's
+        // own runtime DB connection.
         SSM_DB_PASSWORD:     `${ssmPrefix}/db-password`,
+        // Least-privilege `fastspec_app` role password — this is what
+        // backend/database.py uses for the app's runtime connection. See
+        // DataStack's `AppDbSecretArn` output / ADR-0002 for how this SSM
+        // parameter gets seeded and the apply order that matters (migration
+        // must run — creating the role — before a Lambda deploy that relies
+        // on it can succeed).
+        SSM_FASTSPEC_APP_DB_PASSWORD: `${ssmPrefix}/app-db-password`,
         SSM_GOOGLE_CLIENT_ID:`${ssmPrefix}/google-client-id`,
         SSM_GOOGLE_CLIENT_SECRET: `${ssmPrefix}/google-client-secret`,
       },

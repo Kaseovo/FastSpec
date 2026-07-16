@@ -67,11 +67,40 @@ same cost-first grounds; worth revisiting together with the NAT Gateway
 option above.
 
 **Non-superuser application DB role.** Independently worthwhile (least
-privilege — the app should not hold `CREATEDB`/`CREATEROLE` etc.) but is a
-**backend** migration (new Alembic-managed role + grants, `database.py`
-connection string change, `migrate.py` admin-vs-app URL split) and is
-explicitly out of scope for this infra-only pass. Left as a TODO rather than
-attempted as a half-migration.
+privilege — the app should not hold `CREATEDB`/`CREATEROLE` etc.). This is
+now **implemented in code**, not yet applied to the live RDS instance:
+
+- New Alembic migration:
+  `backend/alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py` creates a
+  `fastspec_app` role (idempotent, password from `FASTSPEC_APP_DB_PASSWORD`)
+  and grants it exactly `CONNECT` + schema `USAGE` + CRUD on tables/sequences
+  (present and future, via `ALTER DEFAULT PRIVILEGES`) — no
+  `CREATEDB`/`CREATEROLE`/superuser. `downgrade()` drops the role.
+- `backend/database.py` now connects at runtime as `fastspec_app` (reading
+  `FASTSPEC_APP_DB_PASSWORD`), fail-fast if unset, instead of `postgres`.
+- `backend/migrate.py` and `backend/lambda_handler.py::_run_migrations`
+  still connect as the admin `postgres` role to create the database and run
+  `alembic upgrade head` (DDL, including creating `fastspec_app` itself,
+  needs elevated privileges) — `build_admin_url()` now takes a `dbname` arg
+  so migrations run against `fastspec` as admin regardless of what
+  `database.py`'s own runtime URL resolves to.
+- `infra/lib/data-stack.ts` provisions a second CDK-generated Secrets
+  Manager secret (`FastspecAppDbSecret`, output `AppDbSecretArn`) for the
+  role's password, following the same generated-password pattern as the
+  master secret. `infra/lib/lambda-stack.ts` wires its eventual SSM
+  parameter through as `SSM_FASTSPEC_APP_DB_PASSWORD` →
+  `FASTSPEC_APP_DB_PASSWORD`, alongside (not replacing) the existing admin
+  `DB_PASSWORD` wiring.
+
+**Not yet applied to AWS.** A human still needs to, in this order: (1) run
+the `AppDbSecretArn` value into a new `${env}/fastspec/app-db-password` SSM
+SecureString parameter; (2) run the migration (Lambda `{"migrate": true}`
+invocation) with that same password available as
+`FASTSPEC_APP_DB_PASSWORD` so the `fastspec_app` role actually gets created
+on the live instance; (3) only then redeploy the Lambda with the
+`SSM_FASTSPEC_APP_DB_PASSWORD` env var wired in, so `database.py` starts
+authenticating as `fastspec_app`. Deploying step (3) before step (2) would
+break the app (role doesn't exist yet).
 
 ## Consequences
 
@@ -79,7 +108,10 @@ attempted as a half-migration.
   documented risk acceptance, not an unnoticed gap.
 - `rds.force_ssl=1` and the generated-secret master password are the two
   concrete infra-level improvements this ADR ships with.
-- Follow-up work (tracked in `docs/CODE_REVIEW.md` §10): remove the
-  backend-side hardcoded password fallback, migrate off the `postgres`
-  superuser to a scoped app role, and revisit the VPC + NAT Gateway or RDS
-  Proxy path once cost tolerance changes.
+- Follow-up work (tracked in `docs/CODE_REVIEW.md` §10): the backend-side
+  hardcoded password fallback is gone (fail-fast, see above), and the
+  `fastspec_app` scoped role migration described above is implemented in
+  code but **not yet applied to the live RDS instance or rotated in** — see
+  "Non-superuser application DB role" for the exact apply order. The VPC +
+  NAT Gateway or RDS Proxy path remains future work, revisit once cost
+  tolerance changes.

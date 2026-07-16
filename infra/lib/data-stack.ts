@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { EnvConfig } from './config';
 
@@ -41,21 +42,26 @@ function sizingFor(_config: EnvConfig): DataSizing {
  *     Manager (see `dbInstance.secret` / the `DbSecretArn` output below).
  *   - Storage is encrypted at rest (`storageEncrypted: true`).
  *
- * TODO (backend, out of scope for this infra pass): `backend/database.py`
- * currently falls back to a hardcoded `DB_PASSWORD=fastspec` default when
- * the `DB_PASSWORD` env var (populated from the `${env}/fastspec/db-password`
- * SSM parameter) is unset. That fallback should be removed in favor of a
- * fail-fast check mirroring the `JWT_SECRET_KEY` pattern in
- * backend/config.py, and the SSM parameter should be seeded from
- * `dbInstance.secret`'s generated password (via the `DbSecretArn` output
- * below) rather than a manually-typed value, to eliminate the risk of the
- * two ever drifting apart.
+ * `backend/database.py` now fails fast (mirroring the `JWT_SECRET_KEY`
+ * pattern in backend/config.py) rather than falling back to a hardcoded
+ * password — see docs/adr/0002-rds-public-access-tradeoff.md.
+ *
+ * Non-superuser application DB role: `backend/database.py` now connects at
+ * runtime as `fastspec_app`, a least-privilege role created/granted by
+ * `backend/alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py` (CONNECT
+ * + schema USAGE + CRUD only — no CREATEDB/CREATEROLE/superuser). Its
+ * password lives in the `FastspecAppDbSecret` Secrets Manager secret below
+ * (`AppDbSecretArn` output), generated the same way as the master password.
+ * This has **not** been applied to the live RDS instance yet — a human must
+ * run the migration and redeploy; see the ADR for the required order.
  */
 export class DataStack extends cdk.Stack {
   /** RDS endpoint exported for LambdaStack. */
   public readonly dbEndpoint: string;
   /** RDS instance identifier exported for WakeStack. */
   public readonly rdsInstanceId: string;
+  /** ARN of the generated-password secret for the `fastspec_app` role. */
+  public readonly appDbSecretArn: string;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
@@ -120,6 +126,24 @@ export class DataStack extends cdk.Stack {
       'Allow PostgreSQL from public internet (Lambda is VPC-less) — see ADR-0002',
     );
 
+    // ── fastspec_app least-privilege role password ─────────────────────────────
+    // Not `rds.Credentials.fromGeneratedSecret` — that helper only applies to
+    // master-user credentials created alongside the DB instance itself. The
+    // `fastspec_app` role is created later by an Alembic migration
+    // (backend/alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py), so a
+    // plain `secretsmanager.Secret` with a generated password is the right
+    // primitive here: CloudFormation still generates a strong random value
+    // into Secrets Manager, with no literal password anywhere in CDK.
+    const appDbSecret = new secretsmanager.Secret(this, 'FastspecAppDbSecret', {
+      description:
+        "Password for the least-privilege 'fastspec_app' Postgres role " +
+        '(see docs/adr/0002-rds-public-access-tradeoff.md)',
+      generateSecretString: {
+        excludePunctuation: true,
+        passwordLength: 32,
+      },
+    });
+
     // ── CloudFormation outputs ────────────────────────────────────────────────
     const dbEndpointAddress = dbInstance.dbInstanceEndpointAddress;
     const dbEndpointPort = dbInstance.dbInstanceEndpointPort;
@@ -136,7 +160,20 @@ export class DataStack extends cdk.Stack {
         '${env}/fastspec/db-password SSM parameter from this value, not by hand.',
     });
 
+    new cdk.CfnOutput(this, 'AppDbSecretArn', {
+      value: appDbSecret.secretArn,
+      description:
+        "Secrets Manager ARN holding the generated 'fastspec_app' role password " +
+        '— seed the ${env}/fastspec/app-db-password SSM parameter from this ' +
+        'value (same manual pattern as DbSecretArn). Apply order matters: run ' +
+        'the fastspec_app-role Alembic migration (with FASTSPEC_APP_DB_PASSWORD ' +
+        'set to this value) BEFORE redeploying the Lambda with this password ' +
+        'wired in, or the app will try to authenticate as a role that does ' +
+        'not exist yet.',
+    });
+
     this.dbEndpoint = `${dbEndpointAddress}:${dbEndpointPort}`;
     this.rdsInstanceId = dbInstance.instanceIdentifier;
+    this.appDbSecretArn = appDbSecret.secretArn;
   }
 }

@@ -4,12 +4,10 @@ Database configuration for FastSpec
 
 import sys
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Define Base early to avoid circular import when models import Base
-Base = declarative_base()
+from base import Base
 
 # Ensure models are imported so tables are created via Base.metadata.create_all
 # Importing here avoids circular imports elsewhere when creating tables on startup
@@ -19,19 +17,30 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if not DATABASE_URL:
     # Assemble from separate CDK-injected vars (Lambda deployment).
+    #
+    # Runtime connects as the least-privilege `fastspec_app` role (see
+    # backend/alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py and
+    # docs/adr/0002-rds-public-access-tradeoff.md), never as the RDS master
+    # `postgres` role. `postgres`/admin credentials are only used by
+    # backend/migrate.py to create the database and run migrations
+    # (including the migration that creates this very role) — never by the
+    # running application.
     db_endpoint = os.environ.get("DB_ENDPOINT", "postgres:5432")
-    db_password = os.environ.get("DB_PASSWORD")
+    db_password = os.environ.get("FASTSPEC_APP_DB_PASSWORD")
     if not db_password:
         # Fail fast rather than silently connecting with a well-known
         # default password (mirrors the JWT_SECRET_KEY check in config.py) —
         # see docs/CODE_REVIEW.md §6 Critical #1.
         print(
-            "FATAL: DATABASE_URL or DB_PASSWORD environment variable is required",
+            "FATAL: DATABASE_URL or FASTSPEC_APP_DB_PASSWORD environment "
+            "variable is required",
             file=sys.stderr,
         )
         sys.exit(1)
     db_host, db_port = (db_endpoint.split(":") + ["5432"])[:2]
-    DATABASE_URL = f"postgresql://postgres:{db_password}@{db_host}:{db_port}/fastspec"
+    DATABASE_URL = (
+        f"postgresql://fastspec_app:{db_password}@{db_host}:{db_port}/fastspec"
+    )
 
 # Require SSL for RDS connections; ignored for local sqlite/postgres without SSL
 _connect_args: dict = {}

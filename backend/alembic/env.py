@@ -21,7 +21,8 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import Base (and all models so their tables are registered on the metadata).
-from database import Base, DATABASE_URL as _assembled_db_url  # noqa: E402
+from base import Base  # noqa: E402
+from database import DATABASE_URL as _assembled_db_url  # noqa: E402
 import models  # noqa: E402, F401 – registers all ORM classes on Base.metadata
 
 # this is the Alembic Config object, which provides

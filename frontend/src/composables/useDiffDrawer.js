@@ -648,7 +648,11 @@ export function useDiffDrawer(props) {
   async function copyAsMarkdown() {
     copying.value = true;
     try {
-      const md = generateMarkdownReport(props.diff || {});
+      // Prefer the server-rendered markdown (present whenever the diff was
+      // sourced from the backend /compare endpoint) to avoid recomputing
+      // the same report client-side. Fall back to the local formatter for
+      // diffs that never touch the backend (e.g. live/unsaved-edit diffs).
+      const md = props.markdown || generateMarkdownReport(props.diff || {});
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(md);
       } else {

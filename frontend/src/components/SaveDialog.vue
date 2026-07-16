@@ -165,6 +165,7 @@
             >
               <DiffDrawer
                 :diff="diffResult"
+                :markdown="diffResultMarkdown"
                 :spec="baseSpec || draftContent"
                 inline
               />
@@ -302,6 +303,8 @@ export default {
     // Compare state
     const comparing = ref(false);
     const diffResult = ref(null);
+    // Markdown rendering computed server-side alongside diffResult.
+    const diffResultMarkdown = ref(null);
     const compareError = ref("");
     const baseSpec = ref(null);
 
@@ -338,6 +341,7 @@ export default {
         errorMsg.value = "";
         compareError.value = "";
         diffResult.value = null;
+        diffResultMarkdown.value = null;
         baseSpec.value = null;
         lintResult.value = null;
         lintError.value = "";
@@ -421,6 +425,7 @@ export default {
           errorMsg.value = "";
           compareError.value = "";
           diffResult.value = null;
+          diffResultMarkdown.value = null;
           baseSpec.value = null;
           lintResult.value = null;
           lintError.value = "";
@@ -576,6 +581,7 @@ export default {
       comparing.value = true;
       compareError.value = "";
       diffResult.value = null;
+      diffResultMarkdown.value = null;
       baseSpec.value = null;
       try {
         const res = await compareDraftWithVersion(
@@ -584,9 +590,10 @@ export default {
           props.draftContent,
           { format: "structured" }
         );
-        // Response expected: { base, compare, diff } or { base, compare, markdown }
+        // Response expected: { base, compare, diff, markdown }
         if (res.base?.content) baseSpec.value = res.base.content;
         diffResult.value = res.diff || res;
+        diffResultMarkdown.value = res?.markdown || null;
       } catch (err) {
         console.error("Compare failed:", err);
         compareError.value =
@@ -860,6 +867,7 @@ export default {
       // compare
       comparing,
       diffResult,
+      diffResultMarkdown,
       compareError,
       compareDraft,
       baseSpec,

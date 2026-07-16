@@ -1,5 +1,12 @@
 import { ref, computed } from "vue";
 import { fetchOpenApi } from "../api/specs";
+// This composable polls the *live* /openapi.json served by the running
+// FastAPI app (not a saved OpenAPISpec/SpecVersion row) and diffs each
+// fetch against the first-seen baseline, to surface live-reload drift
+// while developing against this app's own API. There is no saved backend
+// version to fetch a diff for here, so this cannot be replaced by GET
+// /specs/{id}/diff or POST /specs/{id}/compare, and the compareSpecs /
+// generateMarkdownReport duplication with the backend is intentional.
 import { compareSpecs } from "../utils/diffUtils";
 import { generateMarkdownReport } from "../utils/markdownGenerator";
 

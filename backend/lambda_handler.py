@@ -29,10 +29,16 @@ try:
     _ssm = boto3.client("ssm")
 
     _secret_params = {
-        "JWT_SECRET_KEY":       os.environ.get("SSM_JWT_SECRET_KEY"),
-        "DB_PASSWORD":          os.environ.get("SSM_DB_PASSWORD"),
-        "GOOGLE_CLIENT_ID":     os.environ.get("SSM_GOOGLE_CLIENT_ID"),
-        "GOOGLE_CLIENT_SECRET": os.environ.get("SSM_GOOGLE_CLIENT_SECRET"),
+        "JWT_SECRET_KEY":         os.environ.get("SSM_JWT_SECRET_KEY"),
+        # Admin/master password — used only by migrate.py (CREATE DATABASE,
+        # `alembic upgrade head`), never by the running application.
+        "DB_PASSWORD":            os.environ.get("SSM_DB_PASSWORD"),
+        # Least-privilege fastspec_app role password — used by
+        # backend/database.py for the app's own runtime connection, and by
+        # the fastspec_app-role migration to create/rotate the role itself.
+        "FASTSPEC_APP_DB_PASSWORD": os.environ.get("SSM_FASTSPEC_APP_DB_PASSWORD"),
+        "GOOGLE_CLIENT_ID":       os.environ.get("SSM_GOOGLE_CLIENT_ID"),
+        "GOOGLE_CLIENT_SECRET":   os.environ.get("SSM_GOOGLE_CLIENT_SECRET"),
     }
 
     _names = [v for v in _secret_params.values() if v]
@@ -105,10 +111,17 @@ def _run_migrations():
             conn.execute(sqlalchemy.text("CREATE DATABASE fastspec"))
     engine.dispose()
 
-    # Step 2 — run Alembic migrations
+    # Step 2 — run Alembic migrations as the admin role, connected to
+    # 'fastspec'. Migrations (including the one that creates the
+    # least-privilege fastspec_app role — see
+    # alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py) need DDL
+    # privileges the app's own runtime role does not have.
+    migration_env = os.environ.copy()
+    migration_env["DATABASE_URL"] = build_admin_url(dbname="fastspec")
     proc = subprocess.run(
         ["alembic", "upgrade", "head"],
         cwd=os.path.dirname(os.path.abspath(__file__)),
+        env=migration_env,
     )
     if proc.returncode != 0:
         raise RuntimeError(

@@ -250,18 +250,26 @@ def compare_versions(
         compare_ver = svc.get_version(current_user, spec_id, compare_key)
         diff = compare_specs(base_ver.content, compare_ver.content)
 
+    # Always compute the markdown rendering alongside the structured diff so
+    # callers that only need the human-readable report (e.g. a "copy as
+    # markdown" action) don't have to duplicate the formatting logic
+    # client-side. `options.format == "markdown"` is kept for backward
+    # compatibility and returns a markdown-only payload.
+    markdown = generate_markdown_report(diff)
     fmt = options.get("format", "structured")
     if fmt == "markdown":
         return {
             "base": base_ver,
             "compare": compare_ver,
-            "markdown": generate_markdown_report(diff),
+            "markdown": markdown,
         }
 
+    # Default: structured JSON diff, with markdown included for convenience.
     return {
         "base": base_ver,
         "compare": compare_ver,
         "diff": diff,
+        "markdown": markdown,
     }
 
 

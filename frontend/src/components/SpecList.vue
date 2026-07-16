@@ -187,7 +187,12 @@
         </div>
 
         <div class="diff-area">
-          <DiffDrawer :diff="historyDiff" :spec="historySpec" inline />
+          <DiffDrawer
+            :diff="historyDiff"
+            :markdown="historyDiffMarkdown"
+            :spec="historySpec"
+            inline
+          />
         </div>
       </div>
     </Drawer>
@@ -286,6 +291,8 @@ export default {
       modified: [],
       removed: [],
     });
+    // Markdown rendering computed server-side alongside historyDiff.
+    const historyDiffMarkdown = ref(null);
 
     // version compare controls
     const baseVersion = ref(null);
@@ -629,6 +636,7 @@ export default {
         );
         // API returns { base, compare, diff }
         historyDiff.value = res.diff || res;
+        historyDiffMarkdown.value = res?.markdown || null;
       } catch (err) {
         console.error("Compare failed:", err);
         compareError.value = "Failed to compare versions";
@@ -659,6 +667,7 @@ export default {
           {}
         );
         historyDiff.value = res.diff || res;
+        historyDiffMarkdown.value = res?.markdown || null;
       } catch (err) {
         console.error("Draft compare failed:", err);
         compareError.value = "Failed to compare draft with version";
@@ -747,6 +756,7 @@ export default {
       versions,
       versionsLoading,
       historyDiff,
+      historyDiffMarkdown,
       openHistory,
       // compare controls
       baseVersion,
