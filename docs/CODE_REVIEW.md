@@ -473,3 +473,61 @@ to the standard its best module (the lint vertical) already sets.
     unifying the backend/frontend diff-logic duplication; splitting the
     remaining large Vue tabs; migrating off the Postgres `postgres`
     superuser role.
+
+- **2026-07-16** — Worked the "not done in this pass" list above:
+  - **MCP → `SpecService`**: `backend/fastmcp_server/server.py`'s
+    `get_saved_specs_for_user` and `get_spec_details` now construct a
+    `SpecService(db)` and call its `list_specs`/`get_spec` methods instead
+    of duplicating the "derive title from current version" query logic.
+    Added `backend/tests/test_fastmcp_server.py` (no prior MCP test
+    coverage existed) covering per-user isolation and not-found handling.
+  - **Circular import**: `Base = declarative_base()` moved out of
+    `database.py` into a new `backend/base.py`; `models.py`,
+    `database.py`, and `alembic/env.py` now import it from there instead of
+    the previous import-order-dependent workaround. `backend`'s flat
+    (non-package) import style was deliberately kept as-is —
+    `Dockerfile.lambda` copies `backend/`'s contents directly into
+    `${LAMBDA_TASK_ROOT}`, so there is no `backend` package at runtime;
+    switching to `from backend.x import y` would break the deployed Lambda.
+    Making that change would require also restructuring the Docker image
+    layout and is out of scope here.
+  - **Diff-logic duplication**: investigated rather than blindly merged.
+    Traced every frontend call site of `diffUtils.js`/`markdownGenerator.js`
+    and found the review's core worry was a false positive — `useSpecEditor.js`
+    (unsaved-edit "has changes" flag) and `useSpecDiff.js` (live
+    hot-reload drift detection) both diff data the backend has never seen,
+    so they can't be replaced by an API call and were left alone (now with
+    comments explaining why). The one real duplication — `DiffDrawer.vue`'s
+    "copy as markdown" button reformatting a diff client-side that the
+    backend had already computed — was fixed: `POST /specs/{id}/compare`
+    now always returns `markdown` alongside `diff`, and `DiffDrawer`/
+    `useDiffDrawer.js` use that instead of recomputing it.
+  - **Postgres superuser role**: added a `fastspec_app` least-privilege
+    role (`backend/alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py`)
+    with `CONNECT`/`USAGE`/`SELECT`/`INSERT`/`UPDATE`/`DELETE` only — no
+    `CREATEDB`/`CREATEROLE`/superuser. `backend/database.py` now connects
+    as `fastspec_app` at runtime via a new `FASTSPEC_APP_DB_PASSWORD` env
+    var; `backend/migrate.py`/`backend/lambda_handler.py` still use the
+    admin `postgres` role for `CREATE DATABASE` and `alembic upgrade head`
+    (DDL, including creating the app role itself, needs elevated
+    privileges). `infra/lib/data-stack.ts` generates a second Secrets
+    Manager secret for the new role's password; `infra/lib/lambda-stack.ts`
+    wires it through as `SSM_FASTSPEC_APP_DB_PASSWORD`. **Written but not
+    applied** — see the updated
+    [ADR-0002](adr/0002-rds-public-access-tradeoff.md) for the exact
+    apply order (seed the SSM parameter → run the migration → redeploy
+    `LambdaStack`); doing this out of order breaks the app.
+  - **`FormEditor.vue` split**: the Paths and Components/schemas tabs
+    that the prior pass deliberately left alone (shared mutable state, zero
+    test coverage) were split this time — but characterization tests
+    (140 new tests) were written and verified green against the
+    *original* code first, specifically so the split could be checked
+    against pinned-down behavior rather than trusted on faith.
+    `FormEditor.vue` went from 5,311 → 1,691 lines; the extracted state/logic
+    now lives in `usePathsEditor.js` (1,049 lines) and
+    `useComponentsEditor.js` (324 lines), rendered via new
+    `form-editor/PathsTab.vue` and `form-editor/ComponentsTab.vue`
+    components.
+  - **Verification**: backend 115/115, frontend 188/188, `cdk synth`
+    (both `local` and `prod` contexts) and the infra Jest suite (60/60)
+    all green.
