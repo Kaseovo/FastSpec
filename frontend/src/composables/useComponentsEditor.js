@@ -236,6 +236,89 @@ export function useComponentsEditor(formData, confirm, toast) {
     }
   };
 
+  // ── Schema composition (oneOf/anyOf/allOf) ─────────────────────────────
+  // Composition members are $ref-only for now (by far the most common real
+  // usage — e.g. `Pet: oneOf: [Cat, Dog]`); inline member schemas aren't
+  // editable through this UI yet. A schema is EITHER a plain typed schema
+  // (type: object/array/string/...) OR a composition (oneOf/anyOf/allOf
+  // array present, no `type`) — OpenAPI allows both to coexist but that's
+  // an advanced case this editor doesn't attempt to support, to keep the
+  // "what kind is this schema" control a single Select.
+  const compositionKinds = ["oneOf", "anyOf", "allOf"];
+
+  const getSchemaKind = (schema) => {
+    for (const kind of compositionKinds) {
+      if (Array.isArray(schema[kind])) return kind;
+    }
+    return schema.type || "object";
+  };
+
+  const setSchemaKind = (schema, kind) => {
+    // Switching kind invalidates every type-specific field (properties,
+    // items, oneOf members, discriminator, format/pattern/enum/etc.) —
+    // same full-reset approach as onSecuritySchemeTypeChange, since a
+    // half-migrated schema is worse than a clean one. description survives.
+    const description = schema.description;
+    for (const key of Object.keys(schema)) {
+      delete schema[key];
+    }
+    if (description) schema.description = description;
+
+    if (compositionKinds.includes(kind)) {
+      schema[kind] = [];
+    } else {
+      schema.type = kind;
+      if (kind === "object") schema.properties = {};
+      if (kind === "array") schema.items = { type: "string" };
+    }
+  };
+
+  const isCompositionKind = (kind) => compositionKinds.includes(kind);
+
+  const compositionMemberRefs = (schema, kind) => {
+    return (schema[kind] || []).map((m) => m.$ref).filter((ref) => ref !== undefined);
+  };
+
+  const setCompositionMembers = (schema, kind, refs) => {
+    schema[kind] = refs.map((ref) => ({ $ref: ref }));
+  };
+
+  const setDiscriminatorEnabled = (schema, enabled) => {
+    if (enabled) {
+      schema.discriminator = { propertyName: "", mapping: {} };
+    } else {
+      delete schema.discriminator;
+    }
+  };
+
+  const addDiscriminatorMapping = (schema) => {
+    if (!schema.discriminator) return;
+    if (!schema.discriminator.mapping) schema.discriminator.mapping = {};
+    let key = "newKey";
+    let counter = 1;
+    while (Object.prototype.hasOwnProperty.call(schema.discriminator.mapping, key)) {
+      key = `newKey${counter}`;
+      counter++;
+    }
+    schema.discriminator.mapping[key] = "";
+  };
+
+  const removeDiscriminatorMapping = (schema, key) => {
+    if (!schema.discriminator?.mapping) return;
+    delete schema.discriminator.mapping[key];
+  };
+
+  const renameDiscriminatorMappingKey = (schema, oldKey, newKey) => {
+    if (!newKey || oldKey === newKey) return;
+    const mapping = schema.discriminator?.mapping;
+    if (!mapping || Object.prototype.hasOwnProperty.call(mapping, newKey)) return;
+    const entries = Object.entries(mapping);
+    const idx = entries.findIndex(([k]) => k === oldKey);
+    if (idx === -1) return;
+    entries[idx] = [newKey, entries[idx][1]];
+    schema.discriminator.mapping = Object.fromEntries(entries);
+  };
+
   const onPropertyTypeChange = (prop) => {
     if (prop.type === "array") {
       if (!prop.items) prop.items = {};
@@ -337,6 +420,15 @@ export function useComponentsEditor(formData, confirm, toast) {
     renameSchemaProperty,
     toggleSchemaPropertyRequired,
     onSchemaTypeChange,
+    getSchemaKind,
+    setSchemaKind,
+    isCompositionKind,
+    compositionMemberRefs,
+    setCompositionMembers,
+    setDiscriminatorEnabled,
+    addDiscriminatorMapping,
+    removeDiscriminatorMapping,
+    renameDiscriminatorMappingKey,
     onPropertyTypeChange,
     onItemTypesChange,
     handleDragStart,

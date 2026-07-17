@@ -50,11 +50,7 @@
                   <AccordionHeader>
                     <div class="schema-header">
                       <span class="schema-name">{{ schema.name }}</span>
-                      <Tag
-                        v-if="schema.data.type"
-                        :value="schema.data.type"
-                        severity="info"
-                      />
+                      <Tag :value="getSchemaKind(schema.data)" severity="info" />
                       <Button
                         icon="pi pi-trash"
                         severity="danger"
@@ -86,7 +82,8 @@
                               <div class="form-field">
                                 <label class="required">Type</label>
                                 <Select
-                                  v-model="schema.data.type"
+                                  :modelValue="getSchemaKind(schema.data)"
+                                  @update:modelValue="setSchemaKind(schema.data, $event)"
                                   :options="[
                                     'object',
                                     'array',
@@ -94,11 +91,107 @@
                                     'number',
                                     'integer',
                                     'boolean',
+                                    'oneOf',
+                                    'anyOf',
+                                    'allOf',
                                   ]"
                                   placeholder="Select type"
-                                  @change="onSchemaTypeChange(schema)"
                                 />
                               </div>
+                            </div>
+
+                            <!-- ── Schema composition ── -->
+                            <div v-if="isCompositionKind(getSchemaKind(schema.data))">
+                              <div class="form-field">
+                                <label class="required">Member Schemas</label>
+                                <MultiSelect
+                                  :modelValue="compositionMemberRefs(schema.data, getSchemaKind(schema.data))"
+                                  @update:modelValue="setCompositionMembers(schema.data, getSchemaKind(schema.data), $event)"
+                                  :options="availableSchemas.filter((s) => s.label !== schema.name)"
+                                  optionLabel="label"
+                                  optionValue="value"
+                                  display="chip"
+                                  placeholder="Select the schemas that make up this composition"
+                                />
+                                <small class="helper-text">
+                                  {{
+                                    getSchemaKind(schema.data) === 'allOf'
+                                      ? 'The resulting schema must satisfy ALL of the selected schemas.'
+                                      : getSchemaKind(schema.data) === 'oneOf'
+                                        ? 'The resulting schema must satisfy EXACTLY ONE of the selected schemas.'
+                                        : 'The resulting schema must satisfy AT LEAST ONE of the selected schemas.'
+                                  }}
+                                </small>
+                              </div>
+
+                              <div v-if="getSchemaKind(schema.data) !== 'allOf'" class="form-field checkbox-field">
+                                <Checkbox
+                                  :modelValue="!!schema.data.discriminator"
+                                  @update:modelValue="setDiscriminatorEnabled(schema.data, $event)"
+                                  :inputId="'discriminator-enabled-' + schema.name"
+                                  :binary="true"
+                                />
+                                <label :for="'discriminator-enabled-' + schema.name">
+                                  Use a discriminator (tells readers which member schema applies, by property value)
+                                </label>
+                              </div>
+
+                              <template v-if="schema.data.discriminator">
+                                <div class="form-field">
+                                  <label class="required">Discriminator Property</label>
+                                  <InputText
+                                    v-model="schema.data.discriminator.propertyName"
+                                    placeholder="e.g. petType"
+                                  />
+                                </div>
+
+                                <div class="section-header">
+                                  <h5>Mapping (optional)</h5>
+                                  <Button
+                                    label="Add Mapping"
+                                    icon="pi pi-plus"
+                                    size="small"
+                                    text
+                                    @click="addDiscriminatorMapping(schema.data)"
+                                  />
+                                </div>
+                                <small class="helper-text">
+                                  If omitted, the discriminator property's value is matched against member schema names directly.
+                                </small>
+                                <div
+                                  v-for="(ref, key) in schema.data.discriminator.mapping"
+                                  :key="key"
+                                  class="list-item"
+                                >
+                                  <div class="list-item-content">
+                                    <div class="form-row">
+                                      <div class="form-field">
+                                        <label>Property Value</label>
+                                        <InputText
+                                          :value="key"
+                                          @input="renameDiscriminatorMappingKey(schema.data, key, $event.target.value)"
+                                        />
+                                      </div>
+                                      <div class="form-field">
+                                        <label>Schema</label>
+                                        <Select
+                                          v-model="schema.data.discriminator.mapping[key]"
+                                          :options="availableSchemas"
+                                          optionLabel="label"
+                                          optionValue="value"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    rounded
+                                    @click="removeDiscriminatorMapping(schema.data, key)"
+                                  />
+                                </div>
+                              </template>
                             </div>
 
                             <div v-if="schema.data.type === 'object'">
