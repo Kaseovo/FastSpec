@@ -24,6 +24,25 @@ export function useComponentsEditor(formData, confirm, toast) {
     }));
   });
 
+  // ── Search filter ───────────────────────────────────────────────────────
+  const schemaSearchQuery = ref("");
+
+  const filteredSchemasList = computed(() => {
+    const query = schemaSearchQuery.value.trim().toLowerCase();
+    if (!query) return schemasList.value;
+    return schemasList.value.filter(({ name, data }) => {
+      if (name.toLowerCase().includes(query)) return true;
+      const propNames = Object.keys(data.properties || {});
+      return propNames.some((p) => p.toLowerCase().includes(query));
+    });
+  });
+
+  const hasActiveSchemaFilter = computed(() => schemaSearchQuery.value.trim() !== "");
+
+  const clearSchemaFilter = () => {
+    schemaSearchQuery.value = "";
+  };
+
   const availableSchemas = computed(() => {
     return Object.keys(formData.value.components?.schemas || {}).map((name) => ({
       label: name,
@@ -302,6 +321,10 @@ export function useComponentsEditor(formData, confirm, toast) {
     draggedPropertyIndex,
     draggedSchemaName,
     schemasList,
+    schemaSearchQuery,
+    filteredSchemasList,
+    hasActiveSchemaFilter,
+    clearSchemaFilter,
     availableSchemas,
     isOpenAPI31,
     addChipOnEnter,

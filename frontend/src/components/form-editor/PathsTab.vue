@@ -15,12 +15,55 @@
                 <p>No paths defined. Add one to get started.</p>
               </div>
 
+              <div v-else class="filter-bar">
+                <IconField class="filter-bar__search">
+                  <InputIcon class="pi pi-search" />
+                  <InputText
+                    v-model="pathSearchQuery"
+                    placeholder="Search paths, summaries, operationIds, tags…"
+                    class="w-full"
+                  />
+                </IconField>
+                <div class="filter-bar__methods">
+                  <button
+                    v-for="method in httpMethods"
+                    :key="method"
+                    type="button"
+                    :class="[
+                      'method-filter-chip',
+                      'method-' + method,
+                      { 'method-filter-chip--active': pathMethodFilter.includes(method.toUpperCase()) },
+                    ]"
+                    @click="togglePathMethodFilter(method)"
+                  >
+                    {{ method.toUpperCase() }}
+                  </button>
+                </div>
+                <Button
+                  v-if="hasActivePathFilter"
+                  label="Clear"
+                  icon="pi pi-times"
+                  size="small"
+                  text
+                  @click="clearPathFilters"
+                />
+              </div>
+
+              <div
+                v-if="pathsList.length > 0 && filteredPathsList.length === 0"
+                class="empty-state-small"
+              >
+                <p>No paths match your search.</p>
+              </div>
+
               <Accordion v-if="pathsList.length > 0" :multiple="true" :value="openPaths" @update:value="openPaths = $event">
                 <AccordionPanel
                   v-for="(pathItem, index) in pathsList"
+                  v-show="visiblePathSet.has(pathItem.path)"
                   :key="index"
                   :value="index.toString()"
-                  draggable="true"
+                  :draggable="!hasActivePathFilter"
+                  v-tooltip.top="hasActivePathFilter ? 'Clear filters to reorder paths' : null"
                   @dragstart="handlePathDragStart($event, pathItem.path, index)"
                   @dragover="handleDragOver($event)"
                   @drop="handlePathDrop($event, index)"
@@ -1634,6 +1677,8 @@ import AccordionHeader from "primevue/accordionheader";
 import AccordionContent from "primevue/accordioncontent";
 import Tag from "primevue/tag";
 import SelectButton from "primevue/selectbutton";
+import IconField from "primevue/iconfield";
+import InputIcon from "primevue/inputicon";
 import SecurityRequirementList from "./SecurityRequirementList.vue";
 
 // The "Paths" tab of FormEditor. Receives the whole reactive `formData` object
@@ -1664,6 +1709,8 @@ export default {
     AccordionContent,
     Tag,
     SelectButton,
+    IconField,
+    InputIcon,
     SecurityRequirementList,
   },
   props: {

@@ -64,6 +64,63 @@ export function usePathsEditor(formData, confirm, toast) {
     }));
   });
 
+  // ── Search / method filter ─────────────────────────────────────────────
+  const pathSearchQuery = ref("");
+  const pathMethodFilter = ref([]); // uppercase method strings; empty = all
+
+  const pathMatchesQuery = (pathItem, query) => {
+    if (pathItem.path.toLowerCase().includes(query)) return true;
+    return pathItem.methods.some((method) => {
+      const op = formData.value.paths[pathItem.path][method] || {};
+      const haystack = [op.summary, op.operationId, ...(op.tags || [])]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  };
+
+  const filteredPathsList = computed(() => {
+    const query = pathSearchQuery.value.trim().toLowerCase();
+    const methods = pathMethodFilter.value;
+    return pathsList.value.filter((pathItem) => {
+      if (methods.length > 0) {
+        const hasMatchingMethod = pathItem.methods.some((m) =>
+          methods.includes(m.toUpperCase())
+        );
+        if (!hasMatchingMethod) return false;
+      }
+      if (query && !pathMatchesQuery(pathItem, query)) return false;
+      return true;
+    });
+  });
+
+  const hasActivePathFilter = computed(
+    () => pathSearchQuery.value.trim() !== "" || pathMethodFilter.value.length > 0
+  );
+
+  // Drag-to-reorder indexes into the full (unfiltered) `formData.paths`
+  // object, so the accordion must keep iterating pathsList (not
+  // filteredPathsList) to preserve correct indices — reordering a filtered
+  // subset would splice at the wrong positions in the real list. This Set
+  // is what the template uses to v-show/hide non-matching entries instead.
+  const visiblePathSet = computed(() => new Set(filteredPathsList.value.map((p) => p.path)));
+
+  const togglePathMethodFilter = (method) => {
+    const upper = method.toUpperCase();
+    const idx = pathMethodFilter.value.indexOf(upper);
+    if (idx === -1) {
+      pathMethodFilter.value = [...pathMethodFilter.value, upper];
+    } else {
+      pathMethodFilter.value = pathMethodFilter.value.filter((m) => m !== upper);
+    }
+  };
+
+  const clearPathFilters = () => {
+    pathSearchQuery.value = "";
+    pathMethodFilter.value = [];
+  };
+
   const availableSchemas = computed(() => {
     return Object.keys(formData.value.components?.schemas || {}).map((name) => ({
       label: name,
@@ -1012,6 +1069,13 @@ export function usePathsEditor(formData, confirm, toast) {
     draggedMethod,
     httpMethods,
     pathsList,
+    pathSearchQuery,
+    pathMethodFilter,
+    filteredPathsList,
+    visiblePathSet,
+    hasActivePathFilter,
+    togglePathMethodFilter,
+    clearPathFilters,
     availableSchemas,
     isOpenAPI31,
     globalTagNames,

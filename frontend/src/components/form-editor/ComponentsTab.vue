@@ -15,10 +15,36 @@
                 <p>No schemas defined. Add one to get started.</p>
               </div>
 
+              <div v-else class="filter-bar">
+                <IconField class="filter-bar__search">
+                  <InputIcon class="pi pi-search" />
+                  <InputText
+                    v-model="schemaSearchQuery"
+                    placeholder="Search schema or property names…"
+                    class="w-full"
+                  />
+                </IconField>
+                <Button
+                  v-if="hasActiveSchemaFilter"
+                  label="Clear"
+                  icon="pi pi-times"
+                  size="small"
+                  text
+                  @click="clearSchemaFilter"
+                />
+              </div>
+
+              <div
+                v-if="schemasList.length > 0 && filteredSchemasList.length === 0"
+                class="empty-state-small"
+              >
+                <p>No schemas match your search.</p>
+              </div>
+
               <Accordion v-if="schemasList.length > 0">
                 <AccordionPanel
-                  v-for="(schema, index) in schemasList"
-                  :key="index"
+                  v-for="(schema, index) in filteredSchemasList"
+                  :key="schema.name"
                   :value="index.toString()"
                 >
                   <AccordionHeader>
@@ -872,6 +898,8 @@ import AccordionPanel from "primevue/accordionpanel";
 import AccordionHeader from "primevue/accordionheader";
 import AccordionContent from "primevue/accordioncontent";
 import Tag from "primevue/tag";
+import IconField from "primevue/iconfield";
+import InputIcon from "primevue/inputicon";
 
 // The "Components / schemas" tab of FormEditor. Receives the whole reactive
 // `formData` object as one mutable prop plus an `api` bundle (the return value
@@ -898,6 +926,8 @@ export default {
     AccordionHeader,
     AccordionContent,
     Tag,
+    IconField,
+    InputIcon,
   },
   props: {
     formData: { type: Object, required: true },
