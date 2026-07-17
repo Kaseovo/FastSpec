@@ -121,6 +121,41 @@ export function usePathsEditor(formData, confirm, toast) {
     pathMethodFilter.value = [];
   };
 
+  // ── Inline validation ──────────────────────────────────────────────────
+  // OpenAPI requires operationId to be unique across the ENTIRE document
+  // (not just within a path), so this checks every other operation, not
+  // just siblings of the current path.
+  const isOperationIdDuplicate = (path, method) => {
+    const operation = formData.value.paths[path]?.[method];
+    const operationId = operation?.operationId?.trim();
+    if (!operationId) return false;
+    for (const [otherPath, methods] of Object.entries(formData.value.paths)) {
+      for (const [otherMethod, otherOp] of Object.entries(methods)) {
+        if (otherPath === path && otherMethod === method) continue;
+        if (otherOp?.operationId?.trim() === operationId) return true;
+      }
+    }
+    return false;
+  };
+
+  // The OpenAPI Parameter Object is uniquely identified by (name, in) within
+  // a single operation's parameter list — two parameters with the same name
+  // but different `in` are fine (e.g. a path param and a query param both
+  // named "id"), but two with the same name AND location are not.
+  const isParameterDuplicate = (parameters, index) => {
+    const param = parameters[index];
+    const name = param?.name?.trim();
+    if (!name) return false;
+    return parameters.some(
+      (p, i) => i !== index && p.name?.trim() === name && p.in === param.in
+    );
+  };
+
+  // OpenAPI's Response Object has exactly one required field: description.
+  const isResponseDescriptionMissing = (response) => {
+    return !response?.description || !response.description.trim();
+  };
+
   const availableSchemas = computed(() => {
     return Object.keys(formData.value.components?.schemas || {}).map((name) => ({
       label: name,
@@ -1076,6 +1111,9 @@ export function usePathsEditor(formData, confirm, toast) {
     hasActivePathFilter,
     togglePathMethodFilter,
     clearPathFilters,
+    isOperationIdDuplicate,
+    isParameterDuplicate,
+    isResponseDescriptionMissing,
     availableSchemas,
     isOpenAPI31,
     globalTagNames,

@@ -648,6 +648,11 @@
   color: #374151;
 }
 
+.response-header__missing-desc {
+  color: #dc2626 !important;
+  font-style: italic;
+}
+
 /* ── Response edit-code button ── */
 .response-edit-code-btn {
   flex-shrink: 0;

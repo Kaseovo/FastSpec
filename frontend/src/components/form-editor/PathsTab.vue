@@ -190,8 +190,12 @@
                                     formData.paths[selectedPath][selectedMethod]
                                       .operationId
                                   "
+                                  :class="{ 'p-invalid': isOperationIdDuplicate(selectedPath, selectedMethod) }"
                                   placeholder="operationId"
                                 />
+                                <small v-if="isOperationIdDuplicate(selectedPath, selectedMethod)" class="p-error">
+                                  Already used by another operation — operationId must be unique across the whole document.
+                                </small>
                               </div>
 
                               <div class="form-field">
@@ -287,7 +291,14 @@
                                         v-model="param.name"
                                         placeholder="id"
                                         :disabled="param.in === 'path'"
+                                        :class="{ 'p-invalid': isParameterDuplicate(currentMethodData.parameters, pIndex) }"
                                       />
+                                      <small
+                                        v-if="isParameterDuplicate(currentMethodData.parameters, pIndex)"
+                                        class="p-error"
+                                      >
+                                        Another {{ param.in }} parameter already uses this name.
+                                      </small>
                                     </div>
                                     <div class="form-field">
                                       <label class="required">Location</label>
@@ -1292,9 +1303,9 @@
                                         :value="statusCode + ' ' + (getStatusName(statusCode))"
                                         :severity="getStatusSeverity(statusCode)"
                                       />
-                                      <span>{{
-                                        response.description || "No description"
-                                      }}</span>
+                                      <span :class="{ 'response-header__missing-desc': isResponseDescriptionMissing(response) }">
+                                        {{ response.description || "Description required" }}
+                                      </span>
                                       <Button
                                         icon="pi pi-pencil"
                                         text
@@ -1322,12 +1333,16 @@
                                   </AccordionHeader>
                                   <AccordionContent>
                                     <div class="form-field">
-                                      <label>Description</label>
+                                      <label class="required">Description</label>
                                       <Textarea
                                         v-model="response.description"
                                         rows="2"
                                         placeholder="Response description"
+                                        :class="{ 'p-invalid': isResponseDescriptionMissing(response) }"
                                       />
+                                      <small v-if="isResponseDescriptionMissing(response)" class="p-error">
+                                        Required — every response must have a description.
+                                      </small>
                                     </div>
 
                                     <div class="form-field">
