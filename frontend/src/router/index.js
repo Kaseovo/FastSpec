@@ -28,9 +28,18 @@ const router = createRouter({
 router.beforeEach((to) => {
   const authStore = useAuthStore();
   if (!authStore.isAuthenticated) {
-    const landingUrl = import.meta.env.VITE_LANDING_URL || "";
-    window.location.href = landingUrl ? landingUrl + "/" : "/";
-    return false;
+    const landingUrl = import.meta.env.VITE_LANDING_URL;
+    // Only bounce out to an external landing site when one is actually
+    // configured. Falling back to "/" here previously sent unauthenticated
+    // users back into this same SPA, which re-ran this guard and redirected
+    // again — an infinite full-page-reload loop with no landing site to
+    // land on. With no landing site configured, let the app render its own
+    // signed-out state instead.
+    if (landingUrl) {
+      window.location.href = landingUrl + "/";
+      return false;
+    }
+    return true;
   }
   return true;
 });

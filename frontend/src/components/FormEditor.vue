@@ -24,22 +24,27 @@
           <Tab value="1">
             <i class="pi pi-server"></i>
             <span>Servers</span>
+            <span v-if="tabCounts.servers" class="tab-count-badge">{{ tabCounts.servers }}</span>
           </Tab>
           <Tab value="2">
             <i class="pi pi-sitemap"></i>
             <span>Paths</span>
+            <span v-if="tabCounts.paths" class="tab-count-badge">{{ tabCounts.paths }}</span>
           </Tab>
           <Tab value="3">
             <i class="pi pi-tag"></i>
             <span>Tags</span>
+            <span v-if="tabCounts.tags" class="tab-count-badge">{{ tabCounts.tags }}</span>
           </Tab>
           <Tab value="4">
             <i class="pi pi-box"></i>
             <span>Components</span>
+            <span v-if="tabCounts.components" class="tab-count-badge">{{ tabCounts.components }}</span>
           </Tab>
           <Tab value="5">
             <i class="pi pi-shield"></i>
             <span>Security</span>
+            <span v-if="tabCounts.security" class="tab-count-badge">{{ tabCounts.security }}</span>
           </Tab>
         </TabList>
 
@@ -233,6 +238,16 @@ export default {
     });
 
     const hasChanges = ref(false);
+
+    // At-a-glance sizing for each tab, shown as a small badge next to its
+    // label so you can tell a spec's shape apart before opening a tab.
+    const tabCounts = computed(() => ({
+      servers: (formData.value.servers || []).length,
+      paths: Object.keys(formData.value.paths || {}).length,
+      tags: (formData.value.tags || []).length,
+      components: Object.keys(formData.value.components?.schemas || {}).length,
+      security: (formData.value.security || []).length,
+    }));
 
     const confirm = useConfirm();
     const toast = useToast();
@@ -493,6 +508,7 @@ export default {
     return {
       formData,
       hasChanges,
+      tabCounts,
       // Server / tag helpers (owned by FormEditor)
       hasEmptyServerUrl,
       addServer,

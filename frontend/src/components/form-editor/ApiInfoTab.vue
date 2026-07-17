@@ -2,13 +2,24 @@
   <div class="form-section">
     <h4>API Information</h4>
 
-    <div class="form-field">
-      <label for="openapi-version" class="required">OpenAPI Version</label>
-      <InputText
-        id="openapi-version"
-        v-model="formData.openapi"
-        placeholder="3.0.0"
-      />
+    <div class="form-row">
+      <div class="form-field">
+        <label for="openapi-version" class="required">OpenAPI Version</label>
+        <InputText
+          id="openapi-version"
+          v-model="formData.openapi"
+          placeholder="3.0.0"
+        />
+      </div>
+
+      <div class="form-field">
+        <label for="api-version" class="required">API Version</label>
+        <InputText
+          id="api-version"
+          v-model="formData.info.version"
+          placeholder="1.0.0"
+        />
+      </div>
     </div>
 
     <div class="form-field">
@@ -17,15 +28,6 @@
         id="api-title"
         v-model="formData.info.title"
         placeholder="My API"
-      />
-    </div>
-
-    <div class="form-field">
-      <label for="api-version" class="required">Version</label>
-      <InputText
-        id="api-version"
-        v-model="formData.info.version"
-        placeholder="1.0.0"
       />
     </div>
 
@@ -39,41 +41,55 @@
       />
     </div>
 
-    <div class="form-field">
-      <label for="api-contact-name">Contact Name</label>
-      <InputText
-        id="api-contact-name"
-        v-model="formData.info.contact.name"
-        placeholder="API Support"
-      />
+    <div class="components-subsection">
+      <div class="section-header">
+        <h5>Contact</h5>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label for="api-contact-name">Name</label>
+          <InputText
+            id="api-contact-name"
+            v-model="formData.info.contact.name"
+            placeholder="API Support"
+          />
+        </div>
+
+        <div class="form-field">
+          <label for="api-contact-email">Email</label>
+          <InputText
+            id="api-contact-email"
+            v-model="formData.info.contact.email"
+            type="email"
+            placeholder="support@example.com"
+          />
+        </div>
+      </div>
     </div>
 
-    <div class="form-field">
-      <label for="api-contact-email">Contact Email</label>
-      <InputText
-        id="api-contact-email"
-        v-model="formData.info.contact.email"
-        type="email"
-        placeholder="support@example.com"
-      />
-    </div>
+    <div class="components-subsection">
+      <div class="section-header">
+        <h5>License</h5>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label for="api-license-name">Name</label>
+          <InputText
+            id="api-license-name"
+            v-model="formData.info.license.name"
+            placeholder="MIT"
+          />
+        </div>
 
-    <div class="form-field">
-      <label for="api-license-name">License Name</label>
-      <InputText
-        id="api-license-name"
-        v-model="formData.info.license.name"
-        placeholder="MIT"
-      />
-    </div>
-
-    <div class="form-field">
-      <label for="api-license-url">License URL</label>
-      <InputText
-        id="api-license-url"
-        v-model="formData.info.license.url"
-        placeholder="https://opensource.org/licenses/MIT"
-      />
+        <div class="form-field">
+          <label for="api-license-url">URL</label>
+          <InputText
+            id="api-license-url"
+            v-model="formData.info.license.url"
+            placeholder="https://opensource.org/licenses/MIT"
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>

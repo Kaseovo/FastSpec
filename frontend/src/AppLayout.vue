@@ -2,7 +2,16 @@
   <div id="app">
     <AppHeader />
 
-    <div class="main-content">
+    <div v-if="!auth.isAuthenticated" class="main-content">
+      <div class="signed-out-card">
+        <i class="pi pi-lock signed-out-icon"></i>
+        <h2>Sign in to continue</h2>
+        <p>Sign in with Google to create, edit, and save OpenAPI specifications.</p>
+        <Button label="Sign in with Google" icon="pi pi-google" @click="loginWithGoogle" />
+      </div>
+    </div>
+
+    <div v-else class="main-content">
       <Toolbar @load-template="loadTemplate" />
 
 
@@ -77,6 +86,7 @@ import { useApp } from "./composables/useApp";
 import { useAuthStore } from "./stores/auth";
 import { useToast } from "primevue/usetoast";
 import { validateSpec } from "./api/specs";
+import { loginWithGoogle } from "./api/auth";
 
 export default {
   name: "AppLayout",
@@ -110,7 +120,9 @@ export default {
     // Lifecycle moved from useApp
     const toast = useToast();
     onMounted(() => {
-      app.fetchOpenApiFile().catch(() => {});
+      if (auth.isAuthenticated) {
+        app.fetchOpenApiFile().catch(() => {});
+      }
       if (auth.oauthError) {
         toast.add({
           severity: "error",
@@ -153,6 +165,8 @@ export default {
 
     return {
       ...app,
+      auth,
+      loginWithGoogle,
       showTokenDialog,
       viewModeOptions,
       selectedView,
@@ -218,6 +232,37 @@ body {
 .main-content {
   max-width: 2000px;
   margin: 0 auto;
+}
+
+.signed-out-card {
+  max-width: 420px;
+  margin: 80px auto;
+  padding: 48px 40px;
+  text-align: center;
+  background: var(--fs-surface);
+  border-radius: var(--fs-radius);
+  box-shadow: var(--fs-shadow);
+  border: 1px solid var(--fs-border);
+}
+
+.signed-out-icon {
+  font-size: 2.5rem;
+  color: var(--fs-primary);
+  margin-bottom: 16px;
+  display: block;
+}
+
+.signed-out-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  color: var(--fs-text);
+}
+
+.signed-out-card p {
+  margin: 0 0 24px;
+  color: var(--fs-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .view-mode-toggle {
