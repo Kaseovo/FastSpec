@@ -175,6 +175,31 @@
                                 />
                                 <label for="deprecated">Deprecated</label>
                               </div>
+
+                              <div class="form-field operation-security">
+                                <label>Security</label>
+                                <SelectButton
+                                  :modelValue="operationSecurityMode(currentMethodData)"
+                                  @update:modelValue="
+                                    (mode) => mode && setOperationSecurityMode(currentMethodData, mode)
+                                  "
+                                  :options="[
+                                    { label: 'Inherit global', value: 'inherit' },
+                                    { label: 'Public (no auth)', value: 'public' },
+                                    { label: 'Custom', value: 'custom' },
+                                  ]"
+                                  optionLabel="label"
+                                  optionValue="value"
+                                />
+                                <SecurityRequirementList
+                                  v-if="operationSecurityMode(currentMethodData) === 'custom'"
+                                  :model-value="currentMethodData.security"
+                                  @update:model-value="currentMethodData.security = $event"
+                                  :schemes="availableSecuritySchemes"
+                                  hint="Requirements for this operation only, replacing the global list above."
+                                  empty-label="No requirements yet — add one below."
+                                />
+                              </div>
                             </TabPanel>
 
                             <!-- Parameters -->
@@ -1589,6 +1614,7 @@
 </template>
 
 <script>
+import "../../assets/form-editor-shared.css";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import InputNumber from "primevue/inputnumber";
@@ -1607,6 +1633,8 @@ import AccordionPanel from "primevue/accordionpanel";
 import AccordionHeader from "primevue/accordionheader";
 import AccordionContent from "primevue/accordioncontent";
 import Tag from "primevue/tag";
+import SelectButton from "primevue/selectbutton";
+import SecurityRequirementList from "./SecurityRequirementList.vue";
 
 // The "Paths" tab of FormEditor. Receives the whole reactive `formData` object
 // as one mutable prop (nested mutation is safe) plus an `api` bundle — the
@@ -1635,6 +1663,8 @@ export default {
     AccordionHeader,
     AccordionContent,
     Tag,
+    SelectButton,
+    SecurityRequirementList,
   },
   props: {
     formData: { type: Object, required: true },

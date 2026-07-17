@@ -79,6 +79,7 @@
 </template>
 
 <script>
+import "../../assets/form-editor-shared.css";
 import InputText from "primevue/inputtext";
 import Textarea from "primevue/textarea";
 

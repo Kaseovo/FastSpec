@@ -853,6 +853,7 @@
 </template>
 
 <script>
+import "../../assets/form-editor-shared.css";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import InputNumber from "primevue/inputnumber";

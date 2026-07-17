@@ -965,6 +965,26 @@ export function usePathsEditor(formData, confirm, toast) {
     }
   };
 
+  // ── Per-operation security override ────────────────────────────────────
+  // Three states, distinguished by the shape of `operation.security`:
+  //   - key absent            → "inherit" the top-level `security` list
+  //   - present, empty array  → "public" (explicitly no auth required)
+  //   - present, non-empty    → "custom" per-operation requirements
+  const operationSecurityMode = (operation) => {
+    if (!operation || !("security" in operation)) return "inherit";
+    return operation.security.length === 0 ? "public" : "custom";
+  };
+
+  const setOperationSecurityMode = (operation, mode) => {
+    if (mode === "inherit") {
+      delete operation.security;
+    } else if (mode === "public") {
+      operation.security = [];
+    } else {
+      operation.security = operation.security?.length ? operation.security : [{}];
+    }
+  };
+
   return {
     showAddPathDialog,
     showEditPathDialog,
@@ -1045,5 +1065,7 @@ export function usePathsEditor(formData, confirm, toast) {
     handlePathKeydown,
     handleEditPathKeydown,
     resetPathDrag,
+    operationSecurityMode,
+    setOperationSecurityMode,
   };
 }
