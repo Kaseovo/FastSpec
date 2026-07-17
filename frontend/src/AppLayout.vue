@@ -68,13 +68,8 @@ import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
 import SelectButton from "primevue/selectbutton";
 import Toolbar from "./components/Toolbar.vue";
-import SpecList from "./components/SpecList.vue";
-import EditorPanel from "./components/EditorPanel.vue";
-import FormEditor from "./components/FormEditor.vue";
-import PreviewPanel from "./components/PreviewPanel.vue";
 import SaveDialog from "./components/SaveDialog.vue";
 import TokenManager from "./components/TokenManager.vue";
-import LintPanel from "./components/LintPanel.vue";
 import AppHeader from "./AppHeader.vue";
 import { computed, ref, provide, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -93,13 +88,8 @@ export default {
     Toast,
     SelectButton,
     Toolbar,
-    SpecList,
-    EditorPanel,
-    FormEditor,
-    PreviewPanel,
     SaveDialog,
     TokenManager,
-    LintPanel,
     AppHeader,
   },
   setup() {

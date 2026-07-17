@@ -30,7 +30,14 @@
 
 <script>
 import { ref, onMounted, onBeforeUnmount, watch, inject } from "vue";
-import * as monaco from "monaco-editor";
+// `monaco-editor`'s default entry (editor.main.js) eagerly pulls in every
+// basic-language contribution (abap, sql, php, ruby, ~60 more) plus the
+// css/html/typescript language services — none of which this app uses; the
+// editor is only ever created with `language: "json"` below. edcore.main.js
+// has the full editing UX (find, folding, hover, etc.) minus all language
+// contributions, so we add back only the one language actually needed.
+import * as monaco from "monaco-editor/esm/vs/editor/edcore.main.js";
+import "monaco-editor/esm/vs/language/json/monaco.contribution";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import Button from "primevue/button";
