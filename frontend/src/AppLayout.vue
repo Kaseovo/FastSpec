@@ -1,47 +1,51 @@
 <template>
   <div id="app">
-    <AppHeader />
+    <PagePrototypeHost v-if="isDev && route.query.pageVariant && auth.isAuthenticated" />
 
-    <div v-if="!auth.isAuthenticated" class="main-content">
-      <div class="signed-out-card">
-        <i class="pi pi-lock signed-out-icon"></i>
-        <h2>Sign in to continue</h2>
-        <p>Sign in with Google to create, edit, and save OpenAPI specifications.</p>
-        <Button label="Sign in with Google" icon="pi pi-google" @click="loginWithGoogle" />
-      </div>
-    </div>
+    <template v-else>
+      <AppHeader />
 
-    <div v-else class="main-content">
-      <Toolbar @load-template="loadTemplate" />
-
-
-      <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
-        {{ alert.message }}
-      </Message>
-
-      <div class="view-mode-toggle">
-        <SelectButton
-          :modelValue="selectedView"
-          :options="viewModeOptions"
-          optionLabel="label"
-          optionValue="value"
-          optionDisabled="disabled"
-          dataKey="value"
-          @update:modelValue="onViewChange"
-        >
-          <template #option="slotProps">
-            <span class="flex align-items-center gap-2">
-              <i :class="slotProps.option.icon" />
-              {{ slotProps.option.label }}
-            </span>
-          </template>
-        </SelectButton>
+      <div v-if="!auth.isAuthenticated" class="main-content">
+        <div class="signed-out-card">
+          <i class="pi pi-lock signed-out-icon"></i>
+          <h2>Sign in to continue</h2>
+          <p>Sign in with Google to create, edit, and save OpenAPI specifications.</p>
+          <Button label="Sign in with Google" icon="pi pi-google" @click="loginWithGoogle" />
+        </div>
       </div>
 
-      <div class="editor-container">
-        <router-view />
+      <div v-else class="main-content">
+        <Toolbar @load-template="loadTemplate" />
+
+
+        <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
+          {{ alert.message }}
+        </Message>
+
+        <div class="view-mode-toggle">
+          <SelectButton
+            :modelValue="selectedView"
+            :options="viewModeOptions"
+            optionLabel="label"
+            optionValue="value"
+            optionDisabled="disabled"
+            dataKey="value"
+            @update:modelValue="onViewChange"
+          >
+            <template #option="slotProps">
+              <span class="flex align-items-center gap-2">
+                <i :class="slotProps.option.icon" />
+                {{ slotProps.option.label }}
+              </span>
+            </template>
+          </SelectButton>
+        </div>
+
+        <div class="editor-container">
+          <router-view />
+        </div>
       </div>
-    </div>
+    </template>
 
     <SaveDialog
       :visible="showSaveDialog"
@@ -80,6 +84,7 @@ import Toolbar from "./components/Toolbar.vue";
 import SaveDialog from "./components/SaveDialog.vue";
 import TokenManager from "./components/TokenManager.vue";
 import AppHeader from "./AppHeader.vue";
+import PagePrototypeHost from "./components/page-prototype/PagePrototypeHost.vue";
 import { computed, ref, provide, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApp } from "./composables/useApp";
@@ -101,6 +106,7 @@ export default {
     SaveDialog,
     TokenManager,
     AppHeader,
+    PagePrototypeHost,
   },
   setup() {
     const app = useApp();
@@ -166,6 +172,8 @@ export default {
     return {
       ...app,
       auth,
+      route,
+      isDev: import.meta.env.DEV,
       loginWithGoogle,
       showTokenDialog,
       viewModeOptions,

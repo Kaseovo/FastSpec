@@ -12,7 +12,15 @@
       <template v-if="mode === 'form'">
         <div :class="['code-split', { 'with-preview': showLivePreview }]">
           <div class="code-split__editor">
+            <FormEditorPrototypeHost
+              v-if="isDev && route.query.variant"
+              :model-value="parsedSpec"
+              :show-live-preview="showLivePreview"
+              @update:modelValue="updateFromForm"
+              @toggle-live-preview="toggleLivePreview"
+            />
             <FormEditor
+              v-else
               :model-value="parsedSpec"
               :show-live-preview="showLivePreview"
               @update:modelValue="updateFromForm"
@@ -65,6 +73,7 @@
 import SpecList from "../components/SpecList.vue";
 import EditorPanel from "../components/EditorPanel.vue";
 import FormEditor from "../components/FormEditor.vue";
+import FormEditorPrototypeHost from "../components/form-editor-prototype/FormEditorPrototypeHost.vue";
 import LintPanel from "../components/LintPanel.vue";
 import PreviewPanel from "../components/PreviewPanel.vue";
 import ErrorBoundary from "../components/ErrorBoundary.vue";
@@ -78,6 +87,7 @@ export default {
     SpecList,
     EditorPanel,
     FormEditor,
+    FormEditorPrototypeHost,
     LintPanel,
     PreviewPanel,
     ErrorBoundary,
@@ -121,6 +131,8 @@ export default {
     );
 
     return {
+      route,
+      isDev: import.meta.env.DEV,
       isAuthenticated,
       loadSpec: specEditor.loadSpec,
       parsedSpec: specEditor.parsedSpec,
