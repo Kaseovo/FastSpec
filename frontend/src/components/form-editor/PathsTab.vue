@@ -151,16 +151,15 @@
                         v-if="selectedPath === pathItem.path && selectedMethod"
                         class="method-editor"
                       >
-                        <Tabs value="0">
-                          <TabList>
-                            <Tab value="0">Basic Info</Tab>
-                            <Tab value="1">Parameters</Tab>
-                            <Tab value="2">Request Body</Tab>
-                            <Tab value="3">Responses</Tab>
-                          </TabList>
-                          <TabPanels>
-                            <!-- Basic Info -->
-                            <TabPanel value="0">
+                        <div class="method-editor-sections">
+                          <!-- Basic Info: flattened into always-visible scrollable
+                               sections (used to be nested Tabs) so editing an
+                               operation doesn't require clicking between four
+                               tabs on top of the path accordion above it. -->
+                          <div class="method-editor-section">
+                            <div class="section-header">
+                              <h5>Basic Info</h5>
+                            </div>
                               <div class="form-field">
                                 <label>Summary</label>
                                 <InputText
@@ -243,10 +242,9 @@
                                   empty-label="No requirements yet — add one below."
                                 />
                               </div>
-                            </TabPanel>
+                          </div>
 
-                            <!-- Parameters -->
-                            <TabPanel value="1">
+                          <div class="method-editor-section">
                               <div class="section-header">
                                 <h5>Parameters</h5>
                                 <Button
@@ -750,10 +748,9 @@
                                   "
                                 />
                               </div>
-                            </TabPanel>
+                          </div>
 
-                            <!-- Request Body -->
-                            <TabPanel value="2">
+                          <div class="method-editor-section">
                               <div class="section-header">
                                 <h5>Request Body</h5>
                                 <div class="form-field checkbox-field">
@@ -1251,10 +1248,9 @@
                                   </div>
                                 </template>
                               </template>
-                            </TabPanel>
+                          </div>
 
-                            <!-- Responses -->
-                            <TabPanel value="3">
+                          <div class="method-editor-section">
                               <div class="section-header">
                                 <h5>Responses</h5>
                                 <Button
@@ -1645,9 +1641,8 @@
                                   </AccordionContent>
                                 </AccordionPanel>
                               </Accordion>
-                            </TabPanel>
-                          </TabPanels>
-                        </Tabs>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </AccordionContent>
@@ -1666,11 +1661,6 @@ import Select from "primevue/select";
 import MultiSelect from "primevue/multiselect";
 import Checkbox from "primevue/checkbox";
 import AutoComplete from "primevue/autocomplete";
-import Tabs from "primevue/tabs";
-import TabList from "primevue/tablist";
-import Tab from "primevue/tab";
-import TabPanels from "primevue/tabpanels";
-import TabPanel from "primevue/tabpanel";
 import Accordion from "primevue/accordion";
 import AccordionPanel from "primevue/accordionpanel";
 import AccordionHeader from "primevue/accordionheader";
@@ -1698,11 +1688,6 @@ export default {
     MultiSelect,
     Checkbox,
     AutoComplete,
-    Tabs,
-    TabList,
-    Tab,
-    TabPanels,
-    TabPanel,
     Accordion,
     AccordionPanel,
     AccordionHeader,

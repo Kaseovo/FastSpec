@@ -545,6 +545,25 @@
   /* no top border needed — content starts directly */
 }
 
+/* ── Always-visible operation sections (replaces the old nested
+   Basic Info/Parameters/Request Body/Responses tabs — one less level of
+   clicking between the path accordion and the fields you're editing) ── */
+.method-editor-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.method-editor-section {
+  padding-top: 20px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.method-editor-section:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
 .param-item,
 .property-item {
   display: flex;
