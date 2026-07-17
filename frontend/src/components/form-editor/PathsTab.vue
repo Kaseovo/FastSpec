@@ -283,7 +283,42 @@
                                   <i class="pi pi-lock"></i>
                                   <span>Path parameter — edit the path template to rename or remove</span>
                                 </div>
-                                <div class="param-content">
+
+                                <!-- Reusable-parameter toggle (path params can't be reusable —
+                                     they're structurally tied to the path template) -->
+                                <div v-if="param.in !== 'path'" class="reusable-ref-toggle">
+                                  <Button
+                                    v-if="!isParameterRef(param)"
+                                    label="Use existing reusable parameter"
+                                    icon="pi pi-link"
+                                    size="small"
+                                    text
+                                    @click="convertParameterToRef(selectedPath, selectedMethod, pIndex)"
+                                  />
+                                  <Button
+                                    v-else
+                                    label="Define inline instead"
+                                    icon="pi pi-pencil"
+                                    size="small"
+                                    text
+                                    @click="convertParameterToInline(selectedPath, selectedMethod, pIndex)"
+                                  />
+                                </div>
+
+                                <div v-if="isParameterRef(param)" class="param-content">
+                                  <div class="form-field">
+                                    <label class="required">Reusable Parameter</label>
+                                    <Select
+                                      v-model="param.$ref"
+                                      :options="availableParameters"
+                                      optionLabel="label"
+                                      optionValue="value"
+                                      placeholder="Select a reusable parameter"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div v-else class="param-content">
                                   <div class="form-row">
                                     <div class="form-field">
                                       <label class="required">Name</label>
@@ -1303,7 +1338,10 @@
                                         :value="statusCode + ' ' + (getStatusName(statusCode))"
                                         :severity="getStatusSeverity(statusCode)"
                                       />
-                                      <span :class="{ 'response-header__missing-desc': isResponseDescriptionMissing(response) }">
+                                      <span v-if="isResponseRef(response)">
+                                        <i class="pi pi-link"></i> {{ response.$ref.split('/').pop() || "Select a reusable response" }}
+                                      </span>
+                                      <span v-else :class="{ 'response-header__missing-desc': isResponseDescriptionMissing(response) }">
                                         {{ response.description || "Description required" }}
                                       </span>
                                       <Button
@@ -1332,6 +1370,37 @@
                                     </div>
                                   </AccordionHeader>
                                   <AccordionContent>
+                                    <div class="reusable-ref-toggle">
+                                      <Button
+                                        v-if="!isResponseRef(response)"
+                                        label="Use existing reusable response"
+                                        icon="pi pi-link"
+                                        size="small"
+                                        text
+                                        @click="convertResponseToRef(selectedPath, selectedMethod, statusCode)"
+                                      />
+                                      <Button
+                                        v-else
+                                        label="Define inline instead"
+                                        icon="pi pi-pencil"
+                                        size="small"
+                                        text
+                                        @click="convertResponseToInline(selectedPath, selectedMethod, statusCode)"
+                                      />
+                                    </div>
+
+                                    <div v-if="isResponseRef(response)" class="form-field">
+                                      <label class="required">Reusable Response</label>
+                                      <Select
+                                        v-model="response.$ref"
+                                        :options="availableResponses"
+                                        optionLabel="label"
+                                        optionValue="value"
+                                        placeholder="Select a reusable response"
+                                      />
+                                    </div>
+
+                                    <template v-else>
                                     <div class="form-field">
                                       <label class="required">Description</label>
                                       <Textarea
@@ -1652,6 +1721,7 @@
                                           </div>
                                         </template>
                                       </template>
+                                    </template>
                                     </template>
                                   </AccordionContent>
                                 </AccordionPanel>

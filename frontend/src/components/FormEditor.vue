@@ -167,6 +167,7 @@ import ResponseCodeDialog from "./form-editor/ResponseCodeDialog.vue";
 import { usePathsEditor } from "../composables/usePathsEditor";
 import { useComponentsEditor } from "../composables/useComponentsEditor";
 import { useSecurityEditor } from "../composables/useSecurityEditor";
+import { useReusableComponentsEditor } from "../composables/useReusableComponentsEditor";
 import {
   normalizeRefsForForm,
   cleanRefsForOutput,
@@ -225,6 +226,8 @@ export default {
       components: {
         schemas: {},
         securitySchemes: {},
+        parameters: {},
+        responses: {},
       },
       security: [],
     });
@@ -260,6 +263,10 @@ export default {
             formData.value.components.schemas = {};
           if (!formData.value.components.securitySchemes)
             formData.value.components.securitySchemes = {};
+          if (!formData.value.components.parameters)
+            formData.value.components.parameters = {};
+          if (!formData.value.components.responses)
+            formData.value.components.responses = {};
           if (!formData.value.security) formData.value.security = [];
         }
       },
@@ -449,6 +456,7 @@ export default {
     const paths = usePathsEditor(formData, confirm, toast);
     const components = useComponentsEditor(formData, confirm, toast);
     const security = useSecurityEditor(formData, confirm, toast);
+    const reusable = useReusableComponentsEditor(formData, confirm, toast);
 
     // Shared, cross-tab drag glue. handleDragEnd must clear BOTH tabs' transient
     // drag state (a single handler is bound in both tab templates and asserted
@@ -471,8 +479,15 @@ export default {
       getStatusName,
       getStatusSeverity,
       availableSecuritySchemes: security.availableSecuritySchemes,
+      availableParameters: reusable.availableParameters,
+      availableResponses: reusable.availableResponses,
     };
-    const componentsApi = { ...components, handleDragOver, handleDragEnd };
+    const componentsApi = {
+      ...components,
+      handleDragOver,
+      handleDragEnd,
+      ...reusable,
+    };
     const securityApi = { ...security };
 
     return {
@@ -505,6 +520,7 @@ export default {
       ...paths,
       ...components,
       ...security,
+      ...reusable,
     };
   },
 };

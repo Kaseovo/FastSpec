@@ -609,3 +609,145 @@ export const getStatusName = (code) => {
   }
   return "";
 };
+
+// ── Response content/schema editing ──────────────────────────────────────
+// Pure functions operating only on a passed-in `response` object — the same
+// shape whether it's an inline operation response
+// (formData.paths[p][m].responses[code]) or a reusable one
+// (formData.components.responses[name]), so both usePathsEditor and
+// useReusableComponentsEditor share these instead of each reimplementing
+// content-type/schema-reference switching logic.
+export const getResponseContentType = (response) => {
+  if (!response.content) return "";
+  return Object.keys(response.content)[0] || "";
+};
+
+export const setResponseContentType = (response, contentType) => {
+  if (!response.content) response.content = {};
+  const oldContent = response.content;
+  response.content = {};
+  if (contentType) {
+    response.content[contentType] = oldContent[Object.keys(oldContent)[0]] || {
+      schema: { type: "object" },
+    };
+  }
+};
+
+export const getResponseSchemaType = (response) => {
+  const contentType = getResponseContentType(response);
+  if (!contentType || !response.content[contentType]?.schema) return "inline";
+  const schema = response.content[contentType].schema;
+  // Use hasOwnProperty so { $ref: "" } (empty ref) is still detected as reference
+  return Object.prototype.hasOwnProperty.call(schema, "$ref")
+    ? "reference"
+    : "inline";
+};
+
+export const setResponseSchemaType = (response, type) => {
+  const contentType = getResponseContentType(response);
+  if (!contentType) return;
+  if (!response.content[contentType]) response.content[contentType] = {};
+
+  if (type === "reference") {
+    response.content[contentType].schema = { $ref: "" };
+  } else {
+    response.content[contentType].schema = { type: "object", properties: {} };
+  }
+};
+
+export const getResponseSchemaRef = (response) => {
+  const contentType = getResponseContentType(response);
+  if (!contentType) return "";
+  return response.content[contentType]?.schema?.$ref || "";
+};
+
+export const setResponseSchemaRef = (response, ref) => {
+  const contentType = getResponseContentType(response);
+  if (!contentType) return;
+  response.content[contentType].schema = { $ref: ref };
+};
+
+// Returns the live schema object for inline response (writable)
+export const getResponseInlineSchema = (response) => {
+  const contentType = getResponseContentType(response);
+  if (!contentType) return {};
+  if (!response.content) response.content = {};
+  if (!response.content[contentType])
+    response.content[contentType] = {
+      schema: { type: "object", properties: {} },
+    };
+  if (!response.content[contentType].schema)
+    response.content[contentType].schema = {
+      type: "object",
+      properties: {},
+    };
+  const schema = response.content[contentType].schema;
+  // Treat any schema that has a $ref key (even empty string) as a reference schema
+  if (Object.prototype.hasOwnProperty.call(schema, "$ref")) return {};
+  return schema;
+};
+
+export const getResponseInlineSchemaType = (response) => {
+  const schema = getResponseInlineSchema(response);
+  if (!schema || !schema.type) return "object";
+  return Array.isArray(schema.type)
+    ? schema.type.find((t) => t !== "null") || "object"
+    : schema.type;
+};
+
+export const setResponseInlineSchemaType = (response, type) => {
+  const contentType = getResponseContentType(response);
+  if (!contentType) return;
+  if (!response.content) response.content = {};
+  const newSchema = { type };
+  if (type === "object") {
+    newSchema.properties = {};
+  } else if (type === "array") {
+    newSchema._itemSchemas = [];
+  }
+  response.content[contentType] = { schema: newSchema };
+};
+
+export const addResponseProperty = (response) => {
+  const schema = getResponseInlineSchema(response);
+  if (!schema || schema.type !== "object") return;
+  if (!schema.properties) schema.properties = {};
+  let propName = "newProperty";
+  let counter = 1;
+  while (schema.properties[propName]) {
+    propName = `newProperty${counter}`;
+    counter++;
+  }
+  schema.properties[propName] = { type: "string", description: "" };
+};
+
+export const removeResponseProperty = (response, propName) => {
+  const schema = getResponseInlineSchema(response);
+  if (!schema || !schema.properties) return;
+  delete schema.properties[propName];
+  if (schema.required)
+    schema.required = schema.required.filter((r) => r !== propName);
+};
+
+export const renameResponseProperty = (response, oldName, newName) => {
+  if (oldName === newName || !newName) return;
+  const schema = getResponseInlineSchema(response);
+  if (!schema || !schema.properties || schema.properties[newName]) return;
+  schema.properties[newName] = schema.properties[oldName];
+  delete schema.properties[oldName];
+  if (schema.required) {
+    const idx = schema.required.indexOf(oldName);
+    if (idx !== -1) schema.required[idx] = newName;
+  }
+};
+
+export const toggleResponsePropertyRequired = (response, propName, isRequired) => {
+  const schema = getResponseInlineSchema(response);
+  if (!schema) return;
+  if (!schema.required) schema.required = [];
+  if (isRequired) {
+    if (!schema.required.includes(propName)) schema.required.push(propName);
+  } else {
+    schema.required = schema.required.filter((r) => r !== propName);
+  }
+};

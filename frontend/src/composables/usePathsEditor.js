@@ -4,6 +4,19 @@ import {
   buildPathParam,
   computePathParamDiff,
   getStatusName,
+  getResponseContentType,
+  setResponseContentType,
+  getResponseSchemaType,
+  setResponseSchemaType,
+  getResponseSchemaRef,
+  setResponseSchemaRef,
+  getResponseInlineSchema,
+  getResponseInlineSchemaType,
+  setResponseInlineSchemaType,
+  addResponseProperty,
+  removeResponseProperty,
+  renameResponseProperty,
+  toggleResponsePropertyRequired,
 } from "../utils/openApiFormHelpers";
 
 // State + logic for FormEditor's "Paths" tab, extracted verbatim from
@@ -530,6 +543,27 @@ export function usePathsEditor(formData, confirm, toast) {
     });
   };
 
+  // A parameter list entry is either inline (has name/in/schema) or a
+  // reference to components.parameters (has only $ref) — OpenAPI's
+  // Reference Object and Parameter Object are mutually exclusive shapes.
+  // New parameters always start inline (addParameter above); these two
+  // convert an existing entry between the two shapes in place.
+  const isParameterRef = (param) => !!param && "$ref" in param;
+
+  const convertParameterToRef = (path, method, index) => {
+    formData.value.paths[path][method].parameters[index] = { $ref: "" };
+  };
+
+  const convertParameterToInline = (path, method, index) => {
+    formData.value.paths[path][method].parameters[index] = {
+      name: "",
+      in: "query",
+      description: "",
+      required: false,
+      schema: { type: "string" },
+    };
+  };
+
   const removeParameter = (path, method, index) => {
     confirm.require({
       message: "Are you sure you want to delete this parameter?",
@@ -786,139 +820,20 @@ export function usePathsEditor(formData, confirm, toast) {
     });
   };
 
-  const getResponseContentType = (response) => {
-    if (!response.content) return "";
-    return Object.keys(response.content)[0] || "";
+  // A response is either inline (has description/content) or a reference to
+  // components.responses (has only $ref). New responses always start inline
+  // (confirmResponseDialog above); these convert an existing entry in place.
+  const isResponseRef = (response) => !!response && "$ref" in response;
+
+  const convertResponseToRef = (path, method, statusCode) => {
+    formData.value.paths[path][method].responses[statusCode] = { $ref: "" };
   };
 
-  const setResponseContentType = (response, contentType) => {
-    if (!response.content) response.content = {};
-    const oldContent = response.content;
-    response.content = {};
-    if (contentType) {
-      response.content[contentType] = oldContent[Object.keys(oldContent)[0]] || {
-        schema: { type: "object" },
-      };
-    }
-  };
-
-  const getResponseSchemaType = (response) => {
-    const contentType = getResponseContentType(response);
-    if (!contentType || !response.content[contentType]?.schema) return "inline";
-    const schema = response.content[contentType].schema;
-    // Use hasOwnProperty so { $ref: "" } (empty ref) is still detected as reference
-    return Object.prototype.hasOwnProperty.call(schema, "$ref")
-      ? "reference"
-      : "inline";
-  };
-
-  const setResponseSchemaType = (response, type) => {
-    const contentType = getResponseContentType(response);
-    if (!contentType) return;
-    if (!response.content[contentType]) response.content[contentType] = {};
-
-    if (type === "reference") {
-      response.content[contentType].schema = { $ref: "" };
-    } else {
-      response.content[contentType].schema = { type: "object", properties: {} };
-    }
-  };
-
-  const getResponseSchemaRef = (response) => {
-    const contentType = getResponseContentType(response);
-    if (!contentType) return "";
-    return response.content[contentType]?.schema?.$ref || "";
-  };
-
-  const setResponseSchemaRef = (response, ref) => {
-    const contentType = getResponseContentType(response);
-    if (!contentType) return;
-    response.content[contentType].schema = { $ref: ref };
-  };
-
-  // Returns the live schema object for inline response (writable)
-  const getResponseInlineSchema = (response) => {
-    const contentType = getResponseContentType(response);
-    if (!contentType) return {};
-    if (!response.content) response.content = {};
-    if (!response.content[contentType])
-      response.content[contentType] = {
-        schema: { type: "object", properties: {} },
-      };
-    if (!response.content[contentType].schema)
-      response.content[contentType].schema = {
-        type: "object",
-        properties: {},
-      };
-    const schema = response.content[contentType].schema;
-    // Treat any schema that has a $ref key (even empty string) as a reference schema
-    if (Object.prototype.hasOwnProperty.call(schema, "$ref")) return {};
-    return schema;
-  };
-
-  const getResponseInlineSchemaType = (response) => {
-    const schema = getResponseInlineSchema(response);
-    if (!schema || !schema.type) return "object";
-    return Array.isArray(schema.type)
-      ? schema.type.find((t) => t !== "null") || "object"
-      : schema.type;
-  };
-
-  const setResponseInlineSchemaType = (response, type) => {
-    const contentType = getResponseContentType(response);
-    if (!contentType) return;
-    if (!response.content) response.content = {};
-    const newSchema = { type };
-    if (type === "object") {
-      newSchema.properties = {};
-    } else if (type === "array") {
-      newSchema._itemSchemas = [];
-    }
-    response.content[contentType] = { schema: newSchema };
-  };
-
-  const addResponseProperty = (response) => {
-    const schema = getResponseInlineSchema(response);
-    if (!schema || schema.type !== "object") return;
-    if (!schema.properties) schema.properties = {};
-    let propName = "newProperty";
-    let counter = 1;
-    while (schema.properties[propName]) {
-      propName = `newProperty${counter}`;
-      counter++;
-    }
-    schema.properties[propName] = { type: "string", description: "" };
-  };
-
-  const removeResponseProperty = (response, propName) => {
-    const schema = getResponseInlineSchema(response);
-    if (!schema || !schema.properties) return;
-    delete schema.properties[propName];
-    if (schema.required)
-      schema.required = schema.required.filter((r) => r !== propName);
-  };
-
-  const renameResponseProperty = (response, oldName, newName) => {
-    if (oldName === newName || !newName) return;
-    const schema = getResponseInlineSchema(response);
-    if (!schema || !schema.properties || schema.properties[newName]) return;
-    schema.properties[newName] = schema.properties[oldName];
-    delete schema.properties[oldName];
-    if (schema.required) {
-      const idx = schema.required.indexOf(oldName);
-      if (idx !== -1) schema.required[idx] = newName;
-    }
-  };
-
-  const toggleResponsePropertyRequired = (response, propName, isRequired) => {
-    const schema = getResponseInlineSchema(response);
-    if (!schema) return;
-    if (!schema.required) schema.required = [];
-    if (isRequired) {
-      if (!schema.required.includes(propName)) schema.required.push(propName);
-    } else {
-      schema.required = schema.required.filter((r) => r !== propName);
-    }
+  const convertResponseToInline = (path, method, statusCode) => {
+    formData.value.paths[path][method].responses[statusCode] = {
+      description: "",
+      content: {},
+    };
   };
 
   const onPropertyTypeChange = (prop) => {
@@ -1169,5 +1084,11 @@ export function usePathsEditor(formData, confirm, toast) {
     resetPathDrag,
     operationSecurityMode,
     setOperationSecurityMode,
+    isParameterRef,
+    convertParameterToRef,
+    convertParameterToInline,
+    isResponseRef,
+    convertResponseToRef,
+    convertResponseToInline,
   };
 }

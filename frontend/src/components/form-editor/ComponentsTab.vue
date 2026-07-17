@@ -875,6 +875,259 @@
                   </AccordionContent>
                 </AccordionPanel>
               </Accordion>
+
+              <!-- ── Reusable Parameters ── -->
+              <div class="components-subsection">
+                <div class="section-header">
+                  <h4>Reusable Parameters</h4>
+                  <Button
+                    label="Add Parameter"
+                    icon="pi pi-plus"
+                    size="small"
+                    @click="addReusableParameter"
+                  />
+                </div>
+
+                <div v-if="parametersList.length === 0" class="empty-state-small">
+                  <p>No reusable parameters yet. Define one here to reference it from any operation's Parameters tab.</p>
+                </div>
+
+                <Accordion v-if="parametersList.length > 0">
+                  <AccordionPanel
+                    v-for="(parameter, index) in parametersList"
+                    :key="parameter.name"
+                    :value="index.toString()"
+                  >
+                    <AccordionHeader>
+                      <div class="schema-header">
+                        <span class="schema-name">{{ parameter.name }}</span>
+                        <Tag :value="parameter.data.in" severity="info" />
+                        <Button
+                          icon="pi pi-trash"
+                          severity="danger"
+                          text
+                          rounded
+                          size="small"
+                          @click.stop="removeReusableParameter(parameter.name)"
+                        />
+                      </div>
+                    </AccordionHeader>
+                    <AccordionContent>
+                      <div class="form-row">
+                        <div class="form-field">
+                          <label class="required">Component Name</label>
+                          <InputText
+                            :value="parameter.name"
+                            @input="renameReusableParameter(parameter.name, $event.target.value)"
+                            placeholder="e.g. PageOffset"
+                          />
+                        </div>
+                        <div class="form-field">
+                          <label class="required">Parameter Name</label>
+                          <InputText v-model="parameter.data.name" placeholder="offset" />
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-field">
+                          <label class="required">Location</label>
+                          <Select
+                            v-model="parameter.data.in"
+                            :options="['query', 'header', 'cookie']"
+                          />
+                        </div>
+                        <div class="form-field">
+                          <label class="required">Type</label>
+                          <Select
+                            v-model="parameter.data.schema.type"
+                            :options="['string', 'number', 'integer', 'boolean', 'array']"
+                          />
+                        </div>
+                      </div>
+                      <div
+                        v-if="parameter.data.schema.type === 'array'"
+                        class="form-field"
+                      >
+                        <label>Item Type</label>
+                        <Select
+                          :modelValue="parameter.data.schema.items?.type || 'string'"
+                          @update:modelValue="parameter.data.schema.items = { type: $event }"
+                          :options="['string', 'number', 'integer', 'boolean']"
+                        />
+                      </div>
+                      <div class="form-field">
+                        <label>Description</label>
+                        <Textarea v-model="parameter.data.description" rows="2" />
+                      </div>
+                      <div class="form-field checkbox-field">
+                        <Checkbox
+                          v-model="parameter.data.required"
+                          :inputId="'reusable-param-required-' + parameter.name"
+                          :binary="true"
+                        />
+                        <label :for="'reusable-param-required-' + parameter.name">Required</label>
+                      </div>
+                    </AccordionContent>
+                  </AccordionPanel>
+                </Accordion>
+              </div>
+
+              <!-- ── Reusable Responses ── -->
+              <div class="components-subsection">
+                <div class="section-header">
+                  <h4>Reusable Responses</h4>
+                  <Button
+                    label="Add Response"
+                    icon="pi pi-plus"
+                    size="small"
+                    @click="addReusableResponse"
+                  />
+                </div>
+
+                <div v-if="responsesList.length === 0" class="empty-state-small">
+                  <p>No reusable responses yet. Define one here to reference it from any operation's Responses tab.</p>
+                </div>
+
+                <Accordion v-if="responsesList.length > 0">
+                  <AccordionPanel
+                    v-for="(response, index) in responsesList"
+                    :key="response.name"
+                    :value="index.toString()"
+                  >
+                    <AccordionHeader>
+                      <div class="schema-header">
+                        <span class="schema-name">{{ response.name }}</span>
+                        <span
+                          :class="{ 'response-header__missing-desc': !response.data.description || !response.data.description.trim() }"
+                        >
+                          {{ response.data.description || "Description required" }}
+                        </span>
+                        <Button
+                          icon="pi pi-trash"
+                          severity="danger"
+                          text
+                          rounded
+                          size="small"
+                          @click.stop="removeReusableResponse(response.name)"
+                        />
+                      </div>
+                    </AccordionHeader>
+                    <AccordionContent>
+                      <div class="form-field">
+                        <label class="required">Component Name</label>
+                        <InputText
+                          :value="response.name"
+                          @input="renameReusableResponse(response.name, $event.target.value)"
+                          placeholder="e.g. NotFoundError"
+                        />
+                      </div>
+                      <div class="form-field">
+                        <label class="required">Description</label>
+                        <Textarea
+                          v-model="response.data.description"
+                          rows="2"
+                          placeholder="Response description"
+                          :class="{ 'p-invalid': !response.data.description || !response.data.description.trim() }"
+                        />
+                      </div>
+
+                      <div class="form-field checkbox-field">
+                        <Checkbox
+                          :modelValue="!!getResponseContentType(response.data)"
+                          @update:modelValue="setResponseContentType(response.data, $event ? 'application/json' : '')"
+                          :inputId="'reusable-response-has-body-' + response.name"
+                          :binary="true"
+                        />
+                        <label :for="'reusable-response-has-body-' + response.name">Has a response body</label>
+                      </div>
+
+                      <template v-if="getResponseContentType(response.data)">
+                        <div class="form-field">
+                          <label>Content Type</label>
+                          <InputText
+                            :modelValue="getResponseContentType(response.data)"
+                            @update:modelValue="setResponseContentType(response.data, $event)"
+                            placeholder="application/json"
+                          />
+                        </div>
+                        <div class="form-field">
+                          <label>Schema</label>
+                          <Select
+                            :modelValue="getResponseSchemaType(response.data)"
+                            @update:modelValue="setResponseSchemaType(response.data, $event)"
+                            :options="[
+                              { label: 'Inline object', value: 'inline' },
+                              { label: 'Reference to a schema', value: 'reference' },
+                            ]"
+                            optionLabel="label"
+                            optionValue="value"
+                          />
+                        </div>
+
+                        <div v-if="getResponseSchemaType(response.data) === 'reference'" class="form-field">
+                          <label>Schema Reference</label>
+                          <Select
+                            :modelValue="getResponseSchemaRef(response.data)"
+                            @update:modelValue="setResponseSchemaRef(response.data, $event)"
+                            :options="availableSchemas"
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Select a schema"
+                          />
+                        </div>
+
+                        <template v-else>
+                          <div class="section-header">
+                            <h5>Properties</h5>
+                            <Button
+                              label="Add Property"
+                              icon="pi pi-plus"
+                              size="small"
+                              @click="addResponseProperty(response.data)"
+                            />
+                          </div>
+                          <div
+                            v-if="Object.keys(getResponseInlineSchema(response.data).properties || {}).length === 0"
+                            class="empty-state-small"
+                          >
+                            <p>No properties defined</p>
+                          </div>
+                          <div
+                            v-for="(propSchema, propName) in getResponseInlineSchema(response.data).properties"
+                            :key="propName"
+                            class="list-item"
+                          >
+                            <div class="list-item-content">
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Name</label>
+                                  <InputText
+                                    :value="propName"
+                                    @input="renameResponseProperty(response.data, propName, $event.target.value)"
+                                  />
+                                </div>
+                                <div class="form-field">
+                                  <label>Type</label>
+                                  <Select
+                                    v-model="propSchema.type"
+                                    :options="['string', 'number', 'integer', 'boolean', 'array', 'object']"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              icon="pi pi-trash"
+                              severity="danger"
+                              text
+                              rounded
+                              @click="removeResponseProperty(response.data, propName)"
+                            />
+                          </div>
+                        </template>
+                      </template>
+                    </AccordionContent>
+                  </AccordionPanel>
+                </Accordion>
+              </div>
             </div>
 </template>
 

@@ -1272,3 +1272,17 @@
 .method-filter-chip--active.method-delete  { border-color: #dc2626; background: #fef2f2; color: #991b1b; }
 .method-filter-chip--active.method-options,
 .method-filter-chip--active.method-head    { border-color: #4b5563; background: #f9fafb; color: #374151; }
+
+/* ── Secondary sections within a tab (e.g. Components tab's Reusable
+   Parameters/Responses below Schemas, Security tab's global requirements
+   below its schemes) — a divider + heading, not a full new .form-section
+   with its own padding, since they're already inside one. ── */
+.components-subsection {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.reusable-ref-toggle {
+  margin-bottom: 12px;
+}
