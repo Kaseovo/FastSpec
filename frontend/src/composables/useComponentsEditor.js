@@ -43,6 +43,26 @@ export function useComponentsEditor(formData, confirm, toast) {
     schemaSearchQuery.value = "";
   };
 
+  // ── Open/close state for the schemas Accordion ────────────────────────────
+  // Mirrors usePathsEditor's openPaths: without a controlled `:value`, the
+  // Accordion manages its own open state internally and can't be opened
+  // programmatically (e.g. from the tree nav's "jump to this schema").
+  const openSchemas = ref([]);
+
+  const selectAndOpenSchema = (name) => {
+    // Clear any active search first so the schema is guaranteed to be in
+    // filteredSchemasList (and its index — which the Accordion keys panels
+    // by — matches schemasList's).
+    schemaSearchQuery.value = "";
+    const index = schemasList.value.findIndex((s) => s.name === name);
+    if (index !== -1) {
+      const key = index.toString();
+      if (!openSchemas.value.includes(key)) {
+        openSchemas.value = [...openSchemas.value, key];
+      }
+    }
+  };
+
   const availableSchemas = computed(() => {
     return Object.keys(formData.value.components?.schemas || {}).map((name) => ({
       label: name,
@@ -408,6 +428,8 @@ export function useComponentsEditor(formData, confirm, toast) {
     filteredSchemasList,
     hasActiveSchemaFilter,
     clearSchemaFilter,
+    openSchemas,
+    selectAndOpenSchema,
     availableSchemas,
     isOpenAPI31,
     addChipOnEnter,

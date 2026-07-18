@@ -34,7 +34,7 @@
               v-for="item in s.visibleItems"
               :key="item"
               class="fet-node fet-node--child"
-              @click="active = s.key"
+              @click="openItem(s.key, item)"
               :title="item"
             >
               <span class="fet-node__dot" :class="s.dotClass"></span>{{ item }}
@@ -272,6 +272,21 @@ export default {
       }),
     );
 
+    // Clicking a path/schema in the tree should actually open that item —
+    // not just switch to its tab and leave the user to find it again in a
+    // list of hundreds. Servers/Tags/Security are flat lists with no
+    // per-item open/closed state to drive, so those just switch tabs (their
+    // existing behavior).
+    const openItem = (sectionKey, item) => {
+      active.value = sectionKey;
+      if (sectionKey === "paths") {
+        const pathItem = state.pathsList.value.find((p) => p.path === item);
+        state.selectAndOpenPath(item, pathItem?.methods?.[0]);
+      } else if (sectionKey === "components") {
+        state.selectAndOpenSchema(item);
+      }
+    };
+
     return {
       ...state,
       active,
@@ -280,6 +295,7 @@ export default {
       sections,
       showAll,
       toggleCollapsed,
+      openItem,
     };
   },
 };

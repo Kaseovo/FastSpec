@@ -41,7 +41,7 @@
                 <p>No schemas match your search.</p>
               </div>
 
-              <Accordion v-if="schemasList.length > 0">
+              <Accordion v-if="schemasList.length > 0" :multiple="true" :value="openSchemas" @update:value="openSchemas = $event">
                 <AccordionPanel
                   v-for="(schema, index) in filteredSchemasList"
                   :key="schema.name"
