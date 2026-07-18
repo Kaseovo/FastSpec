@@ -178,6 +178,24 @@ export function useFormEditorState(props, emit) {
     return names.length !== new Set(names).size;
   });
 
+  // How many operations reference each tag name — lets the Tags tab show a
+  // usage count and flag tags nothing actually uses, the same way lint
+  // flags unused components. Scans every path/method's `tags` array rather
+  // than trusting formData.tags to stay in sync with operations, since
+  // operations can reference tag names freely (OpenAPI doesn't require a
+  // matching top-level tag object to exist).
+  const tagUsageCounts = computed(() => {
+    const counts = {};
+    for (const path of Object.values(formData.value.paths || {})) {
+      for (const operation of Object.values(path)) {
+        for (const tagName of operation?.tags || []) {
+          counts[tagName] = (counts[tagName] || 0) + 1;
+        }
+      }
+    }
+    return counts;
+  });
+
   const addTag = () => {
     if (hasEmptyTagName.value) {
       toast.add({
@@ -212,8 +230,14 @@ export function useFormEditorState(props, emit) {
   };
 
   const removeTag = (index) => {
+    const tagName = (formData.value.tags[index]?.name || "").trim();
+    const usageCount = tagName ? tagUsageCounts.value[tagName] || 0 : 0;
+    const message =
+      usageCount > 0
+        ? `This tag is used by ${usageCount} operation${usageCount === 1 ? "" : "s"}. Deleting it won't untag them — they'll keep referencing a tag that no longer exists. Delete anyway?`
+        : "Are you sure you want to delete this tag?";
     confirm.require({
-      message: "Are you sure you want to delete this tag?",
+      message,
       header: "Confirm Deletion",
       icon: "pi pi-exclamation-triangle",
       acceptProps: { label: "Yes", severity: "danger" },
@@ -272,6 +296,7 @@ export function useFormEditorState(props, emit) {
     removeServer,
     hasEmptyTagName,
     hasDuplicateTagName,
+    tagUsageCounts,
     addTag,
     removeTag,
     getMethodSeverity,

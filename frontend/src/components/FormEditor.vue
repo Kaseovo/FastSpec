@@ -78,6 +78,7 @@
           :form-data="formData"
           :has-empty-tag-name="hasEmptyTagName"
           :has-duplicate-tag-name="hasDuplicateTagName"
+          :tag-usage-counts="tagUsageCounts"
           @add-tag="addTag"
           @remove-tag="removeTag"
         />

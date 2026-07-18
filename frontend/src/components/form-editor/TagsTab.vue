@@ -25,6 +25,22 @@
 
     <div v-for="(tag, index) in formData.tags" :key="index" class="list-item">
       <div class="list-item-content">
+        <div class="tag-usage-row">
+          <span
+            v-if="usageCount(tag.name) > 0"
+            class="section-header__count"
+            v-tooltip.top="
+              'Referenced by ' + usageCount(tag.name) + ' operation' + (usageCount(tag.name) === 1 ? '' : 's')
+            "
+            >{{ usageCount(tag.name) }} {{ usageCount(tag.name) === 1 ? "operation" : "operations" }}</span
+          >
+          <span
+            v-else
+            class="tag-unused-badge"
+            v-tooltip.top="'No operation currently uses this tag'"
+            >Unused</span
+          >
+        </div>
         <div class="form-field">
           <label class="required">Name</label>
           <InputText v-model="tag.name" placeholder="pet" />
@@ -98,7 +114,16 @@ export default {
       type: Boolean,
       default: false,
     },
+    tagUsageCounts: {
+      type: Object,
+      default: () => ({}),
+    },
   },
   emits: ["add-tag", "remove-tag"],
+  methods: {
+    usageCount(name) {
+      return this.tagUsageCounts[(name || "").trim()] || 0;
+    },
+  },
 };
 </script>

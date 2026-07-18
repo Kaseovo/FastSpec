@@ -164,6 +164,23 @@
   padding: 1px 7px;
 }
 
+/* ── Tag usage indicator (TagsTab) — mirrors lint's "unused component"
+   flagging so an orphaned tag (defined but referenced by no operation) is
+   as easy to spot here as it is in the lint panel. ── */
+.tag-usage-row {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.tag-unused-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
 .method-editor-deprecated {
   align-self: flex-end;
   margin-bottom: 20px;
