@@ -76,11 +76,11 @@
         <TagsTab
           v-else-if="active === 'tags'"
           :form-data="formData"
-          :has-empty-tag-name="hasEmptyTagName"
-          :has-duplicate-tag-name="hasDuplicateTagName"
           :tag-usage-counts="tagUsageCounts"
-          @add-tag="addTag"
+          @add-tag="openAddTagDialog"
+          @edit-tag="openEditTagDialog"
           @remove-tag="removeTag"
+          @open-operation="openTaggedOperation"
         />
         <ComponentsTab v-else-if="active === 'components'" :form-data="formData" :api="componentsApi" />
         <SecurityTab v-else-if="active === 'security'" :form-data="formData" :api="securityApi" />
@@ -164,6 +164,18 @@
       @cancel="cancelAddSchemaDialog"
       @confirm="confirmAddSchema"
     />
+    <AddTagDialog
+      :visible="showTagDialog"
+      @update:visible="showTagDialog = $event"
+      :step="tagDialogStep"
+      :tag="editingTag"
+      :is-new="wizardCreatedTagIndex !== null"
+      :is-name-invalid="isEditingTagNameInvalid"
+      @back="goToPrevTagStep"
+      @next="goToNextTagStep"
+      @cancel="cancelTagDialog"
+      @finish="finishTagDialog"
+    />
   </div>
 </template>
 
@@ -181,6 +193,7 @@ import AddMethodDialog from "./form-editor/AddMethodDialog.vue";
 import EditPathDialog from "./form-editor/EditPathDialog.vue";
 import ResponseCodeDialog from "./form-editor/ResponseCodeDialog.vue";
 import AddSchemaDialog from "./form-editor/AddSchemaDialog.vue";
+import AddTagDialog from "./form-editor/AddTagDialog.vue";
 import { useFormEditorState } from "../composables/useFormEditorState";
 
 const LABELS = {
@@ -251,6 +264,7 @@ export default {
     EditPathDialog,
     ResponseCodeDialog,
     AddSchemaDialog,
+    AddTagDialog,
   },
   props: {
     modelValue: { type: Object, required: true },
@@ -322,6 +336,13 @@ export default {
       }
     };
 
+    // Jumping from a tag's "Used by" list (TagsTab) to the actual operation —
+    // switches tabs and opens it, same as clicking it in the Paths tree.
+    const openTaggedOperation = (path, method) => {
+      active.value = "paths";
+      state.selectAndOpenPath(path, method);
+    };
+
     return {
       ...state,
       active,
@@ -331,6 +352,7 @@ export default {
       showAll,
       toggleCollapsed,
       openItem,
+      openTaggedOperation,
     };
   },
 };

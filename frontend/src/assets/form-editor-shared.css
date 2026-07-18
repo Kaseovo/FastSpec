@@ -164,14 +164,146 @@
   padding: 1px 7px;
 }
 
-/* ── Tag usage indicator (TagsTab) — mirrors lint's "unused component"
-   flagging so an orphaned tag (defined but referenced by no operation) is
-   as easy to spot here as it is in the lint panel. ── */
-.tag-usage-row {
-  display: flex;
-  margin-bottom: 10px;
+/* ── Tags list (TagsTab) — compact click-to-expand rows, same pattern as
+   the Parameters/Properties rows: a summary line, with external docs +
+   tagged operations revealed underneath on click. Full field editing still
+   happens in AddTagDialog's wizard, opened via the pencil icon. ── */
+.tag-row-wrap {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: #ffffff;
+  transition: border-color 0.15s ease;
 }
 
+.tag-row-wrap:hover {
+  border-color: #d1d5db;
+}
+
+.tag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.tag-row:hover {
+  background: #f9fafb;
+}
+
+.tag-row__name {
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Courier New", monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+  flex-shrink: 0;
+}
+
+.tag-row__name--empty {
+  color: #9ca3af;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.tag-row__desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.tag-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.tag-row__edit-btn {
+  color: #6b7280 !important;
+}
+
+.tag-row__edit-btn:hover {
+  color: #3b82f6 !important;
+}
+
+.tag-row__body {
+  padding: 4px 14px 14px 36px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tag-row__section-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tag-row__doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.tag-row__doc-link:hover {
+  text-decoration: underline;
+}
+
+.tag-row__empty-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.tag-row__op {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 2px;
+}
+
+.tag-row__op:hover {
+  background: #f3f4f6;
+}
+
+.tag-row__op-path {
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Courier New", monospace;
+  font-size: 12px;
+  color: #374151;
+  flex-shrink: 0;
+}
+
+.tag-row__op-summary {
+  font-size: 12px;
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Usage/unused badges — also used inline in AddTagDialog's summary context,
+   mirrors lint's "unused component" flagging so an orphaned tag (defined but
+   referenced by no operation) is as easy to spot here as in the lint panel. */
 .tag-unused-badge {
   font-size: 11px;
   font-weight: 700;
@@ -179,6 +311,7 @@
   background: #fef3c7;
   border-radius: 999px;
   padding: 1px 7px;
+  flex-shrink: 0;
 }
 
 .method-editor-deprecated {
@@ -439,6 +572,10 @@
 .path-method-chip.path-method-chip--active:has(.method-chip.method-delete) { border-color: #dc2626; border-width: 2px; }
 .path-method-chip.path-method-chip--active:has(.method-chip.method-options),
 .path-method-chip.path-method-chip--active:has(.method-chip.method-head)   { border-color: #4b5563; border-width: 2px; }
+
+.path-method-chip.dragging-method {
+  opacity: 0.4;
+}
 
 /* Delete ✕ inside chip — hidden until the chip is hovered, so a path with
    several methods reads as a clean row of badges rather than every chip

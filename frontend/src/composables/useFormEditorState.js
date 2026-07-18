@@ -69,7 +69,6 @@ export function useFormEditorState(props, emit) {
           formData.value.tags = formData.value.tags.map((t) => ({
             ...t,
             externalDocs: t.externalDocs || { description: "", url: "" },
-            _showExternalDocs: !!(t.externalDocs?.description || t.externalDocs?.url),
           }));
         }
         if (!formData.value.paths) formData.value.paths = {};
@@ -169,15 +168,6 @@ export function useFormEditorState(props, emit) {
     });
   };
 
-  const hasEmptyTagName = computed(() =>
-    (formData.value.tags || []).some((tag) => !tag.name || tag.name.trim() === ""),
-  );
-
-  const hasDuplicateTagName = computed(() => {
-    const names = (formData.value.tags || []).map((t) => (t.name || "").trim()).filter(Boolean);
-    return names.length !== new Set(names).size;
-  });
-
   // How many operations reference each tag name — lets the Tags tab show a
   // usage count and flag tags nothing actually uses, the same way lint
   // flags unused components. Scans every path/method's `tags` array rather
@@ -196,37 +186,89 @@ export function useFormEditorState(props, emit) {
     return counts;
   });
 
-  const addTag = () => {
-    if (hasEmptyTagName.value) {
-      toast.add({
-        severity: "error",
-        summary: "Cannot Add Tag",
-        detail: "Please fill in the name for all existing tags first.",
-        life: 3000,
-      });
-      return;
-    }
-    if (hasDuplicateTagName.value) {
-      toast.add({
-        severity: "error",
-        summary: "Cannot Add Tag",
-        detail: "Tag names must be unique. Please resolve duplicate names first.",
-        life: 3000,
-      });
-      return;
-    }
+  // "Add/Edit Tag" wizard — same pattern as usePathsEditor's Add Path/Add
+  // Method wizards: step 1 (Basic Info) then step 2 (External Docs, always
+  // optional). Creating a tag pushes it into formData.tags immediately so
+  // both steps edit the live object directly (editingTag below); cancelling
+  // before Finish rolls the just-created tag back out (discardWizardTag).
+  // Editing an existing tag reuses the identical dialog, just without that
+  // rollback tracking.
+  const TAG_DIALOG_STEP_ORDER = ["basicInfo", "externalDocs"];
+  const showTagDialog = ref(false);
+  const tagDialogStep = ref("basicInfo");
+  const editingTagIndex = ref(null);
+  const wizardCreatedTagIndex = ref(null);
+
+  const editingTag = computed(() =>
+    editingTagIndex.value !== null ? formData.value.tags[editingTagIndex.value] : null,
+  );
+
+  const isEditingTagNameInvalid = computed(() => {
+    const tag = editingTag.value;
+    if (!tag) return true;
+    const name = (tag.name || "").trim();
+    if (!name) return true;
+    return formData.value.tags.some(
+      (t, i) => i !== editingTagIndex.value && (t.name || "").trim() === name,
+    );
+  });
+
+  const resetTagDialog = () => {
+    tagDialogStep.value = "basicInfo";
+    editingTagIndex.value = null;
+    wizardCreatedTagIndex.value = null;
+  };
+
+  const openAddTagDialog = () => {
     formData.value.tags.push({
       name: "",
       description: "",
       externalDocs: { description: "", url: "" },
-      _showExternalDocs: false,
     });
-    toast.add({
-      severity: "success",
-      summary: "Tag Added",
-      detail: "A new tag entry has been added.",
-      life: 3000,
-    });
+    editingTagIndex.value = formData.value.tags.length - 1;
+    wizardCreatedTagIndex.value = editingTagIndex.value;
+    tagDialogStep.value = "basicInfo";
+    showTagDialog.value = true;
+  };
+
+  const openEditTagDialog = (index) => {
+    editingTagIndex.value = index;
+    wizardCreatedTagIndex.value = null;
+    tagDialogStep.value = "basicInfo";
+    showTagDialog.value = true;
+  };
+
+  // Silent rollback (no confirm dialog) — cancelling mid-wizard should
+  // discard the just-created draft tag, not prompt the user to confirm
+  // deleting something they made seconds ago in this same flow.
+  const discardWizardTag = () => {
+    if (wizardCreatedTagIndex.value === null) return;
+    formData.value.tags.splice(wizardCreatedTagIndex.value, 1);
+  };
+
+  const cancelTagDialog = () => {
+    discardWizardTag();
+    resetTagDialog();
+    showTagDialog.value = false;
+  };
+
+  const goToNextTagStep = () => {
+    if (isEditingTagNameInvalid.value) return;
+    const index = TAG_DIALOG_STEP_ORDER.indexOf(tagDialogStep.value);
+    if (index < TAG_DIALOG_STEP_ORDER.length - 1) {
+      tagDialogStep.value = TAG_DIALOG_STEP_ORDER[index + 1];
+    }
+  };
+
+  const goToPrevTagStep = () => {
+    const index = TAG_DIALOG_STEP_ORDER.indexOf(tagDialogStep.value);
+    if (index > 0) tagDialogStep.value = TAG_DIALOG_STEP_ORDER[index - 1];
+  };
+
+  const finishTagDialog = () => {
+    wizardCreatedTagIndex.value = null;
+    resetTagDialog();
+    showTagDialog.value = false;
   };
 
   const removeTag = (index) => {
@@ -294,11 +336,19 @@ export function useFormEditorState(props, emit) {
     hasEmptyServerUrl,
     addServer,
     removeServer,
-    hasEmptyTagName,
-    hasDuplicateTagName,
     tagUsageCounts,
-    addTag,
     removeTag,
+    showTagDialog,
+    tagDialogStep,
+    editingTag,
+    wizardCreatedTagIndex,
+    isEditingTagNameInvalid,
+    openAddTagDialog,
+    openEditTagDialog,
+    cancelTagDialog,
+    goToNextTagStep,
+    goToPrevTagStep,
+    finishTagDialog,
     getMethodSeverity,
     getMethodDescription,
     getStatusSeverity,
