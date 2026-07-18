@@ -146,15 +146,29 @@
                                 </div>
 
                                 <div class="section-header">
-                                  <h5>Mapping (optional)</h5>
+                                  <button
+                                    class="section-header__toggle"
+                                    @click="toggleSchemaSection(schema.name, 'mapping')"
+                                  >
+                                    <i
+                                      class="pi pi-chevron-right method-section-caret"
+                                      :class="{ 'method-section-caret--open': !isSchemaSectionCollapsed(schema.name, 'mapping') }"
+                                    ></i>
+                                    <h5>Mapping (optional)</h5>
+                                    <span
+                                      v-if="schema.data.discriminator.mapping && Object.keys(schema.data.discriminator.mapping).length"
+                                      class="section-header__count"
+                                    >{{ Object.keys(schema.data.discriminator.mapping).length }}</span>
+                                  </button>
                                   <Button
                                     label="Add Mapping"
                                     icon="pi pi-plus"
                                     size="small"
                                     text
-                                    @click="addDiscriminatorMapping(schema.data)"
+                                    @click="expandSchemaSection(schema.name, 'mapping'); addDiscriminatorMapping(schema.data)"
                                   />
                                 </div>
+                                <div v-show="!isSchemaSectionCollapsed(schema.name, 'mapping')">
                                 <small class="helper-text">
                                   If omitted, the discriminator property's value is matched against member schema names directly.
                                 </small>
@@ -191,20 +205,35 @@
                                     @click="removeDiscriminatorMapping(schema.data, key)"
                                   />
                                 </div>
+                                </div>
                               </template>
                             </div>
 
                             <div v-if="schema.data.type === 'object'">
                               <div class="section-header">
-                                <h5>Properties</h5>
+                                <button
+                                  class="section-header__toggle"
+                                  @click="toggleSchemaSection(schema.name, 'properties')"
+                                >
+                                  <i
+                                    class="pi pi-chevron-right method-section-caret"
+                                    :class="{ 'method-section-caret--open': !isSchemaSectionCollapsed(schema.name, 'properties') }"
+                                  ></i>
+                                  <h5>Properties</h5>
+                                  <span
+                                    v-if="schema.data.properties && Object.keys(schema.data.properties).length"
+                                    class="section-header__count"
+                                  >{{ Object.keys(schema.data.properties).length }}</span>
+                                </button>
                                 <Button
                                   label="Add Property"
                                   icon="pi pi-plus"
                                   size="small"
-                                  @click="addSchemaProperty(schema.name)"
+                                  @click="expandSchemaSection(schema.name, 'properties'); addSchemaProperty(schema.name)"
                                 />
                               </div>
 
+                              <div v-show="!isSchemaSectionCollapsed(schema.name, 'properties')">
                               <div
                                 v-if="
                                   !schema.data.properties ||
@@ -616,6 +645,7 @@
                                   "
                                 />
                               </div>
+                              </div>
                             </div>
 
                             <!-- String top-level schema validations -->
@@ -974,15 +1004,23 @@
               <!-- ── Reusable Parameters ── -->
               <div class="components-subsection">
                 <div class="section-header">
-                  <h4>Reusable Parameters</h4>
+                  <button class="section-header__toggle" @click="reusableParamsCollapsed = !reusableParamsCollapsed">
+                    <i
+                      class="pi pi-chevron-right method-section-caret"
+                      :class="{ 'method-section-caret--open': !reusableParamsCollapsed }"
+                    ></i>
+                    <h4>Reusable Parameters</h4>
+                    <span v-if="parametersList.length" class="section-header__count">{{ parametersList.length }}</span>
+                  </button>
                   <Button
                     label="Add Parameter"
                     icon="pi pi-plus"
                     size="small"
-                    @click="addReusableParameter"
+                    @click="reusableParamsCollapsed = false; addReusableParameter()"
                   />
                 </div>
 
+                <div v-show="!reusableParamsCollapsed">
                 <div v-if="parametersList.length === 0" class="empty-state-small">
                   <p>No reusable parameters yet. Define one here to reference it from any operation's Parameters tab.</p>
                 </div>
@@ -1064,20 +1102,29 @@
                     </AccordionContent>
                   </AccordionPanel>
                 </Accordion>
+                </div>
               </div>
 
               <!-- ── Reusable Responses ── -->
               <div class="components-subsection">
                 <div class="section-header">
-                  <h4>Reusable Responses</h4>
+                  <button class="section-header__toggle" @click="reusableResponsesCollapsed = !reusableResponsesCollapsed">
+                    <i
+                      class="pi pi-chevron-right method-section-caret"
+                      :class="{ 'method-section-caret--open': !reusableResponsesCollapsed }"
+                    ></i>
+                    <h4>Reusable Responses</h4>
+                    <span v-if="responsesList.length" class="section-header__count">{{ responsesList.length }}</span>
+                  </button>
                   <Button
                     label="Add Response"
                     icon="pi pi-plus"
                     size="small"
-                    @click="addReusableResponse"
+                    @click="reusableResponsesCollapsed = false; addReusableResponse()"
                   />
                 </div>
 
+                <div v-show="!reusableResponsesCollapsed">
                 <div v-if="responsesList.length === 0" class="empty-state-small">
                   <p>No reusable responses yet. Define one here to reference it from any operation's Responses tab.</p>
                 </div>
@@ -1222,12 +1269,13 @@
                     </AccordionContent>
                   </AccordionPanel>
                 </Accordion>
+                </div>
               </div>
             </div>
 </template>
 
 <script>
-import { computed } from "vue";
+import { ref, computed } from "vue";
 import "../../assets/form-editor-shared.css";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
@@ -1283,6 +1331,28 @@ export default {
     api: { type: Object, required: true },
   },
   setup(props) {
+    // Per-schema, per-section collapse state (Mapping / Properties), same
+    // disclosure-triangle pattern as PathsTab.vue's method editor sections
+    // and the tree nav's Servers/Paths/Tags/Components/Security groups.
+    // Keyed by "schemaName:section" since multiple schemas' accordion
+    // panels can be open at once (unlike PathsTab, where only one method
+    // is ever selected).
+    const collapsedSchemaSections = ref({});
+    const sectionKey = (schemaName, section) => `${schemaName}:${section}`;
+    const isSchemaSectionCollapsed = (schemaName, section) =>
+      !!collapsedSchemaSections.value[sectionKey(schemaName, section)];
+    const toggleSchemaSection = (schemaName, section) => {
+      const key = sectionKey(schemaName, section);
+      collapsedSchemaSections.value[key] = !collapsedSchemaSections.value[key];
+    };
+    const expandSchemaSection = (schemaName, section) => {
+      collapsedSchemaSections.value[sectionKey(schemaName, section)] = false;
+    };
+
+    // Page-level sections — one instance each, so plain booleans.
+    const reusableParamsCollapsed = ref(false);
+    const reusableResponsesCollapsed = ref(false);
+
     // A plain `props.formData` snapshot only captures whatever the prop was
     // AT MOUNT TIME — it never updates when the parent later swaps in the
     // real spec (loaded asynchronously after this component's first
@@ -1290,7 +1360,15 @@ export default {
     // default data (same bug fixed in PathsTab.vue). `computed()` re-reads
     // the prop on every access instead, and gets auto-unwrapped by Vue
     // since it's a top-level key in this returned object.
-    return { formData: computed(() => props.formData), ...props.api };
+    return {
+      formData: computed(() => props.formData),
+      ...props.api,
+      isSchemaSectionCollapsed,
+      toggleSchemaSection,
+      expandSchemaSection,
+      reusableParamsCollapsed,
+      reusableResponsesCollapsed,
+    };
   },
 };
 </script>
