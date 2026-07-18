@@ -538,6 +538,7 @@
                                       multiple
                                       typeahead
                                       v-model="prop.enum"
+                                      :suggestions="[]"
                                       placeholder="Add value and press Enter"
                                       @keydown.enter.prevent="addChipOnEnter($event, prop, 'enum')"
                                     />
@@ -867,6 +868,7 @@
                                   multiple
                                   typeahead
                                   v-model="schema.data.enum"
+                                  :suggestions="[]"
                                   placeholder="Add value and press Enter"
                                   @keydown.enter.prevent="addChipOnEnter($event, schema.data, 'enum')"
                                 />
@@ -1225,6 +1227,7 @@
 </template>
 
 <script>
+import { computed } from "vue";
 import "../../assets/form-editor-shared.css";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
@@ -1280,7 +1283,14 @@ export default {
     api: { type: Object, required: true },
   },
   setup(props) {
-    return { formData: props.formData, ...props.api };
+    // A plain `props.formData` snapshot only captures whatever the prop was
+    // AT MOUNT TIME — it never updates when the parent later swaps in the
+    // real spec (loaded asynchronously after this component's first
+    // render), permanently freezing the whole schema editor on blank
+    // default data (same bug fixed in PathsTab.vue). `computed()` re-reads
+    // the prop on every access instead, and gets auto-unwrapped by Vue
+    // since it's a top-level key in this returned object.
+    return { formData: computed(() => props.formData), ...props.api };
   },
 };
 </script>

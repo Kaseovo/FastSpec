@@ -148,7 +148,7 @@
                   <AccordionContent>
                     <div :class="['path-methods-editor', { 'path-methods-editor--active': selectedPath === pathItem.path && selectedMethod }]">
                       <div
-                        v-if="selectedPath === pathItem.path && selectedMethod"
+                        v-if="selectedPath === pathItem.path && selectedMethod && formData.paths[selectedPath]?.[selectedMethod]"
                         class="method-editor"
                       >
                         <div class="method-editor-sections">
@@ -157,18 +157,43 @@
                                operation doesn't require clicking between four
                                tabs on top of the path accordion above it. -->
                           <div class="method-editor-section">
-                            <div class="section-header">
+                            <button
+                              class="section-header section-header--toggle"
+                              @click="toggleMethodSection('basicInfo')"
+                            >
+                              <i
+                                class="pi pi-chevron-right method-section-caret"
+                                :class="{ 'method-section-caret--open': !methodSectionsCollapsed.basicInfo }"
+                              ></i>
                               <h5>Basic Info</h5>
-                            </div>
-                              <div class="form-field">
-                                <label>Summary</label>
-                                <InputText
-                                  v-model="
-                                    formData.paths[selectedPath][selectedMethod]
-                                      .summary
-                                  "
-                                  placeholder="Brief summary"
-                                />
+                            </button>
+                            <div v-show="!methodSectionsCollapsed.basicInfo">
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Summary</label>
+                                  <InputText
+                                    v-model="
+                                      formData.paths[selectedPath][selectedMethod]
+                                        .summary
+                                    "
+                                    placeholder="Brief summary"
+                                  />
+                                </div>
+
+                                <div class="form-field">
+                                  <label>Operation ID</label>
+                                  <InputText
+                                    v-model="
+                                      formData.paths[selectedPath][selectedMethod]
+                                        .operationId
+                                    "
+                                    :class="{ 'p-invalid': isOperationIdDuplicate(selectedPath, selectedMethod) }"
+                                    placeholder="operationId"
+                                  />
+                                  <small v-if="isOperationIdDuplicate(selectedPath, selectedMethod)" class="p-error">
+                                    Already used by another operation — operationId must be unique across the whole document.
+                                  </small>
+                                </div>
                               </div>
 
                               <div class="form-field">
@@ -183,43 +208,30 @@
                                 />
                               </div>
 
-                              <div class="form-field">
-                                <label>Operation ID</label>
-                                <InputText
-                                  v-model="
-                                    formData.paths[selectedPath][selectedMethod]
-                                      .operationId
-                                  "
-                                  :class="{ 'p-invalid': isOperationIdDuplicate(selectedPath, selectedMethod) }"
-                                  placeholder="operationId"
-                                />
-                                <small v-if="isOperationIdDuplicate(selectedPath, selectedMethod)" class="p-error">
-                                  Already used by another operation — operationId must be unique across the whole document.
-                                </small>
-                              </div>
+                              <div class="form-row">
+                                <div class="form-field">
+                                  <label>Tags</label>
+                                  <AutoComplete
+                                    multiple
+                                    typeahead
+                                    v-model="formData.paths[selectedPath][selectedMethod].tags"
+                                    :suggestions="globalTagNames"
+                                    placeholder="Add tag and press Enter"
+                                    @keydown.enter.prevent="addChipOnEnter($event, formData.paths[selectedPath][selectedMethod], 'tags')"
+                                  />
+                                </div>
 
-                              <div class="form-field">
-                                <label>Tags</label>
-                                <AutoComplete
-                                  multiple
-                                  typeahead
-                                  v-model="formData.paths[selectedPath][selectedMethod].tags"
-                                  :suggestions="globalTagNames"
-                                  placeholder="Add tag and press Enter"
-                                  @keydown.enter.prevent="addChipOnEnter($event, formData.paths[selectedPath][selectedMethod], 'tags')"
-                                />
-                              </div>
-
-                              <div class="form-field checkbox-field">
-                                <Checkbox
-                                  v-model="
-                                    formData.paths[selectedPath][selectedMethod]
-                                      .deprecated
-                                  "
-                                  inputId="deprecated"
-                                  :binary="true"
-                                />
-                                <label for="deprecated">Deprecated</label>
+                                <div class="form-field checkbox-field method-editor-deprecated">
+                                  <Checkbox
+                                    v-model="
+                                      formData.paths[selectedPath][selectedMethod]
+                                        .deprecated
+                                    "
+                                    inputId="deprecated"
+                                    :binary="true"
+                                  />
+                                  <label for="deprecated">Deprecated</label>
+                                </div>
                               </div>
 
                               <div class="form-field operation-security">
@@ -246,21 +258,34 @@
                                   empty-label="No requirements yet — add one below."
                                 />
                               </div>
+                            </div>
                           </div>
 
                           <div class="method-editor-section">
                               <div class="section-header">
-                                <h5>Parameters</h5>
+                                <button
+                                  class="section-header__toggle"
+                                  @click="toggleMethodSection('parameters')"
+                                >
+                                  <i
+                                    class="pi pi-chevron-right method-section-caret"
+                                    :class="{ 'method-section-caret--open': !methodSectionsCollapsed.parameters }"
+                                  ></i>
+                                  <h5>Parameters</h5>
+                                  <span v-if="currentMethodData.parameters?.length" class="section-header__count">{{ currentMethodData.parameters.length }}</span>
+                                </button>
                                 <Button
                                   label="Add Parameter"
                                   icon="pi pi-plus"
                                   size="small"
                                   @click="
+                                    methodSectionsCollapsed.parameters = false;
                                     addParameter(selectedPath, selectedMethod)
                                   "
                                 />
                               </div>
 
+                              <div v-show="!methodSectionsCollapsed.parameters">
                               <div
                                 v-if="
                                   !currentMethodData.parameters ||
@@ -722,6 +747,7 @@
                                       multiple
                                       typeahead
                                       v-model="param.schema.enum"
+                                      :suggestions="[]"
                                       placeholder="Add enum value and press Enter"
                                       @keydown.enter.prevent="addChipOnEnter($event, param.schema, 'enum')"
                                     />
@@ -794,11 +820,21 @@
                                   "
                                 />
                               </div>
+                              </div>
                           </div>
 
                           <div class="method-editor-section">
                               <div class="section-header">
-                                <h5>Request Body</h5>
+                                <button
+                                  class="section-header__toggle"
+                                  @click="toggleMethodSection('requestBody')"
+                                >
+                                  <i
+                                    class="pi pi-chevron-right method-section-caret"
+                                    :class="{ 'method-section-caret--open': !methodSectionsCollapsed.requestBody }"
+                                  ></i>
+                                  <h5>Request Body</h5>
+                                </button>
                                 <div class="form-field checkbox-field">
                                   <Checkbox
                                     v-model="
@@ -810,6 +846,7 @@
                                   <label for="body-required">Required</label>
                                 </div>
                               </div>
+                              <div v-show="!methodSectionsCollapsed.requestBody">
 
                               <div class="form-field">
                                 <label>Description</label>
@@ -1046,6 +1083,7 @@
                                             multiple
                                             typeahead
                                             v-model="prop.enum"
+                                            :suggestions="[]"
                                             placeholder="Add value and press Enter"
                                             @keydown.enter.prevent="addChipOnEnter($event, prop, 'enum')"
                                           />
@@ -1267,6 +1305,7 @@
                                       multiple
                                       typeahead
                                       v-model="currentRequestBodySchema.enum"
+                                      :suggestions="[]"
                                       placeholder="Add value and press Enter"
                                       @keydown.enter.prevent="addChipOnEnter($event, currentRequestBodySchema, 'enum')"
                                     />
@@ -1294,19 +1333,31 @@
                                   </div>
                                 </template>
                               </template>
+                              </div>
                           </div>
 
                           <div class="method-editor-section">
                               <div class="section-header">
-                                <h5>Responses</h5>
+                                <button
+                                  class="section-header__toggle"
+                                  @click="toggleMethodSection('responses')"
+                                >
+                                  <i
+                                    class="pi pi-chevron-right method-section-caret"
+                                    :class="{ 'method-section-caret--open': !methodSectionsCollapsed.responses }"
+                                  ></i>
+                                  <h5>Responses</h5>
+                                  <span v-if="currentMethodData.responses && Object.keys(currentMethodData.responses).length" class="section-header__count">{{ Object.keys(currentMethodData.responses).length }}</span>
+                                </button>
                                 <Button
                                   label="Add Response"
                                   icon="pi pi-plus"
                                   size="small"
-                                  @click="openAddResponseDialog"
+                                  @click="methodSectionsCollapsed.responses = false; openAddResponseDialog()"
                                 />
                               </div>
 
+                              <div v-show="!methodSectionsCollapsed.responses">
                               <div
                                 v-if="
                                   !currentMethodData.responses ||
@@ -1558,7 +1609,7 @@
                                               <template v-if="prop.type !== '$ref'">
                                                 <div class="form-field">
                                                   <label>Enum Values</label>
-                                                  <AutoComplete multiple typeahead v-model="prop.enum" placeholder="Add value and press Enter" @keydown.enter.prevent="addChipOnEnter($event, prop, 'enum')" />
+                                                  <AutoComplete multiple typeahead v-model="prop.enum" :suggestions="[]" placeholder="Add value and press Enter" @keydown.enter.prevent="addChipOnEnter($event, prop, 'enum')" />
                                                 </div>
                                                 <div class="form-row">
                                                   <div class="form-field"><label>Default Value</label><InputText v-model="prop.default" placeholder="Default value" /></div>
@@ -1695,7 +1746,7 @@
                                         <template v-if="getResponseInlineSchemaType(response) !== 'object'">
                                           <div class="form-field">
                                             <label>Enum Values</label>
-                                            <AutoComplete multiple typeahead v-model="getResponseInlineSchema(response).enum" placeholder="Add value and press Enter" @keydown.enter.prevent="addChipOnEnter($event, getResponseInlineSchema(response), 'enum')" />
+                                            <AutoComplete multiple typeahead v-model="getResponseInlineSchema(response).enum" :suggestions="[]" placeholder="Add value and press Enter" @keydown.enter.prevent="addChipOnEnter($event, getResponseInlineSchema(response), 'enum')" />
                                           </div>
                                           <div class="form-row">
                                             <div class="form-field"><label>Default Value</label><InputText v-model="getResponseInlineSchema(response).default" placeholder="Default value" /></div>
@@ -1726,6 +1777,7 @@
                                   </AccordionContent>
                                 </AccordionPanel>
                               </Accordion>
+                              </div>
                           </div>
                         </div>
                       </div>
@@ -1737,6 +1789,7 @@
 </template>
 
 <script>
+import { ref, computed } from "vue";
 import "../../assets/form-editor-shared.css";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
@@ -1788,7 +1841,34 @@ export default {
     api: { type: Object, required: true },
   },
   setup(props) {
-    return { formData: props.formData, ...props.api };
+    // Local, presentational-only: which of the four always-rendered method
+    // editor sections are collapsed. Deliberately NOT the api/composable —
+    // this doesn't need to survive a path/method switch or be shared
+    // outside this component, and every FormEditor shell that renders
+    // PathsTab gets the same collapsibility for free.
+    const methodSectionsCollapsed = ref({
+      basicInfo: false,
+      parameters: false,
+      requestBody: false,
+      responses: false,
+    });
+    const toggleMethodSection = (key) => {
+      methodSectionsCollapsed.value[key] = !methodSectionsCollapsed.value[key];
+    };
+
+    return {
+      // A plain `props.formData` snapshot only captures whatever the prop
+      // was AT MOUNT TIME — it never updates when the parent later swaps
+      // in the real spec (loaded asynchronously after this component's
+      // first render), permanently freezing the whole method editor on
+      // blank default data. `computed()` re-reads the prop on every
+      // access instead, and — like `formData` itself — gets auto-unwrapped
+      // by Vue since it's a top-level key in this returned object.
+      formData: computed(() => props.formData),
+      ...props.api,
+      methodSectionsCollapsed,
+      toggleMethodSection,
+    };
   },
 };
 </script>
