@@ -44,14 +44,27 @@
                               <div class="form-row">
                                 <div class="form-field">
                                   <label>Tags</label>
-                                  <AutoComplete
-                                    multiple
-                                    typeahead
-                                    v-model="formData.paths[selectedPath][selectedMethod].tags"
-                                    :suggestions="globalTagNames"
-                                    placeholder="Add tag and press Enter"
-                                    @keydown.enter.prevent="addChipOnEnter($event, formData.paths[selectedPath][selectedMethod], 'tags')"
-                                  />
+                                  <div class="tags-select-row">
+                                    <MultiSelect
+                                      v-model="formData.paths[selectedPath][selectedMethod].tags"
+                                      :options="existingTagNames"
+                                      display="chip"
+                                      filter
+                                      :placeholder="existingTagNames.length ? 'Select tags' : 'No tags defined yet'"
+                                      class="tags-select-row__select"
+                                    />
+                                    <Button
+                                      icon="pi pi-plus"
+                                      size="small"
+                                      text
+                                      rounded
+                                      v-tooltip.top="'Create a new tag'"
+                                      @click="openAddTagDialog"
+                                    />
+                                  </div>
+                                  <small class="helper-text">
+                                    Only tags defined in the Tags section can be assigned — create one there if it's missing.
+                                  </small>
                                 </div>
 
                                 <div class="form-field checkbox-field method-editor-deprecated">
@@ -101,7 +114,8 @@ import "../../assets/form-editor-shared.css";
 import InputText from "primevue/inputtext";
 import Textarea from "primevue/textarea";
 import Checkbox from "primevue/checkbox";
-import AutoComplete from "primevue/autocomplete";
+import MultiSelect from "primevue/multiselect";
+import Button from "primevue/button";
 import SelectButton from "primevue/selectbutton";
 import SecurityRequirementList from "./SecurityRequirementList.vue";
 
@@ -114,12 +128,21 @@ import SecurityRequirementList from "./SecurityRequirementList.vue";
 // unchanged against the same bare identifiers.
 export default {
   name: "OperationBasicInfoStep",
-  components: { InputText, Textarea, Checkbox, AutoComplete, SelectButton, SecurityRequirementList },
+  components: { InputText, Textarea, Checkbox, MultiSelect, Button, SelectButton, SecurityRequirementList },
   props: {
     formData: { type: Object, required: true },
     api: { type: Object, required: true },
   },
   setup(props) {
+    // Tags can only be picked from what's already defined in the Tags
+    // section — keeps every operation's tags referencing a real Tag object
+    // (usage counts, external docs, etc. all key off matching names), same
+    // reasoning as why removeTag warns about orphaning references instead
+    // of just letting operations point at names that don't exist anywhere.
+    const existingTagNames = computed(() =>
+      (props.formData.tags || []).map((t) => t.name).filter(Boolean),
+    );
+
     // See PathsTab.vue/ComponentsTab.vue for why this must be computed()
     // rather than a plain snapshot: `formData` loads asynchronously after
     // this component's first render, and a bare `props.formData` would
@@ -127,6 +150,7 @@ export default {
     return {
       formData: computed(() => props.formData),
       ...props.api,
+      existingTagNames,
     };
   },
 };

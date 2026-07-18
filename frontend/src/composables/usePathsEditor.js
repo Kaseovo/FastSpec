@@ -24,8 +24,8 @@ import {
 // `confirm` / `toast` services.
 //
 // Some pure, formData-derived helpers (availableSchemas, isOpenAPI31,
-// globalTagNames, addSchema, onPropertyTypeChange, onItemTypesChange,
-// addChipOnEnter) are intentionally duplicated with useComponentsEditor: both
+// addSchema, onPropertyTypeChange, onItemTypesChange, addChipOnEnter) are
+// intentionally duplicated with useComponentsEditor: both
 // tabs need them and duplicating derived/stateless logic keeps the two
 // composables independent. Path/method drag state is owned here (transient,
 // tab-scoped); the parent composes a shared handleDragEnd from resetPathDrag().
@@ -204,10 +204,6 @@ export function usePathsEditor(formData, confirm, toast) {
     const v = formData.value.openapi || "";
     return v.startsWith("3.1");
   });
-
-  const globalTagNames = computed(() =>
-    (formData.value.tags || []).map((t) => t.name).filter(Boolean)
-  );
 
   const availableMethodsForPath = computed(() => {
     if (!currentPathForMethod.value) return httpMethods;
@@ -1172,7 +1168,6 @@ export function usePathsEditor(formData, confirm, toast) {
     isResponseDescriptionMissing,
     availableSchemas,
     isOpenAPI31,
-    globalTagNames,
     availableMethodsForPath,
     currentMethodData,
     currentRequestBodySchema,

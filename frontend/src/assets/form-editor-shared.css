@@ -319,6 +319,21 @@
   margin-bottom: 20px;
 }
 
+/* ── Operation Tags field (OperationBasicInfoStep) — a MultiSelect
+   constrained to tags already defined in the Tags section, plus a quick
+   "+ New Tag" action beside it for when the one you need doesn't exist
+   yet. ── */
+.tags-select-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tags-select-row__select {
+  flex: 1;
+  min-width: 0;
+}
+
 .form-field {
   margin-bottom: 20px;
 }

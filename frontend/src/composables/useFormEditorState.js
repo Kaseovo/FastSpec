@@ -320,6 +320,10 @@ export function useFormEditorState(props, emit) {
     availableSecuritySchemes: security.availableSecuritySchemes,
     availableParameters: reusable.availableParameters,
     availableResponses: reusable.availableResponses,
+    // Lets OperationBasicInfoStep's Tags field offer "+ New Tag" — creating
+    // a tag from inside the operation editor without having to switch to
+    // the Tags tab first.
+    openAddTagDialog,
   };
   const componentsApi = {
     ...components,
