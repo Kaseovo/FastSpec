@@ -51,9 +51,17 @@ export function usePathsEditor(formData, confirm, toast) {
   // operation — cancelling after that discards the draft (discardWizardPath).
   const ADD_PATH_STEP_ORDER = ["methodPath", "basicInfo", "parameters", "requestBody", "responses"];
   const addPathStep = ref("methodPath");
+  // Shared by both the "Add Path" and "Add Method" wizards below — whichever
+  // one is open, this tracks the operation IT just created, so cancelling
+  // either one rolls back the same way (discardWizardPath).
   const wizardCreatedPath = ref(null);
   const wizardCreatedMethod = ref(null);
   const newResponseCode = ref("");
+  // "Add Method to Path" wizard — same shape as "Add Path" minus the path
+  // template step, since the path already exists (see ADD_METHOD_STEP_ORDER
+  // below, alongside showAddMethodDialog/addMethodToPath/addMethodStep).
+  const ADD_METHOD_STEP_ORDER = ["method", "basicInfo", "parameters", "requestBody", "responses"];
+  const addMethodStep = ref("method");
   const methodToAdd = ref("");
   const currentPathForMethod = ref("");
   const selectedPath = ref("");
@@ -435,31 +443,68 @@ export function usePathsEditor(formData, confirm, toast) {
   const showAddMethodDialog = (path) => {
     currentPathForMethod.value = path;
     methodToAdd.value = "";
+    addMethodStep.value = "method";
     showAddMethodDialogVisible.value = true;
   };
 
+  // One-shot creation (used directly by tests and available for any caller
+  // that just wants a method added with blank defaults, selected, and the
+  // dialog closed — no wizard steps involved). Mirrors addPath()'s split
+  // from createWizardOperation() above.
   const addMethodToPath = () => {
     if (!methodToAdd.value || !currentPathForMethod.value) return;
 
-    const pathParamNames = extractPathParams(currentPathForMethod.value);
-    const pathParams = pathParamNames.map(buildPathParam);
-
-    formData.value.paths[currentPathForMethod.value][methodToAdd.value] = {
-      summary: "",
-      description: "",
-      operationId: "",
-      tags: [],
-      deprecated: false,
-      parameters: pathParams,
-      responses: {
-        200: {
-          description: "Successful response",
-        },
-      },
-    };
+    formData.value.paths[currentPathForMethod.value][methodToAdd.value] =
+      buildNewOperation(currentPathForMethod.value);
 
     selectedPath.value = currentPathForMethod.value;
     selectedMethod.value = methodToAdd.value;
+    methodToAdd.value = "";
+    addMethodStep.value = "method";
+    showAddMethodDialogVisible.value = false;
+  };
+
+  const resetAddMethodWizard = () => {
+    methodToAdd.value = "";
+    addMethodStep.value = "method";
+    wizardCreatedPath.value = null;
+    wizardCreatedMethod.value = null;
+  };
+
+  const cancelAddMethodDialog = () => {
+    discardWizardPath();
+    resetAddMethodWizard();
+    showAddMethodDialogVisible.value = false;
+  };
+
+  const createWizardMethod = () => {
+    const path = currentPathForMethod.value;
+    formData.value.paths[path][methodToAdd.value] = buildNewOperation(path);
+
+    selectedPath.value = path;
+    selectedMethod.value = methodToAdd.value;
+    wizardCreatedPath.value = path;
+    wizardCreatedMethod.value = methodToAdd.value;
+  };
+
+  const goToNextAddMethodStep = () => {
+    if (addMethodStep.value === "method") {
+      if (!methodToAdd.value) return;
+      createWizardMethod();
+    }
+    const index = ADD_METHOD_STEP_ORDER.indexOf(addMethodStep.value);
+    if (index < ADD_METHOD_STEP_ORDER.length - 1) {
+      addMethodStep.value = ADD_METHOD_STEP_ORDER[index + 1];
+    }
+  };
+
+  const goToPrevAddMethodStep = () => {
+    const index = ADD_METHOD_STEP_ORDER.indexOf(addMethodStep.value);
+    if (index > 0) addMethodStep.value = ADD_METHOD_STEP_ORDER[index - 1];
+  };
+
+  const finishAddMethodWizard = () => {
+    resetAddMethodWizard();
     showAddMethodDialogVisible.value = false;
   };
 
@@ -1131,6 +1176,11 @@ export function usePathsEditor(formData, confirm, toast) {
     removeMethod,
     showAddMethodDialog,
     addMethodToPath,
+    addMethodStep,
+    cancelAddMethodDialog,
+    goToNextAddMethodStep,
+    goToPrevAddMethodStep,
+    finishAddMethodWizard,
     editPath,
     confirmEditPath,
     selectPathMethod,

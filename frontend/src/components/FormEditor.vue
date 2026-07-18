@@ -123,10 +123,17 @@
     <AddMethodDialog
       :visible="showAddMethodDialogVisible"
       @update:visible="showAddMethodDialogVisible = $event"
+      :step="addMethodStep"
       :available-methods="availableMethodsForPath"
       :method-to-add="methodToAdd"
       @update:method-to-add="methodToAdd = $event"
-      @confirm="addMethodToPath"
+      :current-path-for-method="currentPathForMethod"
+      :form-data="formData"
+      :api="pathsApi"
+      @back="goToPrevAddMethodStep"
+      @next="goToNextAddMethodStep"
+      @cancel="cancelAddMethodDialog"
+      @finish="finishAddMethodWizard"
     />
     <EditPathDialog
       :visible="showEditPathDialog"
