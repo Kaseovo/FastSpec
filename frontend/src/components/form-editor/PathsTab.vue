@@ -77,7 +77,7 @@
                       </div>
                       <div class="path-header-chips">
                         <button
-                          v-for="(method, methodIndex) in pathItem.methods"
+                          v-for="method in pathItem.methods"
                           :key="method"
                           :class="[
                             'path-method-chip',
@@ -86,22 +86,7 @@
                                 selectedPath === pathItem.path &&
                                 selectedMethod === method,
                             },
-                            { 'dragging-method': draggedMethod === method },
                           ]"
-                          draggable="true"
-                          @dragstart="
-                            handleMethodDragStart(
-                              $event,
-                              pathItem.path,
-                              method,
-                              methodIndex
-                            )
-                          "
-                          @dragover="handleDragOver($event)"
-                          @drop="
-                            handleMethodDrop($event, pathItem.path, methodIndex)
-                          "
-                          @dragend="handleDragEnd"
                           @click.stop="selectAndOpenPath(pathItem.path, method)"
                         >
                           <span :class="['method-chip', 'method-' + method.toLowerCase()]">
@@ -128,10 +113,11 @@
                       />
                       <Button
                         icon="pi pi-plus"
-                        label="Add Method"
                         size="small"
                         text
+                        rounded
                         class="path-add-method-btn"
+                        v-tooltip.top="'Add method'"
                         @click.stop="showAddMethodDialog(pathItem.path)"
                       />
                       <Button

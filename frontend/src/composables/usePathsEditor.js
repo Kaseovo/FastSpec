@@ -75,9 +75,6 @@ export function usePathsEditor(formData, confirm, toast) {
   // Transient drag state (path + method reordering)
   const draggedPath = ref(null);
   const draggedPathIndex = ref(null);
-  const draggedMethod = ref(null);
-  const draggedMethodIndex = ref(null);
-  const draggedMethodPath = ref(null);
 
   const httpMethods = [
     "get",
@@ -92,7 +89,14 @@ export function usePathsEditor(formData, confirm, toast) {
   const pathsList = computed(() => {
     return Object.keys(formData.value.paths).map((path) => ({
       path,
-      methods: Object.keys(formData.value.paths[path]),
+      // Canonical method order (GET, POST, PUT, ...) rather than whatever
+      // order the methods happen to be stored/added in — a path with several
+      // methods reads as a consistent, scannable row instead of shuffling
+      // around based on authoring history. Display-only: doesn't touch
+      // formData's actual key order (e.g. YAML export).
+      methods: Object.keys(formData.value.paths[path]).sort(
+        (a, b) => httpMethods.indexOf(a) - httpMethods.indexOf(b)
+      ),
     }));
   });
 
@@ -1019,55 +1023,11 @@ export function usePathsEditor(formData, confirm, toast) {
     formData.value.paths = Object.fromEntries(pathsArray);
   };
 
-  // Method drag and drop handlers
-  const handleMethodDragStart = (event, path, method, index) => {
-    draggedMethod.value = method;
-    draggedMethodIndex.value = index;
-    draggedMethodPath.value = path;
-    event.target.classList.add("dragging-method");
-    event.dataTransfer.effectAllowed = "move";
-    event.stopPropagation();
-  };
-
-  const handleMethodDrop = (event, path, dropIndex) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (draggedMethodPath.value !== path) return;
-    if (draggedMethodIndex.value === dropIndex) return;
-
-    const pathData = formData.value.paths[path];
-
-    // Get the HTTP methods in order
-    const methodsArray = Object.keys(pathData);
-
-    // Get the method data before reordering
-    const methodDataMap = {};
-    methodsArray.forEach((method) => {
-      methodDataMap[method] = pathData[method];
-    });
-
-    // Reorder methods
-    const [movedMethod] = methodsArray.splice(draggedMethodIndex.value, 1);
-    methodsArray.splice(dropIndex, 0, movedMethod);
-
-    // Rebuild path object with new method order
-    const newPathData = {};
-    methodsArray.forEach((method) => {
-      newPathData[method] = methodDataMap[method];
-    });
-
-    formData.value.paths[path] = newPathData;
-  };
-
-  // Resets only this tab's transient path/method-drag refs. The parent composes
+  // Resets only this tab's transient path-drag refs. The parent composes
   // a shared handleDragEnd that calls this alongside useComponentsEditor's reset.
   const resetPathDrag = () => {
     draggedPath.value = null;
     draggedPathIndex.value = null;
-    draggedMethod.value = null;
-    draggedMethodIndex.value = null;
-    draggedMethodPath.value = null;
   };
 
   const handlePathKeydown = (event) => {
@@ -1150,7 +1110,6 @@ export function usePathsEditor(formData, confirm, toast) {
     requestBodySchemaRef,
     requestBodyInlineSchemaType,
     draggedPath,
-    draggedMethod,
     httpMethods,
     pathsList,
     pathSearchQuery,
@@ -1216,8 +1175,6 @@ export function usePathsEditor(formData, confirm, toast) {
     onItemTypesChange,
     handlePathDragStart,
     handlePathDrop,
-    handleMethodDragStart,
-    handleMethodDrop,
     handlePathKeydown,
     handleEditPathKeydown,
     resetPathDrag,

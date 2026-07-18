@@ -1130,35 +1130,6 @@ describe("FormEditor - Paths tab", () => {
       wrapper.vm.handlePathDragStart(mockDragEvent(), "/aaa", 0);
       wrapper.vm.handleDragEnd(mockDragEvent());
       expect(wrapper.vm.draggedPath).toBeNull();
-      expect(wrapper.vm.draggedMethod).toBeNull();
-    });
-
-    test("handleMethodDragStart/Drop reorders methods within the same path", () => {
-      const wrapper = mountFE();
-      wrapper.vm.newPath = "users";
-      wrapper.vm.newMethod = "get";
-      wrapper.vm.addPath();
-      wrapper.vm.currentPathForMethod = "/users";
-      wrapper.vm.methodToAdd = "post";
-      wrapper.vm.addMethodToPath();
-      wrapper.vm.methodToAdd = "delete";
-      wrapper.vm.addMethodToPath();
-
-      wrapper.vm.handleMethodDragStart(mockDragEvent(), "/users", "get", 0);
-      wrapper.vm.handleMethodDrop(mockDragEvent(), "/users", 2);
-      expect(Object.keys(wrapper.vm.formData.paths["/users"])).toEqual([
-        "post",
-        "delete",
-        "get",
-      ]);
-    });
-
-    test("handleMethodDrop ignores drops onto a different path", () => {
-      const wrapper = mountFE();
-      withTwoPaths(wrapper);
-      wrapper.vm.handleMethodDragStart(mockDragEvent(), "/aaa", "get", 0);
-      wrapper.vm.handleMethodDrop(mockDragEvent(), "/bbb", 0);
-      expect(Object.keys(wrapper.vm.formData.paths["/bbb"])).toEqual(["get"]);
     });
   });
 

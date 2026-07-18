@@ -423,11 +423,9 @@
 .path-method-chip.path-method-chip--active:has(.method-chip.method-options),
 .path-method-chip.path-method-chip--active:has(.method-chip.method-head)   { border-color: #4b5563; border-width: 2px; }
 
-.path-method-chip.dragging-method {
-  opacity: 0.4;
-}
-
-/* Delete ✕ inside chip */
+/* Delete ✕ inside chip — hidden until the chip is hovered, so a path with
+   several methods reads as a clean row of badges rather than every chip
+   shouting "delete me" at once. */
 .chip-delete-btn {
   display: inline-flex;
   align-items: center;
@@ -438,17 +436,26 @@
   margin-left: 1px;
   cursor: pointer;
   font-size: 9px;
-  opacity: 0.45;
+  opacity: 0;
   transition: opacity 0.15s ease;
   color: inherit;
 }
 
+.path-method-chip:hover .chip-delete-btn {
+  opacity: 0.55;
+}
+
 .chip-delete-btn:hover {
-  opacity: 1;
+  opacity: 1 !important;
 }
 
 .path-add-method-btn {
   flex-shrink: 0;
+  color: #6b7280 !important;
+}
+
+.path-add-method-btn:hover {
+  color: #16a34a !important;
 }
 
 .path-delete-btn {
