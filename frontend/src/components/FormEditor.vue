@@ -106,13 +106,19 @@
     <AddPathDialog
       :visible="showAddPathDialog"
       @update:visible="showAddPathDialog = $event"
+      :step="addPathStep"
       :http-methods="httpMethods"
       :new-method="newMethod"
       @update:new-method="newMethod = $event"
       :new-path="newPath"
       @update:new-path="newPath = $event"
+      :form-data="formData"
+      :api="pathsApi"
       @path-keydown="handlePathKeydown"
-      @confirm="addPath"
+      @back="goToPrevAddPathStep"
+      @next="goToNextAddPathStep"
+      @cancel="cancelAddPathDialog"
+      @finish="finishAddPathWizard"
     />
     <AddMethodDialog
       :visible="showAddMethodDialogVisible"
@@ -131,6 +137,25 @@
       @path-keydown="handleEditPathKeydown"
       @confirm="confirmEditPath"
     />
+    <AddSchemaDialog
+      :visible="showAddSchemaDialog"
+      @update:visible="showAddSchemaDialog = $event"
+      :step="addSchemaStep"
+      @update:step="addSchemaStep = $event"
+      :new-schema-name="newSchemaName"
+      @update:new-schema-name="newSchemaName = $event"
+      :new-schema-kind="newSchemaKind"
+      @update:new-schema-kind="newSchemaKind = $event"
+      :new-schema-description="newSchemaDescription"
+      @update:new-schema-description="newSchemaDescription = $event"
+      :new-schema-properties="newSchemaProperties"
+      :is-new-schema-name-duplicate="isNewSchemaNameDuplicate"
+      @add-property="addWizardProperty"
+      @remove-property="removeWizardProperty"
+      @next="goToAddSchemaStep2"
+      @cancel="cancelAddSchemaDialog"
+      @confirm="confirmAddSchema"
+    />
   </div>
 </template>
 
@@ -147,6 +172,7 @@ import AddPathDialog from "./form-editor/AddPathDialog.vue";
 import AddMethodDialog from "./form-editor/AddMethodDialog.vue";
 import EditPathDialog from "./form-editor/EditPathDialog.vue";
 import ResponseCodeDialog from "./form-editor/ResponseCodeDialog.vue";
+import AddSchemaDialog from "./form-editor/AddSchemaDialog.vue";
 import { useFormEditorState } from "../composables/useFormEditorState";
 
 const LABELS = {
@@ -216,6 +242,7 @@ export default {
     AddMethodDialog,
     EditPathDialog,
     ResponseCodeDialog,
+    AddSchemaDialog,
   },
   props: {
     modelValue: { type: Object, required: true },

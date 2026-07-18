@@ -6,7 +6,7 @@
                   label="Add Schema"
                   icon="pi pi-plus"
                   size="small"
-                  @click="addSchema"
+                  @click="openAddSchemaDialog"
                 />
               </div>
 
@@ -229,7 +229,7 @@
                                   label="Add Property"
                                   icon="pi pi-plus"
                                   size="small"
-                                  @click="expandSchemaSection(schema.name, 'properties'); addSchemaProperty(schema.name)"
+                                  @click="onAddSchemaProperty(schema.name)"
                                 />
                               </div>
 
@@ -269,11 +269,34 @@
                                 }"
                               >
                                 <div
-                                  class="drag-handle"
-                                  title="Drag to reorder"
+                                  class="item-row-header"
+                                  @click="togglePropertyExpanded(schema.name, propName)"
                                 >
-                                  <i class="pi pi-bars"></i>
+                                  <div class="drag-handle" title="Drag to reorder">
+                                    <i class="pi pi-bars"></i>
+                                  </div>
+                                  <i
+                                    class="pi pi-chevron-right item-row-caret"
+                                    :class="{ 'item-row-caret--open': isPropertyExpanded(schema.name, propName) }"
+                                  ></i>
+                                  <span class="item-row-name">{{ propName }}</span>
+                                  <div class="item-row-badges">
+                                    <span :class="['type-badge', 'type-badge--' + (Array.isArray(prop.type) ? prop.type.find(t => t !== 'null') : prop.type)]">
+                                      {{ Array.isArray(prop.type) ? prop.type.join(' | ') : prop.type }}
+                                    </span>
+                                    <Tag v-if="schema.data.required?.includes(propName)" value="required" severity="warn" />
+                                  </div>
+                                  <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    rounded
+                                    size="small"
+                                    class="item-row-delete"
+                                    @click.stop="removeSchemaProperty(schema.name, propName)"
+                                  />
                                 </div>
+                                <div v-show="isPropertyExpanded(schema.name, propName)" class="item-row-body">
                                 <div class="property-content">
                                   <div class="form-row">
                                     <div class="form-field">
@@ -635,15 +658,7 @@
                                     </div>
                                   </div>
                                 </div>
-                                <Button
-                                  icon="pi pi-trash"
-                                  severity="danger"
-                                  text
-                                  rounded
-                                  @click="
-                                    removeSchemaProperty(schema.name, propName)
-                                  "
-                                />
+                                </div>
                               </div>
                               </div>
                             </div>
@@ -1353,6 +1368,26 @@ export default {
     const reusableParamsCollapsed = ref(false);
     const reusableResponsesCollapsed = ref(false);
 
+    // Per-property expand/collapse, mirroring PathsTab.vue's per-parameter
+    // rows: a schema with many properties reads as a wall of open forms
+    // otherwise. Keyed by "schemaName:propName" — new properties start
+    // expanded (via onAddSchemaProperty below) so the just-created row is
+    // immediately editable; existing ones start collapsed to keep long
+    // schemas scannable.
+    const expandedProperties = ref({});
+    const propertyKey = (schemaName, propName) => `${schemaName}:${propName}`;
+    const isPropertyExpanded = (schemaName, propName) =>
+      !!expandedProperties.value[propertyKey(schemaName, propName)];
+    const togglePropertyExpanded = (schemaName, propName) => {
+      const key = propertyKey(schemaName, propName);
+      expandedProperties.value[key] = !expandedProperties.value[key];
+    };
+    const onAddSchemaProperty = (schemaName) => {
+      expandSchemaSection(schemaName, "properties");
+      const propName = props.api.addSchemaProperty(schemaName);
+      expandedProperties.value[propertyKey(schemaName, propName)] = true;
+    };
+
     // A plain `props.formData` snapshot only captures whatever the prop was
     // AT MOUNT TIME — it never updates when the parent later swaps in the
     // real spec (loaded asynchronously after this component's first
@@ -1368,6 +1403,9 @@ export default {
       expandSchemaSection,
       reusableParamsCollapsed,
       reusableResponsesCollapsed,
+      isPropertyExpanded,
+      togglePropertyExpanded,
+      onAddSchemaProperty,
     };
   },
 };

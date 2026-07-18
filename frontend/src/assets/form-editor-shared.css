@@ -599,37 +599,26 @@
   /* no top border needed — content starts directly */
 }
 
-/* ── Always-visible operation sections (replaces the old nested
-   Basic Info/Parameters/Request Body/Responses tabs — one less level of
-   clicking between the path accordion and the fields you're editing) ── */
-.method-editor-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.method-editor-section {
-  padding-top: 20px;
-  border-top: 1px solid #f3f4f6;
-}
-
-.method-editor-section:first-child {
-  padding-top: 0;
-  border-top: none;
+/* ── Operation editor step (Basic Info / Parameters / Request Body /
+   Responses) — OperationStepNav shows one of these at a time, in both the
+   inline free-jump editor (PathsTab.vue, existing operations) and
+   AddPathDialog's create wizard, so there's no stacking/collapsing to style
+   here anymore — just the one step's header + fields. ── */
+.operation-step__body {
+  /* content starts directly under the step's .section-header */
 }
 
 .param-item,
 .property-item {
   display: flex;
-  gap: 12px;
-  padding: 16px;
+  flex-direction: column;
+  padding: 0;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   margin-bottom: 10px;
-  align-items: flex-start;
-  cursor: move;
   transition: border-color 0.15s ease;
+  overflow: hidden;
 }
 
 .property-item:hover,
@@ -641,6 +630,72 @@
   opacity: 0.5;
   border-color: #3b82f6;
   background: #f9fafb;
+}
+
+/* ── Collapsible parameter/property row: compact header always visible,
+   full edit form only rendered once expanded — keeps a long parameter or
+   property list scannable instead of a wall of open forms. ── */
+.item-row-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.item-row-header:hover {
+  background: #f9fafb;
+}
+
+.item-row-caret {
+  font-size: 10px;
+  color: #9ca3af;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.item-row-caret--open {
+  transform: rotate(90deg);
+}
+
+.item-row-name {
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Courier New", monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-row-name--empty {
+  color: #9ca3af;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.item-row-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.item-row-error {
+  color: #d97706;
+  flex-shrink: 0;
+}
+
+.item-row-delete {
+  flex-shrink: 0;
+}
+
+.item-row-body {
+  padding: 4px 16px 16px;
+  border-top: 1px solid #f3f4f6;
 }
 
 .drag-handle {

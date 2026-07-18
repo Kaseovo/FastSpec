@@ -102,6 +102,93 @@ export function useComponentsEditor(formData, confirm, toast) {
     };
   };
 
+  // "Add Schema" wizard — step 1 (name + type + description) then, for
+  // object schemas, step 2 (a quick-start property list) — instead of the
+  // old instant "NewSchema" creation. Non-object kinds have nothing
+  // meaningful to configure up front (composition members, formats, etc.
+  // are all edited fine afterward in the full schema editor), so they skip
+  // straight to creation once step 1 is valid.
+  const showAddSchemaDialog = ref(false);
+  const addSchemaStep = ref(1);
+  const newSchemaName = ref("");
+  const newSchemaKind = ref("object");
+  const newSchemaDescription = ref("");
+  const newSchemaProperties = ref([]);
+
+  const isNewSchemaNameDuplicate = computed(() => {
+    const name = newSchemaName.value.trim();
+    return !!name && !!formData.value.components?.schemas?.[name];
+  });
+
+  const resetAddSchemaWizard = () => {
+    newSchemaName.value = "";
+    newSchemaKind.value = "object";
+    newSchemaDescription.value = "";
+    newSchemaProperties.value = [];
+    addSchemaStep.value = 1;
+  };
+
+  const openAddSchemaDialog = () => {
+    resetAddSchemaWizard();
+    showAddSchemaDialog.value = true;
+  };
+
+  const cancelAddSchemaDialog = () => {
+    resetAddSchemaWizard();
+    showAddSchemaDialog.value = false;
+  };
+
+  const addWizardProperty = () => {
+    let name = "property";
+    let counter = 1;
+    const existing = new Set(newSchemaProperties.value.map((p) => p.name));
+    while (existing.has(name)) {
+      name = `property${counter}`;
+      counter++;
+    }
+    newSchemaProperties.value.push({ name, type: "string", required: false });
+  };
+
+  const removeWizardProperty = (index) => {
+    newSchemaProperties.value.splice(index, 1);
+  };
+
+  const confirmAddSchema = () => {
+    const name = newSchemaName.value.trim();
+    if (!name || formData.value.components.schemas[name]) return;
+
+    const schema = {};
+    setSchemaKind(schema, newSchemaKind.value);
+    if (newSchemaDescription.value.trim()) {
+      schema.description = newSchemaDescription.value.trim();
+    }
+
+    if (newSchemaKind.value === "object") {
+      const required = [];
+      for (const prop of newSchemaProperties.value) {
+        const propName = prop.name.trim();
+        if (!propName) continue;
+        schema.properties[propName] = { type: prop.type };
+        if (prop.required) required.push(propName);
+      }
+      if (required.length) schema.required = required;
+    }
+
+    formData.value.components.schemas[name] = schema;
+    selectAndOpenSchema(name);
+    resetAddSchemaWizard();
+    showAddSchemaDialog.value = false;
+  };
+
+  const goToAddSchemaStep2 = () => {
+    if (!newSchemaName.value.trim() || isNewSchemaNameDuplicate.value) return;
+    if (newSchemaKind.value === "object") {
+      addSchemaStep.value = 2;
+    } else {
+      confirmAddSchema();
+    }
+  };
+
   const removeSchema = (name) => {
     confirm.require({
       message: `Are you sure you want to delete the schema "${name}"? Any references to it will become invalid.`,
@@ -181,6 +268,8 @@ export function useComponentsEditor(formData, confirm, toast) {
       description: "",
       items: { type: "string" },
     };
+
+    return propName;
   };
 
   const removeSchemaProperty = (schemaName, propName) => {
@@ -434,6 +523,19 @@ export function useComponentsEditor(formData, confirm, toast) {
     isOpenAPI31,
     addChipOnEnter,
     addSchema,
+    showAddSchemaDialog,
+    addSchemaStep,
+    newSchemaName,
+    newSchemaKind,
+    newSchemaDescription,
+    newSchemaProperties,
+    isNewSchemaNameDuplicate,
+    openAddSchemaDialog,
+    cancelAddSchemaDialog,
+    goToAddSchemaStep2,
+    confirmAddSchema,
+    addWizardProperty,
+    removeWizardProperty,
     removeSchema,
     renameSchema,
     updateSchema,

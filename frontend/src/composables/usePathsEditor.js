@@ -42,6 +42,17 @@ export function usePathsEditor(formData, confirm, toast) {
   const editingResponseCode = ref(""); // non-empty = edit mode (old code being replaced)
   const newPath = ref("");
   const newMethod = ref("");
+  // "Add Path" wizard — method + path, then the same Basic Info /
+  // Parameters / Request Body / Responses steps the inline editor uses
+  // (OperationBasicInfoStep etc.), free-jumpable once the operation exists.
+  // The operation is created as soon as step 1 is confirmed (see
+  // createWizardOperation below) so those steps can edit it live via
+  // selectedPath/selectedMethod, exactly like editing an existing
+  // operation — cancelling after that discards the draft (discardWizardPath).
+  const ADD_PATH_STEP_ORDER = ["methodPath", "basicInfo", "parameters", "requestBody", "responses"];
+  const addPathStep = ref("methodPath");
+  const wizardCreatedPath = ref(null);
+  const wizardCreatedMethod = ref(null);
   const newResponseCode = ref("");
   const methodToAdd = ref("");
   const currentPathForMethod = ref("");
@@ -235,23 +246,10 @@ export function usePathsEditor(formData, confirm, toast) {
     method.parameters = [...newParams, ...method.parameters];
   };
 
-  const addPath = () => {
-    if (!newMethod.value) return;
-
-    const fullPath = newPath.value
-      ? newPath.value.startsWith("/")
-        ? newPath.value
-        : "/" + newPath.value
-      : "/";
-
-    if (!formData.value.paths[fullPath]) {
-      formData.value.paths[fullPath] = {};
-    }
-
+  const buildNewOperation = (fullPath) => {
     const pathParamNames = extractPathParams(fullPath);
     const pathParams = pathParamNames.map(buildPathParam);
-
-    formData.value.paths[fullPath][newMethod.value] = {
+    return {
       summary: "",
       description: "",
       operationId: "",
@@ -264,11 +262,97 @@ export function usePathsEditor(formData, confirm, toast) {
         },
       },
     };
+  };
+
+  const resolveNewPath = () =>
+    newPath.value ? (newPath.value.startsWith("/") ? newPath.value : "/" + newPath.value) : "/";
+
+  // One-shot creation: used directly by tests and available for any other
+  // caller that just wants a path/method created with blank defaults,
+  // selected, and the dialog closed — no wizard steps involved.
+  const addPath = () => {
+    if (!newMethod.value) return;
+
+    const fullPath = resolveNewPath();
+    if (!formData.value.paths[fullPath]) {
+      formData.value.paths[fullPath] = {};
+    }
+    formData.value.paths[fullPath][newMethod.value] = buildNewOperation(fullPath);
 
     selectedPath.value = fullPath;
     selectedMethod.value = newMethod.value;
     newPath.value = "";
     newMethod.value = "";
+    addPathStep.value = "methodPath";
+    showAddPathDialog.value = false;
+  };
+
+  const resetAddPathWizard = () => {
+    newPath.value = "";
+    newMethod.value = "";
+    addPathStep.value = "methodPath";
+    wizardCreatedPath.value = null;
+    wizardCreatedMethod.value = null;
+  };
+
+  // Silent rollback (no confirm dialog) — cancelling mid-wizard should
+  // discard the just-created draft operation, not prompt the user to
+  // confirm deleting something they made seconds ago in this same flow.
+  const discardWizardPath = () => {
+    if (!wizardCreatedPath.value || !wizardCreatedMethod.value) return;
+    const pathEntry = formData.value.paths[wizardCreatedPath.value];
+    if (pathEntry) {
+      delete pathEntry[wizardCreatedMethod.value];
+      if (Object.keys(pathEntry).length === 0) {
+        delete formData.value.paths[wizardCreatedPath.value];
+      }
+    }
+    if (
+      selectedPath.value === wizardCreatedPath.value &&
+      selectedMethod.value === wizardCreatedMethod.value
+    ) {
+      selectedPath.value = "";
+      selectedMethod.value = "";
+    }
+  };
+
+  const cancelAddPathDialog = () => {
+    discardWizardPath();
+    resetAddPathWizard();
+    showAddPathDialog.value = false;
+  };
+
+  const createWizardOperation = () => {
+    const fullPath = resolveNewPath();
+    if (!formData.value.paths[fullPath]) {
+      formData.value.paths[fullPath] = {};
+    }
+    formData.value.paths[fullPath][newMethod.value] = buildNewOperation(fullPath);
+
+    selectedPath.value = fullPath;
+    selectedMethod.value = newMethod.value;
+    wizardCreatedPath.value = fullPath;
+    wizardCreatedMethod.value = newMethod.value;
+  };
+
+  const goToNextAddPathStep = () => {
+    if (addPathStep.value === "methodPath") {
+      if (!newMethod.value) return;
+      createWizardOperation();
+    }
+    const index = ADD_PATH_STEP_ORDER.indexOf(addPathStep.value);
+    if (index < ADD_PATH_STEP_ORDER.length - 1) {
+      addPathStep.value = ADD_PATH_STEP_ORDER[index + 1];
+    }
+  };
+
+  const goToPrevAddPathStep = () => {
+    const index = ADD_PATH_STEP_ORDER.indexOf(addPathStep.value);
+    if (index > 0) addPathStep.value = ADD_PATH_STEP_ORDER[index - 1];
+  };
+
+  const finishAddPathWizard = () => {
+    resetAddPathWizard();
     showAddPathDialog.value = false;
   };
 
@@ -1005,6 +1089,11 @@ export function usePathsEditor(formData, confirm, toast) {
     editingResponseCode,
     newPath,
     newMethod,
+    addPathStep,
+    cancelAddPathDialog,
+    goToNextAddPathStep,
+    goToPrevAddPathStep,
+    finishAddPathWizard,
     newResponseCode,
     methodToAdd,
     currentPathForMethod,
