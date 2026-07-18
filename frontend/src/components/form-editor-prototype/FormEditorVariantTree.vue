@@ -15,100 +15,39 @@
           <i class="pi pi-info-circle"></i> Info
         </button>
 
-        <button
-          class="fet-node fet-node--section"
-          :class="{ 'fet-node--active': active === 'servers' }"
-          @click="active = 'servers'"
-        >
-          <i class="pi pi-server"></i> Servers
-          <span class="fet-node__count">{{ tabCounts.servers }}</span>
-        </button>
-
-        <div class="fet-group">
+        <div v-for="s in sections" :key="s.key" class="fet-group">
           <button
             class="fet-node fet-node--section"
-            :class="{ 'fet-node--active': active === 'paths' }"
-            @click="active = 'paths'"
+            :class="{ 'fet-node--active': active === s.key }"
+            @click="active = s.key"
           >
             <i
               class="pi pi-chevron-right fet-node__caret"
-              :class="{ 'fet-node__caret--open': pathsExpanded }"
-              @click.stop="pathsCollapsed = !pathsCollapsed"
+              :class="{ 'fet-node__caret--open': s.expanded }"
+              @click.stop="toggleCollapsed(s.key)"
             ></i>
-            <i class="pi pi-sitemap"></i> Paths
-            <span class="fet-node__count">{{ tabCounts.paths }}</span>
+            <i :class="s.icon"></i> {{ s.label }}
+            <span class="fet-node__count">{{ s.count }}</span>
           </button>
-          <div v-if="pathsExpanded && filteredPaths.length" class="fet-children">
+          <div v-if="s.expanded && s.filteredItems.length" class="fet-children">
             <button
-              v-for="p in visiblePaths"
-              :key="p"
+              v-for="item in s.visibleItems"
+              :key="item"
               class="fet-node fet-node--child"
-              @click="active = 'paths'"
-              :title="p"
+              @click="active = s.key"
+              :title="item"
             >
-              <span class="fet-node__dot"></span>{{ p }}
+              <span class="fet-node__dot" :class="s.dotClass"></span>{{ item }}
             </button>
             <button
-              v-if="filteredPaths.length > pathsVisibleLimit"
+              v-if="s.remaining > 0"
               class="fet-node fet-node--more"
-              @click="pathsShowAll = true"
+              @click="showAll[s.key] = true"
             >
-              + {{ filteredPaths.length - pathsVisibleLimit }} more — search to filter
+              + {{ s.remaining }} more — search to filter
             </button>
           </div>
         </div>
-
-        <button
-          class="fet-node fet-node--section"
-          :class="{ 'fet-node--active': active === 'tags' }"
-          @click="active = 'tags'"
-        >
-          <i class="pi pi-tag"></i> Tags
-          <span class="fet-node__count">{{ tabCounts.tags }}</span>
-        </button>
-
-        <div class="fet-group">
-          <button
-            class="fet-node fet-node--section"
-            :class="{ 'fet-node--active': active === 'components' }"
-            @click="active = 'components'"
-          >
-            <i
-              class="pi pi-chevron-right fet-node__caret"
-              :class="{ 'fet-node__caret--open': componentsExpanded }"
-              @click.stop="componentsCollapsed = !componentsCollapsed"
-            ></i>
-            <i class="pi pi-box"></i> Components
-            <span class="fet-node__count">{{ tabCounts.components }}</span>
-          </button>
-          <div v-if="componentsExpanded && filteredSchemas.length" class="fet-children">
-            <button
-              v-for="s in visibleSchemas"
-              :key="s"
-              class="fet-node fet-node--child"
-              @click="active = 'components'"
-              :title="s"
-            >
-              <span class="fet-node__dot fet-node__dot--schema"></span>{{ s }}
-            </button>
-            <button
-              v-if="filteredSchemas.length > schemasVisibleLimit"
-              class="fet-node fet-node--more"
-              @click="schemasShowAll = true"
-            >
-              + {{ filteredSchemas.length - schemasVisibleLimit }} more — search to filter
-            </button>
-          </div>
-        </div>
-
-        <button
-          class="fet-node fet-node--section"
-          :class="{ 'fet-node--active': active === 'security' }"
-          @click="active = 'security'"
-        >
-          <i class="pi pi-shield"></i> Security
-          <span class="fet-node__count">{{ tabCounts.security }}</span>
-        </button>
       </div>
     </aside>
 
@@ -196,7 +135,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import Button from "primevue/button";
 import ApiInfoTab from "../form-editor/ApiInfoTab.vue";
 import ServersTab from "../form-editor/ServersTab.vue";
@@ -218,6 +157,50 @@ const LABELS = {
   components: "Components",
   security: "Security",
 };
+
+// Every groupable section (everything but the single-page Info leaf) gets
+// the same collapse + search-filter + capped-list treatment. `getItems`
+// pulls the real child labels straight out of formData so the tree always
+// reflects actual content, not just a count.
+const GROUPS = [
+  {
+    key: "servers",
+    label: "Servers",
+    icon: "pi pi-server",
+    dotClass: "fet-node__dot--server",
+    getItems: (fd) => (fd.servers || []).map((s) => s.url).filter(Boolean),
+  },
+  {
+    key: "paths",
+    label: "Paths",
+    icon: "pi pi-sitemap",
+    dotClass: "",
+    getItems: (fd) => Object.keys(fd.paths || {}),
+  },
+  {
+    key: "tags",
+    label: "Tags",
+    icon: "pi pi-tag",
+    dotClass: "fet-node__dot--tag",
+    getItems: (fd) => (fd.tags || []).map((t) => t.name).filter(Boolean),
+  },
+  {
+    key: "components",
+    label: "Components",
+    icon: "pi pi-box",
+    dotClass: "fet-node__dot--schema",
+    getItems: (fd) => Object.keys(fd.components?.schemas || {}),
+  },
+  {
+    key: "security",
+    label: "Security",
+    icon: "pi pi-shield",
+    dotClass: "fet-node__dot--security",
+    getItems: (fd) => Object.keys(fd.components?.securitySchemes || {}),
+  },
+];
+
+const PAGE_SIZE = 40;
 
 export default {
   name: "FormEditorVariantTree",
@@ -245,66 +228,58 @@ export default {
     const query = ref("");
 
     const activeLabel = computed(() => LABELS[active.value]);
-
-    const filteredPaths = computed(() => {
-      const all = Object.keys(state.formData.value.paths || {});
-      if (!query.value.trim()) return all;
-      const q = query.value.toLowerCase();
-      return all.filter((p) => p.toLowerCase().includes(q));
-    });
-
-    const filteredSchemas = computed(() => {
-      const all = Object.keys(state.formData.value.components?.schemas || {});
-      if (!query.value.trim()) return all;
-      const q = query.value.toLowerCase();
-      return all.filter((s) => s.toLowerCase().includes(q));
-    });
+    const isSearching = computed(() => query.value.trim().length > 0);
 
     // Collapse/expand per section — the point of a tree over a flat
-    // accordion is that a spec with hundreds of paths doesn't force
-    // hundreds of DOM nodes into view at once. A search in progress always
-    // wins over a manual collapse (you typed to find something, so show it).
-    const pathsCollapsed = ref(false);
-    const componentsCollapsed = ref(false);
-    const isSearching = computed(() => query.value.trim().length > 0);
-    const pathsExpanded = computed(() => isSearching.value || !pathsCollapsed.value);
-    const componentsExpanded = computed(() => isSearching.value || !componentsCollapsed.value);
+    // accordion is that a spec with hundreds of paths (or dozens of tags,
+    // servers, security schemes...) doesn't force that many DOM nodes into
+    // view at once. A search in progress always wins over a manual
+    // collapse (you typed to find something, so show it).
+    const collapsed = reactive({});
+    const showAll = reactive({});
+    for (const g of GROUPS) {
+      collapsed[g.key] = false;
+      showAll[g.key] = false;
+    }
+    const toggleCollapsed = (key) => {
+      collapsed[key] = !collapsed[key];
+    };
 
-    // Even expanded, a spec with hundreds of entries renders a capped slice
-    // by default — "show all" is one click away, and typing narrows the
-    // list directly instead of scrolling through it.
-    const PAGE_SIZE = 40;
-    const pathsShowAll = ref(false);
-    const schemasShowAll = ref(false);
-    const pathsVisibleLimit = computed(() => (pathsShowAll.value ? Infinity : PAGE_SIZE));
-    const schemasVisibleLimit = computed(() => (schemasShowAll.value ? Infinity : PAGE_SIZE));
-    const visiblePaths = computed(() => filteredPaths.value.slice(0, pathsVisibleLimit.value));
-    const visibleSchemas = computed(() => filteredSchemas.value.slice(0, schemasVisibleLimit.value));
-
-    // Typing a fresh search should re-cap the list — otherwise "show all"
-    // from a previous browse stays sticky and defeats the point of typing.
+    // Typing a fresh search should re-cap every section — otherwise "show
+    // all" from a previous browse stays sticky and defeats the point of
+    // typing.
     watch(query, () => {
-      pathsShowAll.value = false;
-      schemasShowAll.value = false;
+      for (const g of GROUPS) showAll[g.key] = false;
     });
+
+    const sections = computed(() =>
+      GROUPS.map((g) => {
+        const all = g.getItems(state.formData.value);
+        const q = query.value.trim().toLowerCase();
+        const filteredItems = q ? all.filter((item) => item.toLowerCase().includes(q)) : all;
+        const limit = showAll[g.key] ? Infinity : PAGE_SIZE;
+        return {
+          key: g.key,
+          label: g.label,
+          icon: g.icon,
+          dotClass: g.dotClass,
+          count: all.length,
+          filteredItems,
+          visibleItems: filteredItems.slice(0, limit),
+          remaining: Math.max(0, filteredItems.length - limit),
+          expanded: isSearching.value || !collapsed[g.key],
+        };
+      }),
+    );
 
     return {
       ...state,
       active,
       query,
       activeLabel,
-      filteredPaths,
-      filteredSchemas,
-      pathsCollapsed,
-      componentsCollapsed,
-      pathsExpanded,
-      componentsExpanded,
-      pathsShowAll,
-      schemasShowAll,
-      pathsVisibleLimit,
-      schemasVisibleLimit,
-      visiblePaths,
-      visibleSchemas,
+      sections,
+      showAll,
+      toggleCollapsed,
     };
   },
 };
@@ -443,6 +418,18 @@ export default {
   border-radius: 50%;
   background: #93c5fd;
   flex-shrink: 0;
+}
+
+.fet-node__dot--server {
+  background: #6ee7b7;
+}
+
+.fet-node__dot--tag {
+  background: #fcd34d;
+}
+
+.fet-node__dot--security {
+  background: #fca5a5;
 }
 
 .fet-node__dot--schema {

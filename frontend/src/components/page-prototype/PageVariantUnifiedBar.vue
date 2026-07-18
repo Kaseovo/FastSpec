@@ -4,16 +4,34 @@
       <div class="pvu-bar__left">
         <img src="/logo.svg" alt="FastSpec" class="pvu-bar__logo" />
 
-        <button class="pvu-bar__spec" @click="toggleSpecs">
-          <i class="pi pi-folder"></i>
-          <span>{{ currentSpecName }}</span>
-          <i class="pi pi-chevron-down pvu-bar__spec-caret"></i>
-        </button>
-        <Popover ref="specPopover">
-          <div class="pvu-spec-popover">
-            <SpecList @spec-selected="onSpecSelected" :selected-id="selectedSpecId" />
+        <div class="pvu-spec-wrap" ref="specWrapEl">
+          <button class="pvu-bar__spec" @click="toggleSpecs">
+            <i class="pi pi-folder"></i>
+            <span>{{ currentSpecName }}</span>
+            <i class="pi pi-chevron-down pvu-bar__spec-caret"></i>
+          </button>
+          <!--
+            Deliberately v-show, not a PrimeVue Popover (which v-if's its
+            content — SpecList would then remount on every open, and it
+            unconditionally auto-selects+emits its first spec on mount.
+            That auto-emit was closing this dropdown before a real click on
+            a different spec could land. Keeping SpecList permanently
+            mounted (matching how it always ran in the sidebar variant and
+            in production) means that auto-select only ever fires once, on
+            first page load.
+          -->
+          <div v-show="specMenuOpen" class="pvu-spec-popover">
+            <div class="pvu-spec-popover__header">
+              <span>Saved Specs</span>
+              <button class="pvu-spec-popover__new" @click="newSpecFn && newSpecFn()">
+                <i class="pi pi-plus"></i> New
+              </button>
+            </div>
+            <div class="pvu-spec-popover__list">
+              <SpecList @spec-selected="onSpecSelected" :selected-id="selectedSpecId" />
+            </div>
           </div>
-        </Popover>
+        </div>
       </div>
 
       <div class="pvu-bar__modes">
@@ -80,9 +98,8 @@
 </template>
 
 <script>
-import { computed, inject, ref } from "vue";
+import { computed, inject, ref, onMounted, onUnmounted } from "vue";
 import Button from "primevue/button";
-import Popover from "primevue/popover";
 import SpecList from "../SpecList.vue";
 import UserProfile from "../UserProfile.vue";
 import PagePrototypeContent from "./PagePrototypeContent.vue";
@@ -97,19 +114,29 @@ const MODES = [
 
 export default {
   name: "PageVariantUnifiedBar",
-  components: { Button, Popover, SpecList, UserProfile, PagePrototypeContent },
+  components: { Button, SpecList, UserProfile, PagePrototypeContent },
   setup() {
     const state = usePagePrototypeContent();
     const newSpecFn = inject("newSpec", null);
     const openSaveDialogFn = inject("openSaveDialog", null);
     const showTokenDialogFn = inject("showTokenDialog", null);
 
-    const specPopover = ref(null);
-    const toggleSpecs = (event) => specPopover.value?.toggle(event);
+    const specMenuOpen = ref(false);
+    const specWrapEl = ref(null);
+    const toggleSpecs = () => {
+      specMenuOpen.value = !specMenuOpen.value;
+    };
     const onSpecSelected = (spec) => {
       state.loadSpec(spec);
-      specPopover.value?.hide();
+      specMenuOpen.value = false;
     };
+    const onClickOutside = (event) => {
+      if (specMenuOpen.value && specWrapEl.value && !specWrapEl.value.contains(event.target)) {
+        specMenuOpen.value = false;
+      }
+    };
+    onMounted(() => document.addEventListener("click", onClickOutside));
+    onUnmounted(() => document.removeEventListener("click", onClickOutside));
 
     const currentSpecName = computed(
       () => state.parsedSpec.value?.info?.title || "Untitled Spec",
@@ -136,7 +163,8 @@ export default {
       newSpecFn,
       openSaveDialogFn,
       showTokenDialogFn,
-      specPopover,
+      specMenuOpen,
+      specWrapEl,
       toggleSpecs,
       onSpecSelected,
       currentSpecName,
@@ -287,10 +315,117 @@ export default {
 .pvu-lint-status__count--error { color: #dc2626; }
 .pvu-lint-status__count--warn { color: #d97706; }
 
+.pvu-spec-wrap {
+  position: relative;
+}
+
 .pvu-spec-popover {
-  width: 360px;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 100;
+  width: 340px;
   max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid var(--fs-border, #e5e7eb);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+}
+
+.pvu-spec-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--fs-border, #e5e7eb);
+  flex-shrink: 0;
+}
+
+.pvu-spec-popover__header span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fs-text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pvu-spec-popover__new {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: var(--fs-primary-light, rgba(37, 99, 255, 0.1));
+  color: var(--fs-primary, #2563ff);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.pvu-spec-popover__new:hover {
+  background: rgba(37, 99, 255, 0.18);
+}
+
+.pvu-spec-popover__new i {
+  font-size: 9px;
+}
+
+.pvu-spec-popover__list {
   overflow-y: auto;
+  padding: 10px;
+}
+
+/* SpecList.vue ships its own generic card-list styling (built for a
+   persistent light sidebar) — deep-override it here to match the unified
+   bar's rounder, brand-accented, tighter-spaced look, same pattern used in
+   PageVariantSidebar.vue for the dark-rail version. SpecList.vue itself
+   stays untouched; only this popover's presentation of it changes. */
+.pvu-spec-popover__list :deep(.sidebar) {
+  padding: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.pvu-spec-popover__list :deep(.sidebar h3) {
+  display: none;
+}
+
+.pvu-spec-popover__list :deep(.spec-card) {
+  border-radius: 10px;
+  border-color: var(--fs-border, #e5e7eb);
+  padding: 10px 12px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pvu-spec-popover__list :deep(.spec-card:hover) {
+  border-color: #d1d5db;
+  box-shadow: none;
+  background: #f9fafb;
+}
+
+.pvu-spec-popover__list :deep(.spec-card.active) {
+  border: 1px solid var(--fs-primary, #2563ff);
+  border-left: 3px solid var(--fs-primary, #2563ff);
+  background: var(--fs-primary-light, rgba(37, 99, 255, 0.06));
+}
+
+.pvu-spec-popover__list :deep(.spec-card.changed) {
+  border-left: 3px solid #f59e0b;
+  background: #fffbeb;
+}
+
+.pvu-spec-popover__list :deep(.spec-info h4) {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 13px;
+}
+
+.pvu-spec-popover__list :deep(.spec-actions .p-button) {
+  width: 26px;
+  height: 26px;
 }
 
 .pvu-content {

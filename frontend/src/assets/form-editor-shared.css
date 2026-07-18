@@ -218,11 +218,17 @@
   font-size: 12px;
 }
 
-.form-editor .p-button-danger{
+/* :not(.p-button-text):not(.p-button-outlined) matters here — without it
+   this rule was painting ghost/outlined danger buttons (e.g. the
+   icon-only path/schema delete buttons, which use severity="danger" text
+   rounded) with a solid red background. Their icon color is the same red,
+   so the trash glyph became invisible against its own background — it
+   rendered as an unbroken red square instead of a trash-can icon. */
+.form-editor .p-button-danger:not(.p-button-text):not(.p-button-outlined){
   background: #ef4444;
 }
 
-.form-editor .p-button-danger:hover{
+.form-editor .p-button-danger:not(.p-button-text):not(.p-button-outlined):hover{
   background: #dc2626;
 }
 
