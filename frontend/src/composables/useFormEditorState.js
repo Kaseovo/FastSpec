@@ -16,11 +16,10 @@ import {
   getStatusName,
 } from "../utils/openApiFormHelpers";
 
-// Shared FormEditor state/logic, lifted out of FormEditor.vue so the design
-// prototype shells (components/form-editor-prototype/*) can reuse the same
-// real data wiring and only vary how the six tabs are arranged on screen.
-// FormEditor.vue itself also calls this — there is exactly one
-// implementation of "how form data flows in and out."
+// FormEditor.vue's state/logic, extracted into its own composable so the
+// data-wiring (formData init/normalization, server/tag helpers, the four
+// per-tab composables) stays in exactly one place, independent of how the
+// six tabs are arranged on screen.
 export function useFormEditorState(props, emit) {
   const formData = ref({
     openapi: "3.0.0",

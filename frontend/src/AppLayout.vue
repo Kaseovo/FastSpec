@@ -1,51 +1,21 @@
 <template>
   <div id="app">
-    <PagePrototypeHost v-if="isDev && route.query.pageVariant && auth.isAuthenticated" />
-
-    <template v-else>
-      <AppHeader />
-
-      <div v-if="!auth.isAuthenticated" class="main-content">
-        <div class="signed-out-card">
-          <i class="pi pi-lock signed-out-icon"></i>
-          <h2>Sign in to continue</h2>
-          <p>Sign in with Google to create, edit, and save OpenAPI specifications.</p>
-          <Button label="Sign in with Google" icon="pi pi-google" @click="loginWithGoogle" />
-        </div>
+    <div v-if="!auth.isAuthenticated" class="main-content">
+      <div class="signed-out-card">
+        <i class="pi pi-lock signed-out-icon"></i>
+        <h2>Sign in to continue</h2>
+        <p>Sign in with Google to create, edit, and save OpenAPI specifications.</p>
+        <Button label="Sign in with Google" icon="pi pi-google" @click="loginWithGoogle" />
       </div>
+    </div>
 
-      <div v-else class="main-content">
-        <Toolbar @load-template="loadTemplate" />
+    <div v-else class="main-content">
+      <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
+        {{ alert.message }}
+      </Message>
 
-
-        <Message v-if="alert.show" :severity="alert.type" @close="closeAlert">
-          {{ alert.message }}
-        </Message>
-
-        <div class="view-mode-toggle">
-          <SelectButton
-            :modelValue="selectedView"
-            :options="viewModeOptions"
-            optionLabel="label"
-            optionValue="value"
-            optionDisabled="disabled"
-            dataKey="value"
-            @update:modelValue="onViewChange"
-          >
-            <template #option="slotProps">
-              <span class="flex align-items-center gap-2">
-                <i :class="slotProps.option.icon" />
-                {{ slotProps.option.label }}
-              </span>
-            </template>
-          </SelectButton>
-        </div>
-
-        <div class="editor-container">
-          <router-view />
-        </div>
-      </div>
-    </template>
+      <router-view />
+    </div>
 
     <SaveDialog
       :visible="showSaveDialog"
@@ -56,6 +26,28 @@
       :draft-content="parsedSpec"
       @save="saveSpec"
     />
+
+    <!-- New Spec Dialog -->
+    <Dialog
+      :visible="showNewDialog"
+      @update:visible="(val) => (showNewDialog = val)"
+      header="Create New Specification"
+      :modal="true"
+      :style="{ width: '500px' }"
+    >
+      <div class="new-spec-options">
+        <div class="option-card" @click="createBlank">
+          <i class="pi pi-file"></i>
+          <h4>Blank Specification</h4>
+          <p>Start with a minimal OpenAPI 3.0 structure</p>
+        </div>
+        <div class="option-card" @click="createFromTemplate">
+          <i class="pi pi-clone"></i>
+          <h4>From Template</h4>
+          <p>Start with a pre-configured API template</p>
+        </div>
+      </div>
+    </Dialog>
 
     <!-- Token Manager Dialog -->
     <Dialog
@@ -79,14 +71,10 @@ import Button from "primevue/button";
 import Dialog from "primevue/dialog";
 import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
-import SelectButton from "primevue/selectbutton";
-import Toolbar from "./components/Toolbar.vue";
 import SaveDialog from "./components/SaveDialog.vue";
 import TokenManager from "./components/TokenManager.vue";
-import AppHeader from "./AppHeader.vue";
-import PagePrototypeHost from "./components/page-prototype/PagePrototypeHost.vue";
-import { computed, ref, provide, onMounted } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { ref, provide, onMounted } from "vue";
+import { useConfirm } from "primevue/useconfirm";
 import { useApp } from "./composables/useApp";
 import { useAuthStore } from "./stores/auth";
 import { useToast } from "primevue/usetoast";
@@ -101,27 +89,16 @@ export default {
     Dialog,
     ConfirmDialog,
     Toast,
-    SelectButton,
-    Toolbar,
     SaveDialog,
     TokenManager,
-    AppHeader,
-    PagePrototypeHost,
   },
   setup() {
     const app = useApp();
     const auth = useAuthStore();
-    const route = useRoute();
-    const router = useRouter();
 
     // UI state moved from useApp
     const showTokenDialog = ref(false);
-    const viewModeOptions = ref([
-      { label: "Form", value: "form", icon: "pi pi-list" },
-      { label: "Code", value: "code", icon: "pi pi-code" },
-      { label: "Preview", value: "preview", icon: "pi pi-eye" },
-      { label: "Lint", value: "lint", icon: "pi pi-search" },
-    ]);
+    const showNewDialog = ref(false);
 
     // Lifecycle moved from useApp
     const toast = useToast();
@@ -143,7 +120,6 @@ export default {
     // Provides moved from useApp
     provide("showTokenDialog", () => (showTokenDialog.value = true));
 
-    const specEditor = app.specEditor ?? null;
     provide("validateCurrentSpec", async () => {
       try {
         const spec_json = JSON.parse(app.specContent.value);
@@ -157,28 +133,79 @@ export default {
       }
     });
 
-    // selected view mirrors router query 'view'
-    const selectedView = computed(() => route.query.view || "form");
-    const onViewChange = (value) => {
-      const name = route.name || "editor";
-      router
-        .push({ name, params: route.params, query: { view: value } })
-        .catch(() => {});
+    // New Spec dialog + unsaved-changes guard, moved from Toolbar.vue —
+    // the only remaining consumer of that component was AppLayout itself.
+    const confirm = useConfirm();
+    const confirmOpen = ref(false);
+
+    const createBlank = () => {
+      if (app.hasUnsavedChanges.value) {
+        if (!confirmOpen.value) {
+          confirmOpen.value = true;
+          confirm.require({
+            message: "You have unsaved changes. Discard them and create a new blank spec?",
+            header: "Discard unsaved changes?",
+            icon: "pi pi-exclamation-triangle",
+            acceptClass: "p-button-danger",
+            accept: () => {
+              app.discardUnsaved();
+              app.newSpec();
+              showNewDialog.value = false;
+              confirmOpen.value = false;
+            },
+            reject: () => {
+              confirmOpen.value = false;
+            },
+            onHide: () => {
+              confirmOpen.value = false;
+            },
+          });
+        }
+        return;
+      }
+      app.newSpec();
+      showNewDialog.value = false;
     };
 
-    const sidebarCollapsed = ref(false);
-    provide("sidebarCollapsed", sidebarCollapsed);
+    const createFromTemplate = () => {
+      if (app.hasUnsavedChanges.value) {
+        if (!confirmOpen.value) {
+          confirmOpen.value = true;
+          confirm.require({
+            message: "You have unsaved changes. Discard them and create a new spec from template?",
+            header: "Discard unsaved changes?",
+            icon: "pi pi-exclamation-triangle",
+            acceptClass: "p-button-danger",
+            accept: () => {
+              app.discardUnsaved();
+              app.loadTemplate();
+              showNewDialog.value = false;
+              confirmOpen.value = false;
+            },
+            reject: () => {
+              confirmOpen.value = false;
+            },
+            onHide: () => {
+              confirmOpen.value = false;
+            },
+          });
+        }
+        return;
+      }
+      app.loadTemplate();
+      showNewDialog.value = false;
+    };
+
+    provide("openNewSpecDialog", () => (showNewDialog.value = true));
 
     return {
       ...app,
       auth,
-      route,
-      isDev: import.meta.env.DEV,
       loginWithGoogle,
       showTokenDialog,
-      viewModeOptions,
-      selectedView,
-      onViewChange,
+      showNewDialog,
+      createBlank,
+      createFromTemplate,
     };
   },
 };
@@ -273,74 +300,49 @@ body {
   line-height: 1.5;
 }
 
-.view-mode-toggle {
-  display: flex;
-  justify-content: center;
-  margin: 16px 0;
-}
-
-.auth-banner {
-  margin-bottom: 20px;
-}
-
-.auth-banner-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-.editor-container {
+.new-spec-options {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-  height: calc(100vh - 280px);
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px 0;
 }
 
-.editor-container > * {
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+.option-card {
+  padding: 28px 24px;
+  border: 1.5px solid var(--fs-border, #e5e7eb);
+  border-radius: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--fs-surface, #fff);
 }
 
-.editor-container:not(:has(.spec-list)) {
-  grid-template-columns: 1fr;
+.option-card:hover {
+  border-color: var(--fs-primary, #2563ff);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(37, 99, 255, 0.15);
+  background: linear-gradient(135deg, #e2ecfe 0%, #f0f5ff 100%);
 }
 
-.right-split-column {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 320px;
+.option-card i {
+  font-size: 2.5rem;
+  color: var(--fs-primary, #2563ff);
+  margin-bottom: 12px;
+  display: block;
 }
 
-.preview-section {
-  background: var(--fs-surface);
-  border-radius: var(--fs-radius);
-  padding: 12px;
-  box-shadow: var(--fs-shadow);
-  overflow: auto;
-  max-height: calc(100vh - 420px);
+.option-card h4 {
+  margin: 0 0 8px 0;
+  color: #1e293b;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
-.diff-inline-wrapper {
-  background: var(--fs-surface);
-  border-radius: var(--fs-radius);
-  padding: 12px;
-  box-shadow: var(--fs-shadow);
-  overflow: auto;
-  max-height: calc(100vh - 420px);
-}
-
-.preview-full,
-.lint-full {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-  background: var(--fs-surface);
+.option-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 /* PrimeVue theme overrides to match landing page */
@@ -458,26 +460,5 @@ body {
   border-radius: 14px 14px 0 0 !important;
   font-family: 'Space Grotesk', sans-serif !important;
   font-weight: 600 !important;
-}
-
-/* SelectButton styling */
-.p-selectbutton .p-button {
-  font-size: 0.875rem !important;
-}
-
-.p-selectbutton .p-button.p-highlight {
-  background: var(--fs-primary) !important;
-  border-color: var(--fs-primary) !important;
-}
-
-@media (max-width: 1200px) {
-  .editor-container {
-    grid-template-columns: 1fr;
-    height: auto;
-  }
-
-  .split-view {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

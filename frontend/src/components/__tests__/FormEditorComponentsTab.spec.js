@@ -88,8 +88,13 @@ function mockDragEvent(overrides = {}) {
 
 describe("FormEditor - Components (schemas) tab", () => {
   describe("empty state", () => {
-    test("shows empty state message when there are no schemas", () => {
+    test("shows empty state message when there are no schemas", async () => {
       const wrapper = mountFE();
+      // The tree-nav shell only mounts the active tab's content (unlike the
+      // old Tabs-based shell, which kept every TabPanel in the DOM) — select
+      // the Components tab first, same as a real user clicking it.
+      wrapper.vm.active = "components";
+      await nextTick();
       expect(wrapper.text()).toContain("No schemas defined. Add one to get started.");
     });
 

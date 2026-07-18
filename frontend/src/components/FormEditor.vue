@@ -1,99 +1,91 @@
 <template>
-  <div class="form-editor">
-    <div class="form-header">
-      <h3>Form Editor</h3>
-      <div class="form-header__controls">
+  <div class="fet">
+    <aside class="fet-tree">
+      <div class="fet-search">
+        <i class="pi pi-search"></i>
+        <input v-model="query" type="text" placeholder="Jump to a section, path, or schema..." />
+      </div>
+
+      <div class="fet-tree__scroll">
+        <button
+          class="fet-node fet-node--section"
+          :class="{ 'fet-node--active': active === 'info' }"
+          @click="active = 'info'"
+        >
+          <i class="pi pi-info-circle"></i> Info
+        </button>
+
+        <div v-for="s in sections" :key="s.key" class="fet-group">
+          <button
+            class="fet-node fet-node--section"
+            :class="{ 'fet-node--active': active === s.key }"
+            @click="active = s.key"
+          >
+            <i
+              class="pi pi-chevron-right fet-node__caret"
+              :class="{ 'fet-node__caret--open': s.expanded }"
+              @click.stop="toggleCollapsed(s.key)"
+            ></i>
+            <i :class="s.icon"></i> {{ s.label }}
+            <span class="fet-node__count">{{ s.count }}</span>
+          </button>
+          <div v-if="s.expanded && s.filteredItems.length" class="fet-children">
+            <button
+              v-for="item in s.visibleItems"
+              :key="item"
+              class="fet-node fet-node--child"
+              @click="openItem(s.key, item)"
+              :title="item"
+            >
+              <span class="fet-node__dot" :class="s.dotClass"></span>{{ item }}
+            </button>
+            <button
+              v-if="s.remaining > 0"
+              class="fet-node fet-node--more"
+              @click="showAll[s.key] = true"
+            >
+              + {{ s.remaining }} more — search to filter
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="fet-body form-editor">
+      <div class="fet-topbar">
+        <strong>{{ activeLabel }}</strong>
         <Button
           :icon="showLivePreview ? 'pi pi-eye-slash' : 'pi pi-eye'"
           :label="showLivePreview ? 'Hide Preview' : 'Live Preview'"
-          class="preview-toggle-btn"
           size="small"
           text
           @click="$emit('toggle-live-preview')"
         />
       </div>
+
+      <div class="fet-content">
+        <ApiInfoTab v-if="active === 'info'" :form-data="formData" />
+        <ServersTab
+          v-else-if="active === 'servers'"
+          :form-data="formData"
+          :has-empty-server-url="hasEmptyServerUrl"
+          @add-server="addServer"
+          @remove-server="removeServer"
+        />
+        <PathsTab v-else-if="active === 'paths'" :form-data="formData" :api="pathsApi" />
+        <TagsTab
+          v-else-if="active === 'tags'"
+          :form-data="formData"
+          :has-empty-tag-name="hasEmptyTagName"
+          :has-duplicate-tag-name="hasDuplicateTagName"
+          @add-tag="addTag"
+          @remove-tag="removeTag"
+        />
+        <ComponentsTab v-else-if="active === 'components'" :form-data="formData" :api="componentsApi" />
+        <SecurityTab v-else-if="active === 'security'" :form-data="formData" :api="securityApi" />
+      </div>
     </div>
 
-    <div class="form-content">
-      <Tabs value="0">
-        <TabList>
-          <Tab value="0">
-            <i class="pi pi-info-circle"></i>
-            <span>Info</span>
-          </Tab>
-          <Tab value="1">
-            <i class="pi pi-server"></i>
-            <span>Servers</span>
-            <span v-if="tabCounts.servers" class="tab-count-badge">{{ tabCounts.servers }}</span>
-          </Tab>
-          <Tab value="2">
-            <i class="pi pi-sitemap"></i>
-            <span>Paths</span>
-            <span v-if="tabCounts.paths" class="tab-count-badge">{{ tabCounts.paths }}</span>
-          </Tab>
-          <Tab value="3">
-            <i class="pi pi-tag"></i>
-            <span>Tags</span>
-            <span v-if="tabCounts.tags" class="tab-count-badge">{{ tabCounts.tags }}</span>
-          </Tab>
-          <Tab value="4">
-            <i class="pi pi-box"></i>
-            <span>Components</span>
-            <span v-if="tabCounts.components" class="tab-count-badge">{{ tabCounts.components }}</span>
-          </Tab>
-          <Tab value="5">
-            <i class="pi pi-shield"></i>
-            <span>Security</span>
-            <span v-if="tabCounts.security" class="tab-count-badge">{{ tabCounts.security }}</span>
-          </Tab>
-        </TabList>
-
-        <TabPanels>
-          <!-- API Info Tab -->
-          <TabPanel value="0">
-            <ApiInfoTab :form-data="formData" />
-          </TabPanel>
-
-          <!-- Servers Tab -->
-          <TabPanel value="1">
-            <ServersTab
-              :form-data="formData"
-              :has-empty-server-url="hasEmptyServerUrl"
-              @add-server="addServer"
-              @remove-server="removeServer"
-            />
-          </TabPanel>
-
-          <!-- Paths Tab -->
-          <TabPanel value="2">
-            <PathsTab :form-data="formData" :api="pathsApi" />
-          </TabPanel>
-
-          <!-- Tags Tab -->
-          <TabPanel value="3">
-            <TagsTab
-              :form-data="formData"
-              :has-empty-tag-name="hasEmptyTagName"
-              :has-duplicate-tag-name="hasDuplicateTagName"
-              @add-tag="addTag"
-              @remove-tag="removeTag"
-            />
-          </TabPanel>
-
-          <!-- Components Tab -->
-          <TabPanel value="4">
-            <ComponentsTab :form-data="formData" :api="componentsApi" />
-          </TabPanel>
-
-          <!-- Security Tab -->
-          <TabPanel value="5">
-            <SecurityTab :form-data="formData" :api="securityApi" />
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
-    </div>
-
-    <!-- Add / Edit Response Code Dialog (two-step: category → code) -->
     <ResponseCodeDialog
       :visible="showAddResponseDialog"
       @update:visible="showAddResponseDialog = $event"
@@ -111,8 +103,6 @@
       @reset="resetResponseDialog"
       @confirm="confirmResponseDialog"
     />
-
-    <!-- Add Path Dialog -->
     <AddPathDialog
       :visible="showAddPathDialog"
       @update:visible="showAddPathDialog = $event"
@@ -124,8 +114,6 @@
       @path-keydown="handlePathKeydown"
       @confirm="addPath"
     />
-
-    <!-- Add Method Dialog -->
     <AddMethodDialog
       :visible="showAddMethodDialogVisible"
       @update:visible="showAddMethodDialogVisible = $event"
@@ -134,8 +122,6 @@
       @update:method-to-add="methodToAdd = $event"
       @confirm="addMethodToPath"
     />
-
-    <!-- Edit Path Dialog -->
     <EditPathDialog
       :visible="showEditPathDialog"
       @update:visible="showEditPathDialog = $event"
@@ -145,17 +131,12 @@
       @path-keydown="handleEditPathKeydown"
       @confirm="confirmEditPath"
     />
-
   </div>
 </template>
 
 <script>
+import { ref, reactive, computed, watch } from "vue";
 import Button from "primevue/button";
-import Tabs from "primevue/tabs";
-import TabList from "primevue/tablist";
-import Tab from "primevue/tab";
-import TabPanels from "primevue/tabpanels";
-import TabPanel from "primevue/tabpanel";
 import ApiInfoTab from "./form-editor/ApiInfoTab.vue";
 import ServersTab from "./form-editor/ServersTab.vue";
 import TagsTab from "./form-editor/TagsTab.vue";
@@ -168,15 +149,63 @@ import EditPathDialog from "./form-editor/EditPathDialog.vue";
 import ResponseCodeDialog from "./form-editor/ResponseCodeDialog.vue";
 import { useFormEditorState } from "../composables/useFormEditorState";
 
+const LABELS = {
+  info: "API Information",
+  servers: "Servers",
+  paths: "Paths",
+  tags: "Tags",
+  components: "Components",
+  security: "Security",
+};
+
+// Every groupable section (everything but the single-page Info leaf) gets
+// the same collapse + search-filter + capped-list treatment. `getItems`
+// pulls the real child labels straight out of formData so the tree always
+// reflects actual content, not just a count.
+const GROUPS = [
+  {
+    key: "servers",
+    label: "Servers",
+    icon: "pi pi-server",
+    dotClass: "fet-node__dot--server",
+    getItems: (fd) => (fd.servers || []).map((s) => s.url).filter(Boolean),
+  },
+  {
+    key: "paths",
+    label: "Paths",
+    icon: "pi pi-sitemap",
+    dotClass: "",
+    getItems: (fd) => Object.keys(fd.paths || {}),
+  },
+  {
+    key: "tags",
+    label: "Tags",
+    icon: "pi pi-tag",
+    dotClass: "fet-node__dot--tag",
+    getItems: (fd) => (fd.tags || []).map((t) => t.name).filter(Boolean),
+  },
+  {
+    key: "components",
+    label: "Components",
+    icon: "pi pi-box",
+    dotClass: "fet-node__dot--schema",
+    getItems: (fd) => Object.keys(fd.components?.schemas || {}),
+  },
+  {
+    key: "security",
+    label: "Security",
+    icon: "pi pi-shield",
+    dotClass: "fet-node__dot--security",
+    getItems: (fd) => Object.keys(fd.components?.securitySchemes || {}),
+  },
+];
+
+const PAGE_SIZE = 40;
+
 export default {
   name: "FormEditor",
   components: {
     Button,
-    Tabs,
-    TabList,
-    Tab,
-    TabPanels,
-    TabPanel,
     ApiInfoTab,
     ServersTab,
     TagsTab,
@@ -189,34 +218,270 @@ export default {
     ResponseCodeDialog,
   },
   props: {
-    modelValue: {
-      type: Object,
-      required: true,
-    },
-    showLivePreview: {
-      type: Boolean,
-      default: false,
-    },
+    modelValue: { type: Object, required: true },
+    showLivePreview: { type: Boolean, default: false },
   },
   emits: ["update:modelValue", "toggle-live-preview"],
   setup(props, { emit }) {
-    // All state/logic lives in useFormEditorState so the design-prototype
-    // shells (components/form-editor-prototype/*) can reuse the exact same
-    // data wiring and only vary how the tabs are arranged on screen.
-    return useFormEditorState(props, emit);
+    const state = useFormEditorState(props, emit);
+    const active = ref("paths");
+    const query = ref("");
+
+    const activeLabel = computed(() => LABELS[active.value]);
+    const isSearching = computed(() => query.value.trim().length > 0);
+
+    // Collapse/expand per section — the point of a tree over a flat
+    // accordion is that a spec with hundreds of paths (or dozens of tags,
+    // servers, security schemes...) doesn't force that many DOM nodes into
+    // view at once. A search in progress always wins over a manual
+    // collapse (you typed to find something, so show it).
+    const collapsed = reactive({});
+    const showAll = reactive({});
+    for (const g of GROUPS) {
+      collapsed[g.key] = false;
+      showAll[g.key] = false;
+    }
+    const toggleCollapsed = (key) => {
+      collapsed[key] = !collapsed[key];
+    };
+
+    // Typing a fresh search should re-cap every section — otherwise "show
+    // all" from a previous browse stays sticky and defeats the point of
+    // typing.
+    watch(query, () => {
+      for (const g of GROUPS) showAll[g.key] = false;
+    });
+
+    const sections = computed(() =>
+      GROUPS.map((g) => {
+        const all = g.getItems(state.formData.value);
+        const q = query.value.trim().toLowerCase();
+        const filteredItems = q ? all.filter((item) => item.toLowerCase().includes(q)) : all;
+        const limit = showAll[g.key] ? Infinity : PAGE_SIZE;
+        return {
+          key: g.key,
+          label: g.label,
+          icon: g.icon,
+          dotClass: g.dotClass,
+          count: all.length,
+          filteredItems,
+          visibleItems: filteredItems.slice(0, limit),
+          remaining: Math.max(0, filteredItems.length - limit),
+          expanded: isSearching.value || !collapsed[g.key],
+        };
+      }),
+    );
+
+    // Clicking a path/schema in the tree should actually open that item —
+    // not just switch to its tab and leave the user to find it again in a
+    // list of hundreds. Servers/Tags/Security are flat lists with no
+    // per-item open/closed state to drive, so those just switch tabs (their
+    // existing behavior).
+    const openItem = (sectionKey, item) => {
+      active.value = sectionKey;
+      if (sectionKey === "paths") {
+        const pathItem = state.pathsList.value.find((p) => p.path === item);
+        state.selectAndOpenPath(item, pathItem?.methods?.[0]);
+      } else if (sectionKey === "components") {
+        state.selectAndOpenSchema(item);
+      }
+    };
+
+    return {
+      ...state,
+      active,
+      query,
+      activeLabel,
+      sections,
+      showAll,
+      toggleCollapsed,
+      openItem,
+    };
   },
 };
 </script>
 
-<style>
-/* Shared, unscoped by design: PathsTab/ComponentsTab/ServersTab/TagsTab/
-   ApiInfoTab/SecurityTab and the Add/Edit dialogs were split out of this
-   component into their own SFCs, but Vue's `scoped` CSS only reaches a
-   component's OWN template — it does not reach into child components'
-   internals. These classes need to be visible across that whole family
-   (including inside PrimeVue Dialogs, which teleport their content out of
-   this component's DOM subtree entirely), so they live in a real global
-   stylesheet instead. See src/assets/form-editor-shared.css's header
-   comment for how collisions with the rest of the app are avoided. */
-@import "../assets/form-editor-shared.css";
+<style scoped>
+.fet {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.fet-tree {
+  display: flex;
+  flex-direction: column;
+  background: #fafbfc;
+  border-right: 1px solid #e5e7eb;
+  min-height: 0;
+}
+
+.fet-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #9ca3af;
+}
+
+.fet-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  background: transparent;
+  color: #111827;
+}
+
+.fet-tree__scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.fet-node {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.fet-node--section {
+  font-weight: 600;
+}
+
+.fet-node:hover {
+  background: #f3f4f6;
+}
+
+.fet-node--active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.fet-node__count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+}
+
+.fet-node--active .fet-node__count {
+  color: #3b82f6;
+}
+
+.fet-children {
+  padding-left: 14px;
+  border-left: 1px dashed #e5e7eb;
+  margin-left: 20px;
+}
+
+.fet-node--child {
+  font-weight: 400;
+  font-size: 12px;
+  font-family: "SF Mono", "Monaco", monospace;
+  color: #6b7280;
+  padding: 5px 8px;
+}
+
+.fet-node--more {
+  font-weight: 500;
+  font-size: 11px;
+  font-style: italic;
+  color: #9ca3af;
+  padding: 5px 8px;
+}
+
+.fet-node--more:hover {
+  color: #6b7280;
+}
+
+.fet-node__caret {
+  font-size: 9px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  padding: 4px;
+  margin: -4px;
+  border-radius: 4px;
+  transition: transform 0.15s ease;
+}
+
+.fet-node__caret:hover {
+  color: #6b7280;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.fet-node__caret--open {
+  transform: rotate(90deg);
+}
+
+.fet-node__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #93c5fd;
+  flex-shrink: 0;
+}
+
+.fet-node__dot--server {
+  background: #6ee7b7;
+}
+
+.fet-node__dot--tag {
+  background: #fcd34d;
+}
+
+.fet-node__dot--security {
+  background: #fca5a5;
+}
+
+.fet-node__dot--schema {
+  background: #c4b5fd;
+}
+
+.fet-group {
+  margin-bottom: 2px;
+}
+
+.fet-body.form-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  height: auto;
+}
+
+.fet-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.fet-topbar strong {
+  color: #111827;
+}
+
+.fet-content {
+  flex: 1;
+  overflow-y: auto;
+}
 </style>

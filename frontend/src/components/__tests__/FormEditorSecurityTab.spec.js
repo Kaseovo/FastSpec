@@ -76,8 +76,13 @@ function mountFE(modelValue) {
 
 describe("FormEditor - Security tab", () => {
   describe("empty state", () => {
-    test("shows empty state message when there are no schemes", () => {
+    test("shows empty state message when there are no schemes", async () => {
       const wrapper = mountFE();
+      // The tree-nav shell only mounts the active tab's content (unlike the
+      // old Tabs-based shell, which kept every TabPanel in the DOM) — select
+      // the Security tab first, same as a real user clicking it.
+      wrapper.vm.active = "security";
+      await wrapper.vm.$nextTick();
       expect(wrapper.text()).toContain(
         "No security schemes defined. Add one to get started."
       );

@@ -105,7 +105,7 @@ export function useApp() {
 
   // legacy provides
   // Wrap editor.newSpec so it also triggers spec list refresh and updates parsed preview
-  provide("newSpec", () => {
+  const newSpec = () => {
     try {
       editor.newSpec();
       // update parsed preview immediately so UI reflects the new draft
@@ -147,7 +147,13 @@ export function useApp() {
     } catch (err) {
       console.error("useApp.newSpec wrapper: failed to create new spec", err);
     }
-  });
+  };
+  const discardUnsaved = () => {
+    editor.unsavedSpec.value = null;
+    editor.hasUnsavedChanges.value = false;
+  };
+
+  provide("newSpec", newSpec);
   provide("openSaveDialog", saver.openSaveDialog);
   provide("loadTemplate", loadTemplate);
   provide("togglePreview", togglePreview);
@@ -157,10 +163,7 @@ export function useApp() {
   provide("refreshSpecList", specListKey);
   provide("unsavedSpec", editor.unsavedSpec);
   provide("hasUnsavedChanges", editor.hasUnsavedChanges);
-  provide("discardUnsaved", () => {
-    editor.unsavedSpec.value = null;
-    editor.hasUnsavedChanges.value = false;
-  });
+  provide("discardUnsaved", discardUnsaved);
   provide("getCurrentEditorSpec", () => editor.parsedSpec.value);
   provide(
     "lintScore",
@@ -190,6 +193,9 @@ export function useApp() {
     updateFromForm: editor.updateFromForm,
     loadSpec: loadSpec,
     loadTemplate,
+    newSpec,
+    hasUnsavedChanges: editor.hasUnsavedChanges,
+    discardUnsaved,
     saveSpec,
     lintResults,
     lintLoading,
