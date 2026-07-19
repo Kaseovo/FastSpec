@@ -130,130 +130,35 @@
             @change="onTypeChange"
           />
         </div>
-        <!-- String validations -->
-        <div v-if="parameter.schema.type === 'string'" class="form-row">
-          <div class="form-field">
-            <label>Format</label>
-            <Select
-              v-model="parameter.schema.format"
-              :options="['', 'date', 'date-time', 'email', 'uri', 'uuid', 'hostname', 'ipv4', 'ipv6']"
-              placeholder="Format"
-            />
-          </div>
-          <div class="form-field">
-            <label>Pattern</label>
-            <InputText v-model="parameter.schema.pattern" placeholder="^[a-zA-Z0-9]+$" />
-          </div>
-        </div>
 
-        <div v-if="parameter.schema.type === 'string'" class="form-row">
-          <div class="form-field">
-            <label>Min Length</label>
-            <InputNumber v-model="parameter.schema.minLength" placeholder="Min length" :min="0" />
-          </div>
-          <div class="form-field">
-            <label>Max Length</label>
-            <InputNumber v-model="parameter.schema.maxLength" placeholder="Max length" :min="0" />
-          </div>
-        </div>
-
-        <!-- Number/Integer validations -->
+        <!-- Format: same field for every type that has one, just different option lists -->
         <div
-          v-if="parameter.schema.type === 'number' || parameter.schema.type === 'integer'"
-          class="form-row"
+          v-if="parameter.schema.type === 'string' || parameter.schema.type === 'number' || parameter.schema.type === 'integer'"
+          class="form-field"
         >
-          <div class="form-field">
-            <label>Minimum</label>
-            <InputNumber v-model="parameter.schema.minimum" placeholder="Min value" />
-          </div>
-          <div class="form-field">
-            <label>Maximum</label>
-            <InputNumber v-model="parameter.schema.maximum" placeholder="Max value" />
-          </div>
-        </div>
-
-        <div
-          v-if="parameter.schema.type === 'number' || parameter.schema.type === 'integer'"
-          class="form-row"
-        >
-          <div class="form-field">
-            <label>Format</label>
-            <Select
-              v-model="parameter.schema.format"
-              :options="parameter.schema.type === 'integer' ? ['', 'int32', 'int64'] : ['', 'float', 'double']"
-              placeholder="Format"
-            />
-          </div>
-          <div class="form-field">
-            <label>Multiple Of</label>
-            <InputNumber v-model="parameter.schema.multipleOf" placeholder="Multiple of" :min="0" />
-          </div>
-        </div>
-
-        <div
-          v-if="parameter.schema.type === 'number' || parameter.schema.type === 'integer'"
-          class="form-row"
-        >
-          <template v-if="isOpenAPI31">
-            <div class="form-field">
-              <label for="param-excl-min">Exclusive Minimum</label>
-              <InputNumber v-model="parameter.schema.exclusiveMinimum" inputId="param-excl-min" placeholder="Exclusive min value" />
-            </div>
-            <div class="form-field">
-              <label for="param-excl-max">Exclusive Maximum</label>
-              <InputNumber v-model="parameter.schema.exclusiveMaximum" inputId="param-excl-max" placeholder="Exclusive max value" />
-            </div>
-          </template>
-          <template v-else>
-            <div class="form-field checkbox-field">
-              <Checkbox v-model="parameter.schema.exclusiveMinimum" inputId="param-excl-min" :binary="true" />
-              <label for="param-excl-min">Exclusive Minimum</label>
-            </div>
-            <div class="form-field checkbox-field">
-              <Checkbox v-model="parameter.schema.exclusiveMaximum" inputId="param-excl-max" :binary="true" />
-              <label for="param-excl-max">Exclusive Maximum</label>
-            </div>
-          </template>
-        </div>
-
-        <!-- Array validations -->
-        <div v-if="parameter.schema.type === 'array'" class="form-row" style="margin-top: 0.75rem;">
-          <div class="form-field">
-            <label>Min Items</label>
-            <InputNumber v-model="parameter.schema.minItems" placeholder="Min items" :min="0" />
-          </div>
-          <div class="form-field">
-            <label>Max Items</label>
-            <InputNumber v-model="parameter.schema.maxItems" placeholder="Max items" :min="0" />
-          </div>
-        </div>
-
-        <div v-if="parameter.schema.type === 'array'" class="form-field checkbox-field">
-          <Checkbox v-model="parameter.schema.uniqueItems" inputId="param-unique" :binary="true" />
-          <label for="param-unique">Unique Items</label>
-        </div>
-
-        <!-- Enum values -->
-        <div class="form-field" v-if="parameter.schema.type !== 'object'">
-          <label>Enum Values (optional)</label>
-          <AutoComplete
-            multiple
-            typeahead
-            v-model="parameter.schema.enum"
-            :suggestions="[]"
-            placeholder="Add enum value and press Enter"
-            @keydown.enter.prevent="addChipOnEnter($event, parameter.schema, 'enum')"
+          <label>Format</label>
+          <Select
+            v-model="parameter.schema.format"
+            :options="
+              parameter.schema.type === 'string'
+                ? ['', 'date', 'date-time', 'email', 'uri', 'uuid', 'hostname', 'ipv4', 'ipv6']
+                : parameter.schema.type === 'integer'
+                  ? ['', 'int32', 'int64']
+                  : ['', 'float', 'double']
+            "
+            placeholder="Format"
           />
         </div>
 
-        <div class="form-field">
-          <label>Default Value</label>
-          <InputText v-model="parameter.schema.default" placeholder="Default value" />
-        </div>
-
-        <div class="form-field">
-          <label>Example</label>
-          <InputText v-model="parameter.schema.example" placeholder="Example value" />
+        <div class="form-row">
+          <div class="form-field">
+            <label>Default Value</label>
+            <InputText v-model="parameter.schema.default" placeholder="Default value" />
+          </div>
+          <div class="form-field">
+            <label>Example</label>
+            <InputText v-model="parameter.schema.example" placeholder="Example value" />
+          </div>
         </div>
 
         <div class="form-row">
@@ -277,6 +182,118 @@
               <Checkbox v-model="parameter.schema.nullable" inputId="param-nullable" :binary="true" />
             </template>
             <label for="param-nullable">Nullable</label>
+          </div>
+        </div>
+
+        <!-- Everything below is optional, type-specific fine-tuning that most
+             parameters never need — collapsed by default so the fields above
+             (which every parameter has an opinion on) aren't buried under
+             constraints most people skip. -->
+        <button
+          type="button"
+          class="validation-advanced-toggle"
+          @click="showValidationRules = !showValidationRules"
+        >
+          <i :class="['pi', showValidationRules ? 'pi-chevron-down' : 'pi-chevron-right']"></i>
+          {{ showValidationRules ? 'Hide validation rules' : 'Show validation rules' }}
+          <span v-if="advancedFieldCount">({{ advancedFieldCount }} more)</span>
+        </button>
+
+        <div v-show="showValidationRules" class="validation-advanced">
+          <!-- String validations -->
+          <div v-if="parameter.schema.type === 'string'" class="form-field">
+            <label>Pattern</label>
+            <InputText v-model="parameter.schema.pattern" placeholder="^[a-zA-Z0-9]+$" />
+          </div>
+
+          <div v-if="parameter.schema.type === 'string'" class="form-row">
+            <div class="form-field">
+              <label>Min Length</label>
+              <InputNumber v-model="parameter.schema.minLength" placeholder="Min length" :min="0" />
+            </div>
+            <div class="form-field">
+              <label>Max Length</label>
+              <InputNumber v-model="parameter.schema.maxLength" placeholder="Max length" :min="0" />
+            </div>
+          </div>
+
+          <!-- Number/Integer validations -->
+          <div
+            v-if="parameter.schema.type === 'number' || parameter.schema.type === 'integer'"
+            class="form-row"
+          >
+            <div class="form-field">
+              <label>Minimum</label>
+              <InputNumber v-model="parameter.schema.minimum" placeholder="Min value" />
+            </div>
+            <div class="form-field">
+              <label>Maximum</label>
+              <InputNumber v-model="parameter.schema.maximum" placeholder="Max value" />
+            </div>
+          </div>
+
+          <div
+            v-if="parameter.schema.type === 'number' || parameter.schema.type === 'integer'"
+            class="form-field"
+          >
+            <label>Multiple Of</label>
+            <InputNumber v-model="parameter.schema.multipleOf" placeholder="Multiple of" :min="0" />
+          </div>
+
+          <div
+            v-if="parameter.schema.type === 'number' || parameter.schema.type === 'integer'"
+            class="form-row"
+          >
+            <template v-if="isOpenAPI31">
+              <div class="form-field">
+                <label for="param-excl-min">Exclusive Minimum</label>
+                <InputNumber v-model="parameter.schema.exclusiveMinimum" inputId="param-excl-min" placeholder="Exclusive min value" />
+              </div>
+              <div class="form-field">
+                <label for="param-excl-max">Exclusive Maximum</label>
+                <InputNumber v-model="parameter.schema.exclusiveMaximum" inputId="param-excl-max" placeholder="Exclusive max value" />
+              </div>
+            </template>
+            <template v-else>
+              <div class="form-field checkbox-field">
+                <Checkbox v-model="parameter.schema.exclusiveMinimum" inputId="param-excl-min" :binary="true" />
+                <label for="param-excl-min">Exclusive Minimum</label>
+              </div>
+              <div class="form-field checkbox-field">
+                <Checkbox v-model="parameter.schema.exclusiveMaximum" inputId="param-excl-max" :binary="true" />
+                <label for="param-excl-max">Exclusive Maximum</label>
+              </div>
+            </template>
+          </div>
+
+          <!-- Array validations -->
+          <div v-if="parameter.schema.type === 'array'" class="form-row">
+            <div class="form-field">
+              <label>Min Items</label>
+              <InputNumber v-model="parameter.schema.minItems" placeholder="Min items" :min="0" />
+            </div>
+            <div class="form-field">
+              <label>Max Items</label>
+              <InputNumber v-model="parameter.schema.maxItems" placeholder="Max items" :min="0" />
+            </div>
+          </div>
+
+          <div v-if="parameter.schema.type === 'array'" class="form-field checkbox-field">
+            <Checkbox v-model="parameter.schema.uniqueItems" inputId="param-unique" :binary="true" />
+            <label for="param-unique">Unique Items</label>
+          </div>
+
+          <!-- Enum values -->
+          <div class="form-field" v-if="parameter.schema.type !== 'object'">
+            <label>Enum Values (optional)</label>
+            <AutoComplete
+              multiple
+              typeahead
+              v-model="parameter.schema.enum"
+              :suggestions="[]"
+              placeholder="Add enum value and press Enter"
+              @keydown.enter.prevent="addChipOnEnter($event, parameter.schema, 'enum')"
+            />
           </div>
         </div>
       </div>
@@ -445,7 +462,7 @@
 </template>
 
 <script>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import "../../assets/form-editor-shared.css";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
@@ -499,6 +516,30 @@ export default {
     });
     const stepIndex = computed(() => steps.value.findIndex((s) => s.key === props.step));
 
+    // Type & Validation's fine-tuning fields (pattern, min/max, multipleOf,
+    // exclusive bounds, uniqueItems, enum) are collapsed by default — most
+    // parameters never set them, so showing them unconditionally buried the
+    // handful of fields every parameter actually has an opinion on (type,
+    // format, default, required). Collapses again each time the dialog is
+    // reopened rather than persisting, same as every other per-open dialog
+    // state in this app (see e.g. AddTagDialog's resetTagDialog).
+    const showValidationRules = ref(false);
+    watch(
+      () => props.visible,
+      (visible) => {
+        if (visible) showValidationRules.value = false;
+      },
+    );
+
+    const advancedFieldCount = computed(() => {
+      const type = parameter.value?.schema?.type;
+      let count = type === "object" ? 0 : 1; // enum, unless object
+      if (type === "string") count += 3; // pattern, minLength, maxLength
+      if (type === "number" || type === "integer") count += 5; // min, max, multipleOf, exclusiveMin, exclusiveMax
+      if (type === "array") count += 3; // minItems, maxItems, uniqueItems
+      return count;
+    });
+
     const onCreateReusableParameter = () => {
       const name = props.api.addReusableParameter();
       if (parameter.value) parameter.value.$ref = `#/components/parameters/${name}`;
@@ -527,6 +568,8 @@ export default {
       parameter,
       steps,
       stepIndex,
+      showValidationRules,
+      advancedFieldCount,
       onCreateReusableParameter,
       onTypeChange,
     };
@@ -632,5 +675,36 @@ export default {
 .wizard-step--done .wizard-step__dot {
   background: #16a34a;
   color: #ffffff;
+}
+
+/* ── Type & Validation's collapsed "advanced" fields ── */
+.validation-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 4px 0 16px;
+  padding: 8px 0;
+  border: none;
+  border-top: 1px solid #f3f4f6;
+  background: none;
+  color: #3b82f6;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.validation-advanced-toggle:hover {
+  color: #2563eb;
+}
+
+.validation-advanced-toggle .pi {
+  font-size: 11px;
+}
+
+.validation-advanced-toggle span {
+  color: #9ca3af;
+  font-weight: 400;
 }
 </style>
