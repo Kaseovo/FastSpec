@@ -353,10 +353,35 @@
   width: 100%;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  padding: 10px 12px;
   font-size: 14px;
   transition: border-color 0.15s ease;
   background: #ffffff;
+}
+
+.form-field .p-inputtext,
+.form-field .p-textarea,
+.form-field .p-inputnumber-input {
+  padding: 10px 12px;
+}
+
+/* Select's own padding must live on its inner label, not this wrapper —
+   PrimeVue's .p-select already boxes its label/dropdown-icon internally, so
+   padding here on top of that doubled up and rendered visibly taller than
+   InputText/InputNumber next to it in the same form-row (e.g. Location next
+   to Name, Type next to Format). Pin to the same rendered height instead. */
+.form-field .p-select {
+  height: 2.375rem;
+  min-height: unset;
+  display: flex;
+  align-items: center;
+}
+
+.form-field .p-select-label {
+  padding: 0 0.5rem;
+  line-height: normal;
+  overflow: visible;
+  white-space: nowrap;
+  flex: 1;
 }
 
 .form-field .p-inputtext:hover,
