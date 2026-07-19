@@ -119,166 +119,17 @@
         </div>
       </template>
 
-      <!-- Step 2: Type -->
-      <div v-else-if="step === 'type'" class="param-content">
+      <!-- Step 2: Type & Validation -->
+      <div v-else-if="step === 'validation'" class="param-content">
         <div class="form-field">
           <label class="required">Type</label>
           <Select
             v-model="parameter.schema.type"
             :options="['string', 'number', 'integer', 'boolean', 'array', 'object']"
             placeholder="Type"
-            @change="onPropertyTypeChange(parameter.schema)"
+            @change="onTypeChange"
           />
         </div>
-        <template v-if="parameter.schema.type === 'array'">
-          <div class="form-field">
-            <label>Items Type(s)</label>
-            <MultiSelect
-              :modelValue="parameter.schema._itemSchemas ? [...new Set(parameter.schema._itemSchemas.map(s => s.type))] : []"
-              :options="['string','number','integer','boolean','object']"
-              placeholder="Select one or more types"
-              display="chip"
-              @update:modelValue="onItemTypesChange(parameter.schema, $event)"
-            />
-          </div>
-          <!-- Per-type schema sections -->
-          <div v-if="parameter.schema._itemSchemas && parameter.schema._itemSchemas.length > 0" class="item-schemas-list">
-            <div
-              v-for="(itemSchema, sIdx) in parameter.schema._itemSchemas"
-              :key="sIdx"
-              class="item-schema-entry"
-            >
-              <div class="item-schema-entry-header">
-                <span :class="['type-badge', 'type-badge--' + itemSchema.type]">{{ itemSchema.type }}</span>
-                <span v-if="itemSchema.type === 'object' && itemSchema.$ref" class="item-schema-ref-label">{{ itemSchema.$ref.split('/').pop() }}</span>
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  size="small"
-                  class="item-schema-remove"
-                  v-tooltip.top="'Remove this type entry'"
-                  @click="parameter.schema._itemSchemas.splice(sIdx, 1)"
-                />
-              </div>
-              <div class="item-schema-entry-body">
-                <!-- object: $ref picker + add more objects -->
-                <template v-if="itemSchema.type === 'object'">
-                  <div class="form-field">
-                    <label>Schema Reference</label>
-                    <div class="schema-selector">
-                      <Select
-                        v-model="itemSchema.$ref"
-                        :options="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value))"
-                        optionLabel="label"
-                        optionValue="value"
-                        :placeholder="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0 ? 'No schemas available' : 'Select schema'"
-                        :disabled="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0"
-                      />
-                      <Button
-                        label="New Schema"
-                        icon="pi pi-plus"
-                        size="small"
-                        text
-                        @click="addSchema"
-                      />
-                    </div>
-                    <small
-                      v-if="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0"
-                      class="helper-text"
-                    >{{ availableSchemas.length === 0 ? 'No schemas yet — create one first.' : 'All schemas are already used — create a new one.' }}</small>
-                  </div>
-                  <Button
-                    v-if="sIdx === parameter.schema._itemSchemas.map((s,i) => s.type === 'object' ? i : -1).filter(i => i >= 0).slice(-1)[0]"
-                    label="Add another object schema"
-                    icon="pi pi-plus"
-                    size="small"
-                    text
-                    class="mt-1"
-                    @click="parameter.schema._itemSchemas.splice(sIdx + 1, 0, { type: 'object', $ref: '' })"
-                  />
-                </template>
-                <!-- string validations -->
-                <template v-else-if="itemSchema.type === 'string'">
-                  <div class="form-row">
-                    <div class="form-field">
-                      <label>Format</label>
-                      <Select v-model="itemSchema.format" :options="['','date','date-time','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" />
-                    </div>
-                    <div class="form-field">
-                      <label>Pattern</label>
-                      <InputText v-model="itemSchema.pattern" placeholder="^[a-zA-Z0-9]+$" />
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-field">
-                      <label>Min Length</label>
-                      <InputNumber v-model="itemSchema.minLength" placeholder="Min length" :min="0" />
-                    </div>
-                    <div class="form-field">
-                      <label>Max Length</label>
-                      <InputNumber v-model="itemSchema.maxLength" placeholder="Max length" :min="0" />
-                    </div>
-                  </div>
-                </template>
-                <!-- number / integer validations -->
-                <template v-else-if="itemSchema.type === 'number' || itemSchema.type === 'integer'">
-                  <div class="form-row">
-                    <div class="form-field">
-                      <label>Format</label>
-                      <Select v-model="itemSchema.format" :options="itemSchema.type === 'integer' ? ['','int32','int64'] : ['','float','double']" placeholder="Format" />
-                    </div>
-                    <div class="form-field">
-                      <label>Multiple Of</label>
-                      <InputNumber v-model="itemSchema.multipleOf" placeholder="Multiple of" :min="0" />
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-field">
-                      <label>Minimum</label>
-                      <InputNumber v-model="itemSchema.minimum" placeholder="Min value" />
-                    </div>
-                    <div class="form-field">
-                      <label>Maximum</label>
-                      <InputNumber v-model="itemSchema.maximum" placeholder="Max value" />
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <template v-if="isOpenAPI31">
-                      <div class="form-field">
-                        <label :for="'item-excl-min-' + sIdx">Exclusive Minimum</label>
-                        <InputNumber v-model="itemSchema.exclusiveMinimum" :inputId="'item-excl-min-' + sIdx" placeholder="Exclusive min value" />
-                      </div>
-                      <div class="form-field">
-                        <label :for="'item-excl-max-' + sIdx">Exclusive Maximum</label>
-                        <InputNumber v-model="itemSchema.exclusiveMaximum" :inputId="'item-excl-max-' + sIdx" placeholder="Exclusive max value" />
-                      </div>
-                    </template>
-                    <template v-else>
-                      <div class="form-field checkbox-field">
-                        <Checkbox v-model="itemSchema.exclusiveMinimum" :inputId="'item-excl-min-' + sIdx" :binary="true" />
-                        <label :for="'item-excl-min-' + sIdx">Exclusive Minimum</label>
-                      </div>
-                      <div class="form-field checkbox-field">
-                        <Checkbox v-model="itemSchema.exclusiveMaximum" :inputId="'item-excl-max-' + sIdx" :binary="true" />
-                        <label :for="'item-excl-max-' + sIdx">Exclusive Maximum</label>
-                      </div>
-                    </template>
-                  </div>
-                </template>
-                <!-- boolean: no constraints -->
-                <template v-else-if="itemSchema.type === 'boolean'">
-                  <p class="helper-text">No additional constraints for boolean.</p>
-                </template>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Step 3: Validation -->
-      <div v-else-if="step === 'validation'" class="param-content">
         <!-- String validations -->
         <div v-if="parameter.schema.type === 'string'" class="form-row">
           <div class="form-field">
@@ -429,6 +280,153 @@
           </div>
         </div>
       </div>
+
+      <!-- Step 3: Array Items (only reachable when Type is "array") -->
+      <div v-else-if="step === 'arrayItems'" class="param-content">
+        <div class="form-field">
+          <label>Items Type(s)</label>
+          <MultiSelect
+            :modelValue="parameter.schema._itemSchemas ? [...new Set(parameter.schema._itemSchemas.map(s => s.type))] : []"
+            :options="['string','number','integer','boolean','object']"
+            placeholder="Select one or more types"
+            display="chip"
+            @update:modelValue="onItemTypesChange(parameter.schema, $event)"
+          />
+        </div>
+        <!-- Per-type schema sections -->
+        <div v-if="parameter.schema._itemSchemas && parameter.schema._itemSchemas.length > 0" class="item-schemas-list">
+          <div
+            v-for="(itemSchema, sIdx) in parameter.schema._itemSchemas"
+            :key="sIdx"
+            class="item-schema-entry"
+          >
+            <div class="item-schema-entry-header">
+              <span :class="['type-badge', 'type-badge--' + itemSchema.type]">{{ itemSchema.type }}</span>
+              <span v-if="itemSchema.type === 'object' && itemSchema.$ref" class="item-schema-ref-label">{{ itemSchema.$ref.split('/').pop() }}</span>
+              <Button
+                icon="pi pi-trash"
+                severity="danger"
+                text
+                rounded
+                size="small"
+                class="item-schema-remove"
+                v-tooltip.top="'Remove this type entry'"
+                @click="parameter.schema._itemSchemas.splice(sIdx, 1)"
+              />
+            </div>
+            <div class="item-schema-entry-body">
+              <!-- object: $ref picker + add more objects -->
+              <template v-if="itemSchema.type === 'object'">
+                <div class="form-field">
+                  <label>Schema Reference</label>
+                  <div class="schema-selector">
+                    <Select
+                      v-model="itemSchema.$ref"
+                      :options="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value))"
+                      optionLabel="label"
+                      optionValue="value"
+                      :placeholder="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0 ? 'No schemas available' : 'Select schema'"
+                      :disabled="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0"
+                    />
+                    <Button
+                      label="New Schema"
+                      icon="pi pi-plus"
+                      size="small"
+                      text
+                      @click="addSchema"
+                    />
+                  </div>
+                  <small
+                    v-if="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0"
+                    class="helper-text"
+                  >{{ availableSchemas.length === 0 ? 'No schemas yet — create one first.' : 'All schemas are already used — create a new one.' }}</small>
+                </div>
+                <Button
+                  v-if="sIdx === parameter.schema._itemSchemas.map((s,i) => s.type === 'object' ? i : -1).filter(i => i >= 0).slice(-1)[0]"
+                  label="Add another object schema"
+                  icon="pi pi-plus"
+                  size="small"
+                  text
+                  class="mt-1"
+                  @click="parameter.schema._itemSchemas.splice(sIdx + 1, 0, { type: 'object', $ref: '' })"
+                />
+              </template>
+              <!-- string validations -->
+              <template v-else-if="itemSchema.type === 'string'">
+                <div class="form-row">
+                  <div class="form-field">
+                    <label>Format</label>
+                    <Select v-model="itemSchema.format" :options="['','date','date-time','email','uri','uuid','hostname','ipv4','ipv6']" placeholder="Format" />
+                  </div>
+                  <div class="form-field">
+                    <label>Pattern</label>
+                    <InputText v-model="itemSchema.pattern" placeholder="^[a-zA-Z0-9]+$" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-field">
+                    <label>Min Length</label>
+                    <InputNumber v-model="itemSchema.minLength" placeholder="Min length" :min="0" />
+                  </div>
+                  <div class="form-field">
+                    <label>Max Length</label>
+                    <InputNumber v-model="itemSchema.maxLength" placeholder="Max length" :min="0" />
+                  </div>
+                </div>
+              </template>
+              <!-- number / integer validations -->
+              <template v-else-if="itemSchema.type === 'number' || itemSchema.type === 'integer'">
+                <div class="form-row">
+                  <div class="form-field">
+                    <label>Format</label>
+                    <Select v-model="itemSchema.format" :options="itemSchema.type === 'integer' ? ['','int32','int64'] : ['','float','double']" placeholder="Format" />
+                  </div>
+                  <div class="form-field">
+                    <label>Multiple Of</label>
+                    <InputNumber v-model="itemSchema.multipleOf" placeholder="Multiple of" :min="0" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-field">
+                    <label>Minimum</label>
+                    <InputNumber v-model="itemSchema.minimum" placeholder="Min value" />
+                  </div>
+                  <div class="form-field">
+                    <label>Maximum</label>
+                    <InputNumber v-model="itemSchema.maximum" placeholder="Max value" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <template v-if="isOpenAPI31">
+                    <div class="form-field">
+                      <label :for="'item-excl-min-' + sIdx">Exclusive Minimum</label>
+                      <InputNumber v-model="itemSchema.exclusiveMinimum" :inputId="'item-excl-min-' + sIdx" placeholder="Exclusive min value" />
+                    </div>
+                    <div class="form-field">
+                      <label :for="'item-excl-max-' + sIdx">Exclusive Maximum</label>
+                      <InputNumber v-model="itemSchema.exclusiveMaximum" :inputId="'item-excl-max-' + sIdx" placeholder="Exclusive max value" />
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="form-field checkbox-field">
+                      <Checkbox v-model="itemSchema.exclusiveMinimum" :inputId="'item-excl-min-' + sIdx" :binary="true" />
+                      <label :for="'item-excl-min-' + sIdx">Exclusive Minimum</label>
+                    </div>
+                    <div class="form-field checkbox-field">
+                      <Checkbox v-model="itemSchema.exclusiveMaximum" :inputId="'item-excl-max-' + sIdx" :binary="true" />
+                      <label :for="'item-excl-max-' + sIdx">Exclusive Maximum</label>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <!-- boolean: no constraints -->
+              <template v-else-if="itemSchema.type === 'boolean'">
+                <p class="helper-text">No additional constraints for boolean.</p>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <template #footer>
       <Button label="Cancel" text @click="$emit('update:visible', false); $emit('cancel')" />
@@ -461,20 +459,26 @@ import AutoComplete from "primevue/autocomplete";
 // The "Add/Edit Parameter" wizard — same shape as AddTagDialog/
 // AddMethodDialog: FormEditor.vue keeps ownership of the step state
 // (parameterDialogStep/goToNextParameterStep/.../cancelParameterDialog, all
-// in usePathsEditor.js), this component is just presentational. Three steps
-// (Basic Info / Type / Validation) for an inline parameter, but a $ref
-// parameter has nothing to type/validate — ALL_STEPS collapses to just
-// Basic Info for it, computed reactively so toggling inline<->ref mid-dialog
-// (via the buttons on step 1) updates the step rail immediately. `api` is
-// the same usePathsEditor() bundle every operation step receives; the
-// parameter being edited (api.editingParameter) is the live object at
-// api.selectedPath/selectedMethod's current editingParameterIndex, so
-// v-model here mutates formData directly like every other dialog.
-const ALL_STEPS = [
+// in usePathsEditor.js), this component is just presentational. Basic Info,
+// then Type & Validation (Type lives there rather than its own step, since
+// most types — everything but array — have nothing else to configure on a
+// bare "Type" page). Array gets a third "Array Items" step for the per-type
+// item schema breakdown, which is sizeable enough (its own multiselect plus
+// a growable list of type-specific sub-forms) to crowd the Type &
+// Validation step otherwise. A $ref parameter has nothing to type/validate
+// at all, so `steps` collapses to just Basic Info for it. All of this
+// reacts immediately as the parameter changes (ref toggle, type picker),
+// same as parameterDialogStepOrder in usePathsEditor.js, which this must
+// stay in lockstep with. `api` is the same usePathsEditor() bundle every
+// operation step receives; the parameter being edited (api.editingParameter)
+// is the live object at api.selectedPath/selectedMethod's current
+// editingParameterIndex, so v-model here mutates formData directly like
+// every other dialog.
+const BASIC_STEPS = [
   { key: "basicInfo", label: "Basic Info" },
-  { key: "type", label: "Type" },
-  { key: "validation", label: "Validation" },
+  { key: "validation", label: "Type & Validation" },
 ];
+const ARRAY_STEPS = [...BASIC_STEPS, { key: "arrayItems", label: "Array Items" }];
 const REF_STEPS = [{ key: "basicInfo", label: "Basic Info" }];
 
 export default {
@@ -489,14 +493,33 @@ export default {
   emits: ["update:visible", "back", "next", "cancel", "finish"],
   setup(props) {
     const parameter = computed(() => props.api.editingParameter.value);
-    const steps = computed(() =>
-      props.api.isParameterRef(parameter.value) ? REF_STEPS : ALL_STEPS,
-    );
+    const steps = computed(() => {
+      if (props.api.isParameterRef(parameter.value)) return REF_STEPS;
+      return parameter.value?.schema?.type === "array" ? ARRAY_STEPS : BASIC_STEPS;
+    });
     const stepIndex = computed(() => steps.value.findIndex((s) => s.key === props.step));
 
     const onCreateReusableParameter = () => {
       const name = props.api.addReusableParameter();
       if (parameter.value) parameter.value.$ref = `#/components/parameters/${name}`;
+    };
+
+    // onPropertyTypeChange (shared with request bodies/responses/schema
+    // properties) deliberately leaves _itemSchemas empty on "array" — see
+    // its definition in usePathsEditor.js. That means the per-type detail
+    // section below the Items Type(s) multiselect never shows until the
+    // user picks a type there too, which for a *brand-new* parameter reads
+    // as "nothing happened" when they just picked "array". Editing an
+    // existing array parameter never hits this because _itemSchemas is
+    // already populated from the loaded spec. Seed one string entry here,
+    // scoped to just this dialog, instead of changing the shared default
+    // (which several other editors' tests pin to starting empty).
+    const onTypeChange = () => {
+      const schema = parameter.value?.schema;
+      props.api.onPropertyTypeChange(schema);
+      if (schema?.type === "array" && schema._itemSchemas?.length === 0) {
+        props.api.onItemTypesChange(schema, ["string"]);
+      }
     };
 
     return {
@@ -505,6 +528,7 @@ export default {
       steps,
       stepIndex,
       onCreateReusableParameter,
+      onTypeChange,
     };
   },
 };

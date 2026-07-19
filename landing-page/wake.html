@@ -74,7 +74,7 @@
           const res = await fetch(HEALTH, { cache: 'no-store' });
           if (res.ok) {
             status.textContent = 'Environment is already up! Redirecting...';
-            setTimeout(() => { window.location.href = '/specs'; }, 800);
+            setTimeout(() => { window.location.href = '/specs/'; }, 800);
             return;
           }
         } catch {
@@ -145,7 +145,7 @@
             if (res.ok) {
               clearInterval(interval);
               status.textContent = 'Environment is up! Redirecting...';
-              setTimeout(() => { window.location.href = '/specs'; }, 1500);
+              setTimeout(() => { window.location.href = '/specs/'; }, 1500);
             }
           } catch {
             // still starting, keep polling

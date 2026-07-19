@@ -81,7 +81,7 @@ to{height:0}}[data-ani='expand'],[data-ani='expand'][data-state='open'],[data-an
     });
 
     if (res.ok) {
-      window.location.replace('/specs');
+      window.location.replace('/specs/');
     }
   } catch (e) {}
 })();

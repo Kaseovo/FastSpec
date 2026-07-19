@@ -793,14 +793,19 @@ export function usePathsEditor(formData, confirm, toast) {
   // A reusable-parameter reference has no type/validation of its own to
   // step through — the ref *is* the whole definition — so the wizard
   // collapses to a single step whenever the parameter being edited is a
-  // $ref. Switching between inline/ref (via the toggle on the basicInfo
-  // step) recomputes this immediately, same as everywhere else that reacts
-  // to isParameterRef(editingParameter).
-  const parameterDialogStepOrder = computed(() =>
-    isParameterRef(editingParameter.value)
-      ? ["basicInfo"]
-      : ["basicInfo", "type", "validation"],
-  );
+  // $ref. An array parameter gets its own extra "Array Items" step for the
+  // per-type item schema breakdown, which is sizeable enough (its own
+  // multiselect plus a growable list of type-specific sub-forms) to crowd
+  // the Type & Validation step otherwise. Both react immediately to edits
+  // made on the basicInfo/validation steps (ref toggle, type picker), same
+  // as everywhere else that reacts to isParameterRef/schema.type.
+  const parameterDialogStepOrder = computed(() => {
+    const param = editingParameter.value;
+    if (isParameterRef(param)) return ["basicInfo"];
+    const order = ["basicInfo", "validation"];
+    if (param?.schema?.type === "array") order.push("arrayItems");
+    return order;
+  });
 
   const goToNextParameterStep = () => {
     if (isEditingParameterInvalid.value) return;
