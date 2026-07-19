@@ -950,6 +950,7 @@ export function usePathsEditor(formData, confirm, toast) {
       counter++;
     }
     schema.properties[propName] = { type: "string", description: "" };
+    return propName;
   };
 
   const removeRequestBodyProperty = (propName) => {
@@ -981,6 +982,89 @@ export function usePathsEditor(formData, confirm, toast) {
     } else {
       schema.required = schema.required.filter((r) => r !== propName);
     }
+  };
+
+  // Add/Edit Property dialog — same shape as the parameter dialog
+  // (showParameterDialog etc. above), but properties are keyed by object
+  // property name rather than array index, so "which one is being edited"
+  // is tracked by name instead. Renaming a property moves it to a new key
+  // in schema.properties (renameRequestBodyProperty), so the dialog can't
+  // just v-model a `.name` field like parameters do — renamePropertyInDialog
+  // below calls the rename and re-points editingPropertyName at the new key
+  // in one step, keeping editingProperty (computed off that name) live.
+  const showPropertyDialog = ref(false);
+  const editingPropertyName = ref(null);
+  const wizardCreatedPropertyName = ref(null);
+  const propertyDialogStep = ref("basicInfo");
+
+  const editingProperty = computed(() => {
+    const schema = currentRequestBodySchema.value;
+    if (!schema?.properties || editingPropertyName.value === null) return null;
+    return schema.properties[editingPropertyName.value] ?? null;
+  });
+
+  const isEditingPropertyInvalid = computed(() => !(editingPropertyName.value || "").trim());
+
+  const renamePropertyInDialog = (newName) => {
+    const oldName = editingPropertyName.value;
+    if (!newName || newName === oldName) return;
+    const schema = currentRequestBodySchema.value;
+    if (!schema?.properties || schema.properties[newName]) return;
+    renameRequestBodyProperty(oldName, newName);
+    editingPropertyName.value = newName;
+    if (wizardCreatedPropertyName.value === oldName) wizardCreatedPropertyName.value = newName;
+  };
+
+  const propertyDialogStepOrder = computed(() =>
+    editingProperty.value?.type === "$ref" ? ["basicInfo"] : ["basicInfo", "validation"],
+  );
+
+  const goToNextPropertyStep = () => {
+    if (isEditingPropertyInvalid.value) return;
+    const order = propertyDialogStepOrder.value;
+    const index = order.indexOf(propertyDialogStep.value);
+    if (index < order.length - 1) propertyDialogStep.value = order[index + 1];
+  };
+
+  const goToPrevPropertyStep = () => {
+    const order = propertyDialogStepOrder.value;
+    const index = order.indexOf(propertyDialogStep.value);
+    if (index > 0) propertyDialogStep.value = order[index - 1];
+  };
+
+  const openAddPropertyDialog = () => {
+    const name = addRequestBodyProperty();
+    if (!name) return;
+    editingPropertyName.value = name;
+    wizardCreatedPropertyName.value = name;
+    propertyDialogStep.value = "basicInfo";
+    showPropertyDialog.value = true;
+  };
+
+  const openEditPropertyDialog = (name) => {
+    editingPropertyName.value = name;
+    wizardCreatedPropertyName.value = null;
+    propertyDialogStep.value = "basicInfo";
+    showPropertyDialog.value = true;
+  };
+
+  const resetPropertyDialog = () => {
+    editingPropertyName.value = null;
+    wizardCreatedPropertyName.value = null;
+    propertyDialogStep.value = "basicInfo";
+    showPropertyDialog.value = false;
+  };
+
+  const cancelPropertyDialog = () => {
+    if (wizardCreatedPropertyName.value !== null) {
+      removeRequestBodyProperty(wizardCreatedPropertyName.value);
+    }
+    resetPropertyDialog();
+  };
+
+  const finishPropertyDialog = () => {
+    if (isEditingPropertyInvalid.value) return;
+    resetPropertyDialog();
   };
 
   // Watch for request body schema type changes (reference mode)
@@ -1354,6 +1438,19 @@ export function usePathsEditor(formData, confirm, toast) {
     removeRequestBodyProperty,
     renameRequestBodyProperty,
     toggleRequestBodyPropertyRequired,
+    showPropertyDialog,
+    editingPropertyName,
+    wizardCreatedPropertyName,
+    propertyDialogStep,
+    editingProperty,
+    isEditingPropertyInvalid,
+    renamePropertyInDialog,
+    openAddPropertyDialog,
+    openEditPropertyDialog,
+    goToNextPropertyStep,
+    goToPrevPropertyStep,
+    cancelPropertyDialog,
+    finishPropertyDialog,
     isResponseCodeUsed,
     openAddResponseDialog,
     openEditResponseCodeDialog,

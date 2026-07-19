@@ -187,6 +187,17 @@
       @cancel="cancelParameterDialog"
       @finish="finishParameterDialog"
     />
+    <EditPropertyDialog
+      :visible="showPropertyDialog"
+      @update:visible="showPropertyDialog = $event"
+      :step="propertyDialogStep"
+      :is-new="wizardCreatedPropertyName !== null"
+      :api="pathsApi"
+      @back="goToPrevPropertyStep"
+      @next="goToNextPropertyStep"
+      @cancel="cancelPropertyDialog"
+      @finish="finishPropertyDialog"
+    />
   </div>
 </template>
 
@@ -206,6 +217,7 @@ import ResponseCodeDialog from "./form-editor/ResponseCodeDialog.vue";
 import AddSchemaDialog from "./form-editor/AddSchemaDialog.vue";
 import AddTagDialog from "./form-editor/AddTagDialog.vue";
 import EditParameterDialog from "./form-editor/EditParameterDialog.vue";
+import EditPropertyDialog from "./form-editor/EditPropertyDialog.vue";
 import { useFormEditorState } from "../composables/useFormEditorState";
 
 const LABELS = {
@@ -278,6 +290,7 @@ export default {
     AddSchemaDialog,
     AddTagDialog,
     EditParameterDialog,
+    EditPropertyDialog,
   },
   props: {
     modelValue: { type: Object, required: true },

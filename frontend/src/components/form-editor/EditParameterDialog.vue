@@ -676,35 +676,4 @@ export default {
   background: #16a34a;
   color: #ffffff;
 }
-
-/* ── Type & Validation's collapsed "advanced" fields ── */
-.validation-advanced-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  margin: 4px 0 16px;
-  padding: 8px 0;
-  border: none;
-  border-top: 1px solid #f3f4f6;
-  background: none;
-  color: #3b82f6;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: left;
-}
-
-.validation-advanced-toggle:hover {
-  color: #2563eb;
-}
-
-.validation-advanced-toggle .pi {
-  font-size: 11px;
-}
-
-.validation-advanced-toggle span {
-  color: #9ca3af;
-  font-weight: 400;
-}
 </style>

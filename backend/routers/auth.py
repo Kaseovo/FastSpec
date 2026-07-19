@@ -9,6 +9,7 @@ Google sign-in supports two flows:
   Google ID token obtained client-side and returns a FastSpec JWT.
 """
 
+import logging
 import secrets
 from datetime import datetime, timezone
 from urllib.parse import quote, urlencode
@@ -46,6 +47,7 @@ from permissions import ALLOWED_ACTIONS, get_actions_metadata
 from rate_limit import rate_limit
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Each of these endpoints triggers a real outbound call (Google token
 # verification/exchange, or a pbkdf2 hash check) that costs money per
@@ -246,15 +248,24 @@ async def google_callback(
         if not google_id_token:
             raise ValueError("No id_token in Google token response")
     except Exception:
+        logger.exception("Google OAuth token exchange failed")
         return _login_page_redirect(
             f"error={quote('Could not complete Google sign-in, please try again')}"
         )
 
     try:
+        # google-auth defaults clock_skew_in_seconds to 0, so it hard-fails
+        # on iat/exp checks over even a couple seconds of ordinary clock
+        # drift between this machine and Google's token servers — give it
+        # the same 10s tolerance jwt.decode() itself recommends.
         id_info = id_token.verify_oauth2_token(
-            google_id_token, google_requests.Request(), client_id
+            google_id_token,
+            google_requests.Request(),
+            client_id,
+            clock_skew_in_seconds=10,
         )
     except Exception:
+        logger.exception("Google ID token verification failed")
         return _login_page_redirect(
             f"error={quote('Invalid Google identity, please try again')}"
         )
@@ -280,12 +291,16 @@ def verify_google_token(
     google_client_id = _google_client_id()
 
     try:
+        # See google_callback's identical call for why clock_skew_in_seconds
+        # is set explicitly — google-auth defaults it to 0.
         id_info = id_token.verify_oauth2_token(
             payload.id_token,
             google_requests.Request(),
             google_client_id,
+            clock_skew_in_seconds=10,
         )
     except Exception:
+        logger.exception("Google ID token verification failed")
         raise HTTPException(
             status_code=401, detail="Invalid or expired Google ID token"
         )
