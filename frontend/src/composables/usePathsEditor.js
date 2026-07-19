@@ -694,6 +694,45 @@ export function usePathsEditor(formData, confirm, toast) {
     };
   };
 
+  // Promotes an already-configured inline parameter to components.parameters
+  // under its own name, then swaps this entry over to a $ref pointing at it —
+  // the one-click path to reusing a parameter across methods, instead of
+  // making the user redefine it by hand on every operation that needs it.
+  const promoteParameterToReusable = (path, method, index) => {
+    const param = formData.value.paths[path][method].parameters[index];
+    const name = (param?.name || "").trim();
+    if (!name) {
+      toast.add({
+        severity: "error",
+        summary: "Name Required",
+        detail: "Give the parameter a name before saving it as reusable.",
+        life: 3000,
+      });
+      return;
+    }
+    if (!formData.value.components) formData.value.components = {};
+    if (!formData.value.components.parameters) formData.value.components.parameters = {};
+    if (formData.value.components.parameters[name]) {
+      toast.add({
+        severity: "error",
+        summary: "Name Already Used",
+        detail: `A reusable parameter named "${name}" already exists — rename one of them first.`,
+        life: 4000,
+      });
+      return;
+    }
+    formData.value.components.parameters[name] = { ...param, schema: { ...param.schema } };
+    formData.value.paths[path][method].parameters[index] = {
+      $ref: `#/components/parameters/${name}`,
+    };
+    toast.add({
+      severity: "success",
+      summary: "Saved as Reusable Parameter",
+      detail: `"${name}" is now available from any operation's Parameters step.`,
+      life: 3000,
+    });
+  };
+
   const removeParameter = (path, method, index) => {
     confirm.require({
       message: "Are you sure you want to delete this parameter?",
@@ -715,6 +754,121 @@ export function usePathsEditor(formData, confirm, toast) {
         confirm.close();
       },
     });
+  };
+
+  // Add/Edit Parameter dialog — a single-page modal (EditParameterDialog.vue)
+  // that replaced the old always-expanded inline row editor. It always
+  // targets an index into the *currently selected* operation's parameters
+  // (selectedPath/selectedMethod above), same as currentMethodData, so no
+  // separate path/method needs tracking here. Adding pushes a blank
+  // parameter immediately (openAddParameterDialog) and remembers its index
+  // (wizardCreatedParameterIndex) so Cancel can roll it back — identical
+  // reasoning to the tag/method wizards' discard-on-cancel behavior.
+  const showParameterDialog = ref(false);
+  const editingParameterIndex = ref(null);
+  const wizardCreatedParameterIndex = ref(null);
+  const parameterDialogStep = ref("basicInfo");
+
+  const editingParameter = computed(() =>
+    editingParameterIndex.value !== null
+      ? currentMethodData.value.parameters?.[editingParameterIndex.value] ?? null
+      : null,
+  );
+
+  const isEditingParameterInvalid = computed(() => {
+    const param = editingParameter.value;
+    if (!param) return true;
+    if (isParameterRef(param)) return !param.$ref;
+    const params = currentMethodData.value.parameters || [];
+    return !(param.name || "").trim() || isParameterDuplicate(params, editingParameterIndex.value);
+  });
+
+  const isEditingParameterDuplicate = computed(() => {
+    const param = editingParameter.value;
+    if (!param || isParameterRef(param)) return false;
+    const params = currentMethodData.value.parameters || [];
+    return isParameterDuplicate(params, editingParameterIndex.value);
+  });
+
+  // A reusable-parameter reference has no type/validation of its own to
+  // step through — the ref *is* the whole definition — so the wizard
+  // collapses to a single step whenever the parameter being edited is a
+  // $ref. Switching between inline/ref (via the toggle on the basicInfo
+  // step) recomputes this immediately, same as everywhere else that reacts
+  // to isParameterRef(editingParameter).
+  const parameterDialogStepOrder = computed(() =>
+    isParameterRef(editingParameter.value)
+      ? ["basicInfo"]
+      : ["basicInfo", "type", "validation"],
+  );
+
+  const goToNextParameterStep = () => {
+    if (isEditingParameterInvalid.value) return;
+    const order = parameterDialogStepOrder.value;
+    const index = order.indexOf(parameterDialogStep.value);
+    if (index < order.length - 1) parameterDialogStep.value = order[index + 1];
+  };
+
+  const goToPrevParameterStep = () => {
+    const order = parameterDialogStepOrder.value;
+    const index = order.indexOf(parameterDialogStep.value);
+    if (index > 0) parameterDialogStep.value = order[index - 1];
+  };
+
+  // Thin wrappers so EditParameterDialog.vue can act on "whichever parameter
+  // the dialog currently has open" without needing to know its path/method/
+  // index — those already live in selectedPath/selectedMethod/
+  // editingParameterIndex above.
+  const convertEditingParameterToRef = () => {
+    if (editingParameterIndex.value === null) return;
+    convertParameterToRef(selectedPath.value, selectedMethod.value, editingParameterIndex.value);
+  };
+  const convertEditingParameterToInline = () => {
+    if (editingParameterIndex.value === null) return;
+    convertParameterToInline(selectedPath.value, selectedMethod.value, editingParameterIndex.value);
+  };
+  const promoteEditingParameterToReusable = () => {
+    if (editingParameterIndex.value === null) return;
+    promoteParameterToReusable(selectedPath.value, selectedMethod.value, editingParameterIndex.value);
+  };
+
+  const openAddParameterDialog = () => {
+    addParameter(selectedPath.value, selectedMethod.value);
+    const params = currentMethodData.value.parameters || [];
+    editingParameterIndex.value = params.length - 1;
+    wizardCreatedParameterIndex.value = editingParameterIndex.value;
+    parameterDialogStep.value = "basicInfo";
+    showParameterDialog.value = true;
+  };
+
+  const openEditParameterDialog = (index) => {
+    editingParameterIndex.value = index;
+    wizardCreatedParameterIndex.value = null;
+    parameterDialogStep.value = "basicInfo";
+    showParameterDialog.value = true;
+  };
+
+  const discardWizardParameter = () => {
+    if (wizardCreatedParameterIndex.value === null) return;
+    const params = currentMethodData.value.parameters;
+    if (params) params.splice(wizardCreatedParameterIndex.value, 1);
+  };
+
+  const resetParameterDialog = () => {
+    editingParameterIndex.value = null;
+    wizardCreatedParameterIndex.value = null;
+    parameterDialogStep.value = "basicInfo";
+    showParameterDialog.value = false;
+  };
+
+  const cancelParameterDialog = () => {
+    discardWizardParameter();
+    resetParameterDialog();
+  };
+
+  const finishParameterDialog = () => {
+    if (isEditingParameterInvalid.value) return;
+    resetParameterDialog();
   };
 
   // Request body methods
@@ -1228,6 +1382,22 @@ export function usePathsEditor(formData, confirm, toast) {
     isParameterRef,
     convertParameterToRef,
     convertParameterToInline,
+    promoteParameterToReusable,
+    showParameterDialog,
+    wizardCreatedParameterIndex,
+    parameterDialogStep,
+    editingParameter,
+    isEditingParameterInvalid,
+    isEditingParameterDuplicate,
+    convertEditingParameterToRef,
+    convertEditingParameterToInline,
+    promoteEditingParameterToReusable,
+    openAddParameterDialog,
+    openEditParameterDialog,
+    goToNextParameterStep,
+    goToPrevParameterStep,
+    cancelParameterDialog,
+    finishParameterDialog,
     isResponseRef,
     convertResponseToRef,
     convertResponseToInline,

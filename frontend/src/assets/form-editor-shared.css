@@ -865,7 +865,8 @@
   flex-shrink: 0;
 }
 
-.item-row-delete {
+.item-row-delete,
+.item-row-edit {
   flex-shrink: 0;
 }
 

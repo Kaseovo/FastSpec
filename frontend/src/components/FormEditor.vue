@@ -176,6 +176,17 @@
       @cancel="cancelTagDialog"
       @finish="finishTagDialog"
     />
+    <EditParameterDialog
+      :visible="showParameterDialog"
+      @update:visible="showParameterDialog = $event"
+      :step="parameterDialogStep"
+      :is-new="wizardCreatedParameterIndex !== null"
+      :api="pathsApi"
+      @back="goToPrevParameterStep"
+      @next="goToNextParameterStep"
+      @cancel="cancelParameterDialog"
+      @finish="finishParameterDialog"
+    />
   </div>
 </template>
 
@@ -194,6 +205,7 @@ import EditPathDialog from "./form-editor/EditPathDialog.vue";
 import ResponseCodeDialog from "./form-editor/ResponseCodeDialog.vue";
 import AddSchemaDialog from "./form-editor/AddSchemaDialog.vue";
 import AddTagDialog from "./form-editor/AddTagDialog.vue";
+import EditParameterDialog from "./form-editor/EditParameterDialog.vue";
 import { useFormEditorState } from "../composables/useFormEditorState";
 
 const LABELS = {
@@ -265,6 +277,7 @@ export default {
     ResponseCodeDialog,
     AddSchemaDialog,
     AddTagDialog,
+    EditParameterDialog,
   },
   props: {
     modelValue: { type: Object, required: true },

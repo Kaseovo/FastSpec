@@ -59,6 +59,12 @@ export function useReusableComponentsEditor(formData, confirm, toast) {
       required: false,
       schema: { type: "string" },
     };
+
+    // Returned so callers that create a reusable parameter from inside an
+    // operation's Parameters step (see OperationParametersStep.vue) can
+    // immediately point that operation's $ref at it, instead of the user
+    // having to hop to the Reusable Parameters section to look up the name.
+    return name;
   };
 
   const renameReusableParameter = (oldName, newName) => {

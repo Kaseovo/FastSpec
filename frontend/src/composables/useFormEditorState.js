@@ -324,6 +324,9 @@ export function useFormEditorState(props, emit) {
     // a tag from inside the operation editor without having to switch to
     // the Tags tab first.
     openAddTagDialog,
+    // Same idea for OperationParametersStep's "Use existing reusable
+    // parameter" picker — lets it offer "+ New" without a tab switch.
+    addReusableParameter: reusable.addReusableParameter,
   };
   const componentsApi = {
     ...components,
