@@ -324,6 +324,10 @@ export function useFormEditorState(props, emit) {
     // a tag from inside the operation editor without having to switch to
     // the Tags tab first.
     openAddTagDialog,
+    // Lets every "New Schema" button next to a $ref picker (parameters,
+    // request bodies, responses) open the real Add Schema wizard instead of
+    // components.addSchema's blind instant "NewSchema" create.
+    openAddSchemaDialogFor: components.openAddSchemaDialogFor,
     // Same idea for OperationParametersStep's "Use existing reusable
     // parameter" picker — lets it offer "+ New" without a tab switch.
     addReusableParameter: reusable.addReusableParameter,

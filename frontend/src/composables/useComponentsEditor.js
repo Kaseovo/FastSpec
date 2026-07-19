@@ -133,7 +133,22 @@ export function useComponentsEditor(formData, confirm, toast) {
     showAddSchemaDialog.value = true;
   };
 
+  // Every "New Schema" button next to a $ref picker (parameter/property/
+  // response item schemas, request body reference schema, etc.) opens this
+  // same dialog instead of a blind instant create, so the schema gets a
+  // real name/type/quick-start properties up front. `onCreated` is called
+  // with the new schema's name once confirmAddSchema succeeds, letting each
+  // caller point its own $ref field at it — plain closure state (not a ref)
+  // since it's pure control flow, never read by a template.
+  let pendingSchemaCreatedCallback = null;
+
+  const openAddSchemaDialogFor = (onCreated) => {
+    pendingSchemaCreatedCallback = typeof onCreated === "function" ? onCreated : null;
+    openAddSchemaDialog();
+  };
+
   const cancelAddSchemaDialog = () => {
+    pendingSchemaCreatedCallback = null;
     resetAddSchemaWizard();
     showAddSchemaDialog.value = false;
   };
@@ -178,6 +193,12 @@ export function useComponentsEditor(formData, confirm, toast) {
     selectAndOpenSchema(name);
     resetAddSchemaWizard();
     showAddSchemaDialog.value = false;
+
+    if (pendingSchemaCreatedCallback) {
+      const callback = pendingSchemaCreatedCallback;
+      pendingSchemaCreatedCallback = null;
+      callback(name);
+    }
   };
 
   const goToAddSchemaStep2 = () => {
@@ -531,6 +552,7 @@ export function useComponentsEditor(formData, confirm, toast) {
     newSchemaProperties,
     isNewSchemaNameDuplicate,
     openAddSchemaDialog,
+    openAddSchemaDialogFor,
     cancelAddSchemaDialog,
     goToAddSchemaStep2,
     confirmAddSchema,

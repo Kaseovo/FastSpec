@@ -63,7 +63,7 @@
                                       icon="pi pi-plus"
                                       size="small"
                                       text
-                                      @click="addSchema"
+                                      @click="openAddSchemaDialogFor(name => requestBodySchemaRef = '#/components/schemas/' + name)"
                                     />
                                   </template>
                                 </div>
@@ -211,7 +211,7 @@
                                                   optionValue="value"
                                                   :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                                 />
-                                                <Button label="New Schema" icon="pi pi-plus" size="small" text @click="addSchema" />
+                                                <Button label="New Schema" icon="pi pi-plus" size="small" text @click="openAddSchemaDialogFor(name => itemSchema.$ref = '#/components/schemas/' + name)" />
                                               </div>
                                             </div>
                                             <Button

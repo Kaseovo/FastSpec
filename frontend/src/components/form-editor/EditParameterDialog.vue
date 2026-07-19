@@ -350,7 +350,7 @@
                       icon="pi pi-plus"
                       size="small"
                       text
-                      @click="addSchema"
+                      @click="openAddSchemaDialogFor(name => itemSchema.$ref = '#/components/schemas/' + name)"
                     />
                   </div>
                   <small

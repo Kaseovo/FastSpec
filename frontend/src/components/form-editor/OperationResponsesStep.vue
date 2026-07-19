@@ -152,7 +152,7 @@
                                               icon="pi pi-plus"
                                               size="small"
                                               text
-                                              @click="addSchema"
+                                              @click="openAddSchemaDialogFor(name => setResponseSchemaRef(response, '#/components/schemas/' + name))"
                                             />
                                           </template>
                                         </div>
@@ -214,7 +214,7 @@
                                                     optionValue="value"
                                                     :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                                   />
-                                                  <Button label="New Schema" icon="pi pi-plus" size="small" text @click="addSchema" />
+                                                  <Button label="New Schema" icon="pi pi-plus" size="small" text @click="openAddSchemaDialogFor(name => prop.$ref = '#/components/schemas/' + name)" />
                                                 </div>
                                               </div>
                                               <div class="form-field" v-if="prop.type !== '$ref'">
@@ -339,7 +339,7 @@
                                                     <label>Schema Reference</label>
                                                     <div class="schema-selector">
                                                       <Select v-model="itemSchema.$ref" :options="availableSchemas" optionLabel="label" optionValue="value" :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'" />
-                                                      <Button label="New Schema" icon="pi pi-plus" size="small" text @click="addSchema" />
+                                                      <Button label="New Schema" icon="pi pi-plus" size="small" text @click="openAddSchemaDialogFor(name => itemSchema.$ref = '#/components/schemas/' + name)" />
                                                     </div>
                                                   </div>
                                                 </template>
