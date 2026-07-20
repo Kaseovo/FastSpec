@@ -1,13 +1,68 @@
 <template>
   <Dialog
     v-model:visible="visible"
-    header="Custom Lint Ruleset"
+    header="Custom Lint Rulesets"
     :modal="true"
     :closable="true"
-    :style="{ width: '680px', maxWidth: '95vw' }"
+    :style="{ width: '720px', maxWidth: '95vw' }"
     @hide="onHide"
   >
-    <Tabs v-model:value="activeTab">
+    <!-- ── Ruleset selector ──────────────────────────────────────── -->
+    <div class="ruleset-selector-row">
+      <Select
+        v-model="selectedRulesetId"
+        :options="rulesetOptions"
+        option-label="label"
+        option-value="value"
+        placeholder="Select a ruleset…"
+        class="ruleset-select"
+        :disabled="creatingNew"
+      />
+      <Button
+        icon="pi pi-plus"
+        label="New"
+        severity="secondary"
+        text
+        size="small"
+        @click="startCreateRuleset"
+      />
+      <Button
+        v-if="selectedRulesetId && !isSelectedDefault"
+        icon="pi pi-star"
+        label="Set default"
+        severity="secondary"
+        text
+        size="small"
+        @click="onSetDefault"
+      />
+      <span v-if="selectedRulesetId && isSelectedDefault" class="default-badge">
+        <i class="pi pi-star-fill" /> Default
+      </span>
+    </div>
+
+    <div v-if="creatingNew" class="new-ruleset-row">
+      <InputText
+        v-model="newRulesetName"
+        placeholder="Ruleset name, e.g. Internal API"
+        class="w-full"
+        @keyup.enter="onCreateRuleset"
+      />
+      <Button label="Create" size="small" :loading="creating" @click="onCreateRuleset" />
+      <Button label="Cancel" size="small" severity="secondary" text @click="creatingNew = false" />
+    </div>
+
+    <div v-else-if="!selectedRulesetId" class="rules-empty">
+      <i class="pi pi-info-circle" />
+      No rulesets yet. Click <strong>New</strong> to create one.
+    </div>
+
+    <template v-else>
+      <div class="ruleset-name-row">
+        <label>Ruleset name</label>
+        <InputText v-model="rulesetName" class="w-full" />
+      </div>
+
+      <Tabs v-model:value="activeTab">
       <TabList>
         <Tab value="rules">Structured Rules</Tab>
         <Tab value="yaml">Raw YAML Override</Tab>
@@ -176,6 +231,60 @@
                         </div>
                       </div>
                     </template>
+
+                    <!-- Dynamic functionOptions for casing -->
+                    <template v-if="rule.then_function === 'casing'">
+                      <div class="field">
+                        <label>Casing type <span class="required">*</span></label>
+                        <Select
+                          v-model="rule.functionOptions.type"
+                          :options="casingOptions"
+                          option-label="label"
+                          option-value="value"
+                          class="w-full"
+                        />
+                      </div>
+                    </template>
+
+                    <!-- Dynamic functionOptions for alphabetical -->
+                    <template v-if="rule.then_function === 'alphabetical'">
+                      <div class="field">
+                        <label>Sort by key <span class="optional">optional</span></label>
+                        <InputText
+                          v-model="rule.functionOptions.keyedBy"
+                          placeholder="e.g. name (for arrays of objects)"
+                          class="w-full"
+                        />
+                      </div>
+                    </template>
+
+                    <!-- Per-rule preview against the currently open spec -->
+                    <div class="rule-preview-row">
+                      <Button
+                        label="Test against current spec"
+                        icon="pi pi-play"
+                        severity="secondary"
+                        size="small"
+                        outlined
+                        v-tooltip.top="specContent ? '' : 'Open a spec in the editor to test against it'"
+                        :loading="previewLoadingIdx === idx"
+                        :disabled="!canPreview(rule)"
+                        @click="onPreviewRule(idx)"
+                      />
+                      <span
+                        v-if="previewResults[idx]"
+                        class="rule-preview-result"
+                        :class="{ 'has-matches': previewResults[idx].count > 0, 'is-error': previewResults[idx].error }"
+                      >
+                        <template v-if="previewResults[idx].error">
+                          <i class="pi pi-exclamation-triangle" /> {{ previewResults[idx].error }}
+                        </template>
+                        <template v-else>
+                          <i :class="previewResults[idx].count > 0 ? 'pi pi-check-circle' : 'pi pi-circle'" />
+                          {{ previewResults[idx].count }} match{{ previewResults[idx].count === 1 ? '' : 'es' }}
+                        </template>
+                      </span>
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionPanel>
@@ -228,15 +337,16 @@
         </TabPanel>
       </TabPanels>
     </Tabs>
+    </template>
 
     <!-- Footer -->
     <template #footer>
       <div class="dialog-footer">
         <div class="footer-left">
           <Button
-            v-if="hasExistingRuleset"
-            label="Reset to defaults"
-            icon="pi pi-refresh"
+            v-if="selectedRulesetId"
+            label="Delete ruleset"
+            icon="pi pi-trash"
             severity="danger"
             text
             :loading="deleting"
@@ -246,6 +356,7 @@
         <div class="footer-right">
           <Button label="Cancel" severity="secondary" text @click="onCancel" />
           <Button
+            v-if="selectedRulesetId"
             label="Save ruleset"
             icon="pi pi-check"
             :loading="saving"
@@ -276,7 +387,15 @@ import AccordionContent from "primevue/accordioncontent";
 import AccordionHeader from "primevue/accordionheader";
 import AccordionPanel from "primevue/accordionpanel";
 import Tooltip from "primevue/tooltip";
-import { deleteLintRuleset, getLintRuleset, putLintRuleset } from "../api/lint";
+import {
+  createLintRuleset,
+  deleteLintRuleset,
+  getLintRuleset,
+  listLintRulesets,
+  previewLintRule,
+  setDefaultLintRuleset,
+  updateLintRuleset,
+} from "../api/lint";
 
 const SEVERITY_OPTIONS = [
   { label: "Error", value: "error" },
@@ -293,6 +412,10 @@ const FUNCTION_OPTIONS = [
   { label: "enumeration — field must be one of a set", value: "enumeration" },
   { label: "length — string/array length check", value: "length" },
   { label: "schema — field must match a JSON Schema", value: "schema" },
+  { label: "casing — field must follow a casing convention", value: "casing" },
+  { label: "alphabetical — array/object keys must be sorted", value: "alphabetical" },
+  { label: "xor — exactly one of two fields must be present", value: "xor" },
+  { label: "unreferencedReusableObject — flag unused components", value: "unreferencedReusableObject" },
 ];
 
 const FUNCTION_TOOLTIPS = {
@@ -302,7 +425,21 @@ const FUNCTION_TOOLTIPS = {
   enumeration: "Passes if the selected field value is one of the allowed values you list.",
   length: "Passes if the length of the selected string or array is within the min/max bounds you set.",
   schema: "Passes if the selected value validates against an inline JSON Schema. Requires JSON Schema syntax — use Raw YAML Override for this function.",
+  casing: "Passes if the selected field's string value follows the chosen casing convention (camelCase, kebab-case, etc.).",
+  alphabetical: "Passes if the selected array/object's entries are sorted alphabetically.",
+  xor: "Passes if exactly one of two named sibling fields is present (requires Raw YAML Override to list both field names).",
+  unreferencedReusableObject: "Flags entries under the selected object (e.g. components.schemas) that nothing in the document references.",
 };
+
+const CASING_OPTIONS = [
+  { label: "camelCase", value: "camel" },
+  { label: "PascalCase", value: "pascal" },
+  { label: "kebab-case", value: "kebab" },
+  { label: "COBOL-CASE", value: "cobol" },
+  { label: "snake_case", value: "snake" },
+  { label: "MACRO_CASE", value: "macro" },
+  { label: "flatcase", value: "flat" },
+];
 
 /** Common JSONPath presets for the given field. */
 const GIVEN_PRESETS = [
@@ -395,6 +532,15 @@ export default {
       type: Boolean,
       default: false,
     },
+    /**
+     * Raw JSON text of the spec currently open in the editor. Used only for
+     * the per-rule "test against current spec" preview — parsed lazily, so
+     * an invalid/empty editor just disables the preview button.
+     */
+    specContent: {
+      type: String,
+      default: "",
+    },
   },
 
   emits: ["update:open", "saved", "deleted"],
@@ -403,6 +549,14 @@ export default {
     const confirm = useConfirm();
     const visible = ref(false);
     const activeTab = ref("rules");
+
+    // Ruleset list + selection state
+    const rulesets = ref([]);
+    const selectedRulesetId = ref(null);
+    const rulesetName = ref("");
+    const creatingNew = ref(false);
+    const newRulesetName = ref("");
+    const creating = ref(false);
 
     // Structured rules state
     const structuredRules = ref([]);
@@ -414,11 +568,27 @@ export default {
     // Loading/status flags
     const saving = ref(false);
     const deleting = ref(false);
-    const hasExistingRuleset = ref(false);
+
+    // Per-rule preview state, keyed by rule index
+    const previewLoadingIdx = ref(null);
+    const previewResults = ref({});
 
     const severityOptions = SEVERITY_OPTIONS;
     const functionOptions = FUNCTION_OPTIONS;
     const givenPresets = GIVEN_PRESETS;
+    const casingOptions = CASING_OPTIONS;
+
+    const rulesetOptions = computed(() =>
+      rulesets.value.map((r) => ({
+        label: r.is_default ? `${r.name} (default)` : r.name,
+        value: r.id,
+      })),
+    );
+
+    const isSelectedDefault = computed(() => {
+      const r = rulesets.value.find((r) => r.id === selectedRulesetId.value);
+      return r?.is_default ?? false;
+    });
 
     // --- Sync visibility with the `open` prop ---
     watch(
@@ -426,7 +596,9 @@ export default {
       async (isOpen) => {
         visible.value = isOpen;
         if (isOpen) {
-          await loadRuleset();
+          creatingNew.value = false;
+          previewResults.value = {};
+          await loadRulesets();
         }
       },
     );
@@ -436,25 +608,50 @@ export default {
       if (!v) emit("update:open", false);
     });
 
-    // --- Load existing ruleset from the API ---
-    async function loadRuleset() {
+    // Load a fresh ruleset whenever the selection changes
+    watch(selectedRulesetId, async (id) => {
+      previewResults.value = {};
+      if (id) {
+        await loadRuleset(id);
+      } else {
+        rulesetName.value = "";
+        structuredRules.value = [];
+        rawYaml.value = "";
+      }
+    });
+
+    // --- Load the user's ruleset list, defaulting selection to their default ruleset ---
+    async function loadRulesets() {
       try {
-        const data = await getLintRuleset();
-        if (data) {
-          hasExistingRuleset.value = true;
-          structuredRules.value = (data.rules || []).map((r) => ({
-            ...r,
-            functionOptions: r.then_function_options ?? {},
-          }));
-          rawYaml.value = data.raw_yaml ?? "";
-        } else {
-          hasExistingRuleset.value = false;
+        rulesets.value = await listLintRulesets();
+        const current = rulesets.value.find((r) => r.id === selectedRulesetId.value);
+        if (current) return; // selection still valid, the watcher above already reloaded it
+        const defaultRuleset = rulesets.value.find((r) => r.is_default);
+        selectedRulesetId.value = defaultRuleset?.id ?? rulesets.value[0]?.id ?? null;
+        if (!selectedRulesetId.value) {
+          rulesetName.value = "";
           structuredRules.value = [];
           rawYaml.value = "";
         }
       } catch {
-        // Non-critical — start with empty state
-        hasExistingRuleset.value = false;
+        rulesets.value = [];
+      }
+    }
+
+    // --- Load one ruleset's full content from the API ---
+    async function loadRuleset(id) {
+      try {
+        const data = await getLintRuleset(id);
+        rulesetName.value = data.name;
+        structuredRules.value = (data.rules || []).map((r) => ({
+          ...r,
+          message: r.message ?? "",
+          functionOptions: r.then_function_options ?? {},
+        }));
+        rawYaml.value = data.raw_yaml ?? "";
+      } catch {
+        structuredRules.value = [];
+        rawYaml.value = "";
       }
     }
 
@@ -520,36 +717,74 @@ export default {
       rawYaml.value = STARTER_TEMPLATE;
     }
 
+    function buildRulesPayload() {
+      return structuredRules.value
+        .filter((r) => r.name.trim())
+        .map((r) => ({
+          name: r.name.trim(),
+          severity: r.severity,
+          given: r.given.trim(),
+          message: r.message.trim() || null,
+          then_function: r.then_function,
+          then_function_options:
+            Object.keys(r.functionOptions).length > 0 ? r.functionOptions : null,
+        }));
+    }
+
+    function startCreateRuleset() {
+      creatingNew.value = true;
+      newRulesetName.value = "";
+    }
+
+    async function onCreateRuleset() {
+      const name = newRulesetName.value.trim();
+      if (!name) return;
+      creating.value = true;
+      try {
+        const created = await createLintRuleset({ name });
+        rulesets.value = await listLintRulesets();
+        creatingNew.value = false;
+        selectedRulesetId.value = created.id;
+        emit("saved");
+      } catch (err) {
+        yamlError.value = err.response?.data?.detail ?? "Failed to create ruleset.";
+      } finally {
+        creating.value = false;
+      }
+    }
+
+    async function onSetDefault() {
+      if (!selectedRulesetId.value) return;
+      try {
+        await setDefaultLintRuleset(selectedRulesetId.value);
+        rulesets.value = await listLintRulesets();
+      } catch {
+        // Non-critical — the badge just won't update
+      }
+    }
+
     async function onSave() {
+      if (!selectedRulesetId.value) return;
       yamlError.value = null;
       saving.value = true;
 
       const payload = {
-        rules: structuredRules.value
-          .filter((r) => r.name.trim())
-          .map((r) => ({
-            name: r.name.trim(),
-            severity: r.severity,
-            given: r.given.trim(),
-            message: r.message.trim() || null,
-            then_function: r.then_function,
-            then_function_options:
-              Object.keys(r.functionOptions).length > 0
-                ? r.functionOptions
-                : null,
-          })),
+        name: rulesetName.value.trim() || undefined,
+        rules: buildRulesPayload(),
         raw_yaml: rawYaml.value.trim() || null,
       };
 
       try {
-        await putLintRuleset(payload);
-        hasExistingRuleset.value = true;
+        await updateLintRuleset(selectedRulesetId.value, payload);
+        rulesets.value = await listLintRulesets();
         emit("saved");
         visible.value = false;
       } catch (err) {
         if (err.response?.status === 400) {
           yamlError.value = err.response.data?.detail ?? "Invalid YAML syntax.";
           activeTab.value = "yaml";
+        } else if (err.response?.status === 409) {
+          yamlError.value = err.response.data?.detail ?? "A ruleset with that name already exists.";
         } else {
           yamlError.value = "Failed to save ruleset. Please try again.";
         }
@@ -559,24 +794,27 @@ export default {
     }
 
     function onDelete() {
+      if (!selectedRulesetId.value) return;
+      const ruleset = rulesets.value.find((r) => r.id === selectedRulesetId.value);
       confirm.require({
-        message: "This will remove all custom rules and revert to the default spectral:oas ruleset.",
-        header: "Reset to Defaults",
+        message: `Delete the "${ruleset?.name ?? "this"}" ruleset? This cannot be undone.`,
+        header: "Delete Ruleset",
         icon: "pi pi-exclamation-triangle",
         rejectLabel: "Cancel",
-        acceptLabel: "Reset",
+        acceptLabel: "Delete",
         acceptClass: "p-button-danger",
         accept: async () => {
           deleting.value = true;
           try {
-            await deleteLintRuleset();
-            hasExistingRuleset.value = false;
-            structuredRules.value = [];
-            rawYaml.value = "";
+            await deleteLintRuleset(selectedRulesetId.value);
+            selectedRulesetId.value = null;
+            rulesets.value = await listLintRulesets();
+            const defaultRuleset = rulesets.value.find((r) => r.is_default);
+            selectedRulesetId.value = defaultRuleset?.id ?? rulesets.value[0]?.id ?? null;
             emit("deleted");
-            visible.value = false;
-          } catch {
-            visible.value = false;
+          } catch (err) {
+            yamlError.value =
+              err.response?.data?.detail ?? "Failed to delete ruleset (it may be in use).";
           } finally {
             deleting.value = false;
           }
@@ -592,19 +830,72 @@ export default {
       yamlError.value = null;
     }
 
+    /** A rule can be tested once it has a name + given path and a spec is open. */
+    function canPreview(rule) {
+      return Boolean(props.specContent) && rule.name.trim() && rule.given.trim();
+    }
+
+    async function onPreviewRule(idx) {
+      const rule = structuredRules.value[idx];
+      let specJson;
+      try {
+        specJson = JSON.parse(props.specContent);
+      } catch {
+        previewResults.value = {
+          ...previewResults.value,
+          [idx]: { error: "Editor content isn't valid JSON." },
+        };
+        return;
+      }
+
+      previewLoadingIdx.value = idx;
+      try {
+        const result = await previewLintRule(specJson, {
+          name: rule.name.trim(),
+          severity: rule.severity,
+          given: rule.given.trim(),
+          message: rule.message.trim() || null,
+          then_function: rule.then_function,
+          then_function_options:
+            Object.keys(rule.functionOptions).length > 0 ? rule.functionOptions : null,
+        });
+        previewResults.value = {
+          ...previewResults.value,
+          [idx]: { count: result.results.length },
+        };
+      } catch (err) {
+        previewResults.value = {
+          ...previewResults.value,
+          [idx]: { error: err.response?.data?.detail ?? "Preview failed." },
+        };
+      } finally {
+        previewLoadingIdx.value = null;
+      }
+    }
+
     return {
       visible,
       activeTab,
+      rulesets,
+      rulesetOptions,
+      selectedRulesetId,
+      rulesetName,
+      isSelectedDefault,
+      creatingNew,
+      newRulesetName,
+      creating,
       structuredRules,
       openPanels,
       rawYaml,
       yamlError,
       saving,
       deleting,
-      hasExistingRuleset,
+      previewLoadingIdx,
+      previewResults,
       severityOptions,
       functionOptions,
       givenPresets,
+      casingOptions,
       canAddRule,
       addRule,
       removeRule,
@@ -612,10 +903,15 @@ export default {
       givenPresetValue,
       onGivenPreset,
       insertStarterTemplate,
+      startCreateRuleset,
+      onCreateRuleset,
+      onSetDefault,
       onSave,
       onDelete,
       onCancel,
       onHide,
+      canPreview,
+      onPreviewRule,
     };
   },
 };
@@ -658,6 +954,76 @@ export default {
   font-style: italic;
   color: var(--p-text-muted-color, #6c757d);
   margin-left: 4px;
+}
+
+/* ── Ruleset selector ──────────────────────────────────────── */
+.ruleset-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--p-surface-border, #e2e8f0);
+}
+
+.ruleset-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.default-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #f59e0b;
+  white-space: nowrap;
+}
+
+.new-ruleset-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-bottom: 12px;
+}
+
+.ruleset-name-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.ruleset-name-row label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--p-text-muted-color, #6c757d);
+}
+
+/* ── Per-rule preview ──────────────────────────────────────── */
+.rule-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--p-surface-border, #e2e8f0);
+}
+
+.rule-preview-result {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color, #6c757d);
+}
+
+.rule-preview-result.has-matches {
+  color: #22c55e;
+}
+
+.rule-preview-result.is-error {
+  color: #ef4444;
 }
 
 /* ── Empty state ───────────────────────────────────────────── */

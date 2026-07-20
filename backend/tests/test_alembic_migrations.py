@@ -81,7 +81,7 @@ def test_upgrade_head_creates_tables(migration_db):
         "spec_versions",
         "auth_tokens",
         "api_keys",
-        "user_lint_rulesets",
+        "lint_rulesets",
         "alembic_version",
     }
     assert expected.issubset(tables), (

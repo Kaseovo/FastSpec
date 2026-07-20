@@ -29,6 +29,10 @@ _SPECTRAL_BUILTIN_FUNCTIONS = {
     "enumeration",
     "length",
     "schema",
+    "casing",
+    "alphabetical",
+    "xor",
+    "unreferencedReusableObject",
 }
 
 
@@ -112,26 +116,34 @@ def validate_ruleset_yaml_is_safe(raw_yaml: str) -> None:
                 )
 
 
-def build_ruleset_yaml(user_ruleset: Optional[Dict[str, Any]]) -> str:
+def build_ruleset_yaml(
+    user_ruleset: Optional[Dict[str, Any]], extend_oas: bool = True
+) -> str:
     """
     Build a Spectral ruleset YAML string from a user's stored ruleset data.
 
     Strategy:
-    - If ``user_ruleset`` is None or empty, fall back to plain ``extends: spectral:oas``.
+    - If ``user_ruleset`` is None or empty, fall back to plain ``extends: spectral:oas``
+      (or an empty ruleset when ``extend_oas`` is False).
     - If ``raw_yaml`` is present, it takes precedence: return it as-is, ensuring
       the ``extends: spectral:oas`` directive is present (prepend if missing).
     - Otherwise serialise ``rules_json`` (Structured Rules) into valid Spectral YAML
-      alongside ``extends: spectral:oas``.
+      alongside ``extends: spectral:oas`` (when requested).
 
     Args:
         user_ruleset: Dict with optional keys ``rules_json`` (list) and
-                      ``raw_yaml`` (str), as stored in ``UserLintRuleset``.
+                      ``raw_yaml`` (str), as stored in ``LintRuleset``.
+        extend_oas: Whether to prepend ``extends: spectral:oas``. Set False
+                    for single-rule previews, where the built-in OAS ruleset
+                    would drown the one rule being tested in unrelated results.
 
     Returns:
         A YAML string ready to be written to a ``.spectral.yaml`` temp file.
     """
+    base: Dict[str, Any] = {"extends": "spectral:oas"} if extend_oas else {}
+
     if not user_ruleset:
-        return "extends: spectral:oas\n"
+        return yaml.dump(base, default_flow_style=False, sort_keys=False) or "{}\n"
 
     raw_yaml: Optional[str] = user_ruleset.get("raw_yaml")
     rules_json: Optional[List[Dict[str, Any]]] = user_ruleset.get("rules_json")
@@ -140,15 +152,15 @@ def build_ruleset_yaml(user_ruleset: Optional[Dict[str, Any]]) -> str:
     if raw_yaml:
         stripped = raw_yaml.strip()
         # Ensure the baseline is always extended
-        if "spectral:oas" not in stripped:
+        if extend_oas and "spectral:oas" not in stripped:
             stripped = "extends: spectral:oas\n" + stripped
         return stripped + "\n"
 
     # --- Structured Rules → generated YAML ---
     if not rules_json:
-        return "extends: spectral:oas\n"
+        return yaml.dump(base, default_flow_style=False, sort_keys=False) or "{}\n"
 
-    ruleset: Dict[str, Any] = {"extends": "spectral:oas", "rules": {}}
+    ruleset: Dict[str, Any] = {**base, "rules": {}}
     for rule in rules_json:
         name: str = rule.get("name", "")
         if not name:

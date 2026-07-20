@@ -41,10 +41,9 @@ class User(Base):
         "OpenAPISpec", back_populates="owner", cascade="all, delete-orphan"
     )
 
-    lint_ruleset = relationship(
-        "UserLintRuleset",
+    lint_rulesets = relationship(
+        "LintRuleset",
         back_populates="user",
-        uselist=False,
         cascade="all, delete-orphan",
     )
 
@@ -76,7 +75,14 @@ class OpenAPISpec(Base):
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
+    # Optional per-spec override of which LintRuleset to lint against; when
+    # null, LintService falls back to the user's is_default ruleset.
+    active_ruleset_id = Column(
+        String(36), ForeignKey("lint_rulesets.id"), nullable=True, index=True
+    )
+
     owner = relationship("User", back_populates="specs")
+    active_ruleset = relationship("LintRuleset")
 
     # Relationship to versions (one-to-many), ordered by created_at desc
     versions = relationship(
@@ -173,32 +179,43 @@ class APIKey(Base):
         return f"<APIKey id={self.id} user={self.user_id} expires={self.expires_at} revoked={self.revoked}>"
 
 
-class UserLintRuleset(Base):
-    """Per-user global Spectral lint ruleset.
+class LintRuleset(Base):
+    """A named Spectral lint ruleset owned by a user.
 
     Stores either structured rule definitions (rules_json), a raw YAML
     override (raw_yaml), or both. When raw_yaml is present it takes
     precedence at lint time and is written directly to the temp ruleset
     file. rules_json is kept for UI round-tripping even when raw_yaml is set.
+
+    A user may own several rulesets (e.g. "Internal API", "Public API
+    strict"); each OpenAPISpec may pin one via active_ruleset_id, falling
+    back to whichever of the user's rulesets has is_default set. Exactly one
+    ruleset per user should have is_default=True at a time — enforced by
+    LintRulesetRepository, not a DB constraint, since "at most one" doesn't
+    map cleanly onto a portable unique index.
     """
 
-    __tablename__ = "user_lint_rulesets"
+    __tablename__ = "lint_rulesets"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uix_lint_rulesets_user_id_name"),
+    )
 
     id = Column(
         String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
     )
-    user_id = Column(
-        Integer, ForeignKey("users.id"), unique=True, nullable=False, index=True
-    )
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    is_default = Column(Boolean, nullable=False, server_default="false", default=False)
     # Structured Rules: list of rule dicts built via the rule-form UI
     rules_json = Column(JSON, nullable=True)
     # Raw Ruleset Override: user-authored Spectral YAML (takes precedence over rules_json)
     raw_yaml = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
-    user = relationship("User", back_populates="lint_ruleset")
+    user = relationship("User", back_populates="lint_rulesets")
 
     def __repr__(self) -> str:
-        return f"<UserLintRuleset user_id={self.user_id}>"
+        return f"<LintRuleset {self.name!r} user_id={self.user_id} default={self.is_default}>"

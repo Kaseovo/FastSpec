@@ -38,6 +38,7 @@ class SpecService:
             version=spec.version,
             spec_json=content,
             user_id=spec.user_id,
+            active_ruleset_id=spec.active_ruleset_id,
             created_at=spec.created_at or datetime.now(timezone.utc),
             updated_at=spec.updated_at or spec.created_at or datetime.now(timezone.utc),
         )

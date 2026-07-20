@@ -128,31 +128,51 @@ Implementation notes
 
 ## Lint endpoints
 
+See `docs/CUSTOM_LINT_RULES.md` for the ruleset authoring model (multiple named rulesets, one default, per-spec pinning) and `docs/adr/0005-multi-ruleset-lint.md` for the design rationale.
+
+Ruleset resolution for the endpoints below: the pinned spec ruleset (`OpenAPISpec.active_ruleset_id`) if set, else the user's default ruleset (`LintRuleset.is_default`), else bare `extends: spectral:oas`.
+
 - POST /lint/{spec_id}
   - Query params:
     - `version` (string, required): The spec version to lint
-    - `ruleset` (string, optional): Spectral ruleset identifier or URL (default: spectral:oas)
   - Auth: Requires JWT via dependency `get_current_user`.
   - Returns: `{ score, summary, results }` for the specified spec version
   - Errors:
     - 404 if spec or version not found or not owned by user
   - Example:
     ```http
-    POST /lint/6e7976e1-facb-4dd5-8f98-5dabc0a15b41?version=1.0.0&ruleset=spectral:oas
+    POST /lint/6e7976e1-facb-4dd5-8f98-5dabc0a15b41?version=1.0.0
     Authorization: Bearer <token>
     ```
 
 - POST /lint
-  - Body: `{ spec_json: object, ruleset?: string }`
+  - Body: `{ spec_json: object }`
   - Auth: Requires JWT via dependency `get_current_user`.
-  - Returns: `{ score, summary, results }` for the provided spec JSON
+  - Returns: `{ score, summary, results }` for the provided spec JSON, linted against the user's default ruleset (no spec context to resolve a pinned override)
   - Example:
     ```http
     POST /lint
     Content-Type: application/json
     Authorization: Bearer <token>
-    {
-      "spec_json": { ... },
-      "ruleset": "spectral:oas"
-    }
+    { "spec_json": { ... } }
     ```
+
+- POST /lint/{spec_id}/lint-draft
+  - Body: `{ spec_json: object }`
+  - Auth: Requires JWT via dependency `get_current_user`.
+  - Returns: `{ score, summary, results }` for the provided draft content, resolving `spec_id`'s pinned/default ruleset as above. The draft itself is not persisted — `spec_id` is used only for ownership check and ruleset resolution.
+
+- POST /lint/preview-rule
+  - Body: `{ spec_json: object, rule: StructuredRule }`
+  - Auth: Requires JWT via dependency `get_current_user`.
+  - Returns: `{ score, summary, results }` for just this one unsaved draft rule — `spectral:oas` is **not** applied, so only matches for this rule appear. Nothing is persisted. Used by the ruleset editor's "Test against current spec" button.
+
+### Ruleset management
+
+- GET /lint/rulesets — list the user's rulesets (`{id, name, is_default, rule_count, has_raw_yaml, updated_at}[]`)
+- POST /lint/rulesets — create `{name, rules?, raw_yaml?}`; the first ruleset created becomes default. 201 on success, 409 if the name is taken.
+- GET /lint/rulesets/{ruleset_id} — full ruleset body (`{id, name, is_default, rules, raw_yaml, updated_at}`)
+- PUT /lint/rulesets/{ruleset_id} — update `{name?, rules?, raw_yaml?}`. `raw_yaml` is validated for YAML syntax (400) and rejected if it sets `functions`/`functionsDir` or an `extends` outside `spectral:oas`/`spectral:asyncapi` (400, security).
+- DELETE /lint/rulesets/{ruleset_id} — 204 on success; 409 if pinned to any spec, or if it's the default and other rulesets exist.
+- POST /lint/rulesets/{ruleset_id}/set-default — flags this ruleset as default, unflagging the previous one.
+- PUT /lint/spec/{spec_id}/ruleset — body `{ruleset_id: string|null}`; pins (or, if null, clears) which ruleset this spec lints against. 204 on success.

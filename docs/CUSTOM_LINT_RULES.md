@@ -1,13 +1,26 @@
 # Custom Lint Rules
 
-FastSpec lets you extend the default `spectral:oas` ruleset with your own rules. Rules are configured per-user via the **Custom Lint Ruleset** dialog (settings icon in the LintPanel score bar).
+FastSpec lets you extend the default `spectral:oas` ruleset with your own rules. Rules live in **rulesets** — named, reusable collections configured via the **Custom Lint Rulesets** dialog (settings icon in the LintPanel score bar).
 
-There are two authoring modes:
+There are two authoring modes per ruleset:
 
 | Mode | When to use |
 |---|---|
 | **Structured Rules** | Simple rules built with the form UI — no YAML knowledge needed |
 | **Raw YAML Override** | Full control; paste a complete Spectral ruleset. Takes precedence over Structured Rules when both are present. |
+
+---
+
+## Rulesets: multiple, named, assignable
+
+A user can own several rulesets (e.g. "Internal API", "Public API strict"). Each spec can pin one via the ruleset dropdown next to **Custom rules** in the LintPanel top bar; specs with no explicit pin fall back to whichever ruleset is flagged **default**.
+
+- The **first** ruleset a user creates automatically becomes their default.
+- **Set default**: the star button next to the ruleset selector flags a different ruleset as default (unflagging the previous one).
+- **Delete**: blocked with a 409 if the ruleset is pinned to any spec (reassign those specs first), or if it's the default and other rulesets exist (pick a new default first).
+- **Rename**: edit the "Ruleset name" field and click **Save ruleset**; renaming to a name you already have another ruleset under returns a 409.
+
+This replaced the earlier "one global ruleset per user" model (see `docs/adr/0005-multi-ruleset-lint.md`).
 
 ---
 
@@ -41,6 +54,10 @@ If you select `schema` as the function, an inline warning appears:
 > *"The schema function requires JSON Schema syntax. Use the Raw YAML Override tab for full control."*
 
 `schema` is not configurable via the form — use the Raw YAML Override tab for rules that need it.
+
+### Test against current spec
+
+Each rule has a **Test against current spec** button. It runs just that one draft rule — not the full ruleset, not `spectral:oas` — against whatever spec is currently open in the editor, without saving anything, and shows a match count inline. Use it to sanity-check a `given`/function combination before saving. Requires a spec open in the editor with valid JSON content.
 
 ---
 
@@ -162,6 +179,50 @@ then:
 ```
 
 > **Note:** `schema` requires JSON Schema syntax and cannot be configured in the Structured Rules form. Use Raw YAML Override for rules that need it.
+
+### `casing`
+Passes if the selected string follows a casing convention.
+
+```yaml
+then:
+  function: casing
+  functionOptions:
+    type: camel   # one of: camel, pascal, kebab, cobol, snake, macro, flat
+```
+
+### `alphabetical`
+Passes if the selected array/object's entries are sorted alphabetically.
+
+```yaml
+then:
+  function: alphabetical
+  functionOptions:
+    keyedBy: name   # optional: for arrays of objects, sort by this key
+```
+
+### `xor`
+Passes if exactly one of two named sibling fields is present.
+
+```yaml
+then:
+  function: xor
+  functionOptions:
+    properties:
+      - schema
+      - content
+```
+
+> Not exposed as a Structured Rules form field (needs two field names, not a single `given` target) — use Raw YAML Override.
+
+### `unreferencedReusableObject`
+Flags entries under the selected object (e.g. `components.schemas`) that nothing in the document references.
+
+```yaml
+then:
+  function: unreferencedReusableObject
+  functionOptions:
+    reusableObjectsLocation: "#/components/schemas"
+```
 
 ---
 

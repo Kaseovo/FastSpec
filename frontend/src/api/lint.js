@@ -29,40 +29,90 @@ lintApi.interceptors.response.use(
 );
 
 /**
- * Fetch the current user's custom lint ruleset.
- * Resolves to the ruleset object, or null if none is configured (404).
+ * List the current user's lint rulesets (lightweight summaries).
  *
- * @returns {Promise<{rules: Array|null, raw_yaml: string|null, updated_at: string|null}|null>}
+ * @returns {Promise<Array<{id: string, name: string, is_default: boolean, rule_count: number, has_raw_yaml: boolean, updated_at: string|null}>>}
  */
-export const getLintRuleset = async () => {
-  try {
-    const response = await lintApi.get("/ruleset");
-    return response.data;
-  } catch (error) {
-    if (error.response?.status === 404) {
-      return null;
-    }
-    throw error;
-  }
-};
-
-/**
- * Create or replace the current user's custom lint ruleset.
- *
- * @param {{ rules?: Array, raw_yaml?: string }} payload
- * @returns {Promise<{rules: Array|null, raw_yaml: string|null, updated_at: string|null}>}
- */
-export const putLintRuleset = async (payload) => {
-  const response = await lintApi.put("/ruleset", payload);
+export const listLintRulesets = async () => {
+  const response = await lintApi.get("/rulesets");
   return response.data;
 };
 
 /**
- * Delete the current user's custom lint ruleset.
- * Subsequent lint runs will fall back to the default spectral:oas ruleset.
+ * Fetch one lint ruleset in full (rules + raw_yaml).
  *
- * @returns {Promise<void>}
+ * @param {string} rulesetId
+ * @returns {Promise<{id: string, name: string, is_default: boolean, rules: Array|null, raw_yaml: string|null, updated_at: string|null}>}
  */
-export const deleteLintRuleset = async () => {
-  await lintApi.delete("/ruleset");
+export const getLintRuleset = async (rulesetId) => {
+  const response = await lintApi.get(`/rulesets/${rulesetId}`);
+  return response.data;
+};
+
+/**
+ * Create a new named lint ruleset. The first ruleset a user creates
+ * automatically becomes their default.
+ *
+ * @param {{ name: string, rules?: Array, raw_yaml?: string }} payload
+ */
+export const createLintRuleset = async (payload) => {
+  const response = await lintApi.post("/rulesets", payload);
+  return response.data;
+};
+
+/**
+ * Update a ruleset's name and/or rule content.
+ *
+ * @param {string} rulesetId
+ * @param {{ name?: string, rules?: Array, raw_yaml?: string }} payload
+ */
+export const updateLintRuleset = async (rulesetId, payload) => {
+  const response = await lintApi.put(`/rulesets/${rulesetId}`, payload);
+  return response.data;
+};
+
+/**
+ * Delete a ruleset. Fails with 409 if it's assigned to a spec, or if it's
+ * the default ruleset and other rulesets exist.
+ *
+ * @param {string} rulesetId
+ */
+export const deleteLintRuleset = async (rulesetId) => {
+  await lintApi.delete(`/rulesets/${rulesetId}`);
+};
+
+/**
+ * Mark a ruleset as the user's default (unsets the previous default).
+ *
+ * @param {string} rulesetId
+ */
+export const setDefaultLintRuleset = async (rulesetId) => {
+  const response = await lintApi.post(`/rulesets/${rulesetId}/set-default`);
+  return response.data;
+};
+
+/**
+ * Pin (or clear) which ruleset a spec should be linted against.
+ *
+ * @param {string} specId
+ * @param {string|null} rulesetId - pass null to fall back to the user's default ruleset
+ */
+export const assignSpecRuleset = async (specId, rulesetId) => {
+  await lintApi.put(`/spec/${specId}/ruleset`, { ruleset_id: rulesetId });
+};
+
+/**
+ * Test a single unsaved draft rule against spec content, without saving it
+ * or running the full ruleset. Used for immediate per-rule authoring feedback.
+ *
+ * @param {object} specJson
+ * @param {object} rule - a StructuredRule shape (name, severity, given, then_function, ...)
+ * @returns {Promise<{score: number, summary: object, results: Array}>}
+ */
+export const previewLintRule = async (specJson, rule) => {
+  const response = await lintApi.post("/preview-rule", {
+    spec_json: specJson,
+    rule,
+  });
+  return response.data;
 };

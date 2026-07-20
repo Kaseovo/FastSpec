@@ -110,6 +110,7 @@ class OpenAPISpecResponse(BaseModel):
     version: str
     spec_json: Dict[str, Any]
     user_id: int
+    active_ruleset_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -220,7 +221,16 @@ class LintRequest(BaseModel):
 # Lint Ruleset Management Schemas
 
 SPECTRAL_FUNCTIONS = Literal[
-    "truthy", "falsy", "pattern", "enumeration", "length", "schema"
+    "truthy",
+    "falsy",
+    "pattern",
+    "enumeration",
+    "length",
+    "schema",
+    "casing",
+    "alphabetical",
+    "xor",
+    "unreferencedReusableObject",
 ]
 
 
@@ -243,8 +253,11 @@ class StructuredRule(BaseModel):
 
 
 class LintRulesetUpsertRequest(BaseModel):
-    """Request body for PUT /lint/ruleset."""
+    """Request body for POST/PUT /lint/rulesets — create or update a named ruleset."""
 
+    name: Optional[str] = Field(
+        None, min_length=1, max_length=255, description="Ruleset display name"
+    )
     rules: Optional[List[StructuredRule]] = Field(
         None, description="Structured rules built via the form UI"
     )
@@ -255,10 +268,40 @@ class LintRulesetUpsertRequest(BaseModel):
 
 
 class LintRulesetResponse(BaseModel):
-    """Response body for GET /lint/ruleset."""
+    """Full ruleset body, returned by the single-ruleset GET/POST/PUT endpoints."""
 
+    id: str
+    name: str
+    is_default: bool
     rules: Optional[List[StructuredRule]] = None
     raw_yaml: Optional[str] = None
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LintRulesetSummary(BaseModel):
+    """Lightweight ruleset listing entry, returned by GET /lint/rulesets."""
+
+    id: str
+    name: str
+    is_default: bool
+    rule_count: int
+    has_raw_yaml: bool
+    updated_at: Optional[datetime] = None
+
+
+class SpecRulesetAssignRequest(BaseModel):
+    """Request body for PUT /lint/spec/{spec_id}/ruleset."""
+
+    ruleset_id: Optional[str] = Field(
+        None,
+        description="Ruleset to pin to this spec, or null to fall back to the user's default ruleset",
+    )
+
+
+class LintPreviewRuleRequest(BaseModel):
+    """Request body for POST /lint/preview-rule — test one draft rule without saving it."""
+
+    spec_json: Dict[str, Any]
+    rule: StructuredRule

@@ -123,6 +123,8 @@
           :results="lintResults"
           :loading="lintLoading"
           :error="lintError"
+          :spec-id="selectedSpecId"
+          :spec-content="specContent"
           @run-lint="runLint"
           @go-to-line="handleGoToLine"
         />

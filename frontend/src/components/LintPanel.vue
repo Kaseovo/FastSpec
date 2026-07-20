@@ -2,12 +2,24 @@
   <div class="lint-panel">
     <LintRulesetDialog
       :open="showRulesetDialog"
+      :spec-content="specContent"
       @update:open="showRulesetDialog = $event"
       @saved="$emit('run-lint')"
       @deleted="$emit('run-lint')"
     />
     <!-- Always-visible top bar with settings access -->
     <div class="lint-topbar">
+      <Select
+        v-if="canAssignRuleset"
+        v-model="assignedRulesetId"
+        :options="rulesetAssignOptions"
+        option-label="label"
+        option-value="value"
+        class="ruleset-assign-select"
+        v-tooltip.top="'Which ruleset this spec is linted against'"
+        size="small"
+        @update:model-value="onAssignRuleset"
+      />
       <Button
         icon="pi pi-sliders-h"
         severity="secondary"
@@ -136,15 +148,20 @@
 </template>
 
 <script>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import Button from "primevue/button";
 import Message from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
+import Select from "primevue/select";
+import Tooltip from "primevue/tooltip";
 import LintRulesetDialog from "./LintRulesetDialog.vue";
+import { assignSpecRuleset, listLintRulesets } from "../api/lint";
+import { fetchSpec } from "../api/specs";
 
 export default {
   name: "LintPanel",
-  components: { Button, Message, ProgressSpinner, LintRulesetDialog },
+  components: { Button, Message, ProgressSpinner, Select, LintRulesetDialog },
+  directives: { tooltip: Tooltip },
 
   props: {
     /** LintResponse from the backend: { score, summary, results } */
@@ -160,13 +177,67 @@ export default {
       type: String,
       default: null,
     },
+    /** Id of the spec currently open, or null/"__unsaved" for an unsaved draft */
+    specId: {
+      type: String,
+      default: null,
+    },
+    /** Raw JSON text of the spec currently open — forwarded to the ruleset dialog for rule previews */
+    specContent: {
+      type: String,
+      default: "",
+    },
   },
 
   emits: ["run-lint", "go-to-line"],
 
-  setup(props) {
+  setup(props, { emit }) {
     const activeFilter = ref(null);
     const showRulesetDialog = ref(false);
+
+    // Per-spec ruleset assignment
+    const rulesets = ref([]);
+    const assignedRulesetId = ref(null);
+
+    const canAssignRuleset = computed(
+      () => Boolean(props.specId) && props.specId !== "__unsaved" && rulesets.value.length > 0,
+    );
+
+    const rulesetAssignOptions = computed(() => [
+      { label: "Default ruleset", value: null },
+      ...rulesets.value.map((r) => ({ label: r.name, value: r.id })),
+    ]);
+
+    async function loadAssignment() {
+      if (!props.specId || props.specId === "__unsaved") {
+        rulesets.value = [];
+        assignedRulesetId.value = null;
+        return;
+      }
+      try {
+        const [rulesetList, spec] = await Promise.all([
+          listLintRulesets(),
+          fetchSpec(props.specId),
+        ]);
+        rulesets.value = rulesetList;
+        assignedRulesetId.value = spec.active_ruleset_id ?? null;
+      } catch {
+        rulesets.value = [];
+        assignedRulesetId.value = null;
+      }
+    }
+
+    watch(() => props.specId, loadAssignment, { immediate: true });
+
+    async function onAssignRuleset(rulesetId) {
+      if (!props.specId) return;
+      try {
+        await assignSpecRuleset(props.specId, rulesetId);
+        emit("run-lint");
+      } catch {
+        // Non-critical — dropdown just won't reflect the failed change
+      }
+    }
 
     const severities = [
       { key: null, label: "All", icon: "⚪" },
@@ -203,6 +274,10 @@ export default {
     return {
       activeFilter,
       showRulesetDialog,
+      rulesetAssignOptions,
+      assignedRulesetId,
+      canAssignRuleset,
+      onAssignRuleset,
       severities,
       toggleFilter,
       filteredResults,
@@ -216,10 +291,17 @@ export default {
 <style scoped>
 .lint-topbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
   padding: 4px 4px 0;
   border-bottom: 1px solid var(--p-surface-border, #dee2e6);
   margin-bottom: 4px;
+}
+
+.ruleset-assign-select {
+  font-size: 0.8rem;
+  max-width: 220px;
 }
 
 .lint-panel {
