@@ -145,24 +145,16 @@
       @path-keydown="handleEditPathKeydown"
       @confirm="confirmEditPath"
     />
-    <AddSchemaDialog
-      :visible="showAddSchemaDialog"
-      @update:visible="showAddSchemaDialog = $event"
-      :step="addSchemaStep"
-      @update:step="addSchemaStep = $event"
-      :new-schema-name="newSchemaName"
-      @update:new-schema-name="newSchemaName = $event"
-      :new-schema-kind="newSchemaKind"
-      @update:new-schema-kind="newSchemaKind = $event"
-      :new-schema-description="newSchemaDescription"
-      @update:new-schema-description="newSchemaDescription = $event"
-      :new-schema-properties="newSchemaProperties"
-      :is-new-schema-name-duplicate="isNewSchemaNameDuplicate"
-      @add-property="addWizardProperty"
-      @remove-property="removeWizardProperty"
-      @next="goToAddSchemaStep2"
-      @cancel="cancelAddSchemaDialog"
-      @confirm="confirmAddSchema"
+    <EditSchemaDialog
+      :visible="showEditSchemaDialog"
+      @update:visible="showEditSchemaDialog = $event"
+      :step="editSchemaDialogStep"
+      :is-new="wizardCreatedSchemaName !== null"
+      :api="componentsApi"
+      @back="goToPrevEditSchemaStep"
+      @next="goToNextEditSchemaStep"
+      @cancel="cancelEditSchemaDialog"
+      @finish="finishEditSchemaDialog"
     />
     <AddTagDialog
       :visible="showTagDialog"
@@ -198,6 +190,17 @@
       @cancel="cancelPropertyDialog"
       @finish="finishPropertyDialog"
     />
+    <EditSchemaPropertyDialog
+      :visible="showSchemaPropertyDialog"
+      @update:visible="showSchemaPropertyDialog = $event"
+      :step="schemaPropertyDialogStep"
+      :is-new="wizardCreatedSchemaPropertyName !== null"
+      :api="componentsApi"
+      @back="goToPrevSchemaPropertyStep"
+      @next="goToNextSchemaPropertyStep"
+      @cancel="cancelSchemaPropertyDialog"
+      @finish="finishSchemaPropertyDialog"
+    />
   </div>
 </template>
 
@@ -214,10 +217,11 @@ import AddPathDialog from "./form-editor/AddPathDialog.vue";
 import AddMethodDialog from "./form-editor/AddMethodDialog.vue";
 import EditPathDialog from "./form-editor/EditPathDialog.vue";
 import ResponseCodeDialog from "./form-editor/ResponseCodeDialog.vue";
-import AddSchemaDialog from "./form-editor/AddSchemaDialog.vue";
+import EditSchemaDialog from "./form-editor/EditSchemaDialog.vue";
 import AddTagDialog from "./form-editor/AddTagDialog.vue";
 import EditParameterDialog from "./form-editor/EditParameterDialog.vue";
 import EditPropertyDialog from "./form-editor/EditPropertyDialog.vue";
+import EditSchemaPropertyDialog from "./form-editor/EditSchemaPropertyDialog.vue";
 import { useFormEditorState } from "../composables/useFormEditorState";
 
 const LABELS = {
@@ -287,10 +291,11 @@ export default {
     AddMethodDialog,
     EditPathDialog,
     ResponseCodeDialog,
-    AddSchemaDialog,
+    EditSchemaDialog,
     AddTagDialog,
     EditParameterDialog,
     EditPropertyDialog,
+    EditSchemaPropertyDialog,
   },
   props: {
     modelValue: { type: Object, required: true },

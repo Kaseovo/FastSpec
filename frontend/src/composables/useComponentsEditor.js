@@ -102,114 +102,6 @@ export function useComponentsEditor(formData, confirm, toast) {
     };
   };
 
-  // "Add Schema" wizard — step 1 (name + type + description) then, for
-  // object schemas, step 2 (a quick-start property list) — instead of the
-  // old instant "NewSchema" creation. Non-object kinds have nothing
-  // meaningful to configure up front (composition members, formats, etc.
-  // are all edited fine afterward in the full schema editor), so they skip
-  // straight to creation once step 1 is valid.
-  const showAddSchemaDialog = ref(false);
-  const addSchemaStep = ref(1);
-  const newSchemaName = ref("");
-  const newSchemaKind = ref("object");
-  const newSchemaDescription = ref("");
-  const newSchemaProperties = ref([]);
-
-  const isNewSchemaNameDuplicate = computed(() => {
-    const name = newSchemaName.value.trim();
-    return !!name && !!formData.value.components?.schemas?.[name];
-  });
-
-  const resetAddSchemaWizard = () => {
-    newSchemaName.value = "";
-    newSchemaKind.value = "object";
-    newSchemaDescription.value = "";
-    newSchemaProperties.value = [];
-    addSchemaStep.value = 1;
-  };
-
-  const openAddSchemaDialog = () => {
-    resetAddSchemaWizard();
-    showAddSchemaDialog.value = true;
-  };
-
-  // Every "New Schema" button next to a $ref picker (parameter/property/
-  // response item schemas, request body reference schema, etc.) opens this
-  // same dialog instead of a blind instant create, so the schema gets a
-  // real name/type/quick-start properties up front. `onCreated` is called
-  // with the new schema's name once confirmAddSchema succeeds, letting each
-  // caller point its own $ref field at it — plain closure state (not a ref)
-  // since it's pure control flow, never read by a template.
-  let pendingSchemaCreatedCallback = null;
-
-  const openAddSchemaDialogFor = (onCreated) => {
-    pendingSchemaCreatedCallback = typeof onCreated === "function" ? onCreated : null;
-    openAddSchemaDialog();
-  };
-
-  const cancelAddSchemaDialog = () => {
-    pendingSchemaCreatedCallback = null;
-    resetAddSchemaWizard();
-    showAddSchemaDialog.value = false;
-  };
-
-  const addWizardProperty = () => {
-    let name = "property";
-    let counter = 1;
-    const existing = new Set(newSchemaProperties.value.map((p) => p.name));
-    while (existing.has(name)) {
-      name = `property${counter}`;
-      counter++;
-    }
-    newSchemaProperties.value.push({ name, type: "string", required: false });
-  };
-
-  const removeWizardProperty = (index) => {
-    newSchemaProperties.value.splice(index, 1);
-  };
-
-  const confirmAddSchema = () => {
-    const name = newSchemaName.value.trim();
-    if (!name || formData.value.components.schemas[name]) return;
-
-    const schema = {};
-    setSchemaKind(schema, newSchemaKind.value);
-    if (newSchemaDescription.value.trim()) {
-      schema.description = newSchemaDescription.value.trim();
-    }
-
-    if (newSchemaKind.value === "object") {
-      const required = [];
-      for (const prop of newSchemaProperties.value) {
-        const propName = prop.name.trim();
-        if (!propName) continue;
-        schema.properties[propName] = { type: prop.type };
-        if (prop.required) required.push(propName);
-      }
-      if (required.length) schema.required = required;
-    }
-
-    formData.value.components.schemas[name] = schema;
-    selectAndOpenSchema(name);
-    resetAddSchemaWizard();
-    showAddSchemaDialog.value = false;
-
-    if (pendingSchemaCreatedCallback) {
-      const callback = pendingSchemaCreatedCallback;
-      pendingSchemaCreatedCallback = null;
-      callback(name);
-    }
-  };
-
-  const goToAddSchemaStep2 = () => {
-    if (!newSchemaName.value.trim() || isNewSchemaNameDuplicate.value) return;
-    if (newSchemaKind.value === "object") {
-      addSchemaStep.value = 2;
-    } else {
-      confirmAddSchema();
-    }
-  };
-
   const removeSchema = (name) => {
     confirm.require({
       message: `Are you sure you want to delete the schema "${name}"? Any references to it will become invalid.`,
@@ -269,6 +161,124 @@ export function useComponentsEditor(formData, confirm, toast) {
       formData.value.components.schemas[name] = JSON.parse(jsonString);
     } catch (e) {
       // Invalid JSON, don't update
+    }
+  };
+
+  // Add/Edit Schema dialog — same shape as every other Add/Edit dialog in
+  // this app (parameters, request body/schema properties): one dialog
+  // handles both creating and editing, keyed by name since
+  // components.schemas is a plain object. A schema being edited is a
+  // *component in its own right*, not just something with properties, so
+  // this covers the schema's own Basic Info plus whichever of
+  // Composition (oneOf/anyOf/allOf) / Properties (object) / Validation
+  // (string/number/integer/boolean/array) applies to its current kind —
+  // Properties itself defers per-property editing to
+  // openAddSchemaPropertyDialog/openEditSchemaPropertyDialog above, same
+  // nesting relationship as a parameter's Array Items step.
+  const showEditSchemaDialog = ref(false);
+  const editingSchemaName = ref(null);
+  const wizardCreatedSchemaName = ref(null);
+  const editSchemaDialogStep = ref("basicInfo");
+
+  const editingSchema = computed(() => {
+    const name = editingSchemaName.value;
+    if (name === null) return null;
+    return formData.value.components?.schemas?.[name] ?? null;
+  });
+
+  const isEditingSchemaNameInvalid = computed(() => !(editingSchemaName.value || "").trim());
+
+  const renameSchemaInDialog = (newName) => {
+    const oldName = editingSchemaName.value;
+    if (!newName || newName === oldName) return;
+    if (formData.value.components?.schemas?.[newName]) return;
+    renameSchema(oldName, newName);
+    editingSchemaName.value = newName;
+    if (wizardCreatedSchemaName.value === oldName) wizardCreatedSchemaName.value = newName;
+  };
+
+  const editSchemaDialogStepOrder = computed(() => {
+    const schema = editingSchema.value;
+    if (!schema) return ["basicInfo"];
+    const kind = getSchemaKind(schema);
+    if (isCompositionKind(kind)) return ["basicInfo", "composition"];
+    if (kind === "object") return ["basicInfo", "properties"];
+    return ["basicInfo", "validation"];
+  });
+
+  const goToNextEditSchemaStep = () => {
+    if (isEditingSchemaNameInvalid.value) return;
+    const order = editSchemaDialogStepOrder.value;
+    const index = order.indexOf(editSchemaDialogStep.value);
+    if (index < order.length - 1) editSchemaDialogStep.value = order[index + 1];
+  };
+
+  const goToPrevEditSchemaStep = () => {
+    const order = editSchemaDialogStepOrder.value;
+    const index = order.indexOf(editSchemaDialogStep.value);
+    if (index > 0) editSchemaDialogStep.value = order[index - 1];
+  };
+
+  const openEditSchemaDialog = (name) => {
+    editingSchemaName.value = name;
+    wizardCreatedSchemaName.value = null;
+    editSchemaDialogStep.value = "basicInfo";
+    showEditSchemaDialog.value = true;
+  };
+
+  // Every "New Schema" button next to a $ref picker (parameter/property/
+  // response item schemas, request body reference schema, etc.) opens this
+  // same dialog instead of a blind instant create. `onCreated` is called
+  // with the new schema's name once the dialog finishes (Done clicked),
+  // letting each caller point its own $ref field at it — plain closure
+  // state (not a ref) since it's pure control flow, never read by a
+  // template.
+  let pendingSchemaCreatedCallback = null;
+
+  const openAddSchemaDialog = (onCreated) => {
+    pendingSchemaCreatedCallback = typeof onCreated === "function" ? onCreated : null;
+
+    let name = "NewSchema";
+    let counter = 1;
+    while (formData.value.components.schemas[name]) {
+      name = `NewSchema${counter}`;
+      counter++;
+    }
+    formData.value.components.schemas[name] = { type: "object", properties: {} };
+
+    editingSchemaName.value = name;
+    wizardCreatedSchemaName.value = name;
+    editSchemaDialogStep.value = "basicInfo";
+    showEditSchemaDialog.value = true;
+  };
+
+  const openAddSchemaDialogFor = (onCreated) => openAddSchemaDialog(onCreated);
+
+  const resetEditSchemaDialog = () => {
+    editingSchemaName.value = null;
+    wizardCreatedSchemaName.value = null;
+    editSchemaDialogStep.value = "basicInfo";
+    showEditSchemaDialog.value = false;
+  };
+
+  const cancelEditSchemaDialog = () => {
+    pendingSchemaCreatedCallback = null;
+    if (wizardCreatedSchemaName.value !== null) {
+      delete formData.value.components.schemas[wizardCreatedSchemaName.value];
+    }
+    resetEditSchemaDialog();
+  };
+
+  const finishEditSchemaDialog = () => {
+    if (isEditingSchemaNameInvalid.value) return;
+    const name = editingSchemaName.value;
+    selectAndOpenSchema(name);
+    resetEditSchemaDialog();
+
+    if (pendingSchemaCreatedCallback) {
+      const callback = pendingSchemaCreatedCallback;
+      pendingSchemaCreatedCallback = null;
+      callback(name);
     }
   };
 
@@ -354,6 +364,121 @@ export function useComponentsEditor(formData, confirm, toast) {
     } else {
       schema.required = schema.required.filter((r) => r !== propName);
     }
+  };
+
+  // Add/Edit Schema Property dialog — same shape as usePathsEditor.js's
+  // Add/Edit Property dialog for request bodies (Basic Info / Type &
+  // Validation, collapsed "advanced" fields), duplicated rather than shared
+  // for the same reason the rest of this file's property helpers are
+  // duplicated: independent composables, no cross-tab coupling. The one
+  // real difference is that a schema property needs an *owner* (which
+  // schema it belongs to) tracked alongside its name, since ComponentsTab
+  // can have many schemas' property lists in play, not just "the current
+  // operation's" like request bodies.
+  const showSchemaPropertyDialog = ref(false);
+  const editingSchemaPropertyOwner = ref(null);
+  const editingSchemaPropertyName = ref(null);
+  const wizardCreatedSchemaPropertyName = ref(null);
+  const schemaPropertyDialogStep = ref("basicInfo");
+
+  const editingSchemaProperty = computed(() => {
+    const owner = editingSchemaPropertyOwner.value;
+    const name = editingSchemaPropertyName.value;
+    if (!owner || name === null) return null;
+    return formData.value.components?.schemas?.[owner]?.properties?.[name] ?? null;
+  });
+
+  // "Required" lives as membership in the *owner* schema's `required[]`,
+  // not on the property itself — this is what the dialog's Required
+  // checkbox reads/toggles, same reasoning as
+  // usePathsEditor.js's toggleRequestBodyPropertyRequired.
+  const isEditingSchemaPropertyRequired = computed(() => {
+    const owner = editingSchemaPropertyOwner.value;
+    const name = editingSchemaPropertyName.value;
+    const schema = owner ? formData.value.components?.schemas?.[owner] : null;
+    return !!schema?.required?.includes(name);
+  });
+
+  const toggleEditingSchemaPropertyRequired = (isRequired) => {
+    if (!editingSchemaPropertyOwner.value) return;
+    toggleSchemaPropertyRequired(
+      editingSchemaPropertyOwner.value,
+      editingSchemaPropertyName.value,
+      isRequired,
+    );
+  };
+
+  const isEditingSchemaPropertyInvalid = computed(
+    () => !(editingSchemaPropertyName.value || "").trim(),
+  );
+
+  const renameSchemaPropertyInDialog = (newName) => {
+    const owner = editingSchemaPropertyOwner.value;
+    const oldName = editingSchemaPropertyName.value;
+    if (!owner || !newName || newName === oldName) return;
+    const schema = formData.value.components?.schemas?.[owner];
+    if (!schema?.properties || schema.properties[newName]) return;
+    renameSchemaProperty(owner, oldName, newName);
+    editingSchemaPropertyName.value = newName;
+    if (wizardCreatedSchemaPropertyName.value === oldName) {
+      wizardCreatedSchemaPropertyName.value = newName;
+    }
+  };
+
+  const schemaPropertyDialogStepOrder = computed(() =>
+    editingSchemaProperty.value?.type === "$ref" ? ["basicInfo"] : ["basicInfo", "validation"],
+  );
+
+  const goToNextSchemaPropertyStep = () => {
+    if (isEditingSchemaPropertyInvalid.value) return;
+    const order = schemaPropertyDialogStepOrder.value;
+    const index = order.indexOf(schemaPropertyDialogStep.value);
+    if (index < order.length - 1) schemaPropertyDialogStep.value = order[index + 1];
+  };
+
+  const goToPrevSchemaPropertyStep = () => {
+    const order = schemaPropertyDialogStepOrder.value;
+    const index = order.indexOf(schemaPropertyDialogStep.value);
+    if (index > 0) schemaPropertyDialogStep.value = order[index - 1];
+  };
+
+  const openAddSchemaPropertyDialog = (schemaName) => {
+    const name = addSchemaProperty(schemaName);
+    if (!name) return;
+    editingSchemaPropertyOwner.value = schemaName;
+    editingSchemaPropertyName.value = name;
+    wizardCreatedSchemaPropertyName.value = name;
+    schemaPropertyDialogStep.value = "basicInfo";
+    showSchemaPropertyDialog.value = true;
+  };
+
+  const openEditSchemaPropertyDialog = (schemaName, propName) => {
+    editingSchemaPropertyOwner.value = schemaName;
+    editingSchemaPropertyName.value = propName;
+    wizardCreatedSchemaPropertyName.value = null;
+    schemaPropertyDialogStep.value = "basicInfo";
+    showSchemaPropertyDialog.value = true;
+  };
+
+  const resetSchemaPropertyDialog = () => {
+    editingSchemaPropertyOwner.value = null;
+    editingSchemaPropertyName.value = null;
+    wizardCreatedSchemaPropertyName.value = null;
+    schemaPropertyDialogStep.value = "basicInfo";
+    showSchemaPropertyDialog.value = false;
+  };
+
+  const cancelSchemaPropertyDialog = () => {
+    if (wizardCreatedSchemaPropertyName.value !== null && editingSchemaPropertyOwner.value) {
+      const schema = formData.value.components?.schemas?.[editingSchemaPropertyOwner.value];
+      if (schema?.properties) delete schema.properties[wizardCreatedSchemaPropertyName.value];
+    }
+    resetSchemaPropertyDialog();
+  };
+
+  const finishSchemaPropertyDialog = () => {
+    if (isEditingSchemaPropertyInvalid.value) return;
+    resetSchemaPropertyDialog();
   };
 
   // Type change handlers - initialize sub-structures
@@ -544,20 +669,20 @@ export function useComponentsEditor(formData, confirm, toast) {
     isOpenAPI31,
     addChipOnEnter,
     addSchema,
-    showAddSchemaDialog,
-    addSchemaStep,
-    newSchemaName,
-    newSchemaKind,
-    newSchemaDescription,
-    newSchemaProperties,
-    isNewSchemaNameDuplicate,
+    showEditSchemaDialog,
+    editingSchemaName,
+    wizardCreatedSchemaName,
+    editSchemaDialogStep,
+    editingSchema,
+    isEditingSchemaNameInvalid,
+    renameSchemaInDialog,
+    goToNextEditSchemaStep,
+    goToPrevEditSchemaStep,
+    openEditSchemaDialog,
     openAddSchemaDialog,
     openAddSchemaDialogFor,
-    cancelAddSchemaDialog,
-    goToAddSchemaStep2,
-    confirmAddSchema,
-    addWizardProperty,
-    removeWizardProperty,
+    cancelEditSchemaDialog,
+    finishEditSchemaDialog,
     removeSchema,
     renameSchema,
     updateSchema,
@@ -565,6 +690,22 @@ export function useComponentsEditor(formData, confirm, toast) {
     removeSchemaProperty,
     renameSchemaProperty,
     toggleSchemaPropertyRequired,
+    showSchemaPropertyDialog,
+    editingSchemaPropertyOwner,
+    editingSchemaPropertyName,
+    wizardCreatedSchemaPropertyName,
+    schemaPropertyDialogStep,
+    editingSchemaProperty,
+    isEditingSchemaPropertyInvalid,
+    isEditingSchemaPropertyRequired,
+    toggleEditingSchemaPropertyRequired,
+    renameSchemaPropertyInDialog,
+    openAddSchemaPropertyDialog,
+    openEditSchemaPropertyDialog,
+    goToNextSchemaPropertyStep,
+    goToPrevSchemaPropertyStep,
+    cancelSchemaPropertyDialog,
+    finishSchemaPropertyDialog,
     onSchemaTypeChange,
     getSchemaKind,
     setSchemaKind,

@@ -861,7 +861,8 @@
   border-color: #d1d5db;
 }
 
-.property-item.dragging {
+.property-item.dragging,
+.param-item.dragging {
   opacity: 0.5;
   border-color: #3b82f6;
   background: #f9fafb;
