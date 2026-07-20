@@ -262,11 +262,18 @@ body {
 #app {
   min-height: 100vh;
   padding: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-content {
   max-width: 2000px;
+  width: 100%;
   margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .signed-out-card {

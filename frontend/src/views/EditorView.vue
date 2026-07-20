@@ -281,7 +281,8 @@ export default {
 
 <style scoped>
 .ev {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
