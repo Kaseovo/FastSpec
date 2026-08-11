@@ -200,7 +200,7 @@
                                                     v-model="prop.type"
                                                     :options="['string','number','integer','boolean','array','object','$ref']"
                                                     placeholder="Type"
-                                                    @change="onPropertyTypeChange(prop)"
+                                                    @change="onResponsePropertyTypeChange(prop)"
                                                   />
                                                 </div>
                                               </div>
@@ -475,9 +475,22 @@ export default {
     api: { type: Object, required: true },
   },
   setup(props) {
+    // See EditPropertyDialog.vue's identical onTypeChange for why: the
+    // shared onPropertyTypeChange leaves items:{} type-less, and the "Array
+    // Items Type" select below is v-if'd on `prop.items` alone (already
+    // truthy), so it renders unselected -- saving without touching it wrote
+    // an invalid `items: {}` for inline response properties.
+    const onResponsePropertyTypeChange = (prop) => {
+      props.api.onPropertyTypeChange(prop);
+      if (prop?.type === "array" && prop.items && !prop.items.type) {
+        prop.items.type = "string";
+      }
+    };
+
     return {
       formData: computed(() => props.formData),
       ...props.api,
+      onResponsePropertyTypeChange,
     };
   },
 };

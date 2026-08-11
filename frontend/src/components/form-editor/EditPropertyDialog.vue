@@ -43,7 +43,7 @@
                 v-model="property.type"
                 :options="['string', 'number', 'integer', 'boolean', 'array', 'object', '$ref']"
                 placeholder="Type"
-                @change="onPropertyTypeChange(property)"
+                @change="onTypeChange"
               />
             </div>
           </div>
@@ -319,6 +319,22 @@ export default {
       return count;
     });
 
+    // onPropertyTypeChange deliberately leaves the new items:{} type-less
+    // (shared with other editors whose tests pin that starting state) — see
+    // EditParameterDialog.vue's onTypeChange for the same pattern/rationale.
+    // This dialog's "Array Items Type" select (below) is v-if'd on
+    // `property.items` being truthy, which items:{} already satisfies, so
+    // it renders with nothing selected -- a user who doesn't also touch it
+    // saves `items: {}`, invalid per an array's Item Schema. Seed a default
+    // type on that same object here, scoped to this dialog only.
+    const onTypeChange = () => {
+      const prop = property.value;
+      props.api.onPropertyTypeChange(prop);
+      if (prop?.type === "array" && prop.items && !prop.items.type) {
+        prop.items.type = "string";
+      }
+    };
+
     return {
       ...props.api,
       property,
@@ -326,6 +342,7 @@ export default {
       stepIndex,
       showValidationRules,
       advancedFieldCount,
+      onTypeChange,
     };
   },
 };

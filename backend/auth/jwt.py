@@ -142,8 +142,16 @@ def create_api_key(
     return raw, rt, expires_at
 
 
-def create_short_jwt(user_id: int, actions: list[str]) -> tuple[str, datetime]:
-    """Create a short-lived JWT containing the provided actions and token_type="short"."""
+def create_short_jwt(
+    user_id: int, actions: list[str], api_key_id: str | None = None
+) -> tuple[str, datetime]:
+    """Create a short-lived JWT containing the provided actions and token_type="short".
+
+    api_key_id, when provided, is the id of the APIKey this token was minted
+    from — embedded so verify_short_jwt can re-check revocation status for
+    short JWTs a client reuses across multiple requests instead of exchanging
+    fresh each time (see verify_short_jwt).
+    """
     now = datetime.now(timezone.utc)
     exp = now + timedelta(seconds=SHORT_JWT_TTL_SECONDS)
     payload = {
@@ -153,12 +161,24 @@ def create_short_jwt(user_id: int, actions: list[str]) -> tuple[str, datetime]:
         "exp": exp,
         "iat": now,
     }
+    if api_key_id is not None:
+        payload["api_key_id"] = api_key_id
     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return token, exp
 
 
-def verify_short_jwt(token: str) -> dict:
-    """Verify a short JWT and ensure token_type=="short"."""
+def verify_short_jwt(token: str, db_session=None) -> dict:
+    """Verify a short JWT and ensure token_type=="short".
+
+    A short JWT's signature/expiry alone don't reflect a revocation of the
+    API key it was minted from — the key could be revoked at any point during
+    the token's (short but nonzero) lifetime. When db_session is provided and
+    the payload carries an api_key_id (see create_short_jwt), re-check that
+    the originating APIKey is still present, unrevoked, and unexpired.
+    Callers that don't have a session handy (or that immediately re-check the
+    underlying key themselves, e.g. right after minting one from a fresh
+    exchange) may omit db_session and get signature/expiry checks only.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired short token",
@@ -174,6 +194,15 @@ def verify_short_jwt(token: str) -> dict:
     sub = payload.get("sub")
     if not sub:
         raise credentials_exception
+
+    api_key_id = payload.get("api_key_id")
+    if api_key_id and db_session is not None:
+        now = datetime.now(timezone.utc)
+        key_rec = db_session.query(APIKey).filter(APIKey.id == api_key_id).first()
+        expires_at = key_rec.expires_at.replace(tzinfo=timezone.utc) if key_rec else None
+        if not key_rec or key_rec.revoked or expires_at < now:
+            raise credentials_exception
+
     return payload
 
 
@@ -241,12 +270,17 @@ def exchange_api_key_for_short_jwt(
     try:
         token_rec = find_api_key_by_raw(db, api_key)
         now = datetime.now(timezone.utc)
-        if not token_rec or token_rec.revoked or token_rec.expires_at < now:
+        expires_at = (
+            token_rec.expires_at.replace(tzinfo=timezone.utc) if token_rec else None
+        )
+        if not token_rec or token_rec.revoked or expires_at < now:
             raise HTTPException(status_code=401, detail="Invalid or revoked api_key")
 
         # Issue short JWT with actions embedded
         actions = token_rec.get_actions()
-        short_jwt, expires_at = create_short_jwt(token_rec.user_id, actions)
+        short_jwt, expires_at = create_short_jwt(
+            token_rec.user_id, actions, api_key_id=token_rec.id
+        )
 
         # update last_used_at
         token_rec.last_used_at = now

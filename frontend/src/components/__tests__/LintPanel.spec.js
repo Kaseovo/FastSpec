@@ -1,7 +1,18 @@
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { vi } from "vitest";
 import LintPanel from "../LintPanel.vue";
+
+const mockLintApi = vi.hoisted(() => ({
+  listLintRulesets: vi.fn(),
+  assignSpecRuleset: vi.fn(),
+}));
+vi.mock("../../api/lint", () => mockLintApi);
+
+const mockSpecsApi = vi.hoisted(() => ({
+  fetchSpec: vi.fn(),
+}));
+vi.mock("../../api/specs", () => mockSpecsApi);
 
 // Stub PrimeVue components that are not relevant to unit-testing logic
 const stubComponents = {
@@ -9,6 +20,11 @@ const stubComponents = {
   Message: { template: "<div><slot /></div>" },
   ProgressSpinner: { template: "<div class='spinner' />" },
   LintRulesetDialog: { template: "<div />" },
+  Select: {
+    props: ["modelValue", "options"],
+    emits: ["update:model-value"],
+    template: "<div class='stub-select' />",
+  },
 };
 
 const LINT_RESULTS_CLEAN = {
@@ -241,5 +257,81 @@ describe("LintPanel", () => {
     });
     expect(wrapper.find(".lint-no-results").exists()).toBe(true);
     expect(wrapper.find(".lint-no-results").text()).toContain("No issues found.");
+  });
+
+  // ── Per-spec ruleset assignment ──────────────────────────────────────────
+
+  const RULESET_A = { id: "r1", name: "Internal API", is_default: true };
+  const RULESET_B = { id: "r2", name: "Public API strict", is_default: false };
+
+  describe("ruleset assignment", () => {
+    beforeEach(() => {
+      vi.resetAllMocks();
+      mockLintApi.listLintRulesets.mockResolvedValue([RULESET_A, RULESET_B]);
+      mockSpecsApi.fetchSpec.mockResolvedValue({ id: "spec-1", active_ruleset_id: "r1" });
+      mockLintApi.assignSpecRuleset.mockResolvedValue({});
+    });
+
+    function mountWithSpec(props = {}) {
+      return mount(LintPanel, {
+        props: { results: null, loading: false, error: null, specId: "spec-1", ...props },
+        global: { components: stubComponents },
+      });
+    }
+
+    test("a failed assignment reverts the dropdown instead of leaving an unpersisted selection", async () => {
+      const wrapper = mountWithSpec();
+      await flushPromises();
+      expect(wrapper.vm.assignedRulesetId).toBe("r1");
+
+      mockLintApi.assignSpecRuleset.mockRejectedValue(new Error("network error"));
+      await wrapper.vm.onAssignRuleset("r2");
+      await flushPromises();
+
+      // Not "r2" -- the PUT failed, so the dropdown must reflect what's
+      // actually persisted (r1), not the attempted-but-failed change.
+      expect(wrapper.vm.assignedRulesetId).toBe("r1");
+    });
+
+    test("a successful assignment keeps the new selection and re-runs lint", async () => {
+      const wrapper = mountWithSpec();
+      await flushPromises();
+
+      await wrapper.vm.onAssignRuleset("r2");
+      await flushPromises();
+
+      expect(wrapper.vm.assignedRulesetId).toBe("r2");
+      expect(mockLintApi.assignSpecRuleset).toHaveBeenCalledWith("spec-1", "r2");
+      expect(wrapper.emitted("run-lint")).toBeTruthy();
+    });
+
+    test("onRulesetDialogChanged (saved/deleted/set-default) reloads the assignment", async () => {
+      const wrapper = mountWithSpec();
+      await flushPromises();
+      expect(mockLintApi.listLintRulesets).toHaveBeenCalledTimes(1);
+
+      // Simulate the dialog renaming/deleting/re-defaulting a ruleset
+      // server-side, then firing one of its change events.
+      mockLintApi.listLintRulesets.mockResolvedValue([RULESET_A, { ...RULESET_B, name: "Renamed" }]);
+      const dialog = wrapper.findComponent({ name: "LintRulesetDialog" });
+      dialog.vm.$emit("saved");
+      await flushPromises();
+
+      expect(mockLintApi.listLintRulesets).toHaveBeenCalledTimes(2);
+      expect(wrapper.vm.rulesetAssignOptions).toContainEqual({ label: "Renamed", value: "r2" });
+      expect(wrapper.emitted("run-lint")).toBeTruthy();
+    });
+
+    test("set-default event from the dialog also reloads the assignment", async () => {
+      const wrapper = mountWithSpec();
+      await flushPromises();
+      expect(mockLintApi.listLintRulesets).toHaveBeenCalledTimes(1);
+
+      const dialog = wrapper.findComponent({ name: "LintRulesetDialog" });
+      dialog.vm.$emit("set-default");
+      await flushPromises();
+
+      expect(mockLintApi.listLintRulesets).toHaveBeenCalledTimes(2);
+    });
   });
 });

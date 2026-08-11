@@ -70,6 +70,25 @@ def test_raw_yaml_with_extends_not_duplicated():
     assert result.count("spectral:oas") == 1
 
 
+def test_raw_yaml_extending_asyncapi_is_not_given_a_conflicting_second_extends():
+    """A ruleset that legitimately extends spectral:asyncapi (the other
+    _ALLOWED_EXTENDS_VALUES entry) must not get `extends: spectral:oas`
+    prepended on top of it -- the old substring check ("spectral:oas" not in
+    text) missed that "spectral:oas" is not a substring of "spectral:asyncapi",
+    so it prepended a second, conflicting top-level extends: key every time."""
+    raw = "extends: spectral:asyncapi\nrules:\n  my-rule:\n    severity: warn\n"
+    result = build_ruleset_yaml({"raw_yaml": raw})
+    parsed = yaml.safe_load(result)
+    assert parsed["extends"] == "spectral:asyncapi"
+    assert result.count("extends:") == 1
+
+
+def test_raw_yaml_extending_asyncapi_with_extend_oas_false_is_unchanged():
+    raw = "extends: spectral:asyncapi\nrules:\n  my-rule:\n    severity: warn"
+    result = build_ruleset_yaml({"raw_yaml": raw}, extend_oas=False)
+    assert result == raw + "\n"
+
+
 def test_raw_yaml_can_override_default_rule_severity():
     """A raw_yaml block that sets an existing spectral:oas rule to 'off' survives intact.
 

@@ -148,6 +148,7 @@
                           <Select
                             v-model="parameter.data.schema.type"
                             :options="['string', 'number', 'integer', 'boolean', 'array']"
+                            @change="onReusableParameterTypeChange(parameter)"
                           />
                         </div>
                       </div>
@@ -399,6 +400,19 @@ export default {
     const reusableParamsCollapsed = ref(false);
     const reusableResponsesCollapsed = ref(false);
 
+    // The Item Type select below only fires when the user explicitly picks
+    // a value; its :modelValue="... || 'string'" fallback is display-only,
+    // so switching Type to "array" and never touching Item Type left
+    // schema.items entirely unset, exporting an invalid `{type: "array"}`
+    // with no items. Seed a default eagerly on Type change instead of
+    // relying on the display fallback to double as real state.
+    const onReusableParameterTypeChange = (parameter) => {
+      const schema = parameter.data.schema;
+      if (schema.type === "array" && !schema.items) {
+        schema.items = { type: "string" };
+      }
+    };
+
     // A plain `props.formData` snapshot only captures whatever the prop was
     // AT MOUNT TIME — it never updates when the parent later swaps in the
     // real spec (loaded asynchronously after this component's first
@@ -409,6 +423,7 @@ export default {
     return {
       formData: computed(() => props.formData),
       ...props.api,
+      onReusableParameterTypeChange,
       reusableParamsCollapsed,
       reusableResponsesCollapsed,
     };

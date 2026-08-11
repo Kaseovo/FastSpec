@@ -33,12 +33,25 @@
         severity="secondary"
         text
         size="small"
+        :loading="settingDefault"
+        :disabled="settingDefault"
         @click="onSetDefault"
       />
       <span v-if="selectedRulesetId && isSelectedDefault" class="default-badge">
         <i class="pi pi-star-fill" /> Default
       </span>
     </div>
+
+    <!-- Dialog-level error banner: create/delete/save can all fail (409 on
+         a duplicate name, a ruleset pinned to specs, etc.), and those
+         actions are reachable from every state below (creatingNew, the
+         empty state, either tab) -- this used to live only inside the Raw
+         YAML tab panel, so a failure while creating a ruleset or deleting
+         one from the Structured Rules tab produced no visible feedback at
+         all. Kept at the top so it's never hidden by which tab is active. -->
+    <Message v-if="yamlError" severity="error" class="ruleset-error-msg">
+      {{ yamlError }}
+    </Message>
 
     <div v-if="creatingNew" class="new-ruleset-row">
       <InputText
@@ -330,9 +343,6 @@
               spellcheck="false"
               autocomplete="off"
             />
-            <Message v-if="yamlError" severity="error" class="yaml-error-msg">
-              {{ yamlError }}
-            </Message>
           </div>
         </TabPanel>
       </TabPanels>
@@ -543,7 +553,7 @@ export default {
     },
   },
 
-  emits: ["update:open", "saved", "deleted"],
+  emits: ["update:open", "saved", "deleted", "set-default"],
 
   setup(props, { emit }) {
     const confirm = useConfirm();
@@ -568,6 +578,7 @@ export default {
     // Loading/status flags
     const saving = ref(false);
     const deleting = ref(false);
+    const settingDefault = ref(false);
 
     // Per-rule preview state, keyed by rule index
     const previewLoadingIdx = ref(null);
@@ -754,12 +765,16 @@ export default {
     }
 
     async function onSetDefault() {
-      if (!selectedRulesetId.value) return;
+      if (!selectedRulesetId.value || settingDefault.value) return;
+      settingDefault.value = true;
       try {
         await setDefaultLintRuleset(selectedRulesetId.value);
         rulesets.value = await listLintRulesets();
+        emit("set-default");
       } catch {
         // Non-critical — the badge just won't update
+      } finally {
+        settingDefault.value = false;
       }
     }
 
@@ -890,6 +905,7 @@ export default {
       yamlError,
       saving,
       deleting,
+      settingDefault,
       previewLoadingIdx,
       previewResults,
       severityOptions,
@@ -1211,8 +1227,8 @@ export default {
   min-height: 200px;
 }
 
-.yaml-error-msg {
-  margin-top: 4px;
+.ruleset-error-msg {
+  margin-bottom: 12px;
 }
 
 /* ── Dialog footer ─────────────────────────────────────────── */

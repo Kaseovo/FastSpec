@@ -151,8 +151,23 @@ def build_ruleset_yaml(
     # --- Raw YAML override takes precedence ---
     if raw_yaml:
         stripped = raw_yaml.strip()
-        # Ensure the baseline is always extended
-        if extend_oas and "spectral:oas" not in stripped:
+        # Ensure the baseline is always extended. A plain substring check for
+        # "spectral:oas" would wrongly re-prepend it onto a ruleset that
+        # already extends the other allowed baseline, spectral:asyncapi (see
+        # _ALLOWED_EXTENDS_VALUES) -- that string never appears in
+        # "spectral:asyncapi", so it would gain a second, conflicting
+        # top-level `extends:` key. Parse instead and only prepend when
+        # there's genuinely no `extends` key yet; anything already present
+        # is guaranteed to be spectral:oas or spectral:asyncapi by
+        # validate_ruleset_yaml_is_safe, which every raw_yaml value passes
+        # through before it can be saved.
+        already_extends = False
+        try:
+            parsed = yaml.safe_load(stripped)
+            already_extends = isinstance(parsed, dict) and "extends" in parsed
+        except yaml.YAMLError:
+            pass
+        if extend_oas and not already_extends:
             stripped = "extends: spectral:oas\n" + stripped
         return stripped + "\n"
 

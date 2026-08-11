@@ -1,3 +1,5 @@
+import logging
+
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.exceptions import ToolError
 from fastmcp_server.authentication import (
@@ -6,32 +8,30 @@ from fastmcp_server.authentication import (
     validate_short_jwt,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class LoggingMiddleware(Middleware):
+    """Logs which MCP method/tool was called and whether it succeeded.
+
+    Deliberately logs metadata only (method + tool name), never the
+    message content or result -- those routinely carry full spec content
+    and other user data, which has no business ending up in CloudWatch.
+    """
+
     async def on_message(self, context: MiddlewareContext, call_next):
         name = (
             getattr(context.message, "name") if hasattr(context.message, "name") else ""
         )
-        # Log incoming user input (attempt common attributes, fallback to repr)
+
+        logger.info("-> %s %s", context.method, name)
         try:
-            user_input = (
-                getattr(context.message, "content", None)
-                or getattr(context.message, "text", None)
-                or repr(context.message)
-            )
+            result = await call_next(context)
         except Exception:
-            user_input = repr(context.message)
+            logger.info("x  %s %s (failed)", context.method, name)
+            raise
 
-        print(f"→ {context.method} {name} : {user_input}")
-        result = await call_next(context)
-
-        # Log outgoing output
-        try:
-            user_output = result
-        except Exception:
-            user_output = repr(result)
-
-        print(f"← {context.method} {name} : {user_output}")
+        logger.info("<- %s %s", context.method, name)
         return result
 
 

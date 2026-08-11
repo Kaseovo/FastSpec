@@ -481,16 +481,6 @@ export function useComponentsEditor(formData, confirm, toast) {
     resetSchemaPropertyDialog();
   };
 
-  // Type change handlers - initialize sub-structures
-  const onSchemaTypeChange = (schema) => {
-    if (schema.data.type === "array" && !schema.data.items) {
-      schema.data.items = { type: "string" };
-    }
-    if (schema.data.type === "object" && !schema.data.properties) {
-      schema.data.properties = {};
-    }
-  };
-
   // ── Schema composition (oneOf/anyOf/allOf) ─────────────────────────────
   // Composition members are $ref-only for now (by far the most common real
   // usage — e.g. `Pet: oneOf: [Cat, Dog]`); inline member schemas aren't
@@ -706,7 +696,6 @@ export function useComponentsEditor(formData, confirm, toast) {
     goToPrevSchemaPropertyStep,
     cancelSchemaPropertyDialog,
     finishSchemaPropertyDialog,
-    onSchemaTypeChange,
     getSchemaKind,
     setSchemaKind,
     isCompositionKind,

@@ -139,6 +139,48 @@ describe("FormEditor - reusable parameters", () => {
     expect(wrapper.vm.formData.components.parameters.NewParameter).toBeUndefined();
   });
 
+  test("switching a reusable parameter's Type to array seeds a valid items schema", async () => {
+    // Regression test: the Item Type select's :modelValue had a display-only
+    // `|| 'string'` fallback with nothing writing it back to state unless the
+    // user explicitly touched that second dropdown, so a parameter set to
+    // "array" and left alone exported schema: {type: "array"} with no
+    // `items` at all -- invalid per CONTEXT.md's Item Schema definition.
+    const wrapper = mountFE();
+    wrapper.vm.addReusableParameter();
+    wrapper.vm.active = "components"; // ComponentsTab only mounts when selected
+    await wrapper.vm.$nextTick();
+
+    const parameter = wrapper.vm.parametersList.find((p) => p.name === "NewParameter");
+    expect(parameter.data.schema.items).toBeUndefined();
+
+    const componentsTab = wrapper.findComponent({ name: "ComponentsTab" });
+    expect(componentsTab.exists()).toBe(true);
+    parameter.data.schema.type = "array";
+    componentsTab.vm.onReusableParameterTypeChange(parameter);
+
+    expect(parameter.data.schema.items).toEqual({ type: "string" });
+    expect(wrapper.vm.formData.components.parameters.NewParameter.schema).toEqual({
+      type: "array",
+      items: { type: "string" },
+    });
+  });
+
+  test("switching Type to array does not clobber an already-set item type", async () => {
+    const wrapper = mountFE();
+    wrapper.vm.addReusableParameter();
+    wrapper.vm.active = "components";
+    await wrapper.vm.$nextTick();
+
+    const parameter = wrapper.vm.parametersList.find((p) => p.name === "NewParameter");
+    parameter.data.schema.type = "array";
+    parameter.data.schema.items = { type: "integer" };
+
+    const componentsTab = wrapper.findComponent({ name: "ComponentsTab" });
+    componentsTab.vm.onReusableParameterTypeChange(parameter);
+
+    expect(parameter.data.schema.items).toEqual({ type: "integer" });
+  });
+
   test("removeReusableParameter drops the dangling $ref from every operation's parameter list", () => {
     const wrapper = mountFE(
       baseModelValue({

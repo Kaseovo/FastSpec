@@ -11,12 +11,33 @@ compatibility.
 Returns ORM objects; schema conversion stays in the router.
 """
 
+import threading
 import uuid
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from models import LintRuleset, OpenAPISpec
+
+# Serializes the check-then-insert in create() that decides whether a new
+# ruleset becomes the user's default (see create()'s docstring). This only
+# protects requests handled by the same warm process/container — like
+# rate_limit.py's InMemoryRateLimiter, it's a best-effort mitigation for the
+# realistic case (a double-click/retry landing on the same warm Lambda
+# container), not a cross-container guarantee; there's no DB constraint
+# backstop by design (see module docstring above).
+_default_ruleset_locks: dict[int, threading.Lock] = {}
+_default_ruleset_locks_guard = threading.Lock()
+
+
+def _lock_for_user(user_id: int) -> threading.Lock:
+    with _default_ruleset_locks_guard:
+        lock = _default_ruleset_locks.get(user_id)
+        if lock is None:
+            lock = threading.Lock()
+            _default_ruleset_locks[user_id] = lock
+        return lock
 
 
 class LintRulesetRepository:
@@ -41,10 +62,17 @@ class LintRulesetRepository:
         )
 
     def get_default(self, user_id: int) -> LintRuleset | None:
-        """Return *user_id*'s is_default ruleset, or None if they have none."""
+        """Return *user_id*'s is_default ruleset, or None if they have none.
+
+        Ordered by created_at (oldest first) so this is deterministic even
+        if the "exactly one default" invariant were ever violated -- it
+        always resolves to the same row every call rather than whichever one
+        the DB happens to return first.
+        """
         return (
             self._db.query(LintRuleset)
             .filter(LintRuleset.user_id == user_id, LintRuleset.is_default.is_(True))
+            .order_by(LintRuleset.created_at.asc())
             .first()
         )
 
@@ -80,18 +108,19 @@ class LintRulesetRepository:
                 detail=f"A ruleset named '{name}' already exists.",
             )
 
-        is_first = self.get_default(user_id) is None
-        row = LintRuleset(
-            id=str(uuid.uuid4()),
-            user_id=user_id,
-            name=name,
-            is_default=is_first,
-            rules_json=rules_json,
-            raw_yaml=raw_yaml,
-        )
-        self._db.add(row)
-        self._db.commit()
-        self._db.refresh(row)
+        with _lock_for_user(user_id):
+            is_first = self.get_default(user_id) is None
+            row = LintRuleset(
+                id=str(uuid.uuid4()),
+                user_id=user_id,
+                name=name,
+                is_default=is_first,
+                rules_json=rules_json,
+                raw_yaml=raw_yaml,
+            )
+            self._db.add(row)
+            self._db.commit()
+            self._db.refresh(row)
         return row
 
     def update(
@@ -214,4 +243,19 @@ class LintRulesetRepository:
                 )
 
         self._db.delete(row)
-        self._db.commit()
+        try:
+            self._db.commit()
+        except IntegrityError:
+            # A spec could have been pinned to this ruleset in the gap
+            # between the specs_in_use check above and this commit -- the
+            # active_ruleset_id FK is the last backstop for that race.
+            # Surface it as the same 409 the check above would have given,
+            # not a raw 500.
+            self._db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Ruleset is assigned to one or more specs and can't be "
+                    "deleted until they're reassigned."
+                ),
+            )

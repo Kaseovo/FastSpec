@@ -51,21 +51,19 @@ export function useDiffDrawer(props) {
     };
   });
 
-  const hasChanges = computed(() => {
-    const d = props.diff || {};
-    return (
-      (d.infoAdded?.length || 0) +
-        (d.infoModified?.length || 0) +
-        (d.infoRemoved?.length || 0) +
-        (d.added?.length || 0) +
-        (d.modified?.length || 0) +
-        (d.removed?.length || 0) +
-        (d.schemaAdded?.length || 0) +
-        (d.schemaModified?.length || 0) +
-        (d.schemaRemoved?.length || 0) >
-      0
-    );
-  });
+  // Derived from `summary` (not recomputed independently) so it can't drift
+  // out of sync with it -- it previously omitted server changes entirely,
+  // which made the top-level "No Changes" gate hide a diff that consisted
+  // only of added/removed/modified servers, even though the summary pills
+  // (if they'd rendered) would have shown a non-zero count.
+  // Derived from `summary` (not recomputed independently) so it can't drift
+  // out of sync with it -- it previously omitted server changes entirely,
+  // which made the top-level "No Changes" gate hide a diff that consisted
+  // only of added/removed/modified servers, even though the summary pills
+  // (if they'd rendered) would have shown a non-zero count.
+  const hasChanges = computed(
+    () => summary.value.added + summary.value.modified + summary.value.removed > 0,
+  );
 
   const addedEndpoints = computed(() => {
     const d = props.diff || {};

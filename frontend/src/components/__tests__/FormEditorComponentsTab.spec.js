@@ -301,37 +301,6 @@ describe("FormEditor - Components (schemas) tab", () => {
     });
   });
 
-  describe("onSchemaTypeChange", () => {
-    test("initializes .items when switching to array without existing items", () => {
-      const wrapper = mountFE();
-      const schema = { name: "Arr", data: { type: "array" } };
-      wrapper.vm.onSchemaTypeChange(schema);
-      expect(schema.data.items).toEqual({ type: "string" });
-    });
-
-    test("does not clobber existing .items when switching to array", () => {
-      const wrapper = mountFE();
-      const schema = { name: "Arr", data: { type: "array", items: { type: "number" } } };
-      wrapper.vm.onSchemaTypeChange(schema);
-      expect(schema.data.items).toEqual({ type: "number" });
-    });
-
-    test("initializes .properties when switching to object without existing properties", () => {
-      const wrapper = mountFE();
-      const schema = { name: "Obj", data: { type: "object" } };
-      wrapper.vm.onSchemaTypeChange(schema);
-      expect(schema.data.properties).toEqual({});
-    });
-
-    test("is a no-op for scalar types", () => {
-      const wrapper = mountFE();
-      const schema = { name: "Str", data: { type: "string" } };
-      wrapper.vm.onSchemaTypeChange(schema);
-      expect(schema.data.items).toBeUndefined();
-      expect(schema.data.properties).toBeUndefined();
-    });
-  });
-
   describe("onPropertyTypeChange (schema property context)", () => {
     test("array type only seeds items when missing (addSchemaProperty already defaults items:{type:'string'}) and always seeds _itemSchemas:[]", () => {
       const wrapper = mountFE();
@@ -504,16 +473,6 @@ describe("FormEditor - Components (schemas) tab", () => {
       const listSchema = wrapper.vm.formData.components.schemas.UserList;
       listSchema.items = { type: "$ref", $ref: "#/components/schemas/User" };
       expect(listSchema.items.$ref).toBe("#/components/schemas/User");
-    });
-
-    test("onSchemaTypeChange does not overwrite an existing $ref-typed items object", () => {
-      const wrapper = mountFE();
-      const schema = {
-        name: "UserList",
-        data: { type: "array", items: { type: "$ref", $ref: "#/components/schemas/User" } },
-      };
-      wrapper.vm.onSchemaTypeChange(schema);
-      expect(schema.data.items).toEqual({ type: "$ref", $ref: "#/components/schemas/User" });
     });
   });
 

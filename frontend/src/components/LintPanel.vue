@@ -4,14 +4,15 @@
       :open="showRulesetDialog"
       :spec-content="specContent"
       @update:open="showRulesetDialog = $event"
-      @saved="$emit('run-lint')"
-      @deleted="$emit('run-lint')"
+      @saved="onRulesetDialogChanged"
+      @deleted="onRulesetDialogChanged"
+      @set-default="onRulesetDialogChanged"
     />
     <!-- Always-visible top bar with settings access -->
     <div class="lint-topbar">
       <Select
         v-if="canAssignRuleset"
-        v-model="assignedRulesetId"
+        :model-value="assignedRulesetId"
         :options="rulesetAssignOptions"
         option-label="label"
         option-value="value"
@@ -229,13 +230,31 @@ export default {
 
     watch(() => props.specId, loadAssignment, { immediate: true });
 
+    // The dialog's create/rename/delete/set-default actions all change data
+    // this panel's own topbar dropdown displays (the ruleset list and/or
+    // which one is assigned/default) -- without reloading here too, renaming
+    // or deleting the currently-assigned ruleset, or changing the default,
+    // left the dropdown showing stale data until the user switched specs
+    // and back.
+    function onRulesetDialogChanged() {
+      loadAssignment();
+      emit("run-lint");
+    }
+
     async function onAssignRuleset(rulesetId) {
       if (!props.specId) return;
+      // The Select is bound via :model-value/@update (not v-model) so this
+      // function is the only writer of assignedRulesetId -- it can update
+      // it optimistically and, on a failed PUT, revert to what was actually
+      // persisted instead of leaving the dropdown showing a selection that
+      // the backend never got.
+      const previous = assignedRulesetId.value;
+      assignedRulesetId.value = rulesetId;
       try {
         await assignSpecRuleset(props.specId, rulesetId);
         emit("run-lint");
       } catch {
-        // Non-critical — dropdown just won't reflect the failed change
+        assignedRulesetId.value = previous;
       }
     }
 
@@ -278,6 +297,7 @@ export default {
       assignedRulesetId,
       canAssignRuleset,
       onAssignRuleset,
+      onRulesetDialogChanged,
       severities,
       toggleFilter,
       filteredResults,
