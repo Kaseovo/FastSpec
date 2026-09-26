@@ -7,6 +7,11 @@ export const useAuthStore = defineStore("auth", {
     apiKey: null,
     isLoading: false,
     oauthError: null,
+    // From GET /auth/config: "none" (single user, no sign-in) or "oidc".
+    authMode: null,
+    providerName: null,
+    loginUrl: null,
+    serverUnreachable: false,
   }),
   getters: {
     isAuthenticated: (state) => !!state.token && !!state.user,
@@ -67,6 +72,15 @@ export const useAuthStore = defineStore("auth", {
     },
     clearOauthError() {
       this.oauthError = null;
+    },
+    setAuthConfig(config) {
+      this.authMode = config.mode;
+      this.providerName = config.provider_name;
+      this.loginUrl = config.login_url;
+      this.serverUnreachable = false;
+    },
+    setServerUnreachable(value) {
+      this.serverUnreachable = value;
     },
   },
 });

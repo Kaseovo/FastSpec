@@ -1,32 +1,8 @@
-import axios from "axios";
-import { useAuthStore } from "../stores/auth";
+import { createApiClient } from "./http";
 
 const LINT_BASE = "/api/lint";
 
-const lintApi = axios.create({ baseURL: LINT_BASE });
-
-lintApi.interceptors.request.use(
-  (config) => {
-    const auth = useAuthStore();
-    if (auth.token) {
-      config.headers.Authorization = `Bearer ${auth.token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
-
-lintApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      const auth = useAuthStore();
-      auth.clearAuth();
-      window.location.href = "/";
-    }
-    return Promise.reject(error);
-  },
-);
+const lintApi = createApiClient(LINT_BASE);
 
 /**
  * List the current user's lint rulesets (lightweight summaries).

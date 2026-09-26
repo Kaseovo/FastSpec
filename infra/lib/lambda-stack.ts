@@ -16,7 +16,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  * Replaces the Fargate-based ComputeStack. The function runs outside a VPC and
  * reaches the now-publicly-accessible RDS instance over the internet.
  *
- * Secrets (JWT_SECRET_KEY, DB_PASSWORD, GOOGLE_CLIENT_ID) are stored as
+ * Secrets (JWT_SECRET_KEY, DB_PASSWORD, OIDC client ID/secret) are stored as
  * SecureString parameters in SSM Parameter Store under /{env}/fastspec/*.
  * Their *names* are passed as env vars; the Lambda fetches the values via
  * boto3 at cold start — no plaintext in CloudFormation or the Lambda console.
@@ -46,11 +46,15 @@ export class LambdaStack extends cdk.Stack {
       environment: {
         DB_ENDPOINT: props.dbEndpoint,
         ENV: env,
-        FRONTEND_URL: `https://${config.domain}`,
-        CORS_ORIGINS: `https://${config.domain}`,
-        // OAuth redirect flow: Google sends the browser back through CloudFront
-        // (/auth* behavior) so cookies and the callback share the app domain.
-        GOOGLE_REDIRECT_URI: `https://${config.domain}/auth/google/callback`,
+        // Public origin: the OIDC redirect URI is derived from it
+        // (https://<domain>/auth/oidc/callback), so the provider sends the
+        // browser back through CloudFront (/auth* behavior) and cookies and the
+        // callback share the app domain. CORS defaults to the same origin.
+        PUBLIC_URL: `https://${config.domain}`,
+        // Sign-in via Google, through the generic OIDC flow
+        // (docs/adr/0006-auth-modes.md).
+        AUTH_MODE: 'oidc',
+        OIDC_ISSUER: 'https://accounts.google.com',
         SSM_WAKE_PARAM: `${ssmPrefix}/wake-last-triggered`,
         // Secret *names* only — values are fetched via boto3 at cold start.
         SSM_JWT_SECRET_KEY:  `${ssmPrefix}/secret-key`,
@@ -65,8 +69,10 @@ export class LambdaStack extends cdk.Stack {
         // must run — creating the role — before a Lambda deploy that relies
         // on it can succeed).
         SSM_FASTSPEC_APP_DB_PASSWORD: `${ssmPrefix}/app-db-password`,
-        SSM_GOOGLE_CLIENT_ID:`${ssmPrefix}/google-client-id`,
-        SSM_GOOGLE_CLIENT_SECRET: `${ssmPrefix}/google-client-secret`,
+        // Parameter names predate the move to generic OIDC; the values are
+        // the Google OAuth client's ID and secret.
+        SSM_OIDC_CLIENT_ID: `${ssmPrefix}/google-client-id`,
+        SSM_OIDC_CLIENT_SECRET: `${ssmPrefix}/google-client-secret`,
       },
     });
 

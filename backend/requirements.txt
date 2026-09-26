@@ -4,8 +4,7 @@ sqlalchemy
 pydantic
 openapi-spec-validator
 python-multipart
-google-auth
-pyjwt
+pyjwt[crypto]
 passlib[bcrypt]
 httpx
 itsdangerous
@@ -15,4 +14,3 @@ PyYAML>=6.0
 alembic
 mangum
 boto3
-requests

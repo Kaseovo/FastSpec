@@ -39,11 +39,11 @@
 
 <script>
 import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
 import Button from "primevue/button";
 import Menu from "primevue/menu";
 import { useAuthStore } from "../stores/auth";
 import { logout as apiLogout } from "../api/auth";
+import { handleSignedOut } from "../auth/session";
 
 export default {
   name: "UserProfile",
@@ -52,7 +52,6 @@ export default {
     Menu,
   },
   setup() {
-    const router = useRouter();
     const auth = useAuthStore();
     const user = computed(() => auth.user);
     const menu = ref();
@@ -72,10 +71,13 @@ export default {
     });
 
     const providerText = computed(() => {
+      if (user.value?.provider === "local") {
+        return "Single-user mode";
+      }
       if (user.value?.provider === "google") {
         return "Signed in with Google";
       }
-      return "Signed in";
+      return `Signed in with ${auth.providerName || "SSO"}`;
     });
 
     const toggleMenu = (event) => {
@@ -89,20 +91,20 @@ export default {
         console.error("Logout error:", error);
       } finally {
         auth.clearAuth();
-        window.location.href = "/";
+        handleSignedOut();
       }
     };
 
-    const menuItems = ref([
-      {
-        separator: true,
-      },
-      {
-        label: "Logout",
-        icon: "pi pi-sign-out",
-        command: handleLogout,
-      },
-    ]);
+    // Nothing to sign out of in single-user mode: a new local session would
+    // start right away.
+    const menuItems = computed(() =>
+      auth.authMode === "none"
+        ? []
+        : [
+            { separator: true },
+            { label: "Logout", icon: "pi pi-sign-out", command: handleLogout },
+          ],
+    );
 
     return {
       user,

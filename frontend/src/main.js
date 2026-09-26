@@ -9,18 +9,26 @@ import App from "./App.vue";
 // PrimeIcons
 import "primeicons/primeicons.css";
 
-import router from "./router";
 import { useAuthStore } from "./stores/auth";
+import { bootstrapSession } from "./auth/session";
 
 const bootApp = async () => {
   const app = createApp(App);
   const pinia = createPinia();
   app.use(pinia);
-  app.use(router);
 
-  // Restore session from localStorage
+  // Restore the session from localStorage, finish a sign-in redirect if we
+  // just came back from the identity provider, and learn how this instance
+  // signs in — all before the router takes its first navigation.
   const auth = useAuthStore();
   auth.initAuth();
+  await bootstrapSession();
+
+  // Imported only now: vue-router reads the address bar when it's created,
+  // and must not see (and restore) the sign-in callback URL carrying the
+  // token, which bootstrapSession has just replaced.
+  const { default: router } = await import("./router");
+  app.use(router);
 
   app.use(PrimeVue, {
     theme: {

@@ -1,11 +1,17 @@
 <template>
   <div id="app">
     <div v-if="!auth.isAuthenticated" class="main-content">
-      <div class="signed-out-card">
+      <div v-if="auth.serverUnreachable" class="signed-out-card">
+        <i class="pi pi-exclamation-triangle signed-out-icon"></i>
+        <h2>Can't reach the FastSpec server</h2>
+        <p>Check that the backend is running, then try again.</p>
+        <Button label="Retry" icon="pi pi-refresh" @click="reload" />
+      </div>
+      <div v-else-if="auth.authMode === 'oidc'" class="signed-out-card">
         <i class="pi pi-lock signed-out-icon"></i>
         <h2>Sign in to continue</h2>
-        <p>Sign in with Google to create, edit, and save OpenAPI specifications.</p>
-        <Button label="Sign in with Google" icon="pi pi-google" @click="loginWithGoogle" />
+        <p>Sign in to create, edit, and save OpenAPI specifications.</p>
+        <Button :label="signInLabel" :icon="signInIcon" @click="signIn" />
       </div>
     </div>
 
@@ -53,7 +59,7 @@
     <Dialog
       :visible="showTokenDialog"
       @update:visible="showTokenDialog = $event"
-      header="Manage Tokens"
+      header="API keys"
       :modal="true"
       :style="{ width: '1200px' }"
     >
@@ -73,13 +79,13 @@ import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
 import SaveDialog from "./components/SaveDialog.vue";
 import TokenManager from "./components/TokenManager.vue";
-import { ref, provide, onMounted } from "vue";
+import { ref, provide, onMounted, computed } from "vue";
 import { useConfirm } from "primevue/useconfirm";
 import { useApp } from "./composables/useApp";
 import { useAuthStore } from "./stores/auth";
 import { useToast } from "primevue/usetoast";
 import { validateSpec } from "./api/specs";
-import { loginWithGoogle } from "./api/auth";
+import { signIn } from "./auth/session";
 
 export default {
   name: "AppLayout",
@@ -198,10 +204,19 @@ export default {
 
     provide("openNewSpecDialog", () => (showNewDialog.value = true));
 
+    const signInLabel = computed(() => `Sign in with ${auth.providerName || "SSO"}`);
+    const signInIcon = computed(() =>
+      auth.providerName === "Google" ? "pi pi-google" : "pi pi-sign-in",
+    );
+    const reload = () => window.location.reload();
+
     return {
       ...app,
       auth,
-      loginWithGoogle,
+      signIn,
+      signInLabel,
+      signInIcon,
+      reload,
       showTokenDialog,
       showNewDialog,
       createBlank,

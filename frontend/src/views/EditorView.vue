@@ -73,7 +73,7 @@
         />
         <Button icon="pi pi-plus" text rounded title="New" @click="openNewSpecDialog?.()" />
         <Button icon="pi pi-save" text rounded title="Save" @click="openSaveDialogFn?.()" />
-        <Button icon="pi pi-key" text rounded title="Manage Tokens" @click="showTokenDialogFn?.()" />
+        <Button icon="pi pi-key" text rounded title="API keys" @click="showTokenDialogFn?.()" />
         <UserProfile v-if="isAuthenticated" />
       </div>
     </header>

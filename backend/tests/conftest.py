@@ -7,15 +7,13 @@ then wires SQLAlchemy to an in-memory SQLite database and creates all tables.
 
 import os
 
-# Must be set before config.py is imported (it calls sys.exit(1) if missing)
+# Must be set before config.py is imported (it calls sys.exit(1) if missing).
+# Ignore the developer's own .env so it can't change test behaviour.
+os.environ["FASTSPEC_ENV_FILE"] = os.devnull
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-# Google OAuth config — endpoints fail fast (503) when unset
-os.environ.setdefault("GOOGLE_CLIENT_ID", "test-google-client-id")
-os.environ.setdefault("GOOGLE_CLIENT_SECRET", "test-google-client-secret")
-os.environ.setdefault(
-    "GOOGLE_REDIRECT_URI", "http://testserver/auth/google/callback"
-)
+# Tests default to single-user mode; OIDC tests switch settings per test.
+os.environ.setdefault("AUTH_MODE", "none")
 
 import pytest
 from sqlalchemy import create_engine

@@ -1,79 +1,11 @@
 import axios from "axios";
-import { useAuthStore } from "../stores/auth";
+import { createApiClient } from "./http";
 
 const API_BASE = "/api/specs";
 const LINT_BASE = "/api/lint";
 
-function redirectToLogin() {
-  const isLocal =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1";
-  if (isLocal) {
-    // Lazy-import to avoid circular dependency at module load time
-    import("../router").then(({ getRouter }) => {
-      const router = getRouter();
-      if (router) router.push({ name: "login" });
-    });
-  } else {
-    window.location.href = "/";
-  }
-}
-
-// Create axios instance
-export const api = axios.create({
-  baseURL: API_BASE,
-});
-
-// Request interceptor to add JWT token
-api.interceptors.request.use(
-  (config) => {
-    const auth = useAuthStore();
-    if (auth.token) {
-      config.headers.Authorization = `Bearer ${auth.token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
-
-// Response interceptor to handle 401 errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      const auth = useAuthStore();
-      auth.clearAuth();
-      redirectToLogin();
-    }
-    return Promise.reject(error);
-  },
-);
-
-// Separate axios instance for lint endpoints
-const lintApi = axios.create({ baseURL: LINT_BASE });
-lintApi.interceptors.request.use(
-  (config) => {
-    const auth = useAuthStore();
-    if (auth.token) {
-      config.headers.Authorization = `Bearer ${auth.token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
-lintApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      const auth = useAuthStore();
-      auth.clearAuth();
-      redirectToLogin();
-    }
-    return Promise.reject(error);
-  },
-);
+export const api = createApiClient(API_BASE);
+const lintApi = createApiClient(LINT_BASE);
 
 export const fetchSpecs = async () => {
   const response = await api.get("/");

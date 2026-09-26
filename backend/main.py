@@ -18,9 +18,16 @@ from routers import specs, auth
 from routers import lint
 from validation.spectral_client import SpectralError
 
+from version import __version__
+
 logger = logging.getLogger(__name__)
 
-from version import __version__
+if settings.auth_mode == "none":
+    logger.warning(
+        "AUTH_MODE=none: single-user mode without sign-in. Anyone who can "
+        "reach this server has full access — keep it on localhost or a "
+        "trusted network, or set AUTH_MODE=oidc."
+    )
 
 app = FastAPI(
     title="FastSpec API",

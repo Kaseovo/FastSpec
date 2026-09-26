@@ -27,7 +27,7 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const authStore = useAuthStore();
-  if (!authStore.isAuthenticated) {
+  if (!authStore.isAuthenticated && authStore.authMode === "oidc") {
     const landingUrl = import.meta.env.VITE_LANDING_URL;
     // Only bounce out to an external landing site when one is actually
     // configured. Falling back to "/" here previously sent unauthenticated
@@ -43,9 +43,5 @@ router.beforeEach((to) => {
   }
   return true;
 });
-
-export function getRouter() {
-  return router;
-}
 
 export default router;

@@ -1,10 +1,10 @@
 """AWS Lambda entry point for the merged FastSpec + MCP ASGI application.
 
 Cold-start behaviour:
-  - Fetches SecureString secrets (JWT_SECRET_KEY, DB_PASSWORD, GOOGLE_CLIENT_ID)
-    from SSM Parameter Store and injects them into os.environ so the rest of the
-    application reads them as normal env vars.  Parameter *names* are passed in
-    via SSM_JWT_SECRET_KEY, SSM_DB_PASSWORD, SSM_GOOGLE_CLIENT_ID env vars —
+  - Fetches SecureString secrets (JWT_SECRET_KEY, DB_PASSWORD, OIDC client
+    ID/secret) from SSM Parameter Store and injects them into os.environ so the
+    rest of the application reads them as normal env vars.  Parameter *names*
+    are passed in via SSM_JWT_SECRET_KEY, SSM_DB_PASSWORD, SSM_OIDC_CLIENT_ID… env vars —
     no plaintext secrets ever appear in the Lambda console or CloudFormation.
   - Writes the current UTC timestamp to the SSM parameter named by SSM_WAKE_PARAM
     (used by the WakeStack RDS idle timer).
@@ -37,8 +37,8 @@ try:
         # backend/database.py for the app's own runtime connection, and by
         # the fastspec_app-role migration to create/rotate the role itself.
         "FASTSPEC_APP_DB_PASSWORD": os.environ.get("SSM_FASTSPEC_APP_DB_PASSWORD"),
-        "GOOGLE_CLIENT_ID":       os.environ.get("SSM_GOOGLE_CLIENT_ID"),
-        "GOOGLE_CLIENT_SECRET":   os.environ.get("SSM_GOOGLE_CLIENT_SECRET"),
+        "OIDC_CLIENT_ID":         os.environ.get("SSM_OIDC_CLIENT_ID"),
+        "OIDC_CLIENT_SECRET":     os.environ.get("SSM_OIDC_CLIENT_SECRET"),
     }
 
     _names = [v for v in _secret_params.values() if v]
