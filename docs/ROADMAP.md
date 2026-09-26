@@ -40,10 +40,15 @@ Existing bugs found and fixed along the way:
 - [x] "Source code" link in the app (user menu), configurable with `SOURCE_URL` (AGPL network-use clause)
 - [x] Removed the redundant GitHub "Auto-Stop" cron workflow (the WakeStack's EventBridge rule already does it)
 
-Your actions (AWS/GitHub, can't be done from the repo):
-- [ ] Create the private `Kaseovo/fastspec-website` repo and push `../fastspec-website` to it; add its `AWS_ROLE_ARN` secret and `AWS_REGION` variable
-- [ ] FastSpec repo variables: `FASTSPEC_DOMAIN=fastspec.kaseovo.com`, `HOSTED_ZONE_ID`, `AWS_REGION=ap-southeast-1`
-- [ ] Fix the deploy role's trust policy: it still trusts the old `DishWatcher/FastSpec` repo, so every AWS workflow fails. Trust `repo:Kaseovo/FastSpec:ref:refs/heads/main` and `repo:Kaseovo/fastspec-website:ref:refs/heads/main`
+Outside the repo (AWS/GitHub):
+- [x] Private `Kaseovo/fastspec-website` repo created and pushed (with history), with its `AWS_ROLE_ARN` secret and `AWS_REGION` variable
+- [x] FastSpec repo variables: `FASTSPEC_DOMAIN=fastspec.kaseovo.com`, `HOSTED_ZONE_ID=Z0000000000000EXAMPLE`, `AWS_REGION=ap-southeast-1`
+- [ ] Fix the `FastSpecGitHubDeploy` role's trust policy — it still trusts `repo:DishWatcher/FastSpec:*`, so every AWS workflow fails. The Kaseovo repos use GitHub's immutable subject format, so trust exactly:
+  - `repo:Kaseovo@167826072/FastSpec@1092682725:ref:refs/heads/main`
+  - `repo:Kaseovo@167826072/fastspec-website@1388738583:ref:refs/heads/main`
+- [ ] Delete the stale `SSH_HOST` / `SSH_KEY` / `SSH_PORT` / `SSH_USER` secrets and `REPO_PATH` variable (from the pre-AWS SSH deploy; no workflow uses them) and retire that key on its server
+
+The hosted stacks were shut down on 2026-09-23 to save costs until this work is ready; only the certificate stack and the hosted zones remain. Redeploy with the Deploy and Version workflow once `open-source-release` is merged.
 
 ### Phase 3 — Open-source project files
 - [ ] `LICENSE` (AGPL-3.0); README screenshots (README text rewritten in Phase 1)
@@ -62,6 +67,7 @@ Your actions (AWS/GitHub, can't be done from the repo):
 
 ### Phase 5 — Go public
 - [ ] History scrub (decision 5) on a fresh clone; push as the public repo
+- [ ] If the public repo is a *new* GitHub repository, its ID changes: update the `FastSpecGitHubDeploy` trust policy's `sub` (and copy the repository variables and secrets)
 - [ ] Before the next hosted deploy: add `https://fastspec.kaseovo.com/auth/oidc/callback` to the Google OAuth client's authorized redirect URIs (sign-in moved to the generic OIDC flow)
 - [ ] Switch the hosted deployment to the public repo
 - [ ] Tag `v0.1.0`
