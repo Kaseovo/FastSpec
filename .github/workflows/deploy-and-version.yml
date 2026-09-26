@@ -21,6 +21,18 @@ on:
         options:
           - prod
 
+# Deployment-specific values come from GitHub repository variables
+# (Settings → Secrets and variables → Actions → Variables), never the code:
+#   FASTSPEC_DOMAIN   public domain, e.g. fastspec.example.com
+#   HOSTED_ZONE_ID    Route 53 hosted zone that holds it
+#   HOSTED_ZONE_NAME  optional — only when that zone is a parent (e.g. example.com)
+#   AWS_REGION        region for everything but the CloudFront certificate
+# Secrets: AWS_ROLE_ARN (OIDC deploy role), WAKE_SECRET. See docs/DEPLOYMENT.md.
+env:
+  FASTSPEC_DOMAIN: ${{ vars.FASTSPEC_DOMAIN }}
+  HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+  HOSTED_ZONE_NAME: ${{ vars.HOSTED_ZONE_NAME }}
+
 jobs:
   # ── Version bump (separate job — no AWS credentials, no deploy) ────────────
   version_bump:
@@ -148,7 +160,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ap-southeast-1
+          aws-region: ${{ vars.AWS_REGION }}
 
       # ── CDK diff + deploy ────────────────────────────────────────────────────
 
@@ -262,27 +274,17 @@ jobs:
         run: |
           aws s3 sync frontend/dist/ s3://${{ steps.infra_outputs.outputs.frontend_bucket }}/ --delete
 
-      - name: Inject wake URL and secret into wake.html
+      - name: Publish the wake page
+        # The landing site is deployed from its own repository; its sync
+        # excludes wake.html so it never removes this page.
+        env:
+          WAKE_URL: ${{ steps.infra_outputs.outputs.wake_url }}
+          WAKE_SECRET: ${{ secrets.WAKE_SECRET }}
         run: |
-          sed -i "s|__WAKE_URL__|${{ steps.infra_outputs.outputs.wake_url }}|g" landing-page/wake.html
-          sed -i "s|__WAKE_SECRET__|${{ secrets.WAKE_SECRET }}|g" landing-page/wake.html
-
-      - name: Patch landing page login bundle
-        run: |
-          # Fix Webstudio JS bundle: replace href="/auth/google" link with onclick
-          # that starts the redirect-based sign-in (window.__startGoogleSignIn)
-          sed -i 's|href:"/auth/google"|href:"#",onClick:function(ev){ev.preventDefault();if(window.__startGoogleSignIn)window.__startGoogleSignIn();}|g' landing-page/assets/entries/pages_log-in.*.js
-          # Guard: fail deploy if the broken link is still present
-          if grep -rq 'href:"/auth/google"' landing-page/assets/entries/pages_log-in.*.js 2>/dev/null; then
-            echo "ERROR: landing page JS bundle still contains href:\"/auth/google\" — patch failed"
-            exit 1
-          fi
-
-      - name: Sync landing-page to S3
-        run: |
-          aws s3 sync landing-page/ s3://${{ steps.infra_outputs.outputs.landing_bucket }}/ --delete \
-            --exclude "Dockerfile" \
-            --exclude "nginx.conf"
+          sed -e "s|__WAKE_URL__|${WAKE_URL}|g" -e "s|__WAKE_SECRET__|${WAKE_SECRET}|g" \
+            infra/wake-page/wake.html > wake.html
+          aws s3 cp wake.html s3://${{ steps.infra_outputs.outputs.landing_bucket }}/wake.html \
+            --content-type "text/html; charset=utf-8" --cache-control "no-cache"
 
       - name: Invalidate CloudFront cache
         run: |

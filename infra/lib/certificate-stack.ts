@@ -1,8 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
-import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
-import { EnvConfig } from './config';
+import { EnvConfig, hostedZoneFor } from './config';
 
 export interface CertificateStackProps extends cdk.StackProps {
   config: EnvConfig;
@@ -31,9 +30,7 @@ export class CertificateStack extends cdk.Stack {
     // Force region to us-east-1 regardless of caller's region
     super(scope, id, { ...props, env: { ...props.env, region: 'us-east-1' } });
 
-    const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
-      domainName: props.config.domain,
-    });
+    const hostedZone = hostedZoneFor(this, props.config);
 
     // ── Primary certificate (single domain) ───────────────────────────────────
     this.certificate = new acm.Certificate(this, 'ViewerCert', {

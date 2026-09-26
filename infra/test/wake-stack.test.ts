@@ -1,11 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { getConfig } from '../lib/config';
+import { TEST_SETTINGS } from './settings';
 import { WakeStack } from '../lib/wake-stack';
 
 function buildWakeStack() {
   const app = new cdk.App();
-  const config = getConfig('prod');
+  const config = getConfig('prod', TEST_SETTINGS);
   return new WakeStack(app, 'FastSpec-Wake-prod', {
     config,
     rdsInstanceId: 'my-rds',

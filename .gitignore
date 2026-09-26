@@ -63,3 +63,6 @@ frontend-nextjs-backup/
 
 # Local dev data (SQLite database, generated JWT secret)
 .data/
+
+# CDK context-lookup cache: holds account IDs and hosted-zone IDs
+infra/cdk.context.json

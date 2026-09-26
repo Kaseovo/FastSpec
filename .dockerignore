@@ -15,7 +15,6 @@ data
 
 frontend/dist
 infra
-landing-page
 docs
 scripts
 **/*.db

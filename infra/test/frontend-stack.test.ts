@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import { getConfig } from '../lib/config';
+import { TEST_SETTINGS } from './settings';
 import { DataStack } from '../lib/data-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CertificateStack } from '../lib/certificate-stack';
@@ -11,7 +12,7 @@ import { FrontendStack } from '../lib/frontend-stack';
 
 function buildCertStack() {
   const app = new cdk.App();
-  const config = getConfig('prod');
+  const config = getConfig('prod', TEST_SETTINGS);
   return new CertificateStack(app, 'FastSpec-Cert-prod', {
     config,
     env: { account: '123456789012', region: 'us-east-1' },
@@ -25,7 +26,7 @@ function buildCertStack() {
  */
 function buildFrontendStack() {
   const app = new cdk.App();
-  const config = getConfig('prod');
+  const config = getConfig('prod', TEST_SETTINGS);
 
   const hostedZone = route53.HostedZone.fromHostedZoneAttributes(
     new cdk.Stack(app, 'HelperStack'),
@@ -62,14 +63,14 @@ describe('CertificateStack — prod', () => {
 
   test('ViewerCert covers the landing domain', () => {
     template.hasResourceProperties('AWS::CertificateManager::Certificate', {
-      DomainName: 'fastspec.kaseovo.com',
+      DomainName: 'fastspec.example.com',
     });
   });
 
   test('ViewerCertV2 (legacy) covers both domain and app subdomain', () => {
     template.hasResourceProperties('AWS::CertificateManager::Certificate', {
-      DomainName: 'fastspec.kaseovo.com',
-      SubjectAlternativeNames: ['app.fastspec.kaseovo.com'],
+      DomainName: 'fastspec.example.com',
+      SubjectAlternativeNames: ['app.fastspec.example.com'],
     });
   });
 
@@ -170,7 +171,7 @@ describe('FrontendStack — CloudFront distribution', () => {
   test('distribution is aliased to the domain', () => {
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: {
-        Aliases: ['fastspec.kaseovo.com'],
+        Aliases: ['fastspec.example.com'],
       },
     });
   });
@@ -260,7 +261,7 @@ describe('FrontendStack — Route53 alias record', () => {
 
   test('A record points to the domain with a CloudFront alias target', () => {
     const records = template.findResources('AWS::Route53::RecordSet', {
-      Properties: { Type: 'A', Name: 'fastspec.kaseovo.com.' },
+      Properties: { Type: 'A', Name: 'fastspec.example.com.' },
     });
     const values = Object.values(records);
     expect(values).toHaveLength(1);
@@ -291,7 +292,7 @@ describe('deployFrontend guard', () => {
   });
 
   test('config.deployFrontend is true for the prod environment', () => {
-    const config = getConfig('prod');
+    const config = getConfig('prod', TEST_SETTINGS);
     expect(config.deployFrontend).toBe(true);
   });
 });

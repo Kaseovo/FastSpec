@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { resolveEnv, getConfig } from '../lib/config';
+import { resolveEnv, getConfig, resolveDeploymentSettings } from '../lib/config';
 import { DataStack } from '../lib/data-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CertificateStack } from '../lib/certificate-stack';
@@ -10,7 +10,7 @@ import { WakeStack } from '../lib/wake-stack';
 
 const app = new cdk.App();
 const env = resolveEnv(app);
-const config = getConfig(env);
+const config = getConfig(env, resolveDeploymentSettings(app));
 
 // Use CDK default account/region for environment-aware stacks
 const awsEnv = {
@@ -47,7 +47,7 @@ if (config.deployFrontend) {
     config,
     certificateArn,
     lambdaFunctionUrl: lambdaStack.functionUrl,
-    // hostedZone omitted — FrontendStack performs HostedZone.fromLookup at synth
+    // hostedZone omitted — FrontendStack resolves it from the config
     env: awsEnv,
   });
 

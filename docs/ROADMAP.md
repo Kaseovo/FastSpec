@@ -13,6 +13,7 @@ as they land; move anything that slips into the backlog at the bottom.
 | 4 | Database | SQLite (single-container quickstart) **and** Postgres (compose / teams / hosted). CI tests both. | One-line `docker run` install; Postgres stays for anything multi-user. |
 | 5 | Git history | Keep history; scrub AWS account ID, hosted-zone ID, certificate ARN and rewrite author email to the GitHub no-reply address with `git filter-repo` on a fresh clone, right before publishing. | Keeps the project's history and blame; removes the few identifying details while it's still cheap. |
 | 6 | v0.1 feature scope | YAML editing, import (file/paste), export (JSON/YAML), bundled Swagger UI, "start from example" spec, MCP write tools. | Passes the "I pasted my real spec and it worked" test and shows off the MCP angle. |
+| 7 | Hosting-specific pieces | The app, CDK infra and deploy workflow stay public, driven by GitHub repository variables (domain, hosted zone, region). The landing page (Webstudio export + Kaseovo legal pages) moves, with its history, to a private `fastspec-website` repo with its own deploy workflow. | Keeps the serverless setup as a working reference and app + infra changes in one PR; the only generated, Kaseovo-specific part leaves. |
 
 ## Phases
 
@@ -32,11 +33,17 @@ Existing bugs found and fixed along the way:
 - `logout()` sent no auth header, so sessions were never revoked server-side.
 - A 401 redirected to a `login` route that didn't exist; `backend/__init__.py` loaded `.env` into every process that imported it.
 
-### Phase 2 — De-brand / de-hardcode
-- [ ] Domain / account / region configurable for the AWS deployment (no `kaseovo.com` in code)
-- [ ] Remove `infra/cdk.context.json`, stale compose files and Dockerfiles
-- [ ] Landing page (Kaseovo marketing + legal pages) moved out of the public repo
-- [ ] "Source code" link in the app footer (AGPL network-use clause)
+### Phase 2 — De-brand / de-hardcode ✅
+- [x] Domain / hosted zone / region configurable for the AWS deployment (no `kaseovo.com` in code) — CDK context or env vars, set by the deploy workflow from repository variables
+- [x] Remove `infra/cdk.context.json` (now git-ignored), stale compose files and Dockerfiles
+- [x] Landing page moved out of the public repo (with history) to a private `fastspec-website` repo; the wake page moved to `infra/wake-page/`
+- [x] "Source code" link in the app (user menu), configurable with `SOURCE_URL` (AGPL network-use clause)
+- [x] Removed the redundant GitHub "Auto-Stop" cron workflow (the WakeStack's EventBridge rule already does it)
+
+Your actions (AWS/GitHub, can't be done from the repo):
+- [ ] Create the private `Kaseovo/fastspec-website` repo and push `../fastspec-website` to it; add its `AWS_ROLE_ARN` secret and `AWS_REGION` variable
+- [ ] FastSpec repo variables: `FASTSPEC_DOMAIN=fastspec.kaseovo.com`, `HOSTED_ZONE_ID`, `AWS_REGION=ap-southeast-1`
+- [ ] Fix the deploy role's trust policy: it still trusts the old `DishWatcher/FastSpec` repo, so every AWS workflow fails. Trust `repo:Kaseovo/FastSpec:ref:refs/heads/main` and `repo:Kaseovo/fastspec-website:ref:refs/heads/main`
 
 ### Phase 3 — Open-source project files
 - [ ] `LICENSE` (AGPL-3.0); README screenshots (README text rewritten in Phase 1)

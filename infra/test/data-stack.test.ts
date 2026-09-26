@@ -2,10 +2,11 @@ import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { DataStack } from '../lib/data-stack';
 import { getConfig, Env } from '../lib/config';
+import { TEST_SETTINGS } from './settings';
 
 function buildStack(env: Env) {
   const app = new cdk.App();
-  const config = getConfig(env);
+  const config = getConfig(env, TEST_SETTINGS);
   return new DataStack(app, `FastSpec-Data-${env}`, { config });
 }
 

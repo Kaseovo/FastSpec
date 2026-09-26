@@ -5,7 +5,7 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
-import { EnvConfig } from './config';
+import { EnvConfig, hostedZoneFor } from './config';
 
 export interface FrontendStackProps extends cdk.StackProps {
   config: EnvConfig;
@@ -21,7 +21,7 @@ export interface FrontendStackProps extends cdk.StackProps {
   /**
    * Route53 hosted zone for the environment domain.
    * Inject in tests via `HostedZone.fromHostedZoneAttributes`.
-   * Omit in production — the stack will look it up via `HostedZone.fromLookup`.
+   * Omit in production — resolved from the config (`hostedZoneFor`).
    */
   hostedZone?: route53.IHostedZone;
 }
@@ -191,11 +191,7 @@ function handler(event) {
 
     // ── Route53 alias ─────────────────────────────────────────────────────────
 
-    const hostedZone =
-      props.hostedZone ??
-      route53.HostedZone.fromLookup(this, 'HostedZone', {
-        domainName: config.domain,
-      });
+    const hostedZone = props.hostedZone ?? hostedZoneFor(this, config);
 
     new route53.ARecord(this, 'AliasRecord', {
       zone: hostedZone,

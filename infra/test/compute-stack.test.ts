@@ -2,10 +2,11 @@ import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { LambdaStack } from '../lib/lambda-stack';
 import { getConfig } from '../lib/config';
+import { TEST_SETTINGS } from './settings';
 
 function buildStack(env: 'local' | 'prod') {
   const app = new cdk.App();
-  const config = getConfig(env);
+  const config = getConfig(env, TEST_SETTINGS);
   return new LambdaStack(app, `FastSpec-Lambda-${env}`, {
     config,
     dbEndpoint: 'db.example.com:5432',
@@ -91,7 +92,7 @@ describe('LambdaStack — prod', () => {
   test('function URL CORS allows the prod domain', () => {
     template.hasResourceProperties('AWS::Lambda::Url', {
       Cors: Match.objectLike({
-        AllowOrigins: Match.arrayWith(['https://fastspec.kaseovo.com']),
+        AllowOrigins: Match.arrayWith(['https://fastspec.example.com']),
       }),
     });
   });
