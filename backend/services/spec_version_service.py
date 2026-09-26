@@ -3,7 +3,7 @@ Service layer for OpenAPI spec version operations.
 
 Extracted from routers/specs.py, which previously did raw ORM queries,
 ownership checks, and commit management inline across six endpoints (see
-docs/CODE_REVIEW.md §1/§11). Two of those endpoints (delete_version,
+docs/history/2026-07-code-review.md §1/§11). Two of those endpoints (delete_version,
 publish_version) mutated the session but never called db.commit(), so
 get_db's rollback-on-close silently discarded the change. Centralizing
 commit discipline here in one place is what prevents that bug class.
@@ -37,7 +37,7 @@ class SpecVersionService:
         Every version lookup below is scoped through a spec resolved here,
         so ownership is established once and version-level permission
         checks against "who created this version" are unreachable/moot —
-        removed rather than kept as dead code (docs/CODE_REVIEW.md §2).
+        removed rather than kept as dead code (docs/history/2026-07-code-review.md §2).
         """
         spec = (
             self.db.query(OpenAPISpec)

@@ -1,61 +1,147 @@
 # Architecture
 
-This document describes the high-level architecture of FastSpec and how the frontend, backend and supporting services interact.
+FastSpec is one Python backend (FastAPI + an MCP server) and one Vue
+single-page app, served from a single origin. This page is the map; the
+*why* behind the bigger choices lives in the [ADRs](adr/), and domain terms
+are defined in [CONTEXT.md](../CONTEXT.md).
 
-1. System components
+## Request routing
 
-- Frontend (SPA) — located in [`frontend`](frontend) and built with Vue 3 + Vite + PrimeVue + Monaco. It provides the editor UI, preview, diff drawer and authentication UX.
-- Backend (API) — located in [`backend`](backend), implemented with FastAPI + SQLAlchemy + Alembic. It exposes authentication, spec CRUD/versioning, lint and validation endpoints, and contains core business logic (auth, validation, diffing, linting).
-- MCP server — mounted into the same ASGI app as the FastAPI backend (not a separate process). See [`backend/fastmcp_server/server.py`](backend/fastmcp_server/server.py:1), built with FastMCP and mounted at `/mcp` in [`backend/app.py`](backend/app.py:1). It exposes read-only spec tools to AI agents, authenticated via short-lived JWTs (see section 7).
-- Data storage — Specs, versions, users, API keys and auth tokens are persisted in PostgreSQL via SQLAlchemy models in [`backend/models.py`](backend/models.py:1), with schema managed by Alembic migrations under `backend/alembic/versions/`. There is no Redis in this system.
-- Deployment — the backend runs as a Docker-image AWS Lambda behind a Function URL (via Mangum, see [`backend/lambda_handler.py`](backend/lambda_handler.py:1)); the frontend SPA is served from S3/CloudFront. Infrastructure is defined with CDK under [`infra/`](infra). A Wake/AutoStop stack starts and stops the RDS instance on demand to save cost — see the ADRs under `docs/adr/` for the rationale.
+Everything is served from one origin, so the session, the sign-in cookie
+and the app never cross origins.
 
-2. Interaction and data flow
+```mermaid
+flowchart LR
+    B[Browser / MCP client] --> R{Path}
+    R -- "/specs, /specs/*" --> SPA[Built web app<br/>index.html fallback]
+    R -- "/api/*" --> API[FastAPI<br/>prefix stripped]
+    R -- "/auth/*, /docs, /health, /version" --> API
+    R -- "/mcp" --> MCP[MCP server<br/>stateless, per request]
+    API --> DB[(SQLite or Postgres)]
+    API --> SP[Spectral CLI]
+    MCP --> DB
+```
 
-- Authentication: the frontend initiates Google sign-in (server-side OAuth 2.0 Authorization Code redirect flow), exchanges tokens with backend endpoints in [`backend/routers/auth.py`](backend/routers/auth.py:1), and stores the resulting FastSpec JWT client-side. See [`docs/AUTHENTICATION.md`](AUTHENTICATION.md) for the full flow.
-- Spec management: the frontend calls the specs API (`backend/routers/specs.py`) to list, create, update, delete and version spec resources. Schemas are defined in [`backend/schemas.py`](backend/schemas.py:1).
-- Linting: the frontend calls `backend/routers/lint.py`, which delegates to `LintService` and the `SpectralClient` seam (subprocess or HTTP sidecar) in `backend/validation/spectral_client.py` to run Stoplight Spectral.
-- Validation & diff: the backend exposes validation and diff capabilities using utilities in `backend/validation/` (see `validator.py` and `diff_utils.py`). The frontend calls these endpoints to present results in the UI.
-- MCP integration: MCP clients (AI agents) authenticate with a short-lived JWT (obtained by exchanging an API key via `/auth/api-keys/exchange`) and call read-only spec tools exposed by the mounted MCP server. See section 7 for details.
+- **Self-hosted** (`Dockerfile`): `backend/frontdoor.py` does this routing
+  inside the app; `/` redirects to `/specs/`.
+- **AWS** ([DEPLOYMENT.md](DEPLOYMENT.md)): CloudFront does it — `/specs*`
+  from S3, `/api*`, `/auth*`, `/mcp*` to the Lambda (same `frontdoor.py`,
+  without the SPA), everything else to your website bucket.
+- **Development** (`make dev`): Vite serves the app and proxies `/api`,
+  `/auth` and `/mcp` to the backend.
 
-3. Backend responsibilities
+See [ADR-0008](adr/0008-single-image-self-hosting.md).
 
-- Authenticate requests and enforce permissions (JWT tokens, Google OAuth in [`backend/routers/auth.py`](backend/routers/auth.py:1) and [`backend/auth/`](backend/auth:1)).
-- Persist spec metadata and content via [`backend/models.py`](backend/models.py:1) and [`backend/database.py`](backend/database.py:1).
-- Validate spec content, compute diffs, and run lint using the validation utilities and lint services.
+## Backend (`backend/`)
 
-4. Frontend responsibilities
+Python 3.12, FastAPI, SQLAlchemy 2, Alembic, FastMCP. Layers: routers
+translate HTTP; services hold the business rules and own commits;
+repositories wrap multi-row persistence.
 
-- Provide a responsive editor with preview and diff tooling.
-- Handle authentication flows and token lifecycle.
-- Convert editor state to API requests and render validation/diff/lint responses.
+| Path | Role |
+|---|---|
+| `app.py` | The ASGI application: FastAPI + MCP behind the front door. Used by uvicorn and by Mangum on Lambda. |
+| `frontdoor.py` | Single-origin routing (table above) and SPA file serving. |
+| `main.py` | FastAPI app, routers, health checks, `/version`. |
+| `config.py` | All settings (`pydantic-settings`, repo-root `.env`), start-up validation. |
+| `database.py`, `base.py`, `models.py` | Engine/session (SQLite or Postgres), declarative base, ORM models. |
+| `schemas.py` | Pydantic request/response models. |
+| `routers/` | `auth.py` (sign-in, sessions, API keys), `specs.py` (specs, versions, diff), `lint.py` (linting, rulesets). |
+| `services/` | `spec_service.py`, `spec_version_service.py`, `lint_service.py`, `lint_ruleset_repository.py`. |
+| `validation/` | `validator.py` (OpenAPI validation), `spectral_client.py` / `spectral_linter.py` (Spectral), `diff_utils.py` (version diffs). |
+| `auth/` | `oidc.py` (OpenID Connect), `users.py` (local user, account matching), `jwt.py` (sessions, API keys, short JWTs), `dependencies.py` (`get_current_user`). |
+| `fastmcp_server/` | MCP tools, API-key authentication and per-tool authorization. |
+| `permissions.py`, `rate_limit.py` | API-key actions; per-IP rate limiting. |
+| `alembic/` | Migrations — must work on SQLite and Postgres ([ADR-0007](adr/0007-sqlite-and-postgres.md)). |
+| `cli.py` | `serve` (migrate + uvicorn), `migrate`, `transfer-local-data`. |
+| `lambda_handler.py`, `migrate.py` | AWS Lambda entry point and its migration path. |
 
-5. Deployment considerations
+### Data model
 
-- The backend runs as a single Lambda function per environment (see `infra/lib/*.ts`); there is no separate application server or load balancer.
-- PostgreSQL (RDS) is the system of record; see the Wake/AutoStop ADR for how it's started/stopped to control cost, and `docs/CODE_REVIEW.md` for open security considerations around its network exposure.
-- Serve frontend static assets from S3/CloudFront.
+```mermaid
+erDiagram
+    User ||--o{ OpenAPISpec : owns
+    User ||--o{ LintRuleset : owns
+    User ||--o{ APIKey : owns
+    User ||--o{ AuthToken : "sessions"
+    OpenAPISpec ||--o{ SpecVersion : "versions"
+    OpenAPISpec }o--o| LintRuleset : "pinned ruleset"
+```
 
-6. Extensibility
+- **OpenAPISpec** — name and the current version label; the content lives
+  in **SpecVersion** rows (one JSON document per version label).
+- **LintRuleset** — a user's named Spectral rulesets; one is the default,
+  and a spec can pin another ([ADR-0005](adr/0005-multi-ruleset-lint.md)).
+- **APIKey** — hashed long-lived key with a set of actions.
+- **AuthToken** — one row per session JWT (`jti`), so sessions can be
+  revoked. The token itself isn't stored.
+- **User** — keyed on `(provider, provider_user_id)`: `local` in
+  single-user mode, the OIDC issuer's key and `sub` otherwise.
 
-- Validation rules and diff strategies are modular under `backend/validation/` and can be extended with new validators or output formats.
-- Additional OAuth providers can be added by extending [`backend/routers/auth.py`](backend/routers/auth.py:1) and the `User.provider` field in [`backend/models.py`](backend/models.py:1).
+### Authentication
 
-7. MCP (Model Context Protocol) integration
+`AUTH_MODE=none` (single user) or `oidc` (any OpenID Connect provider),
+session JWTs for the web app, API keys for MCP clients. See
+[AUTHENTICATION.md](AUTHENTICATION.md) and
+[ADR-0006](adr/0006-auth-modes.md).
 
-- Purpose: the MCP server exposes read-only spec tools (e.g., `get_saved_specs_for_user`, `get_spec_details`, `who_am_i`) so AI agents can read a user's OpenAPI specs. It is mounted into the same FastAPI ASGI app rather than running as a separate process.
+### Linting
 
-- Implementation: see [`backend/fastmcp_server/server.py`](backend/fastmcp_server/server.py:1) (tool definitions), [`backend/fastmcp_server/authentication.py`](backend/fastmcp_server/authentication.py:1) (short-JWT validation and the `get_current_user` dependency for tools), and [`backend/fastmcp_server/middleware.py`](backend/fastmcp_server/middleware.py:1) (per-request auth + per-tool action-based authorization, plus request/response logging).
+`LintService` resolves which ruleset applies (the spec's pinned one, else
+the user's default, else plain `spectral:oas`), writes a temporary Spectral
+ruleset, and runs the Spectral CLI through the `SpectralClient` seam
+(subprocess by default; an HTTP-sidecar transport exists). User-supplied
+YAML is checked against an allowlist before it reaches Spectral. See
+[CUSTOM_LINT_RULES.md](CUSTOM_LINT_RULES.md).
 
-- How MCP authentication works in this project:
-  - A client first calls `POST /auth/api-keys/exchange` with a raw API key to obtain a short-lived JWT (`token_type: "short"`) carrying the API key's allowed actions.
-  - MCP requests carry that short JWT as a Bearer token. `AuthenticationMiddleware` validates it per-request and filters/authorizes tools based on each tool's declared `actions` metadata versus the token's actions.
-  - There is no separate `MCP_REFRESH_TOKEN` or long-lived secret for the MCP server itself — it relies entirely on the short JWT presented by the calling client.
+### MCP server
 
-- Running the MCP server: it is not run standalone. It is mounted at `/mcp` on the main FastAPI app in [`backend/app.py`](backend/app.py:1) and served together with the rest of the API (locally via uvicorn, in production via the same Lambda Function URL).
+`fastmcp_server/server.py` defines the tools; they reuse the same services
+as the HTTP API. Requests authenticate with an API key (or the short JWT it
+exchanges for), and each tool declares the actions it needs. The endpoint
+is stateless: every request gets its own short-lived handler, which works
+identically on uvicorn and Lambda.
 
-- Files of interest:
-  - [`backend/fastmcp_server/server.py`](backend/fastmcp_server/server.py:1) — MCP tool definitions.
-  - [`backend/fastmcp_server/authentication.py`](backend/fastmcp_server/authentication.py:1) / [`backend/fastmcp_server/middleware.py`](backend/fastmcp_server/middleware.py:1) — short-JWT auth and per-tool authorization.
-  - [`backend/routers/auth.py`](backend/routers/auth.py:1) — auth endpoints used for API key creation/exchange/revocation.
-  - [`backend/auth/jwt.py`](backend/auth/jwt.py:1) — JWT helpers used across the system.
+## Frontend (`frontend/`)
+
+Vue 3, PrimeVue 4, Pinia, Vite, Monaco (code editor), Swagger UI (preview).
+Built with base path `/specs/`.
+
+| Path | Role |
+|---|---|
+| `src/main.js` | Boots the app: restores the session, runs `auth/session.js`, then installs the router. |
+| `src/auth/session.js` | Sign-in callback, `/auth/config`, single-user sessions, sign-out handling. |
+| `src/api/` | `http.js` (axios client: session header, 401 handling) and the `auth`, `specs`, `lint`, `appInfo` modules. |
+| `src/stores/auth.js` | Session and auth-mode state (Pinia). |
+| `src/router/index.js` | `/specs`, `/specs/:id`, `/specs/:id/preview`. |
+| `src/AppLayout.vue`, `src/views/` | Shell, sign-in screen, editor and preview pages. |
+| `src/components/FormEditor.vue` + `form-editor/` | The form editor: info, servers, paths/operations, components, tags, security. |
+| `src/components/EditorPanel.vue` | Monaco code editor. |
+| `src/components/PreviewPanel.vue` | Swagger UI preview. |
+| `src/components/LintPanel.vue`, `LintRulesetDialog.vue` | Lint results and ruleset editing. |
+| `src/components/DiffDrawer.vue` + `diff-drawer/`, `SaveDialog.vue` | Versions, comparisons, saving. |
+| `src/components/TokenManager.vue`, `UserProfile.vue` | API keys; user menu. |
+| `src/composables/` | Editor state and logic (`useSpecEditor`, `usePathsEditor`, `useComponentsEditor`, `useLint`, …). |
+| `src/utils/` | OpenAPI form helpers, client-side diff for unsaved changes, Markdown output. |
+
+The form editor's tabs share one mutable `formData` object and edit fields
+inside it; the extracted composables hold the logic, and characterization
+tests pin their behaviour.
+
+## Infrastructure (`infra/`)
+
+AWS CDK (TypeScript) for the serverless deployment: RDS, the backend Lambda,
+CloudFront + S3, ACM, and the wake/auto-stop stack. Deployment-specific
+values come from context or environment variables. See
+[DEPLOYMENT.md](DEPLOYMENT.md).
+
+## Tests
+
+| Where | What |
+|---|---|
+| `backend/tests/` | pytest. In-memory SQLite by default; migration tests also run on Postgres when `TEST_POSTGRES_URL` is set (CI). |
+| `frontend/src/**/*.spec.js`, `*.test.js` | Vitest + Vue Test Utils in jsdom. |
+| `infra/test/` | Jest + CDK assertions. |
+
+CI (`.github/workflows/test.yml`) runs all three, ruff and ESLint, and
+builds the Docker image with a smoke test.

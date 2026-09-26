@@ -6,7 +6,7 @@
 ## Context
 
 The custom lint ruleset feature (`LintService`, `LintRulesetRepository`,
-`spectral_linter.py`) was, per `docs/CODE_REVIEW.md`, "the best code in the
+`spectral_linter.py`) was, per `docs/history/2026-07-code-review.md`, "the best code in the
 repo" — clean seams, DI'd `SpectralClient`, solid tests. But it had four
 real gaps, surfaced by walking the feature area systematically rather than
 chasing a specific bug (there are no production users yet, so this was a
@@ -102,7 +102,7 @@ identical repeated lints).
   deprecation path with real users.
 - `POST /lint/{spec_id}`, `POST /lint`, and `POST /lint/{spec_id}/lint-draft`
   no longer accept a `ruleset` query param / body field — it was already a
-  dead/ignored input before this change (see `docs/CODE_REVIEW.md`), so
+  dead/ignored input before this change (see `docs/history/2026-07-code-review.md`), so
   removing it from the docs doesn't change runtime behavior, only stops
   documenting a no-op.
 - Route registration order in `backend/routers/lint.py` is now

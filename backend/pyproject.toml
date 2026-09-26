@@ -9,7 +9,7 @@ exclude = ["alembic/versions"]
 
 [tool.ruff.lint]
 # Pragmatic starter set — catches the classes of issue flagged in
-# docs/CODE_REVIEW.md (unused imports, bare/broad excepts, dead code) without
+# docs/history/2026-07-code-review.md (unused imports, bare/broad excepts, dead code) without
 # being so strict that adopting it requires a separate large reformatting PR.
 select = [
     "E",   # pycodestyle errors

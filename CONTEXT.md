@@ -1,120 +1,172 @@
 # FastSpec — Domain Glossary
 
-## Deployment Environment
+The words FastSpec's code, UI and docs use, and what they mean. How the
+system is built is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-One of four named runtime targets: **local** (`http://localhost`, floci only), **dev** (`dev.fastspec.kaseovo.com`), **staging** (`staging.fastspec.kaseovo.com`), or **prod** (`fastspec.kaseovo.com`). Each environment is an independent CDK stack driven by `--context env=local|dev|staging|prod`. The `local` environment runs entirely inside floci with no real AWS resources.
+## Specs
 
-## Deployment Stack
+### Spec
 
-**Stale note (2026-07-12):** this glossary entry originally described an ECS
-Fargate + ALB + ElastiCache architecture that predates the current CDK code.
-The actual current stack (see `infra/lib/`, `docs/adr/0001-*.md`, README.md)
-is: a backend Docker-image **Lambda** behind a Lambda Function URL (no ECS,
-no ALB, no Fargate), RDS PostgreSQL (no ElastiCache/Redis — nothing in this
-codebase uses Redis), S3 buckets for the frontend SPA and landing page, a
-CloudFront distribution as the sole public entry point, ACM certificates,
-and a Wake/AutoStop side-stack that starts/stops RDS on a schedule to keep
-idle cost near zero. CloudFront routes `/auth*` to the Lambda Function URL,
-`/specs*` to the frontend S3 bucket, and `/*` to the landing-page S3 bucket.
+An OpenAPI document a user keeps in FastSpec, identified by a UUID and a
+name unique per user. Its content lives in its **Spec Versions**; the Spec
+records which version is current.
 
-## floci Environment
+### Spec Version
 
-A local replica of the Deployment Stack running on a developer's machine or in CI, powered by floci. Replaces `docker-compose`. Consumes the same CDK IaC definitions as a real AWS Deployment Stack, ensuring local and production behaviour are identical. Secret values are seeded into floci's SSM Parameter Store from the local `.env` file before the stacks are deployed. Frontend and landing-page are excluded from the floci Environment and run as plain local processes (Vite dev server).
+A saved snapshot of a Spec's content under a version label (e.g. `1.2.0`),
+unique per Spec. Versions can be compared, published (made current) and
+deleted.
 
-## DataStack
+### Spec Version Mode
 
-The CDK stack (`infra/lib/data-stack.ts`) responsible for stateful
-infrastructure: an RDS PostgreSQL instance only — there is no ElastiCache/Redis
-in this stack, nor anywhere else in the codebase. Exports the DB endpoint and
-instance identifier, consumed by `LambdaStack` and `WakeStack` respectively.
-Deployed independently so the compute layer can be updated without risking
-data-layer replacement. RDS is publicly accessible because the backend
-Lambda runs outside a VPC — see `docs/adr/0002-rds-public-access-tradeoff.md`
-for the rationale and mitigations (`rds.force_ssl`, generated-secret master
-password).
+The OpenAPI version declared in the `openapi` field of a Spec (`3.0.x` or
+`3.1.x`). Determines which form semantics are active: in 3.0 mode,
+nullability is expressed as `nullable: true` and
+`exclusiveMinimum`/`exclusiveMaximum` are booleans; in 3.1 mode,
+nullability is expressed as a type array (e.g. `["string", "null"]`) and
+`exclusiveMinimum`/`exclusiveMaximum` are numbers. The Form Editor detects
+the Spec Version Mode from the `openapi` field and adjusts its UI.
 
-## LambdaStack
+### Path
 
-The CDK stack (`infra/lib/lambda-stack.ts`) responsible for compute: a
-Docker-image AWS Lambda running the merged FastAPI + FastMCP ASGI app,
-exposed via an unauthenticated Lambda Function URL (CORS-locked to the app
-domain). Imports the DB endpoint from `DataStack`. Runs outside any VPC —
-there is no ALB, no ECS/Fargate anywhere in this architecture (that was an
-earlier design, superseded — see `docs/adr/0001-*.md`).
+A URL template string (e.g. `/users/{id}/posts`) that identifies an API
+endpoint. A Path may contain one or more **Path Parameter Tokens**.
 
-## Spectral CLI
+### Path Parameter Token
 
-A Spectral CLI binary installed into the backend Lambda's Docker image (see `backend/Dockerfile.lambda`). Invoked in-process by the backend to lint a Spec against a Lint Ruleset. No inter-process communication is involved — Spectral runs as a child process within the Lambda container, not as a separate sidecar container or HTTP service.
+A `{name}` segment embedded in a Path string (e.g. `{id}` in
+`/users/{id}`). Tokens are the **sole source** of Path Parameters — they
+cannot be created any other way.
 
-## Migration invocation
+### Path Parameter
 
-Database migrations (`alembic upgrade head`) run inside the backend Lambda,
-triggered by invoking it directly with the payload `{"migrate": true}` (see
-`backend/lambda_handler.py` and the "Run database migration" step in
-`.github/workflows/deploy-and-version.yml`). There is no separate ECS Run
-Task — that was an earlier design that predates the Lambda migration.
+A Parameter whose location is `in: path`. Created automatically when a Path
+Parameter Token is added to a Path string. Removed automatically (after
+user confirmation if it has content) when its token is removed from the
+Path string. Never manually created or edited for location.
 
+### Parameter
 
-## Lint Ruleset
+A named input attached to an Operation. Has a location (`query`, `header`,
+`cookie`, or — exclusively via Path Parameter Tokens — `path`), a type, and
+optional constraints. The `path` location is read-only and managed by the
+Path string.
 
-The set of Spectral rules applied when linting a Spec. Always extends the `spectral:oas` baseline. A user may have one optional **User Lint Ruleset** that layers on top of the baseline — adding new rules and/or overriding the severity of default rules.
+### Operation
 
-## User Lint Ruleset
+An HTTP method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD) bound to a
+Path, carrying a summary, description, operationId, tags, parameters,
+request body, and responses.
 
-A per-user, globally-scoped Lint Ruleset stored in the `user_lint_rulesets` table. When present, it is merged with `spectral:oas` at lint time by generating a temporary ruleset file. When absent, only the `spectral:oas` baseline runs. Composed of two optional parts: **Structured Rules** and a **Raw Ruleset Override**.
+### Route
 
-## Structured Rules
+Synonym for a Path and one of its Operations (e.g. `GET /users/{id}`). Not
+used as a distinct domain term — prefer "Path" or "Operation".
 
-An array of lint rule definitions built via the rule-form UI. Each rule has: a unique name (key), severity (`error` | `warn` | `info` | `hint` | `off`), a JSONPath selector (`given`), an optional message template, and a `then` block specifying one of the built-in Spectral functions (`truthy`, `falsy`, `pattern`, `enumeration`, `length`, `schema`) with its options. Stored as JSON in `user_lint_rulesets.rules_json`.
+### Response
 
-## Raw Ruleset Override
+An HTTP status code entry under an Operation's `responses` map. Each
+Response has a status code key (numeric string or `"default"`), a
+description, an optional content type, and an optional **Response Schema**.
+An Operation may have several Responses with distinct status codes (e.g.
+`200`, `201`, `409`). Status codes are picked in two steps (category →
+code), with the standard name and a hint for each (e.g. `409 Conflict —
+State conflict (e.g. duplicate)`). A Response's status code can be changed
+without losing its definition.
 
-A user-authored YAML text block containing a valid Spectral ruleset. When present, it takes precedence over Structured Rules for linting — the Raw Ruleset Override is written directly to the temporary ruleset file instead of the generated YAML. Validated as well-formed YAML at save time. Stored in `user_lint_rulesets.raw_yaml`.
+### Response Schema
 
-## Path
+The schema attached to a Response's content type. Supports the same three
+modes as the Request Body Schema: **reference** (a `$ref` to a Component
+Schema), **inline object** (a property builder with `$ref`-capable
+properties, array item types, and constraints), and **inline
+primitive/array** (type selector with constraints). Inline Response Schemas
+go through the same `_itemSchemas` / `cleanRefsForOutput` pipeline as
+Request Body Schemas.
 
-A URL template string (e.g. `/users/{id}/posts`) that identifies an API endpoint. A Path may contain one or more **Path Parameter Tokens**.
+### Item Schema
 
-## Path Parameter Token
+The schema that describes each element of an array-typed Parameter or
+Property. Represented internally as `_itemSchemas` (a list of per-type
+sub-schemas) and serialised to the OpenAPI `items` field on output. Must
+always be present and valid when the parent type is `array` — an absent or
+malformed Item Schema makes Swagger UI's "Add item" button fail silently.
 
-A `{name}` segment embedded in a Path string (e.g. `{id}` in `/users/{id}`). Tokens are the **sole source** of Path Parameters — they cannot be created any other way.
+## Linting
 
-## Path Parameter
+### Lint Ruleset
 
-A Parameter whose location is `in: path`. Created automatically when a Path Parameter Token is added to a Path string. Removed automatically (after user confirmation if it has content) when its corresponding token is removed from the Path string. Never manually created or edited for location.
+A named set of Spectral rules a user owns. Always extends the
+`spectral:oas` baseline, adding rules and/or changing the severity of
+default ones. A user may have several; exactly one is their **default**,
+and a Spec can **pin** another. At lint time the Spec's pinned ruleset
+applies, else the user's default, else the plain baseline. Composed of
+optional **Structured Rules** and an optional **Raw Ruleset Override**.
+See [ADR-0005](docs/adr/0005-multi-ruleset-lint.md).
 
-## Parameter
+### Structured Rules
 
-A named input attached to an Operation. Has a location (`query`, `header`, `cookie`, or — exclusively via Path Parameter Tokens — `path`), a type, and optional constraints. The `path` location is read-only and managed by the Path string.
+Lint rule definitions built with the rule form. Each rule has a unique
+name, a severity (`error` | `warn` | `info` | `hint` | `off`), a JSONPath
+selector (`given`), an optional message, and a `then` block using one of
+the supported built-in Spectral functions (`truthy`, `falsy`, `pattern`,
+`enumeration`, `length`, `schema`, `casing`, `alphabetical`, `xor`,
+`unreferencedReusableObject`) with its options.
 
-## Operation
+### Raw Ruleset Override
 
-An HTTP method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD) bound to a Path, carrying a summary, description, operationId, tags, parameters, request body, and responses.
+A user-authored Spectral ruleset in YAML. When present, it takes precedence
+over the Structured Rules. Validated at save time: well-formed YAML, no
+`functions`/`functionsDir`, and no `extends` outside the built-in rulesets.
 
-## Route
+## Access
 
-Synonym for the combination of a Path and one of its Operations (e.g. `GET /users/{id}`). Not used as a distinct domain term — prefer "Path" or "Operation".
+### Auth Mode
 
-## Item Schema
+How people sign in to a FastSpec instance: **none** (single-user mode, no
+sign-in — everything belongs to the **Local User**) or **oidc** (sign-in
+with an OpenID Connect provider). See
+[ADR-0006](docs/adr/0006-auth-modes.md).
 
-The schema that describes each element of an array-typed Parameter or Property. Represented internally as `_itemSchemas` (a list of per-type sub-schemas) and serialised to the OpenAPI `items` field on output. Must always be present and valid when the parent type is `array` — an absent or malformed Item Schema causes Swagger UI's "Add item" button to silently fail.
+### Local User
 
-## Spec Version Mode
+The implicit single user of an instance running with Auth Mode `none`.
+Its data can be handed to a real account with `transfer-local-data`.
 
-The OpenAPI version declared in the `openapi` field of a Spec (`3.0.x` or `3.1.x`). Determines which form semantics are active: in 3.0 mode, nullability is expressed as `nullable: true` and `exclusiveMinimum`/`exclusiveMaximum` are booleans; in 3.1 mode, nullability is expressed as a type array (e.g. `["string", "null"]`) and `exclusiveMinimum`/`exclusiveMaximum` are numbers. The Form Editor detects the Spec Version Mode from the `openapi` field value and adjusts its UI accordingly.
+### Session
 
-## Response
+What the web app authenticates with: a JWT issued at sign-in, recorded by
+its `jti` so it can be revoked on logout.
 
-An HTTP status code entry under an Operation's `responses` map. Each Response has a status code key (numeric string or `"default"`), a description, an optional content type, and an optional Response Schema. A single Operation may have multiple Responses with distinct status codes (e.g. `200`, `201`, `409`). Status codes are selected via a two-step picker (category → code) that surfaces the standard name and a contextual hint for each code (e.g. `409 Conflict — State conflict (e.g. duplicate)`). The status code of an existing Response can be changed without losing its definition.
+### API Key
 
-## API Key
+A long-lived credential a user creates for MCP clients and scripts. Stored
+as a PBKDF2 hash; the raw value is shown once, at creation. Carries a set
+of **Actions** that bound what its holder may do. Has an optional display
+**name** (not unique); without one, the UI shows the truncated UUID. Can be
+exchanged for a **Short JWT**.
 
-A long-lived credential issued to a user that authenticates MCP tool calls. Stored as a bcrypt hash; the raw value is shown once at creation and never again. Carries a set of **Actions** that bound what operations the holder may perform. Has an optional user-defined **name** — a short display label with no uniqueness constraint. When no name is set, the UI falls back to displaying the truncated UUID. Identified internally by a UUID `id`.
+### Short JWT
 
-## Action
+A token valid for a few minutes, obtained by exchanging an API Key, and
+carrying that key's Actions. Revoking the key invalidates it.
 
-A permission string that can be granted to an API Key (e.g. `read:specs`, `write:specs`). Controls which MCP tool calls the key is authorised to make. The special value `All` grants every available action.
+### Action
 
+A permission granted to an API Key (e.g. `read:specs`, `write:specs`,
+`lint:specs`). Controls which MCP tools the key may call. `All` grants every
+action, including future ones.
 
+## Running FastSpec
 
-The schema attached to a Response's content type. Supports the same three modes as the Request Body Schema: **reference** (a `$ref` to a Component Schema), **inline object** (a property builder with `$ref`-capable properties, array item types, and constraints), and **inline primitive/array** (type selector with constraints). Inline Response Schemas are normalised through the same `_itemSchemas` / `cleanRefsForOutput` pipeline as Request Body Schemas.
+### Instance
+
+One running FastSpec: the Docker image (self-hosted, SQLite or Postgres) or
+the AWS serverless deployment. See [SELF_HOSTING.md](docs/SELF_HOSTING.md)
+and [DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+### Front Door
+
+The single-origin routing in front of the API, the MCP server and the web
+app (`backend/frontdoor.py`; CloudFront on AWS). See
+[ADR-0008](docs/adr/0008-single-image-self-hosting.md).

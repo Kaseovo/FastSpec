@@ -31,7 +31,7 @@ from base import Base
 # every connection on the same in-memory database for the life of the test
 # session (a plain in-memory URL would give each connection its own,
 # throwing away tables between calls). This also stops `test.db` files from
-# being left behind in the repo root — see docs/CODE_REVIEW.md §5.
+# being left behind in the repo root — see docs/history/2026-07-code-review.md §5.
 # ---------------------------------------------------------------------------
 
 test_engine = create_engine(

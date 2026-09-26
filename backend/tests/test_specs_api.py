@@ -144,7 +144,7 @@ def _create_spec_with_versions(name="versioned-spec"):
 
 
 def test_delete_version_persists_across_requests():
-    """Regression test for docs/CODE_REVIEW.md bug #1: delete_version must
+    """Regression test for docs/history/2026-07-code-review.md bug #1: delete_version must
     actually commit, not just mutate an in-memory session that gets rolled
     back when the request's DB session closes."""
     user = User(id=1, email="test@example.com", provider="test", provider_user_id="uid")
@@ -170,7 +170,7 @@ def test_delete_version_persists_across_requests():
 
 
 def test_publish_version_persists_across_requests():
-    """Regression test for docs/CODE_REVIEW.md bug #2: publish_version must
+    """Regression test for docs/history/2026-07-code-review.md bug #2: publish_version must
     actually commit the spec's updated current-version pointer."""
     user = User(id=1, email="test@example.com", provider="test", provider_user_id="uid")
     _auth_as(user)

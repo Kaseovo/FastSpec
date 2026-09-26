@@ -1,7 +1,7 @@
 """
 Minimal in-memory rate limiting for cheap-to-abuse, unauthenticated endpoints.
 
-docs/CODE_REVIEW.md flags /auth/google/verify, /auth/google/callback and
+docs/history/2026-07-code-review.md flags /auth/google/verify, /auth/google/callback and
 /auth/api-keys/exchange as having no rate limiting — each triggers an outbound
 call (to Google, or a pbkdf2 hash verification) that costs real money on a
 per-invocation Lambda, so an attacker can cheaply drive up the bill.

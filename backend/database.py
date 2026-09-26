@@ -38,7 +38,7 @@ if not DATABASE_URL:
     if not db_password:
         # Fail fast rather than silently connecting with a well-known
         # default password (mirrors the JWT_SECRET_KEY check in config.py) —
-        # see docs/CODE_REVIEW.md §6 Critical #1.
+        # see docs/history/2026-07-code-review.md §6 Critical #1.
         print(
             "FATAL: DATABASE_URL or FASTSPEC_APP_DB_PASSWORD environment "
             "variable is required",

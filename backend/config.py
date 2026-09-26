@@ -4,7 +4,7 @@ Central configuration for FastSpec backend.
 Consolidates the environment variables that were previously read ad hoc via
 os.getenv() scattered across config.py, main.py, auth/jwt.py, routers/auth.py,
 validation/spectral_client.py and validation/spectral_linter.py (each with its
-own inline default) — see docs/CODE_REVIEW.md §3.
+own inline default) — see docs/history/2026-07-code-review.md §3.
 
 Two fail-fast rules this module enforces at import time:
 

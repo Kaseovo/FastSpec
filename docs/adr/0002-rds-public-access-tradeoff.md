@@ -5,7 +5,7 @@
 
 ## Context
 
-The principal-engineer code review (`docs/CODE_REVIEW.md`, §6 Security #1)
+The principal-engineer code review (`docs/history/2026-07-code-review.md`, §6 Security #1)
 flagged that RDS is reachable on `0.0.0.0/0:5432`. This is true, and on its
 face looks like a critical misconfiguration. This ADR records why it exists,
 what mitigates it today, and what a real fix would require.
@@ -108,7 +108,7 @@ break the app (role doesn't exist yet).
   documented risk acceptance, not an unnoticed gap.
 - `rds.force_ssl=1` and the generated-secret master password are the two
   concrete infra-level improvements this ADR ships with.
-- Follow-up work (tracked in `docs/CODE_REVIEW.md` §10): the backend-side
+- Follow-up work (tracked in `docs/history/2026-07-code-review.md` §10): the backend-side
   hardcoded password fallback is gone (fail-fast, see above), and the
   `fastspec_app` scoped role migration described above is implemented in
   code but **not yet applied to the live RDS instance or rotated in** — see

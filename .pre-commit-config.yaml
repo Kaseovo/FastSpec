@@ -5,7 +5,7 @@
 #
 # Scope note: ruff targets backend/ (Python), prettier targets frontend/ and
 # top-level docs/config (JS/Vue/JSON/Markdown), detect-secrets scans the
-# whole repo. Kept deliberately small — see docs/CODE_REVIEW.md §9.
+# whole repo. Kept deliberately small — see docs/history/2026-07-code-review.md §9.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.4

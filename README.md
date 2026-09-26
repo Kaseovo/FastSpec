@@ -71,10 +71,11 @@ The backend's interactive API docs are at `/docs` on a running instance.
 
 - [Self-hosting](docs/SELF_HOSTING.md) — install, sign-in, Postgres, reverse proxy, MCP, backups, configuration
 - [Authentication](docs/AUTHENTICATION.md) — sign-in modes, sessions, API keys
+- [HTTP API](docs/API.md) — base paths and authentication (full reference at `/docs` on any instance)
 - [Custom lint rules](docs/CUSTOM_LINT_RULES.md)
 - [Deployment](docs/DEPLOYMENT.md) — including the AWS serverless setup
-- [Architecture decisions](docs/adr/)
-- [Roadmap](docs/ROADMAP.md)
+- [Architecture](docs/ARCHITECTURE.md), [glossary](CONTEXT.md) and [decisions](docs/adr/)
+- [Contributing](CONTRIBUTING.md), [releasing](docs/RELEASING.md), [changelog](CHANGELOG.md), [roadmap](docs/ROADMAP.md)
 
 ## Hosted version
 

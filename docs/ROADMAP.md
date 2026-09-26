@@ -51,12 +51,15 @@ Outside the repo (AWS/GitHub):
 
 The hosted stacks were shut down on 2026-09-23 to save costs until this work is ready; only the certificate stack and the hosted zones remain. Redeploy with the Deploy to AWS workflow once `open-source-release` is merged.
 
-### Phase 3 — Open-source project files
-- [ ] `LICENSE` (AGPL-3.0); README screenshots (README text rewritten in Phase 1)
-- [ ] Refresh `ARCHITECTURE.md`, `BACKEND.md`, `FRONTEND.md`, `API.md`, `PROJECT_OVERVIEW.md`, `CONTEXT.md`; retire the `CODE_REVIEW.md` snapshot
-- [ ] Clean up the existing ruff (≈300) and ESLint (≈1,500) findings, then enforce both in CI
-- [ ] `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue / PR templates, `CHANGELOG.md`
-- [ ] Publish Docker images to GHCR on tag; Dependabot; pinned Python dependencies
+### Phase 3 — Open-source project files ✅
+- [x] `LICENSE` (AGPL-3.0; `AGPL-3.0-only` in package metadata)
+- [x] `CONTRIBUTING.md`, `SECURITY.md` (GitHub private vulnerability reporting), issue forms, PR template, `CHANGELOG.md`
+- [x] Release pipeline (`release.yml`): version bump + tag → multi-arch image on GHCR + GitHub Release; AWS deploys are a separate workflow ([RELEASING.md](RELEASING.md))
+- [x] Dependabot; backend dependencies pinned (`requirements*.in` → `make deps`); FastMCP beta → 3.4.7, FastAPI 0.141, Starlette 1.7
+- [x] ruff and ESLint clean (from ≈300 / ≈1,500 findings) and enforced in CI
+- [x] Docs refreshed: `ARCHITECTURE.md` (now also covers backend/frontend), `API.md`, `CONTEXT.md`; stale `BACKEND.md`, `FRONTEND.md`, `PROJECT_OVERVIEW.md` and `copilot-instructions.md` removed; the July code review kept as `docs/history/`
+- [ ] Code of Conduct — waiting on the contact decision
+- [ ] README screenshots — after Phase 4, so they show YAML editing and the example spec
 
 ### Phase 4 — v0.1 features
 - [ ] YAML editing (view/edit as YAML, stored as JSON)
@@ -68,6 +71,7 @@ The hosted stacks were shut down on 2026-09-23 to save costs until this work is 
 
 ### Phase 5 — Go public
 - [ ] History scrub (decision 5) on a fresh clone; push as the public repo
+- [ ] Enable private vulnerability reporting (Settings → Security), which SECURITY.md relies on
 - [ ] If the public repo is a *new* GitHub repository, its ID changes: update the `FastSpecGitHubDeploy` trust policy's `sub` (and copy the repository variables and secrets)
 - [x] Google OAuth client: `https://fastspec.kaseovo.com/auth/oidc/callback` added as an authorized redirect URI
 - [ ] Switch the hosted deployment to the public repo

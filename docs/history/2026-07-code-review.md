@@ -1,5 +1,10 @@
 # FastSpec — Principal Engineer Code Review
 
+> **Historical snapshot.** This review was written in July 2026, before the
+> open-source release, and records the state of the code at the time and the
+> work that followed. Code comments cite its sections for background; for
+> how FastSpec works today, see [ARCHITECTURE.md](../ARCHITECTURE.md).
+
 **Date**: 2026-07-11
 **Scope**: Full repository (backend, frontend, infra, CI/CD, docs).
 
@@ -21,7 +26,7 @@ starts/stops RDS on demand to save cost.
 
 **Genuine strengths worth preserving**:
 - The **lint subsystem is the best code in the repo**:
-  [`SpectralClient` protocol seam](../backend/validation/spectral_client.py),
+  [`SpectralClient` protocol seam](../../backend/validation/spectral_client.py),
   `LintService` free of HTTP semantics, `LintRulesetRepository`, ADR
   references in docstrings, fakes in tests. Textbook
   dependency-injection-for-testability.
@@ -30,7 +35,7 @@ starts/stops RDS on demand to save cost.
   locally) is excellent DX in principle.
 - The Wake/AutoStop RDS cost optimization is creative and the IAM roles are
   mostly thoughtfully split (start-only vs stop-only).
-- Fail-fast `JWT_SECRET_KEY` check in [`config.py`](../backend/config.py) is
+- Fail-fast `JWT_SECRET_KEY` check in [`config.py`](../../backend/config.py) is
   the right instinct.
 
 ---
@@ -42,11 +47,11 @@ writing — verify against current code before trusting "Fixed".
 
 | # | Bug | Status |
 |---|---|---|
-| 1 | `DELETE /specs/{id}/versions/{vid}` never deletes — missing `db.commit()` in [routers/specs.py](../backend/routers/specs.py) `delete_version`. `get_db` rolls back on close, so the row survives. | **Fixed** — version endpoints extracted into [`services/spec_version_service.py`](../backend/services/spec_version_service.py), which commits in one place; regression tests added in `test_specs_api.py`. |
+| 1 | `DELETE /specs/{id}/versions/{vid}` never deletes — missing `db.commit()` in [routers/specs.py](../../backend/routers/specs.py) `delete_version`. `get_db` rolls back on close, so the row survives. | **Fixed** — version endpoints extracted into [`services/spec_version_service.py`](../../backend/services/spec_version_service.py), which commits in one place; regression tests added in `test_specs_api.py`. |
 | 2 | `POST /specs/{id}/versions/{vid}/publish` never persists — same missing-commit bug in `publish_version`. | **Fixed** — same `SpecVersionService.publish`, with a regression test. |
 | 3 | Google token verification skipped the audience check when `GOOGLE_CLIENT_ID` was unset (`verify_oauth2_token(..., audience=None)` accepts tokens for *any* Google app). | **Fixed** — `/auth/google/*` now raises 503 via `_google_client_id()` if the client ID is missing, instead of silently passing `None`. |
-| 4 | `Depends(get_spectral_client)` used directly as a FastAPI dependency in [routers/lint.py](../backend/routers/lint.py) — FastAPI exposes its `mode` parameter as a public query param (`?mode=subprocess`), letting callers force the lint transport. | **Fixed** — routes now depend on `spectral_client_dependency` (zero-arg wrapper) in [`validation/spectral_client.py`](../backend/validation/spectral_client.py). |
-| 5 | Silent `except Exception: pass` around `AuthToken` persistence in [auth/jwt.py](../backend/auth/jwt.py) `create_access_token` — a DB failure returns a JWT that is immediately invalid everywhere (jti lookup fails), with nothing logged. | **Fixed** — logs and raises a 500 instead of returning an unusable token. |
+| 4 | `Depends(get_spectral_client)` used directly as a FastAPI dependency in [routers/lint.py](../../backend/routers/lint.py) — FastAPI exposes its `mode` parameter as a public query param (`?mode=subprocess`), letting callers force the lint transport. | **Fixed** — routes now depend on `spectral_client_dependency` (zero-arg wrapper) in [`validation/spectral_client.py`](../../backend/validation/spectral_client.py). |
+| 5 | Silent `except Exception: pass` around `AuthToken` persistence in [auth/jwt.py](../../backend/auth/jwt.py) `create_access_token` — a DB failure returns a JWT that is immediately invalid everywhere (jti lookup fails), with nothing logged. | **Fixed** — logs and raises a 500 instead of returning an unusable token. |
 | 6 | MCP `tools/list` crashes unauthenticated: `AuthenticationMiddleware.on_list_tools` raises a bare `PermissionError` (not `ToolError`) when no Authorization header is present. | **Fixed** — `on_list_tools`/`on_call_tool` now catch `PermissionError` and re-raise as `ToolError`. |
 
 ---
@@ -56,7 +61,7 @@ writing — verify against current code before trusting "Fixed".
 - **The backend layering is half-migrated.** The lint vertical follows
   Router → Service → Repository. The specs vertical is split-brain:
   `SpecService` handles CRUD, but the six versioning endpoints in
-  [routers/specs.py](../backend/routers/specs.py) do raw ORM queries,
+  [routers/specs.py](../../backend/routers/specs.py) do raw ORM queries,
   ownership checks, and commit management inline (400+ lines of business
   logic in the router). **This is the single highest-leverage refactor** — a
   `SpecVersionService` mirroring `LintService` would have prevented bugs #1
@@ -67,7 +72,7 @@ writing — verify against current code before trusting "Fixed".
   circular-import dance in `database.py` (imports `models` mid-file, while
   `models` imports `Base` from `database`) — move `Base` to its own
   `base.py`.
-- **The MCP server bypasses every abstraction**: [`fastmcp_server/server.py`](../backend/fastmcp_server/server.py)
+- **The MCP server bypasses every abstraction**: [`fastmcp_server/server.py`](../../backend/fastmcp_server/server.py)
   opens `SessionLocal()` manually and duplicates the "derive title from
   current version" logic that also exists in `SpecService._build_response`.
   Route MCP tools through `SpecService`.
@@ -77,7 +82,7 @@ writing — verify against current code before trusting "Fixed".
   Redis config nothing uses.
 - **Frontend**: `FormEditor.vue` at **6,052 lines** and `DiffDrawer.vue` at
   3,464 lines are unmaintainable monoliths (see §13). Diff logic exists
-  twice: [`diff_utils.py`](../backend/validation/diff_utils.py) (433 lines,
+  twice: [`diff_utils.py`](../../backend/validation/diff_utils.py) (433 lines,
   backend) and `frontend/src/utils/diffUtils.js` +
   `markdownGenerator.js` (~1,000 lines) implement the same domain logic in
   two languages — pick one source of truth.
@@ -157,7 +162,7 @@ writing — verify against current code before trusting "Fixed".
   `delete_version` or `publish_version` persistence (both broken), token
   revocation flow edge cases, or `find_api_key_by_raw` expiry.
 - **Two conflicting test DB setups**:
-  [`conftest.py`](../backend/tests/conftest.py) patches a file-backed
+  [`conftest.py`](../../backend/tests/conftest.py) patches a file-backed
   `test.db` engine session-wide, while `test_specs_api.py` builds its own
   in-memory `StaticPool` engine with per-test create/drop. Standardize on
   the in-memory pattern; stop leaving `test.db` files in the repo root.
@@ -174,7 +179,7 @@ writing — verify against current code before trusting "Fixed".
 
 **Critical**
 1. **RDS is publicly accessible with `0.0.0.0/0` on 5432**
-   ([data-stack.ts](../infra/lib/data-stack.ts)), authenticated as the
+   ([data-stack.ts](../../infra/lib/data-stack.ts)), authenticated as the
    **`postgres` superuser** with a code-level default password of
    `"fastspec"`. Fix: dedicated low-privilege app role instead of
    `postgres`, remove the weak fallback default (fail fast like
@@ -184,7 +189,7 @@ writing — verify against current code before trusting "Fixed".
 
 **High**
 3. **User-supplied raw Spectral YAML is executed by the Spectral CLI**
-   ([validation/spectral_linter.py](../backend/validation/spectral_linter.py)).
+   ([validation/spectral_linter.py](../../backend/validation/spectral_linter.py)).
    Spectral rulesets support `extends` with URLs (SSRF) and
    `functions`/`functionsDir` referencing JS on disk. Validate the parsed
    YAML against an allowlist of keys before writing it to the temp file.
@@ -193,7 +198,7 @@ writing — verify against current code before trusting "Fixed".
    leak currently becomes a session-hijack kit. No cleanup job either — the
    table grows one row per login forever.
 5. **Access token TTL is `3600` *minutes* (2.5 days)**
-   ([auth/jwt.py](../backend/auth/jwt.py)) stored in `localStorage`
+   ([auth/jwt.py](../../backend/auth/jwt.py)) stored in `localStorage`
    (XSS-exfiltratable). The name/value mismatch suggests 3600 *seconds* was
    intended.
 
@@ -203,7 +208,7 @@ writing — verify against current code before trusting "Fixed".
 7. No rate limiting on `/auth/google/verify`, `/auth/google/callback`, or
    `/auth/refresh/exchange` — cheap DoS/cost amplification on Lambda.
 8. `rds:StartDBInstance`/`StopDBInstance` IAM actions on `resources: ['*']`
-   in [wake-stack.ts](../infra/lib/wake-stack.ts) — scope to the instance
+   in [wake-stack.ts](../../infra/lib/wake-stack.ts) — scope to the instance
    ARN.
 9. Error detail leakage via `detail=str(e)` on several 500 responses.
 
@@ -385,14 +390,14 @@ to the standard its best module (the lint vertical) already sets.
   of that work, fixed the audience-check-bypass bug (#3 in the table above)
   by failing fast with a 503 when `GOOGLE_CLIENT_ID` is unset instead of
   passing `audience=None` to `verify_oauth2_token`. See
-  [`docs/AUTHENTICATION.md`](AUTHENTICATION.md) for the current flow and
-  [`backend/tests/test_auth_google_redirect.py`](../backend/tests/test_auth_google_redirect.py)
+  [`docs/AUTHENTICATION.md`](../AUTHENTICATION.md) for the current flow and
+  `backend/tests/test_auth_google_redirect.py` (since replaced by `test_auth_oidc.py`)
   for coverage.
 
 - **2026-07-12** — Worked the bulk of this review's backlog in one pass:
   - **Must-fix bugs #1, #2, #4, #5, #6**: all fixed (see table above).
   - **Architecture/refactor**: extracted `SpecVersionService`
-    ([`backend/services/spec_version_service.py`](../backend/services/spec_version_service.py)),
+    ([`backend/services/spec_version_service.py`](../../backend/services/spec_version_service.py)),
     collapsing the three disagreeing version-lookup variants into one
     canonical `version_or_404`, and removing the dead
     "creator of version" permission branch (unreachable once ownership is
@@ -447,7 +452,7 @@ to the standard its best module (the lint vertical) already sets.
     its EventBridge target and CloudWatch alarms on Lambda errors; enforced
     `rds.force_ssl=1` via a DB parameter group. The RDS public-ingress /
     superuser-role items are **not** fully resolved — see
-    [`docs/adr/0002-rds-public-access-tradeoff.md`](adr/0002-rds-public-access-tradeoff.md)
+    [`docs/adr/0002-rds-public-access-tradeoff.md`](../adr/0002-rds-public-access-tradeoff.md)
     for why (Lambda runs outside a VPC for cost reasons) and what a real fix
     would require.
   - **DX**: added ruff (`backend/pyproject.toml`) and eslint/prettier
@@ -514,7 +519,7 @@ to the standard its best module (the lint vertical) already sets.
     Manager secret for the new role's password; `infra/lib/lambda-stack.ts`
     wires it through as `SSM_FASTSPEC_APP_DB_PASSWORD`. **Written but not
     applied** — see the updated
-    [ADR-0002](adr/0002-rds-public-access-tradeoff.md) for the exact
+    [ADR-0002](../adr/0002-rds-public-access-tradeoff.md) for the exact
     apply order (seed the SSM parameter → run the migration → redeploy
     `LambdaStack`); doing this out of order breaks the app.
   - **`FormEditor.vue` split**: the Paths and Components/schemas tabs

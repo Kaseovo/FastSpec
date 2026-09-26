@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 _bearer = HTTPBearer()
 
 # Each of these endpoints triggers a real outbound call (token exchange with
-# the provider, or a pbkdf2 hash check) — see docs/CODE_REVIEW.md §6.
+# the provider, or a pbkdf2 hash check) — see docs/history/2026-07-code-review.md §6.
 _oidc_callback_rate_limit = rate_limit(max_requests=20, window_seconds=60)
 _api_key_exchange_rate_limit = rate_limit(max_requests=30, window_seconds=60)
 
