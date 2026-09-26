@@ -190,5 +190,6 @@ Everything is optional in single-user mode.
 | `WEB_CONCURRENCY` | `1` | Worker processes. |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxies trusted for `X-Forwarded-*`. |
 | `CORS_ORIGINS` | `PUBLIC_URL` | Only needed if another origin calls the API. |
+| `SOURCE_URL` | this project's repository | "Source code" link in the app. If you run a **modified** FastSpec for others, the AGPL requires offering them your source — point this at it. |
 
 `.env.example` in the repository lists the same settings with comments.

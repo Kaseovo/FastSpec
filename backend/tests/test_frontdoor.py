@@ -153,3 +153,13 @@ def test_mcp_tools_work_with_an_api_key(lambda_style, api_key):
     )["result"]
     assert result["isError"] is False
     assert result["structuredContent"] == {"result": []}
+
+
+def test_version_links_to_the_source(lambda_style, monkeypatch):
+    """AGPL §13: the running instance tells users where its source is."""
+    from config import settings
+
+    monkeypatch.setattr(settings, "source_url", "https://git.example.com/fork")
+    body = lambda_style.get("/version").json()
+    assert body["source_url"] == "https://git.example.com/fork"
+    assert body["version"]

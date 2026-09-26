@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     # Built SPA (frontend/dist). When set, the backend serves it under /specs.
     static_dir: str | None = Field(None, alias="FASTSPEC_STATIC_DIR")
 
+    # --- Source code (AGPL-3.0 §13) ---
+    # Shown in the app so everyone using this instance can get its source.
+    # If you run a modified FastSpec for others, point this at your changes.
+    source_url: str = Field("https://github.com/Kaseovo/FastSpec", alias="SOURCE_URL")
+
     # --- Spectral linting ---
     spectral_mode: str = Field("subprocess", alias="SPECTRAL_MODE")
     spectral_sidecar_url: str = Field("http://localhost:3001", alias="SPECTRAL_SIDECAR_URL")

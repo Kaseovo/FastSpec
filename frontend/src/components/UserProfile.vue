@@ -44,6 +44,7 @@ import Menu from "primevue/menu";
 import { useAuthStore } from "../stores/auth";
 import { logout as apiLogout } from "../api/auth";
 import { handleSignedOut } from "../auth/session";
+import { appInfo, loadAppInfo } from "../api/appInfo";
 
 export default {
   name: "UserProfile",
@@ -95,16 +96,24 @@ export default {
       }
     };
 
-    // Nothing to sign out of in single-user mode: a new local session would
-    // start right away.
-    const menuItems = computed(() =>
-      auth.authMode === "none"
-        ? []
-        : [
-            { separator: true },
-            { label: "Logout", icon: "pi pi-sign-out", command: handleLogout },
-          ],
-    );
+    // AGPL-3.0 §13: everyone using this instance can get its source code.
+    loadAppInfo();
+    const openSourceCode = () => {
+      window.open(appInfo.sourceUrl, "_blank", "noopener");
+    };
+
+    const menuItems = computed(() => {
+      const items = [{ separator: true }];
+      if (appInfo.sourceUrl) {
+        items.push({ label: "Source code", icon: "pi pi-github", command: openSourceCode });
+      }
+      // Nothing to sign out of in single-user mode: a new local session
+      // would start right away.
+      if (auth.authMode !== "none") {
+        items.push({ label: "Logout", icon: "pi pi-sign-out", command: handleLogout });
+      }
+      return items;
+    });
 
     return {
       user,

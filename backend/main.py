@@ -51,7 +51,7 @@ async def spectral_error_handler(request: Request, exc: SpectralError):
 
 @app.get("/version")
 async def get_version():
-    return {"version": __version__}
+    return {"version": __version__, "source_url": settings.source_url}
 
 
 # CORS middleware
