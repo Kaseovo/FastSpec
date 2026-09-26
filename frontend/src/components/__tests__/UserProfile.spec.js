@@ -11,7 +11,7 @@ let mock;
 beforeEach(() => {
   setActivePinia(createPinia());
   mock = new MockAdapter(axios);
-  mock.onGet("/version").reply(200, {
+  mock.onGet("/api/version").reply(200, {
     version: "1.2.3",
     source_url: "https://git.example.com/fastspec",
   });
