@@ -13,17 +13,8 @@ vi.mock("../api/auth", () => ({
   fetchAvailableActions: vi.fn(),
 }));
 
-const MCP_URL = "http://localhost:9000/mcp";
-
-beforeAll(() => {
-  vi.stubEnv("VITE_MCP_URL", MCP_URL);
-});
-
-afterAll(() => {
-  vi.unstubAllEnvs();
-});
-
-// Stub import.meta.env.VITE_MCP_URL
+// The MCP server shares the app's origin.
+const MCP_URL = `${window.location.origin}/mcp`;
 
 function mountComponent() {
   return mount(TokenManager, {
@@ -84,7 +75,7 @@ describe("TokenManager MCP URL field", () => {
     expect(wrapper.vm.mcpUrl).toBe(MCP_URL);
   });
 
-  test("clicking MCP URL copy button calls clipboard.writeText with VITE_MCP_URL", async () => {
+  test("clicking MCP URL copy button calls clipboard.writeText with the MCP URL", async () => {
     authApi.createApiKey.mockResolvedValue({
       api_key: "test-api-key-value",
       id: "key-1",

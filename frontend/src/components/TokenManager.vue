@@ -502,7 +502,8 @@ export default {
       )} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     };
 
-    const mcpUrl = import.meta.env.VITE_MCP_URL || "";
+    // The MCP server shares the app's origin (see backend/frontdoor.py).
+    const mcpUrl = `${window.location.origin}/mcp`;
 
     const copyMcpUrl = async () => {
       try {

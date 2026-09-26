@@ -36,7 +36,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Bump version and tag
         run: |
@@ -100,7 +100,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -109,7 +109,7 @@ jobs:
 
       - name: Backend tests
         run: |
-          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
           cd backend && python -m pytest tests --tb=short
 
       - name: Frontend tests

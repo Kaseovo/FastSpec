@@ -1,26 +1,33 @@
-"""Combined ASGI application for Lambda deployment.
-
-FastMCP 3.0.0b1 ASGI API notes (investigated from installed package):
-  - FastMCP exposes `mcp.http_app(transport="http")` (TransportMixin.http_app) which
-    returns a StarletteWithLifespan — a Starlette ASGI app subclass.
-  - Internally, `create_streamable_http_app` registers the MCP route at
-    `streamable_http_path` (default: "/mcp" from Settings).
-  - FastAPI's `app.mount("/mcp", mcp_asgi_app)` strips the "/mcp" prefix before
-    delegating, so MCP clients reach the server at the path /mcp/mcp.
-  - There is no separate `asgi_app` property or `get_asgi_app()` method; http_app()
-    is the correct call.
+"""Combined ASGI application: FastAPI + MCP server (+ the built SPA when
+self-hosted), exported as ``application`` for uvicorn and for Mangum on
+Lambda. Routing between them lives in frontdoor.py.
 """
 
-from main import app
+from config import settings
 from fastmcp_server.server import mcp
+from frontdoor import FrontDoor
+from main import app
 
-# Build the MCP Starlette ASGI app (transport="http" uses streamable-http protocol).
-# Default internal route path is "/mcp" (streamable_http_path setting default).
-mcp_asgi_app = mcp.http_app(transport="http")
 
-# Mount the MCP ASGI app at /mcp on the FastAPI app.
-# MCP clients connect at /mcp/mcp (FastAPI strips /mcp, Starlette handles /mcp).
-app.mount("/mcp", mcp_asgi_app)
+class StatelessMCP:
+    """Serve each MCP request with its own short-lived stateless handler.
 
-# Single ASGI application exported for Mangum and local ASGI servers.
-application = app
+    FastMCP's streamable-HTTP session manager must be started by a lifespan,
+    and can only be started once per instance. Lambda (Mangum) runs a fresh
+    lifespan per invocation, so a process-wide manager breaks on the second
+    request there. In stateless mode every request is independent anyway, so
+    building the handler per request costs little and behaves the same on
+    uvicorn, Lambda and in tests. Plain JSON responses (no SSE) keep it
+    compatible with Lambda's buffered responses; all FastSpec tools are
+    simple request/response calls.
+    """
+
+    async def __call__(self, scope, receive, send):
+        handler = mcp.http_app(path="/mcp", stateless_http=True, json_response=True)
+        async with handler.router.lifespan_context(handler):
+            await handler(scope, receive, send)
+
+
+mcp_asgi_app = StatelessMCP()
+
+application = FrontDoor(app, mcp_asgi_app, static_dir=settings.static_dir)

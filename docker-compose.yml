@@ -1,105 +1,47 @@
-services:
-  traefik:
-    container_name: fastspec-traefik-dev
-    image: traefik:v3.6.12
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-    restart: unless-stopped
-    networks:
-      - webnet
+# FastSpec with PostgreSQL — the recommended setup for teams.
+#
+#   docker compose up -d          → http://localhost:8080
+#
+# Configuration (sign-in, public URL, …) goes in a .env file next to this
+# one — see .env.example. For a single-user install without Postgres, a
+# plain `docker run` is enough (see README).
 
-  backend:
-    container_name: fastspec-backend-dev
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    env_file: .env
-    restart: unless-stopped
+services:
+  fastspec:
+    image: ghcr.io/kaseovo/fastspec:${FASTSPEC_VERSION:-latest}
+    build: .
+    ports:
+      # Only reachable from this machine. Put a reverse proxy with TLS in
+      # front (and set PUBLIC_URL) before exposing it to a network.
+      - "127.0.0.1:8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://fastspec:${POSTGRES_PASSWORD:-fastspec}@postgres:5432/fastspec
     volumes:
-      - ./data:/app/data
-    labels:
-      - "traefik.http.routers.backend.rule=PathPrefix(`/api`) || PathPrefix(`/auth`)"
-      - "traefik.http.routers.backend.priority=30"
-      - "traefik.http.routers.backend.entrypoints=web"
-      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      # Generated JWT secret (and nothing else when using Postgres).
+      - fastspec-data:/data
     depends_on:
-      - postgres
-    networks:
-      - webnet
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: fastspec
-      POSTGRES_PASSWORD: fastspec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fastspec}
       POSTGRES_DB: fastspec
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fastspec -d fastspec"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
-    networks:
-      - webnet
-
-  frontend:
-    container_name: fastspec-frontend-dev
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    restart: unless-stopped
-    labels:
-      - "traefik.http.routers.frontend.rule=PathPrefix(`/specs`) || PathPrefix(`/auth/callback`)"
-      - "traefik.http.routers.frontend.priority=20"
-      - "traefik.http.routers.frontend.entrypoints=web"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
-    networks:
-      - webnet
-
-  landing-page:
-    container_name: fastspec-landing-page
-    build:
-      context: .
-      dockerfile: landing-page/Dockerfile
-    restart: unless-stopped
-    labels:
-      - "traefik.http.routers.landing.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.landing.priority=1"
-      - "traefik.http.routers.landing.entrypoints=web"
-      - "traefik.http.services.landing.loadbalancer.server.port=80"
-    networks:
-      - webnet
-
-  # mcp:
-  #   container_name: fastspec-mcp-dev
-  #   build:
-  #     context: .
-  #     dockerfile: backend/Dockerfile-MCP
-  #   restart: unless-stopped
-  #   env_file: .env
-  #   ports:
-  #     - "9000:9000"
-  #   labels:
-  #     - "traefik.http.routers.mcp.rule=PathPrefix(`/mcp`)"
-  #     - "traefik.http.routers.mcp.priority=30"
-  #     - "traefik.http.routers.mcp.entrypoints=web"
-  #     - "traefik.http.routers.mcp.middlewares=mcp-stripprefix@docker"
-  #     - "traefik.http.services.mcp.loadbalancer.server.port=9000"
-  #     - "traefik.http.middlewares.mcp-stripprefix.stripprefix.prefixes=/mcp"
-  #     - "traefik.http.routers.mcp.middlewares=mcp-stripprefix"
-  #   networks:
-  #     - webnet
-
-
-networks:
-  webnet: {}
 
 volumes:
+  fastspec-data: {}
   postgres-data: {}

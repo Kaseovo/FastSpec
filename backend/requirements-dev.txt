@@ -1,0 +1,4 @@
+# Test and lint tooling (not needed at runtime).
+-r requirements.txt
+pytest
+ruff

@@ -22,15 +22,11 @@ export default defineConfig(({ mode }) => {
       host: "0.0.0.0",
       port: 5173,
       proxy: {
-        "/api": {
-          target: apiBase,
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ""),
-        },
-        "/auth": {
-          target: apiBase,
-          changeOrigin: true,
-        },
+        // The backend's front door (backend/frontdoor.py) handles the /api
+        // prefix itself, exactly as in production.
+        "/api": { target: apiBase, changeOrigin: true },
+        "/auth": { target: apiBase, changeOrigin: true },
+        "/mcp": { target: apiBase, changeOrigin: true },
       },
     },
   };

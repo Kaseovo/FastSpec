@@ -60,3 +60,6 @@ frontend-nextjs-backup/
 
 # Kilo
 .kilo/
+
+# Local dev data (SQLite database, generated JWT secret)
+.data/
