@@ -1,0 +1,76 @@
+# FastSpec — Open-Source Release Roadmap
+
+Living plan for making FastSpec public and easy to self-host. Tick items off
+as they land; move anything that slips into the backlog at the bottom.
+
+## Decisions (2026-09-26)
+
+| # | Topic | Decision | Why |
+|---|---|---|---|
+| 1 | Hosted version | Keep running `fastspec.kaseovo.com` alongside the open-source release, for now. May shut it down later (pure OSS). | Near-zero idle cost; easier to stop later than to restart. Hosting-specific code is kept isolated so dropping it later is mostly deletion. |
+| 2 | License | **AGPL-3.0**. Relicense to MIT if the hosted version is shut down. | Protects the hosted version from closed hosted forks while it exists; relaxing a license later is easy, tightening it is not. No CLA — ask contributors directly if relicensing. |
+| 3 | Auth | `AUTH_MODE=none` (single user, no login) or `AUTH_MODE=oidc` (any OIDC provider, incl. Google). Optional email/domain allowlist. The server refuses to start on contradictory config — never silently falls back to `none`. | Self-hosters shouldn't need a Google Cloud project to try it; OIDC covers teams (Keycloak, Authentik, Okta, Entra, GitLab, Google) with one code path. |
+| 4 | Database | SQLite (single-container quickstart) **and** Postgres (compose / teams / hosted). CI tests both. | One-line `docker run` install; Postgres stays for anything multi-user. |
+| 5 | Git history | Keep history; scrub AWS account ID, hosted-zone ID, certificate ARN and rewrite author email to the GitHub no-reply address with `git filter-repo` on a fresh clone, right before publishing. | Keeps the project's history and blame; removes the few identifying details while it's still cheap. |
+| 6 | v0.1 feature scope | YAML editing, import (file/paste), export (JSON/YAML), bundled Swagger UI, "start from example" spec, MCP write tools. | Passes the "I pasted my real spec and it worked" test and shows off the MCP angle. |
+
+## Phases
+
+### Phase 1 — Runnable locally ✅
+- [x] Single Docker image: API + built SPA + MCP on one port, Spectral bundled ([ADR-0008](adr/0008-single-image-self-hosting.md))
+- [x] `AUTH_MODE=none|oidc`, allowlist, startup config validation ([ADR-0006](adr/0006-auth-modes.md))
+- [x] SQLite support (migrations portable, Postgres-only migration guarded) ([ADR-0007](adr/0007-sqlite-and-postgres.md))
+- [x] Migrations run automatically on container start; JWT secret auto-generated and persisted when not provided
+- [x] `docker-compose.yml` with Postgres, bound to `127.0.0.1`
+- [x] Simple dev loop (`make dev`: backend with reload + Vite, SQLite by default, no floci needed)
+- [x] CI: tests on SQLite and Postgres, image build + smoke test
+
+Existing bugs found and fixed along the way:
+- MCP server never worked (FastMCP lifespan not run; endpoint was `/mcp/mcp` while the UI showed `/mcp`).
+- CI never ran backend tests (`pytest` wasn't installed); the deploy workflow's validation job had the same problem.
+- Unpinned SQLAlchemy 2.1 defaults `postgresql://` to psycopg 3, which wasn't installed — the next image build would have failed to connect. Moved to psycopg 3, and fixed the app-role migration, whose role DDL used bind parameters Postgres rejects under psycopg 3.
+- `logout()` sent no auth header, so sessions were never revoked server-side.
+- A 401 redirected to a `login` route that didn't exist; `backend/__init__.py` loaded `.env` into every process that imported it.
+
+### Phase 2 — De-brand / de-hardcode
+- [ ] Domain / account / region configurable for the AWS deployment (no `kaseovo.com` in code)
+- [ ] Remove `infra/cdk.context.json`, stale compose files and Dockerfiles
+- [ ] Landing page (Kaseovo marketing + legal pages) moved out of the public repo
+- [ ] "Source code" link in the app footer (AGPL network-use clause)
+
+### Phase 3 — Open-source project files
+- [ ] `LICENSE` (AGPL-3.0); README screenshots (README text rewritten in Phase 1)
+- [ ] Refresh `ARCHITECTURE.md`, `BACKEND.md`, `FRONTEND.md`, `API.md`, `PROJECT_OVERVIEW.md`, `CONTEXT.md`; retire the `CODE_REVIEW.md` snapshot
+- [ ] Clean up the existing ruff (≈300) and ESLint (≈1,500) findings, then enforce both in CI
+- [ ] `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue / PR templates, `CHANGELOG.md`
+- [ ] Publish Docker images to GHCR on tag; Dependabot; pinned Python dependencies
+
+### Phase 4 — v0.1 features
+- [ ] YAML editing (view/edit as YAML, stored as JSON)
+- [ ] Import from file upload / paste (JSON or YAML)
+- [ ] Export / download as JSON or YAML
+- [ ] Bundle Swagger UI instead of loading it from jsDelivr
+- [ ] "Start from an example" spec
+- [ ] MCP write tools: create / update spec, lint, versions, diff
+
+### Phase 5 — Go public
+- [ ] History scrub (decision 5) on a fresh clone; push as the public repo
+- [ ] Before the next hosted deploy: add `https://fastspec.kaseovo.com/auth/oidc/callback` to the Google OAuth client's authorized redirect URIs (sign-in moved to the generic OIDC flow)
+- [ ] Switch the hosted deployment to the public repo
+- [ ] Tag `v0.1.0`
+
+## Backlog (after v0.1)
+
+| Item | Notes |
+|---|---|
+| Dark mode | PrimeVue theme currently has `darkModeSelector: false`. |
+| Import from URL | Needs SSRF protection on the hosted version (server-side fetch) or a client-side fetch limited by CORS. |
+| Stable raw spec URL for CI / codegen | e.g. `GET /specs/{id}/openapi.yaml` authenticated with an API key. |
+| Read-only share links | New public-access surface; needs its own threat model. |
+| Teams (shared specs, roles) | Build on real demand. |
+| Git sync | Push/pull specs to a repository; separate design effort. |
+| Preserve YAML comments/formatting | v0.1 stores specs as JSON, so YAML comments don't survive a save. Would require storing raw text and reworking versions/diff. |
+| GitHub login | GitHub doesn't support OIDC for user sign-in; needs a dedicated OAuth2 provider. |
+| Multiple OIDC providers at once | v0.1 supports one; config is shaped so a list can be added. |
+| Trusted-header auth (oauth2-proxy, Authelia, Tailscale) | Only on request — dangerous when the app is reachable without the proxy. |
+| Built-in email/password accounts | Not planned; OIDC covers teams more safely. |

@@ -1,271 +1,89 @@
 # FastSpec
 
-A full-stack SaaS for creating, editing, versioning, linting (Spectral), and diffing OpenAPI 3.0 specifications, with Google sign-in, user-scoped API keys, and an MCP server so AI agents can read specs.
+A self-hostable editor for OpenAPI specifications: write specs in a form
+editor or as code, preview them with Swagger UI, lint them with Spectral,
+keep versions and diff them — and let AI agents read them over MCP.
 
-## Architecture
+- **Form editor and code editor** (Monaco) for OpenAPI 3.0 and 3.1.
+- **Live preview** with Swagger UI.
+- **Linting** with [Spectral](https://github.com/stoplightio/spectral):
+  the standard `spectral:oas` rules plus your own rulesets, per spec.
+- **Versions and diffs**: save versions, compare any two, copy the diff as
+  Markdown.
+- **MCP server** so AI agents (Claude Code and other MCP clients) can read
+  your specs, authenticated by scoped API keys.
+- **Runs anywhere**: one Docker image, SQLite or Postgres, no sign-in for
+  single-user setups, any OpenID Connect provider for teams.
 
-- **Backend**: FastAPI + SQLAlchemy ORM, packaged as a Docker-image AWS Lambda
-  behind a Lambda Function URL (no ECS/Fargate, no ALB). The FastMCP server is
-  mounted into the same ASGI app and Lambda.
-- **Frontend**: Vue.js 3 + PrimeVue SPA, served via S3 + CloudFront in every
-  deployed environment; the Vite dev server is used locally.
-- **Landing page**: A separate static S3 + CloudFront origin (Webstudio
-  export); served via nginx locally (`make landing`).
-- **Authentication**: Google sign-in via a server-side OAuth 2.0
-  Authorization Code redirect flow, plus long-lived API keys that exchange
-  for short-lived JWTs (GitHub OAuth was removed — see
-  `docs/AUTHENTICATION.md`).
-- **Editor**: Monaco Editor
-- **Preview**: Swagger UI
-- **Database**: PostgreSQL only — RDS in AWS (auto-stopped when idle to save
-  cost, see the Wake/AutoStop stack below), a local Postgres container via
-  `make db`, or emulated through floci locally. There is no Redis anywhere in
-  this stack.
-- **Infrastructure**: AWS CDK (`infra/`) — `DataStack` (RDS PostgreSQL),
-  `LambdaStack` (the backend Docker-image Lambda + Function URL),
-  `CertificateStack` + `FrontendStack` (ACM, S3, CloudFront for the SPA and
-  landing page), and `WakeStack` (a Function URL + scheduled Lambda that
-  start/stop RDS on demand to keep the environment near-zero-cost when
-  idle).
-
-## Local Development
-
-Local dev runs against **floci** — a local AWS emulator (free alternative to LocalStack). CDK deploys the same stacks locally as in production.
-
-### Prerequisites
-
-- Docker (with Compose v2)
-- Node.js 18+
-- Python 3.11+
-- AWS CDK CLI: `npm install -g aws-cdk`
-
-### First-time setup
-
-1. **Clone and install dependencies:**
-
-   ```bash
-   git clone https://github.com/DishWatcher/FastSpec.git
-   cd FastSpec
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r backend/requirements.txt
-   cd frontend && npm install && cd ..
-   cd infra && npm install && cd ..
-   ```
-
-2. **Configure environment variables:**
-
-   ```bash
-   cp .env.example .env
-   # Fill in the Google OAuth credentials and JWT secret key
-   ```
-
-### Starting local dev
-
-Run everything with one command:
+## Quickstart
 
 ```bash
-make dev
+docker run -d --name fastspec \
+  -p 127.0.0.1:8080:8080 \
+  -v fastspec-data:/data \
+  ghcr.io/kaseovo/fastspec:latest
 ```
 
-This runs the following steps in order:
+Open <http://localhost:8080>. That's it: single-user mode, data stored in
+the `fastspec-data` volume.
 
-| Step | Command | What it does |
-|------|---------|-------------|
-| 1 | `make up` | Starts the floci container (local AWS emulator) on port 4566 |
-| 2 | `make secrets` | Seeds `.env` values into floci SSM as SecureString parameters |
-| 3 | `make infra` | CDK deploys `DataStack` (RDS PostgreSQL), `LambdaStack` (backend Lambda), `FrontendStack`, and `WakeStack` against floci |
-| 4 | `make migrate` | Runs Alembic migrations locally (in prod this runs inside the backend Lambda — see `docs/adr/` and `backend/lambda_handler.py`, no ECS task) |
-| 5 | `make landing` | Builds and runs the landing page container on `http://localhost:3000` |
-| 6 | `make frontend` | Starts the Vite dev server (hot-reload) — this step is blocking |
+For teams — Postgres, sign-in with Google/Keycloak/Authentik/Okta/Entra/
+GitLab, running behind a reverse proxy — see
+**[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
 
-Once running:
+## Connect an AI agent
 
-- **App (editor)**: `http://localhost:5173/specs`
-- **Landing page**: `http://localhost:3000`
-- **Backend API**: `http://localhost:8000`
-- **API docs**: `http://localhost:8000/docs`
-
-Unauthenticated users are redirected to the landing page at `http://localhost:3000`.
-
-### Running backend and frontend separately
-
-If you only need to iterate on the backend or frontend without the full floci stack:
+Create an API key in the app (key icon, **API keys**), then, for Claude
+Code:
 
 ```bash
-# Start Postgres locally (without floci) — no Redis, there is none in this stack
-make db
-
-# Start the FastAPI backend with hot-reload
-make backend
-
-# Start the Vite frontend dev server
-make frontend
+claude mcp add --transport http fastspec http://localhost:8080/mcp \
+  --header "Authorization: Bearer <your API key>"
 ```
 
-### Individual make targets
+Any MCP client that supports streamable HTTP works the same way.
+
+## Development
+
+Requirements: Python 3.12, Node.js 22. Docker is only needed to build the
+image.
 
 ```bash
-make up        # Start floci container
-make down      # Stop and remove floci container
-make db        # Start Postgres (for make backend) — no Redis
-make secrets   # Seed .env into floci SSM
-make infra     # CDK deploy all stacks against floci
-make migrate   # Run database migrations locally (Alembic)
-make landing   # Build and run landing page on port 3000
-make backend   # Start FastAPI dev server (requires make db first)
-make frontend  # Start Vite dev server
-make logs      # Tail backend Lambda logs from floci
-make help      # List all available targets
+make setup   # .venv + backend and frontend dependencies
+make dev     # backend (auto-reload) + Vite → http://localhost:5173/specs/
+make test    # backend (pytest) and frontend (vitest) suites
+make help    # everything else
 ```
 
-## Testing
+`make dev` runs in single-user mode with SQLite in `./.data`. To try
+sign-in or Postgres locally, copy `.env.example` to `.env` and adjust it.
 
-```bash
-# Backend tests
-cd backend && python -m pytest tests --tb=short
+| Path | What's there |
+|---|---|
+| `backend/` | FastAPI app, MCP server (`fastmcp_server/`), Alembic migrations, tests |
+| `frontend/` | Vue 3 + PrimeVue single-page app |
+| `infra/` | AWS CDK stacks for the serverless deployment |
+| `docs/` | Guides and architecture decision records (`docs/adr/`) |
 
-# Frontend tests
-cd frontend && npm test
+The backend's interactive API docs are at `/docs` on a running instance.
 
-# Both
-cd backend && python -m pytest tests --tb=short && cd ../frontend && npm test
-```
+## Documentation
 
-## Project Structure
+- [Self-hosting](docs/SELF_HOSTING.md) — install, sign-in, Postgres, reverse proxy, MCP, backups, configuration
+- [Authentication](docs/AUTHENTICATION.md) — sign-in modes, sessions, API keys
+- [Custom lint rules](docs/CUSTOM_LINT_RULES.md)
+- [Deployment](docs/DEPLOYMENT.md) — including the AWS serverless setup
+- [Architecture decisions](docs/adr/)
+- [Roadmap](docs/ROADMAP.md)
 
-```
-FastSpec/
-├── backend/                  # FastAPI backend (packaged as a Docker-image Lambda)
-│   ├── main.py                # FastAPI application entry (merges the MCP ASGI app)
-│   ├── lambda_handler.py       # AWS Lambda entry point (Mangum adapter + SSM secret fetch)
-│   ├── database.py            # Database configuration
-│   ├── models.py               # SQLAlchemy models
-│   ├── schemas.py               # Pydantic schemas
-│   ├── routers/                # API route handlers
-│   │   ├── auth.py              # mounted at /auth
-│   │   ├── lint.py              # mounted at /lint
-│   │   └── specs.py             # mounted at /specs
-│   ├── auth/                   # authentication helpers (jwt, dependencies)
-│   │   ├── __init__.py
-│   │   ├── jwt.py
-│   │   └── dependencies.py
-│   ├── validation/             # OpenAPI validation, Spectral lint client, diff utilities
-│   │   ├── __init__.py
-│   │   ├── spectral_client.py
-│   │   └── diff_utils.py
-│   └── fastmcp_server/         # FastMCP server, mounted into the same ASGI app
-│       ├── __init__.py
-│       ├── server.py
-│       ├── middleware.py
-│       └── authentication.py
-├── frontend/                  # Vue.js SPA (built and synced to S3/CloudFront)
-│   ├── src/
-│   │   ├── App.vue
-│   │   ├── main.js
-│   │   ├── components/         # Vue components
-│   │   ├── api/                 # API client (auth.js, specs.js)
-│   │   ├── stores/               # Pinia stores (e.g. auth.js)
-│   │   └── utils/                 # frontend utilities (diffUtils.js, markdownGenerator.js)
-│   ├── package.json
-│   └── vite.config.js
-├── landing-page/               # Webstudio-exported static landing page (separate S3/CloudFront origin)
-├── infra/                      # AWS CDK (TypeScript) — DataStack, LambdaStack, CertificateStack,
-│   ├── lib/                     # FrontendStack, WakeStack
-│   └── lambda/                  # wake/ and auto-stop/ Lambda source (RDS on-demand start/stop)
-├── docs/                       # Project documentation, including docs/adr/ (architecture decisions)
-├── docker-compose.yml           # Legacy local-dev container stack — see docs/adr/0001 for why
-├── docker-compose.dev.yml         # floci (local AWS emulator) is the primary local-dev path now
-├── docker-compose.floci.yml
-├── .env.example
-└── ...
-```
+## Hosted version
 
-Notes:
-
-- There is no `backend/mcp/` directory and no `backend/auth/oauth.py`/`redis_client.py` —
-  if you see references to those in older docs, they're stale; the FastMCP
-  server lives in `backend/fastmcp_server/` and Google OAuth lives in
-  `backend/routers/auth.py` + `backend/auth/jwt.py`.
-- Routers are mounted directly under `/auth`, `/specs`, and `/lint` (no `/api`
-  prefix) — see `backend/main.py`.
-- Frontend stores live under `frontend/src/stores/` and utilities under `frontend/src/utils/`.
-
-## API Endpoints
-
-The authoritative reference is the live OpenAPI docs at `/docs` (Swagger UI)
-or `/redoc`. Highlights:
-
-### Authentication (`/auth`)
-
-- `GET /auth/google/login` - Start the server-side Google OAuth redirect flow
-- `GET /auth/google/callback` - Google's redirect target; issues a JWT and redirects to the SPA
-- `POST /auth/google/verify` - Verify a client-obtained Google ID token (programmatic clients)
-- `GET /auth/me` - Get current user information (requires JWT)
-- `POST /auth/logout` - Logout
-- `GET /auth/api-keys`, `POST /auth/api-keys`, `DELETE /auth/api-keys/{id}` - Manage long-lived API keys
-- `POST /auth/api-keys/exchange` - Exchange an API key for a short-lived JWT (used by MCP clients)
-
-See `docs/AUTHENTICATION.md` for the full flow.
-
-### Specifications (`/specs`, all require authentication)
-
-- `GET /specs` - List user's specifications
-- `GET /specs/{id}` - Get a specific specification
-- `POST /specs` - Create a new specification
-- `PUT /specs/{id}` - Update a specification
-- `DELETE /specs/{id}` - Delete a specification
-- `GET /specs/{id}/versions`, `/specs/{id}/versions/{version_id}` - Version history
-- `POST /specs/validate` - Validate an OpenAPI spec
-- `GET /specs/{id}/diff`, `POST /specs/{id}/compare` - Version diff / comparison
-
-### Linting (`/lint`)
-
-- Spectral-based OpenAPI linting and custom ruleset management — see `backend/validation/spectral_client.py`.
-
-### Documentation
-
-- `GET /docs` - Interactive API documentation (Swagger UI)
-- `GET /redoc` - Alternative API documentation (ReDoc)
-
-## Environment Variables
-
-Create a `.env` file at the repo root (see `.env.example`, which is the
-authoritative list):
-
-```env
-# Database (local docker-compose Postgres; RDS in deployed environments)
-DATABASE_URL=postgresql://fastspec:fastspec@postgres:5432/fastspec
-
-# JWT
-JWT_SECRET_KEY=your-secret-key
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-# OAuth2 - Google (server-side Authorization Code redirect flow)
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
-
-# App
-FRONTEND_URL=http://localhost:3000
-CORS_ORIGINS=http://localhost
-```
-
-There is no Redis configuration — the app has no Redis dependency in any
-environment.
+FastSpec also runs as a hosted service at
+[fastspec.kaseovo.com](https://fastspec.kaseovo.com), if you'd rather not
+run it yourself.
 
 ## License
 
-See LICENSE file for details.
-
-## Contributing
-
-Pull requests welcome! Please ensure code follows project conventions.
-
-## Need Help?
-
-1. Check [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) for quick setup
-2. Review [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md:1) for detailed info
-3. Check API documentation at http://localhost:8000/docs
-4. Open an issue on GitHub
+[GNU Affero General Public License v3.0](LICENSE). You can use, modify and
+self-host FastSpec freely; if you offer a modified version to others over a
+network, you must make your changes available under the same license.

@@ -26,10 +26,22 @@ cd backend && python -m pytest tests -v
 cd backend && python -m pytest tests --tb=short
 ```
 
-**Requirements:** the `.venv` virtual environment must be active, or use the full path:
+**Requirements:** the `.venv` virtual environment (created by `make setup`,
+with `backend/requirements-dev.txt`) must be active, or use the full path:
 
 ```bash
 .venv/bin/pytest tests
+```
+
+The Postgres variants of `tests/test_alembic_migrations.py` are skipped unless
+`TEST_POSTGRES_URL` points at a Postgres server the tests may create/drop
+databases on (CI provides one):
+
+```bash
+docker run -d --name pg -e POSTGRES_USER=fastspec -e POSTGRES_PASSWORD=fastspec \
+  -e POSTGRES_DB=fastspec -p 127.0.0.1:55432:5432 postgres:16-alpine
+cd backend && TEST_POSTGRES_URL=postgresql://fastspec:fastspec@localhost:55432/fastspec \
+  python -m pytest tests/test_alembic_migrations.py
 ```
 
 The interpreter path is configured in `.vscode/settings.json` as
@@ -60,8 +72,18 @@ Config: `frontend/vitest.config.js` — uses `jsdom` environment with `globals: 
 ### Running both in one shot
 
 ```bash
-cd backend && python -m pytest tests --tb=short && cd ../frontend && npm test
+make test
 ```
+
+### Running the app
+
+```bash
+make dev   # backend + Vite → http://localhost:5173/specs/ (single-user mode, SQLite in ./.data)
+```
+
+No sign-in is needed in single-user mode (`AUTH_MODE=none`, the default), so
+headless-browser checks can open the app directly. See `docs/SELF_HOSTING.md`
+for OIDC and Postgres.
 
 ---
 

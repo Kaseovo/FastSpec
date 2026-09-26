@@ -1,6 +1,6 @@
 # ADR-0001: Replace docker-compose with CDK + floci for local development
 
-**Status:** Accepted  
+**Status:** Superseded in part by [ADR-0008](0008-single-image-self-hosting.md) — floci remains the way to work on the AWS deployment, but running FastSpec locally now uses the single Docker image or `make dev`.  
 **Date:** 2026-05-29
 
 ## Context

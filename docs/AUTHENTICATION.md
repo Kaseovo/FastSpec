@@ -1,143 +1,124 @@
 # Authentication
 
-This document describes authentication mechanisms implemented in FastSpec and documents recent changes to API-key handling and short-lived JWTs.
+How people and programs authenticate to FastSpec. For configuring sign-in
+on your own instance, start with [SELF_HOSTING.md](SELF_HOSTING.md); for
+the reasoning behind the design, see
+[ADR-0006](adr/0006-auth-modes.md).
 
-Overview
+There are three kinds of credentials:
 
-- JWT-based authentication for API requests (access tokens issued at OAuth login or on sign-in).
-- Google sign-in via the server-side OAuth 2.0 Authorization Code flow (full-page redirects, no popups).
-- API keys: long-lived, hashed tokens that can be exchanged for short-lived JWTs containing scoped actions.
+| Credential | Who uses it | Lifetime |
+|---|---|---|
+| **Session JWT** | The web app | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` (60 min) |
+| **API key** | MCP clients, scripts | `API_KEY_TTL_DAYS` (30 days), revocable |
+| **Short JWT** | Exchanged from an API key | `SHORT_JWT_TTL_SECONDS` (300 s) |
 
-Google sign-in (redirect flow)
+All are sent as `Authorization: Bearer <token>`.
 
-The browser flow uses full-page redirects so it works in every browser,
-including Brave and browsers with popup blockers (the previous Google
-Identity Services popup/One-Tap flow did not):
+## Sign-in modes
 
-1. The log-in page sends the browser to `GET /auth/google/login`.
-2. The backend generates a signed, short-lived `state` (also mirrored in an
-   HttpOnly `SameSite=Lax` cookie for CSRF protection) and 302-redirects to
-   Google's consent screen (`response_type=code`).
-3. Google redirects back to `GET /auth/google/callback?code=…&state=…`
-   (the URI configured in `GOOGLE_REDIRECT_URI`, which must be registered in
-   the Google Cloud console under "Authorized redirect URIs").
-4. The backend validates the state against the cookie, exchanges the code at
-   Google's token endpoint (using `GOOGLE_CLIENT_SECRET`), verifies the ID
-   token's signature and audience, and creates/updates the user.
-5. The backend 302-redirects to `{FRONTEND_URL}/log-in#token=<FastSpec JWT>`.
-   The token travels in the URL *fragment* so it never reaches server logs.
-   On failure the redirect carries `#error=<message>` instead.
-6. The log-in page script stores the token, fetches `/auth/me`, and
-   navigates to the app (`/specs`). It strips the fragment from the URL
-   before doing anything else.
+`AUTH_MODE` decides how the web app gets a session.
 
-In production, CloudFront routes `/auth*` to the backend Lambda on the same
-domain as the pages, so the state cookie and callback are first-party.
-Locally, the landing page nginx (port 3000) proxies `/auth/` to the backend
-(port 8000) for the same effect.
+### `none` — single user
 
-`POST /auth/google/verify` (accepting a client-obtained Google ID token) is
-retained for programmatic clients.
+There is no sign-in. The first request creates one implicit local user
+(`provider="local"`), and `POST /auth/local/session` returns a session JWT
+for it. The web app calls that endpoint on start-up and again whenever a
+request comes back 401. The endpoint returns 404 in `oidc` mode.
 
-Recent changes (summary)
+### `oidc` — any OpenID Connect provider
 
-- Added API key management endpoints under the `/api-keys` namespace: create, list, update actions, revoke, and exchange.
-- API keys are stored hashed (plaintext returned only once at creation).
-- A new short-lived JWT type (token_type="short") is introduced and used as the result of exchanging an API key. Short JWTs embed allowed actions and are time-limited.
-- Access tokens (regular JWTs) are persisted as AuthToken records; tokens include a `jti` and can be revoked via the `/logout` endpoint.
+Authorization Code flow with PKCE, using full-page redirects (no popups,
+so it works with popup blockers and in Brave):
 
-Endpoints (high level)
+1. The app sends the browser to `GET /auth/oidc/login`.
+2. The backend creates a random `state`, `nonce` and PKCE verifier, stores
+   them in a signed, HttpOnly, `SameSite=Lax` cookie scoped to `/auth`
+   (valid 10 minutes), and redirects to the provider's authorization
+   endpoint (found through `{OIDC_ISSUER}/.well-known/openid-configuration`).
+3. The provider redirects back to `GET /auth/oidc/callback?code=…&state=…`
+   — this is `{PUBLIC_URL}/auth/oidc/callback`, which must be registered
+   with the provider.
+4. The backend checks `state` against the cookie, exchanges the code (with
+   the PKCE verifier) at the token endpoint, and verifies the ID token:
+   signature against the provider's JWKS, `iss`, `aud`, `exp`, `iat`,
+   `nonce`, and an asymmetric algorithm the provider advertises.
+5. It finds or creates the user (see below) and redirects to
+   `/specs/auth/callback#token=<session JWT>`, or `#error=<message>` on
+   failure. The token travels in the URL fragment, so it never reaches
+   server logs; the web app reads it, removes it from the address bar and
+   history, and fetches `GET /auth/me`.
 
-- POST /api-keys
-  - Create a new API key for the authenticated user.
-  - Request body: { actions: ["A","B"] }
-  - Response: { api_key: "<raw_key>", id: "<id>", expires_at: "<datetime>" }
+**Account matching.** Users are identified by provider and the provider's
+stable subject (`sub`), never by email address — emails can change, and at
+some providers they can be set to arbitrary values. If someone signs in
+with an email that already belongs to a *different* subject, sign-in is
+refused rather than linked. Google accounts created before the move to
+generic OIDC keep working: they were stored under `provider="google"` with
+the same subject.
 
-- GET /api-keys
-  - List active (non-expired) API keys for the authenticated user.
-  - Response: array of API key metadata (id, actions, expires_at, revoked, created_at, last_used_at)
+**Who can sign in.** A token with `email_verified: false` is always
+rejected. With `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS` set, only
+verified addresses on the list get in.
 
-- DELETE /api-keys/{id}
-  - Revoke (soft-delete) an API key by id (authenticated user must own the key).
+**Configuration safety.** The server refuses to start on contradictory
+settings (OIDC settings while `AUTH_MODE=none`, an allowlist in `none` mode,
+or `oidc` with a missing setting), so a misconfiguration can't leave it
+open.
 
-- PUT /api-keys/{id}/actions
-  - Update allowed actions for an API key (validates that provided actions are a subset of ALLOWED_ACTIONS).
-  - Response: { message, actions }
+`GET /auth/config` (public) tells the app which mode is active:
 
-- POST /api-keys/exchange
-  - Exchange a raw API key string for a short-lived JWT containing the API key's actions.
-  - Request body: { api_key: "<raw_api_key>" }
-  - Response: { access_token: "<short_jwt>", expires_at: "<datetime>" }
-  - The API key must be unrevoked and unexpired. The server updates the API key `last_used_at` timestamp on success.
+```json
+{ "mode": "oidc", "provider_name": "Google", "login_url": "/auth/oidc/login" }
+```
 
-- POST /api-keys/revoke
-  - Revoke an API key by presenting its raw value (requires authentication with a short JWT belonging to the same user).
-  - Request body: { api_key: "<raw_api_key>" }
-  - Response: { message: "api_key revoked" }
+## Sessions
 
-- POST /logout
-  - Revokes the AuthToken corresponding to the presented access JWT (uses token `jti`).
+Session JWTs carry `sub` (user id), `email`, `jti`, `iat` and `exp`, signed
+with `JWT_SECRET_KEY` (generated and stored in `FASTSPEC_DATA_DIR` when not
+set). Each one is recorded by `jti` in the `auth_tokens` table (the token
+itself is never stored); `POST /auth/logout` revokes it.
 
-Token details
+## API keys
 
-- Access tokens (regular JWTs)
-  - Issued at OAuth login and via token creation helpers.
-  - Include sub (user id), email, jti, iat, exp.
-  - Persisted as AuthToken records when a DB session is available; can be revoked by setting `revoked = True`.
+Long-lived keys for MCP clients and scripts, managed in the app (key icon,
+**API keys**) or through the API:
 
-- Short JWTs
-  - Created by exchanging an API key; payload contains `token_type: "short"` and an `actions` array.
-  - Short JWTs are time-limited (default TTL controlled by SHORT_JWT_TTL_SECONDS).
-  - Intended for performing operations that require scoped, temporary credentials (e.g., revoking an API key via the presented short token).
+| Endpoint | Purpose |
+|---|---|
+| `POST /auth/api-keys` | Create a key: `{ "actions": ["All"], "name": "laptop" }`. The raw key is in the response **once**. |
+| `GET /auth/api-keys` | List your unexpired keys. |
+| `PUT /auth/api-keys/{id}/actions` | Change a key's actions and name. |
+| `DELETE /auth/api-keys/{id}` | Revoke a key. |
+| `POST /auth/api-keys/exchange` | Trade `{ "api_key": "…" }` for a short JWT carrying the key's actions. |
+| `POST /auth/api-keys/revoke` | Revoke a key by its raw value. |
+| `GET /auth/actions` | List the actions a key can be granted. |
 
-API key lifecycle
+Keys are stored hashed; only a short, non-secret prefix is kept in clear
+for lookup. Each key carries a set of **actions** (`read:specs`,
+`write:specs`, `lint:specs`, … or `All`) that bound what it can do.
 
-- Creation
-  - Server generates a secure random raw key and returns it once to the caller.
-  - The persisted APIKey record stores only a hash of the raw token and metadata (user_id, actions JSON, expires_at).
+The MCP server (`/mcp`) accepts either a raw API key or a short JWT from
+`/auth/api-keys/exchange`. Sending the short JWT on subsequent calls avoids
+re-verifying the key's hash every time; the key's revocation status is
+still checked.
 
-- Validation / Use
-  - To validate a presented raw API key the server searches non-revoked, non-expired APIKey records and verifies the raw value against stored hashes.
-  - On successful exchange, the server returns a short JWT and updates `last_used_at`.
+## Rate limits
 
-- Revocation
-  - Keys can be revoked by id (authenticated user) or by presenting the raw key value while authenticated with a short JWT.
+Sign-in callbacks (20/min) and API-key exchanges (30/min) are rate limited
+per client IP. Behind a reverse proxy, set `FORWARDED_ALLOW_IPS` so the real
+client address is used.
 
-Configuration / Environment variables
+## Code map
 
-- JWT_SIGNING_KEY (or JWT_SECRET_KEY) — signing secret used for JWTs.
-- JWT_ALGORITHM — default HS256.
-- JWT_ACCESS_TOKEN_EXPIRE_MINUTES — expiry minutes for regular access tokens.
-- SHORT_JWT_TTL_SECONDS — TTL (in seconds) for short JWTs returned by `/api-keys/exchange` (default 300).
-- API_KEY_TTL_DAYS — default lifetime for newly created API keys (default 30).
-- FRONTEND_URL — used for OAuth redirects back to the frontend.
-- GOOGLE_REDIRECT_URI, GITHUB_REDIRECT_URI — provider-specific redirect URIs.
-
-Files of interest
-
-- [`backend/auth/jwt.py`](backend/auth/jwt.py:1) — helpers for: creating/verifying access tokens, creating/verifying short JWTs, API key generation, hashing and lookup, and persistence helpers.
-- [`backend/routers/auth.py`](backend/routers/auth.py:1) — HTTP routes for OAuth flows, API key management (/api-keys endpoints), token exchange and logout.
-- [`backend/auth/dependencies.py`](backend/auth/dependencies.py:1) — FastAPI dependency used to inject the current authenticated user into routes.
-- [`frontend/src/api/auth.js`](frontend/src/api/auth.js:1) — client-side calls for auth flows (may need updates where the frontend exchanges API keys for short JWTs).
-- [`frontend/src/components/TokenManager.vue`](frontend/src/components/TokenManager.vue:1) — UI for listing/creating/revoking API keys in the frontend.
-
-Security notes
-
-- Store JWT signing keys and OAuth secrets securely in production (Vault, cloud secret manager, or platform-provided env vars).
-- API keys are sensitive: treat the returned raw key as a secret; it is shown once and not stored in plaintext on the server.
-- Consider tightening ALLOWED_ACTIONS and validating intended scopes before issuing short JWTs.
-- Use HTTPS in production and secure cookie options if switching from Authorization headers to cookie-based flows.
-
-Examples
-
-Exchange raw API key for a short JWT (example JSON request):
-
-POST /api-keys/exchange
-
-Request:
-
-{ "api_key": "<raw_api_key_here>" }
-
-Success response:
-
-{ "access_token": "<short_jwt>", "expires_at": "2026-02-02T12:50:00Z" }
+- `backend/config.py` — settings and the start-up configuration checks.
+- `backend/routers/auth.py` — sign-in, session and API-key endpoints.
+- `backend/auth/oidc.py` — OIDC discovery, PKCE, token exchange, ID-token
+  verification.
+- `backend/auth/users.py` — local user, OIDC account matching, allowlist,
+  and the `transfer-local-data` hand-over.
+- `backend/auth/jwt.py` — session JWTs, API keys, short JWTs.
+- `backend/auth/dependencies.py` — `get_current_user` for routes.
+- `frontend/src/auth/session.js` — start-up: sign-in callback, auth mode,
+  single-user session.
+- `frontend/src/api/http.js` — attaches the session and handles 401s.
