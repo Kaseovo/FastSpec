@@ -52,8 +52,8 @@
                                   </div>
                                   <i
                                     v-if="!isParameterRef(param) && (!param.name || isParameterDuplicate(currentMethodData.parameters, pIndex))"
-                                    class="pi pi-exclamation-triangle item-row-error"
                                     v-tooltip.top="!param.name ? 'This parameter needs a name' : 'Duplicate parameter name'"
+                                    class="pi pi-exclamation-triangle item-row-error"
                                   ></i>
                                   <Button
                                     icon="pi pi-pencil"
@@ -86,7 +86,6 @@
 </template>
 
 <script>
-import { computed } from "vue";
 import "../../assets/form-editor-shared.css";
 import Button from "primevue/button";
 import Tag from "primevue/tag";
@@ -106,8 +105,10 @@ export default {
     api: { type: Object, required: true },
   },
   setup(props) {
+    // The template reads `formData` straight from props, which stay reactive.
+    // Don't return it from setup(): a copy here would shadow the prop and
+    // freeze the editor on the data present at mount (before the spec loads).
     return {
-      formData: computed(() => props.formData),
       ...props.api,
     };
   },

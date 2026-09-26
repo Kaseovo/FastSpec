@@ -2,8 +2,8 @@
   <div class="user-profile">
     <Button
       class="profile-button"
-      @click="toggleMenu"
       :aria-label="user?.name || 'User menu'"
+      @click="toggleMenu"
     >
       <img
         v-if="user?.avatar_url"

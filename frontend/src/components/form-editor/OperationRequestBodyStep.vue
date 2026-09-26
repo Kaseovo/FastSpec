@@ -7,7 +7,7 @@
                                   v-model="
                                     currentMethodData.requestBody.required
                                   "
-                                  inputId="body-required"
+                                  input-id="body-required"
                                   :binary="true"
                                 />
                                 <label for="body-required">Required</label>
@@ -40,8 +40,8 @@
                               </div>
 
                               <div
-                                class="form-field"
                                 v-if="requestBodyContentType"
+                                class="form-field"
                               >
                                 <label>Schema</label>
                                 <div class="schema-selector">
@@ -54,8 +54,8 @@
                                     <Select
                                       v-model="requestBodySchemaRef"
                                       :options="availableSchemas"
-                                      optionLabel="label"
-                                      optionValue="value"
+                                      option-label="label"
+                                      option-value="value"
                                       :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                     />
                                     <Button
@@ -152,10 +152,10 @@
                                     <Checkbox
                                       v-if="currentRequestBodySchema"
                                       v-model="currentRequestBodySchema.additionalProperties"
-                                      inputId="rb-addl-props"
+                                      input-id="rb-addl-props"
                                       :binary="true"
-                                      :trueValue="true"
-                                      :falseValue="false"
+                                      :true-value="true"
+                                      :false-value="false"
                                     />
                                     <label for="rb-addl-props">Allow Additional Properties</label>
                                   </div>
@@ -181,11 +181,11 @@
                                     <div class="form-field">
                                       <label>Items Type(s)</label>
                                       <MultiSelect
-                                        :modelValue="currentRequestBodySchema._itemSchemas ? [...new Set(currentRequestBodySchema._itemSchemas.map(s => s.type))] : []"
+                                        :model-value="currentRequestBodySchema._itemSchemas ? [...new Set(currentRequestBodySchema._itemSchemas.map(s => s.type))] : []"
                                         :options="['string','number','integer','boolean','object']"
                                         placeholder="Select one or more types"
                                         display="chip"
-                                        @update:modelValue="onItemTypesChange(currentRequestBodySchema, $event)"
+                                        @update:model-value="onItemTypesChange(currentRequestBodySchema, $event)"
                                       />
                                     </div>
                                     <div v-if="currentRequestBodySchema._itemSchemas && currentRequestBodySchema._itemSchemas.length > 0" class="item-schemas-list">
@@ -197,7 +197,7 @@
                                         <div class="item-schema-entry-header">
                                           <span :class="['type-badge', 'type-badge--' + itemSchema.type]">{{ itemSchema.type }}</span>
                                           <span v-if="itemSchema.type === 'object' && itemSchema.$ref" class="item-schema-ref-label">{{ itemSchema.$ref.split('/').pop() }}</span>
-                                          <Button icon="pi pi-trash" severity="danger" text rounded size="small" class="item-schema-remove" v-tooltip.top="'Remove this type entry'" @click="currentRequestBodySchema._itemSchemas.splice(sIdx, 1)" />
+                                          <Button v-tooltip.top="'Remove this type entry'" icon="pi pi-trash" severity="danger" text rounded size="small" class="item-schema-remove" @click="currentRequestBodySchema._itemSchemas.splice(sIdx, 1)" />
                                         </div>
                                         <div class="item-schema-entry-body">
                                           <template v-if="itemSchema.type === 'object'">
@@ -207,8 +207,8 @@
                                                 <Select
                                                   v-model="itemSchema.$ref"
                                                   :options="availableSchemas"
-                                                  optionLabel="label"
-                                                  optionValue="value"
+                                                  option-label="label"
+                                                  option-value="value"
                                                   :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                                                 />
                                                 <Button label="New Schema" icon="pi pi-plus" size="small" text @click="openAddSchemaDialogFor(name => itemSchema.$ref = '#/components/schemas/' + name)" />
@@ -259,17 +259,17 @@
                                   <div class="form-field checkbox-field">
                                     <template v-if="isOpenAPI31">
                                       <Checkbox
-                                        :modelValue="Array.isArray(currentRequestBodySchema.type) && currentRequestBodySchema.type.includes('null')"
-                                        inputId="rb-nullable"
+                                        :model-value="Array.isArray(currentRequestBodySchema.type) && currentRequestBodySchema.type.includes('null')"
+                                        input-id="rb-nullable"
                                         :binary="true"
-                                        @update:modelValue="val => {
+                                        @update:model-value="val => {
                                           const base = Array.isArray(currentRequestBodySchema.type) ? currentRequestBodySchema.type.filter(t => t !== 'null') : [currentRequestBodySchema.type || 'string'];
                                           currentRequestBodySchema.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
                                         }"
                                       />
                                     </template>
                                     <template v-else>
-                                      <Checkbox v-model="currentRequestBodySchema.nullable" inputId="rb-nullable" :binary="true" />
+                                      <Checkbox v-model="currentRequestBodySchema.nullable" input-id="rb-nullable" :binary="true" />
                                     </template>
                                     <label for="rb-nullable">Nullable</label>
                                   </div>
@@ -312,11 +312,11 @@
                                         </template>
                                         <template v-else>
                                           <div class="form-field checkbox-field">
-                                            <Checkbox v-model="currentRequestBodySchema.exclusiveMinimum" inputId="rb-excl-min" :binary="true" />
+                                            <Checkbox v-model="currentRequestBodySchema.exclusiveMinimum" input-id="rb-excl-min" :binary="true" />
                                             <label for="rb-excl-min">Exclusive Minimum</label>
                                           </div>
                                           <div class="form-field checkbox-field">
-                                            <Checkbox v-model="currentRequestBodySchema.exclusiveMaximum" inputId="rb-excl-max" :binary="true" />
+                                            <Checkbox v-model="currentRequestBodySchema.exclusiveMaximum" input-id="rb-excl-max" :binary="true" />
                                             <label for="rb-excl-max">Exclusive Maximum</label>
                                           </div>
                                         </template>
@@ -329,7 +329,7 @@
                                         <div class="form-field"><label>Max Items</label><InputNumber v-model="currentRequestBodySchema.maxItems" placeholder="Max items" :min="0" /></div>
                                       </div>
                                       <div class="form-field checkbox-field">
-                                        <Checkbox v-model="currentRequestBodySchema.uniqueItems" inputId="rb-unique-items" :binary="true" />
+                                        <Checkbox v-model="currentRequestBodySchema.uniqueItems" input-id="rb-unique-items" :binary="true" />
                                         <label for="rb-unique-items">Unique Items</label>
                                       </div>
                                     </template>
@@ -337,9 +337,9 @@
                                     <div class="form-field">
                                       <label>Enum Values</label>
                                       <AutoComplete
+                                        v-model="currentRequestBodySchema.enum"
                                         multiple
                                         typeahead
-                                        v-model="currentRequestBodySchema.enum"
                                         :suggestions="[]"
                                         placeholder="Add value and press Enter"
                                         @keydown.enter.prevent="addChipOnEnter($event, currentRequestBodySchema, 'enum')"
@@ -397,8 +397,10 @@ export default {
       return count;
     });
 
+    // The template reads `formData` straight from props, which stay reactive.
+    // Don't return it from setup(): a copy here would shadow the prop and
+    // freeze the editor on the data present at mount (before the spec loads).
     return {
-      formData: computed(() => props.formData),
       ...props.api,
       showRequestBodyValidationRules,
       requestBodyAdvancedFieldCount,

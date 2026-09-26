@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     header="Add New Path"
     :style="{ width: '640px' }"
     modal
     :draggable="false"
+    @update:visible="$emit('update:visible', $event)"
     @hide="$emit('cancel')"
   >
     <div class="wizard-steps">
@@ -28,10 +28,10 @@
         <div class="form-field">
           <label class="required">HTTP Method</label>
           <SelectButton
-            :modelValue="newMethod"
-            @update:modelValue="$emit('update:newMethod', $event)"
+            :model-value="newMethod"
             :options="httpMethods"
             class="method-select-button"
+            @update:model-value="$emit('update:newMethod', $event)"
           >
             <template #option="slotProps">
               <span :class="['method-chip', 'method-' + slotProps.option.toLowerCase()]">
@@ -46,9 +46,9 @@
             <InputGroupAddon class="path-addon">/</InputGroupAddon>
             <InputText
               id="new-path"
-              :modelValue="newPath"
-              @update:modelValue="$emit('update:newPath', $event)"
+              :model-value="newPath"
               placeholder="users/{id}"
+              @update:model-value="$emit('update:newPath', $event)"
               @keydown="$emit('path-keydown', $event)"
             />
           </InputGroup>
@@ -70,9 +70,9 @@
         v-if="stepIndex < steps.length - 1"
         label="Next"
         icon="pi pi-arrow-right"
-        iconPos="right"
-        @click="$emit('next')"
+        icon-pos="right"
         :disabled="step === 'methodPath' && !newMethod"
+        @click="$emit('next')"
       />
       <Button v-else label="Finish" icon="pi pi-check" @click="$emit('finish')" />
     </template>

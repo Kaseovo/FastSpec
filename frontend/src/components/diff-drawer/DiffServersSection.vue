@@ -1,5 +1,5 @@
 <template>
-  <div class="section-group endpoints-section" v-if="servers.length">
+  <div v-if="servers.length" class="section-group endpoints-section">
     <div class="section-header">
       <h4>Servers</h4>
       <Button

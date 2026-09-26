@@ -42,8 +42,8 @@
                 <label class="required">Name</label>
                 <InputText
                   :value="scheme.name"
-                  @input="api.renameSecurityScheme(scheme.name, $event.target.value)"
                   placeholder="SchemeName"
+                  @input="api.renameSecurityScheme(scheme.name, $event.target.value)"
                 />
               </div>
               <div class="form-field">
@@ -102,10 +102,10 @@
               <div class="section-header">
                 <h5>Flows</h5>
                 <Select
-                  :modelValue="null"
+                  :model-value="null"
                   :options="availableFlowTypes(scheme.data)"
                   placeholder="Add flow"
-                  @update:modelValue="
+                  @update:model-value="
                     (v) => v && api.addOAuth2Flow(scheme.data, v)
                   "
                 />
@@ -213,10 +213,10 @@
       <h4>Global Security Requirements</h4>
       <SecurityRequirementList
         :model-value="formData.security || []"
-        @update:model-value="formData.security = $event"
         :schemes="api.availableSecuritySchemes.value"
         hint="Applied to every operation by default. An operation can override this in its Basic Info tab."
         empty-label="No security required by default."
+        @update:model-value="formData.security = $event"
       />
     </div>
   </div>

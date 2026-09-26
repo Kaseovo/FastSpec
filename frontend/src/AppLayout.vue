@@ -25,21 +25,21 @@
 
     <SaveDialog
       :visible="showSaveDialog"
-      @update:visible="showSaveDialog = $event"
       :spec-name="currentSpec?.name || ''"
       :spec-id="currentSpec?.id || null"
       :current-version="currentSpec?.version || null"
       :draft-content="parsedSpec"
+      @update:visible="showSaveDialog = $event"
       @save="saveSpec"
     />
 
     <!-- New Spec Dialog -->
     <Dialog
       :visible="showNewDialog"
-      @update:visible="(val) => (showNewDialog = val)"
       header="Create New Specification"
       :modal="true"
       :style="{ width: '500px' }"
+      @update:visible="(val) => (showNewDialog = val)"
     >
       <div class="new-spec-options">
         <div class="option-card" @click="createBlank">
@@ -58,10 +58,10 @@
     <!-- Token Manager Dialog -->
     <Dialog
       :visible="showTokenDialog"
-      @update:visible="showTokenDialog = $event"
       header="API keys"
       :modal="true"
       :style="{ width: '1200px' }"
+      @update:visible="showTokenDialog = $event"
     >
       <TokenManager />
     </Dialog>

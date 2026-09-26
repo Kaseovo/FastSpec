@@ -1,35 +1,48 @@
-// Flat ESLint config (ESLint 9+). Minimal ruleset — the goal is catching the
-// classes of issue noted in docs/CODE_REVIEW.md (unused vars, obvious bugs)
-// without forcing a large reformatting pass on 19k lines of existing Vue.
+// Flat ESLint config (ESLint 9+). Enforced in CI with --max-warnings=0.
 import js from "@eslint/js";
 import pluginVue from "eslint-plugin-vue";
 import eslintConfigPrettier from "eslint-config-prettier";
+import globals from "globals";
 
 export default [
+  {
+    ignores: ["dist/**", "node_modules/**", "coverage/**"],
+  },
   js.configs.recommended,
   ...pluginVue.configs["flat/recommended"],
   {
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
-      globals: {
-        window: "readonly",
-        document: "readonly",
-        console: "readonly",
-        localStorage: "readonly",
-        fetch: "readonly",
-      },
+      globals: globals.browser,
     },
     rules: {
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
-      // Large pre-existing components (FormEditor.vue, DiffDrawer.vue — see
-      // docs/CODE_REVIEW.md §13) intentionally aren't forced into a single
-      // strict rule set here; that's a decomposition project, not a lint fix.
+      "no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" },
+      ],
+      // The form editor passes one shared, mutable `formData` object down to
+      // its tabs, which edit fields inside it (see PathsTab.vue). Reassigning
+      // a prop itself is still an error.
+      "vue/no-mutating-props": ["error", { shallowOnly: true }],
       "vue/multi-word-component-names": "off",
+      // PrimeVue components are registered under their own names (Button,
+      // Dialog, Menu, …), which this rule reports as clashing with HTML.
+      "vue/no-reserved-component-names": "off",
     },
   },
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**"],
+    // Tests run under Vitest with `globals: true` (describe, test, vi, …).
+    files: ["**/*.spec.js", "**/*.test.js", "**/__tests__/**", "vitest.setup.js"],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node, ...globals.vitest },
+    },
+  },
+  {
+    files: ["*.config.js"],
+    languageOptions: {
+      globals: globals.node,
+    },
   },
   // Must be last: turns off stylistic rules that conflict with Prettier.
   eslintConfigPrettier,

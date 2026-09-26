@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     :header="editingResponseCode ? 'Change Status Code' : 'Add Response'"
     :style="{ width: '560px' }"
     modal
     :draggable="false"
+    @update:visible="$emit('update:visible', $event)"
     @hide="$emit('reset')"
   >
     <div class="dialog-content">
@@ -54,10 +54,10 @@
           <label for="custom-status-code">Status Code</label>
           <InputText
             id="custom-status-code"
-            :modelValue="newResponseCode"
-            @update:modelValue="$emit('update:newResponseCode', $event)"
+            :model-value="newResponseCode"
             placeholder="e.g. 418 or default"
             class="w-full"
+            @update:model-value="$emit('update:newResponseCode', $event)"
           />
           <small class="helper-text">Enter a numeric code or "default"</small>
         </div>

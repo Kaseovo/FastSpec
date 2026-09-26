@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     :header="isNew ? 'Add Schema' : 'Edit Schema'"
     :style="{ width: '680px' }"
     modal
     :draggable="false"
+    @update:visible="$emit('update:visible', $event)"
     @hide="$emit('cancel')"
   >
     <div v-if="!showJson" class="wizard-steps">
@@ -49,10 +49,10 @@
         <div class="json-editor-wrapper">
           <Textarea
             :value="JSON.stringify(schemaData, null, 2)"
-            @input="updateSchema(editingSchemaName, $event.target.value)"
             rows="16"
             class="json-textarea monaco-style"
             spellcheck="false"
+            @input="updateSchema(editingSchemaName, $event.target.value)"
           />
         </div>
       </div>
@@ -65,19 +65,19 @@
               <label class="required">Schema Name</label>
               <InputText
                 :value="editingSchemaName"
-                @input="renameSchemaInDialog($event.target.value)"
                 placeholder="SchemaName"
                 :class="{ 'p-invalid': isEditingSchemaNameInvalid }"
+                @input="renameSchemaInDialog($event.target.value)"
               />
               <small v-if="isEditingSchemaNameInvalid" class="p-error">A schema name is required.</small>
             </div>
             <div class="form-field">
               <label class="required">Type</label>
               <Select
-                :modelValue="getSchemaKind(schemaData)"
-                @update:modelValue="setSchemaKind(schemaData, $event)"
+                :model-value="getSchemaKind(schemaData)"
                 :options="['object', 'array', 'string', 'number', 'integer', 'boolean', 'oneOf', 'anyOf', 'allOf']"
                 placeholder="Select type"
+                @update:model-value="setSchemaKind(schemaData, $event)"
               />
             </div>
           </div>
@@ -92,13 +92,13 @@
           <div class="form-field">
             <label class="required">Member Schemas</label>
             <MultiSelect
-              :modelValue="compositionMemberRefs(schemaData, getSchemaKind(schemaData))"
-              @update:modelValue="setCompositionMembers(schemaData, getSchemaKind(schemaData), $event)"
+              :model-value="compositionMemberRefs(schemaData, getSchemaKind(schemaData))"
               :options="availableSchemas.filter((s) => s.label !== editingSchemaName)"
-              optionLabel="label"
-              optionValue="value"
+              option-label="label"
+              option-value="value"
               display="chip"
               placeholder="Select the schemas that make up this composition"
+              @update:model-value="setCompositionMembers(schemaData, getSchemaKind(schemaData), $event)"
             />
             <small class="helper-text">
               {{
@@ -113,10 +113,10 @@
 
           <div v-if="getSchemaKind(schemaData) !== 'allOf'" class="form-field checkbox-field">
             <Checkbox
-              :modelValue="!!schemaData.discriminator"
-              @update:modelValue="setDiscriminatorEnabled(schemaData, $event)"
-              inputId="discriminator-enabled"
+              :model-value="!!schemaData.discriminator"
+              input-id="discriminator-enabled"
               :binary="true"
+              @update:model-value="setDiscriminatorEnabled(schemaData, $event)"
             />
             <label for="discriminator-enabled">
               Use a discriminator (tells readers which member schema applies, by property value)
@@ -159,7 +159,7 @@
                     </div>
                     <div class="form-field">
                       <label>Schema</label>
-                      <Select v-model="schemaData.discriminator.mapping[key]" :options="availableSchemas" optionLabel="label" optionValue="value" />
+                      <Select v-model="schemaData.discriminator.mapping[key]" :options="availableSchemas" option-label="label" option-value="value" />
                     </div>
                   </div>
                 </div>
@@ -191,11 +191,11 @@
             :key="propName"
             class="param-item"
             draggable="true"
+            :class="{ dragging: draggedProperty === propName }"
             @dragstart="handleDragStart($event, editingSchemaName, propName, propIndex)"
             @dragover="handleDragOver($event)"
             @drop="handleDrop($event, editingSchemaName, propIndex)"
             @dragend="handleDragEnd"
-            :class="{ dragging: draggedProperty === propName }"
           >
             <div class="item-row-header" @click="openEditSchemaPropertyDialog(editingSchemaName, propName)">
               <div class="drag-handle" title="Drag to reorder">
@@ -244,10 +244,10 @@
           <div class="form-field checkbox-field">
             <Checkbox
               v-model="schemaData.additionalProperties"
-              inputId="schema-addl-props"
+              input-id="schema-addl-props"
               :binary="true"
-              :trueValue="true"
-              :falseValue="false"
+              :true-value="true"
+              :false-value="false"
             />
             <label for="schema-addl-props">Allow Additional Properties</label>
           </div>
@@ -273,7 +273,7 @@
           </div>
 
           <template v-if="schemaData.type === 'array'">
-            <div class="form-field" v-if="schemaData.items">
+            <div v-if="schemaData.items" class="form-field">
               <label>Array Items Type</label>
               <Select
                 v-model="schemaData.items.type"
@@ -281,14 +281,14 @@
                 placeholder="Items type"
               />
             </div>
-            <div class="form-field" v-if="schemaData.items && schemaData.items.type === '$ref'">
+            <div v-if="schemaData.items && schemaData.items.type === '$ref'" class="form-field">
               <label>Array Items Schema Reference</label>
               <div class="schema-selector">
                 <Select
                   v-model="schemaData.items.$ref"
                   :options="availableSchemas"
-                  optionLabel="label"
-                  optionValue="value"
+                  option-label="label"
+                  option-value="value"
                   :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
                 />
                 <Button
@@ -315,17 +315,17 @@
           <div class="form-field checkbox-field">
             <template v-if="isOpenAPI31">
               <Checkbox
-                :modelValue="Array.isArray(schemaData.type) && schemaData.type.includes('null')"
-                inputId="schema-nullable"
+                :model-value="Array.isArray(schemaData.type) && schemaData.type.includes('null')"
+                input-id="schema-nullable"
                 :binary="true"
-                @update:modelValue="val => {
+                @update:model-value="val => {
                   const base = Array.isArray(schemaData.type) ? schemaData.type.filter(t => t !== 'null') : [schemaData.type || 'string'];
                   schemaData.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
                 }"
               />
             </template>
             <template v-else>
-              <Checkbox v-model="schemaData.nullable" inputId="schema-nullable" :binary="true" />
+              <Checkbox v-model="schemaData.nullable" input-id="schema-nullable" :binary="true" />
             </template>
             <label for="schema-nullable">Nullable</label>
           </div>
@@ -370,20 +370,20 @@
                 <template v-if="isOpenAPI31">
                   <div class="form-field">
                     <label for="schema-excl-min">Exclusive Minimum</label>
-                    <InputNumber v-model="schemaData.exclusiveMinimum" inputId="schema-excl-min" placeholder="Exclusive min value" />
+                    <InputNumber v-model="schemaData.exclusiveMinimum" input-id="schema-excl-min" placeholder="Exclusive min value" />
                   </div>
                   <div class="form-field">
                     <label for="schema-excl-max">Exclusive Maximum</label>
-                    <InputNumber v-model="schemaData.exclusiveMaximum" inputId="schema-excl-max" placeholder="Exclusive max value" />
+                    <InputNumber v-model="schemaData.exclusiveMaximum" input-id="schema-excl-max" placeholder="Exclusive max value" />
                   </div>
                 </template>
                 <template v-else>
                   <div class="form-field checkbox-field">
-                    <Checkbox v-model="schemaData.exclusiveMinimum" inputId="schema-excl-min" :binary="true" />
+                    <Checkbox v-model="schemaData.exclusiveMinimum" input-id="schema-excl-min" :binary="true" />
                     <label for="schema-excl-min">Exclusive Minimum</label>
                   </div>
                   <div class="form-field checkbox-field">
-                    <Checkbox v-model="schemaData.exclusiveMaximum" inputId="schema-excl-max" :binary="true" />
+                    <Checkbox v-model="schemaData.exclusiveMaximum" input-id="schema-excl-max" :binary="true" />
                     <label for="schema-excl-max">Exclusive Maximum</label>
                   </div>
                 </template>
@@ -402,7 +402,7 @@
                 </div>
               </div>
               <div class="form-field checkbox-field">
-                <Checkbox v-model="schemaData.uniqueItems" inputId="schema-unique" :binary="true" />
+                <Checkbox v-model="schemaData.uniqueItems" input-id="schema-unique" :binary="true" />
                 <label for="schema-unique">Unique Items</label>
               </div>
             </template>
@@ -410,9 +410,9 @@
             <div class="form-field">
               <label>Enum Values</label>
               <AutoComplete
+                v-model="schemaData.enum"
                 multiple
                 typeahead
-                v-model="schemaData.enum"
                 :suggestions="[]"
                 placeholder="Add value and press Enter"
                 @keydown.enter.prevent="addChipOnEnter($event, schemaData, 'enum')"
@@ -436,13 +436,13 @@
           v-if="stepIndex < steps.length - 1"
           label="Next"
           icon="pi pi-arrow-right"
-          iconPos="right"
-          @click="$emit('next')"
+          icon-pos="right"
           :disabled="isEditingSchemaNameInvalid"
+          @click="$emit('next')"
         />
-        <Button v-else label="Done" icon="pi pi-check" @click="$emit('finish')" :disabled="isEditingSchemaNameInvalid" />
+        <Button v-else label="Done" icon="pi pi-check" :disabled="isEditingSchemaNameInvalid" @click="$emit('finish')" />
       </template>
-      <Button v-else label="Done" icon="pi pi-check" @click="$emit('finish')" :disabled="isEditingSchemaNameInvalid" />
+      <Button v-else label="Done" icon="pi pi-check" :disabled="isEditingSchemaNameInvalid" @click="$emit('finish')" />
     </template>
   </Dialog>
 </template>

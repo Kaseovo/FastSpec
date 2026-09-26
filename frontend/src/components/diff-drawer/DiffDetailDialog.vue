@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     header="Change Details"
     :modal="true"
     :closable="true"
     :style="{ width: '70vw' }"
+    @update:visible="$emit('update:visible', $event)"
   >
     <div v-if="selectedItem">
       <div class="detail-header">

@@ -1,5 +1,5 @@
 <template>
-  <div class="section-group endpoints-section" v-if="endpoints.length">
+  <div v-if="endpoints.length" class="section-group endpoints-section">
     <div class="section-header">
       <h4>Paths ({{ endpoints.length }})</h4>
       <Button
@@ -31,8 +31,8 @@
           <Button
             icon="pi pi-eye"
             class="p-button-text"
-            @click="$emit('open-details', item)"
             aria-label="Open details"
+            @click="$emit('open-details', item)"
           />
         </div>
       </div>

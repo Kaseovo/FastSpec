@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     :header="isNew ? 'Add New Tag' : 'Edit Tag'"
     :style="{ width: '560px' }"
     modal
     :draggable="false"
+    @update:visible="$emit('update:visible', $event)"
     @hide="$emit('cancel')"
   >
     <div class="wizard-steps">
@@ -60,9 +60,9 @@
         v-if="stepIndex < steps.length - 1"
         label="Next"
         icon="pi pi-arrow-right"
-        iconPos="right"
-        @click="$emit('next')"
+        icon-pos="right"
         :disabled="isNameInvalid"
+        @click="$emit('next')"
       />
       <Button v-else label="Finish" icon="pi pi-check" @click="$emit('finish')" />
     </template>

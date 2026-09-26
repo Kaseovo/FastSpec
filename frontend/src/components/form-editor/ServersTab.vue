@@ -3,16 +3,16 @@
     <div class="section-header">
       <h4>Servers</h4>
       <Button
-        label="Add Server"
-        icon="pi pi-plus"
-        size="small"
-        @click="$emit('add-server')"
-        :disabled="hasEmptyServerUrl"
         v-tooltip.left="
           hasEmptyServerUrl
             ? 'Please fill in the URL for all existing servers before adding a new one.'
             : ''
         "
+        label="Add Server"
+        icon="pi pi-plus"
+        size="small"
+        :disabled="hasEmptyServerUrl"
+        @click="$emit('add-server')"
       />
     </div>
 

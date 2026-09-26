@@ -34,8 +34,8 @@
               v-for="item in s.visibleItems"
               :key="item"
               class="fet-node fet-node--child"
-              @click="openItem(s.key, item)"
               :title="item"
+              @click="openItem(s.key, item)"
             >
               <span class="fet-node__dot" :class="s.dotClass"></span>{{ item }}
             </button>
@@ -89,32 +89,32 @@
 
     <ResponseCodeDialog
       :visible="showAddResponseDialog"
-      @update:visible="showAddResponseDialog = $event"
       :editing-response-code="editingResponseCode"
       :step="responseDialogStep"
-      @update:step="responseDialogStep = $event"
       :category="responseDialogCategory"
-      @update:category="responseDialogCategory = $event"
       :new-response-code="newResponseCode"
-      @update:new-response-code="newResponseCode = $event"
       :status-code-categories="statusCodeCategories"
       :status-codes-for-category="statusCodesForCategory"
       :is-response-code-used="isResponseCodeUsed"
       :get-status-severity="getStatusSeverity"
+      @update:visible="showAddResponseDialog = $event"
+      @update:step="responseDialogStep = $event"
+      @update:category="responseDialogCategory = $event"
+      @update:new-response-code="newResponseCode = $event"
       @reset="resetResponseDialog"
       @confirm="confirmResponseDialog"
     />
     <AddPathDialog
       :visible="showAddPathDialog"
-      @update:visible="showAddPathDialog = $event"
       :step="addPathStep"
       :http-methods="httpMethods"
       :new-method="newMethod"
-      @update:new-method="newMethod = $event"
       :new-path="newPath"
-      @update:new-path="newPath = $event"
       :form-data="formData"
       :api="pathsApi"
+      @update:visible="showAddPathDialog = $event"
+      @update:new-method="newMethod = $event"
+      @update:new-path="newPath = $event"
       @path-keydown="handlePathKeydown"
       @back="goToPrevAddPathStep"
       @next="goToNextAddPathStep"
@@ -123,14 +123,14 @@
     />
     <AddMethodDialog
       :visible="showAddMethodDialogVisible"
-      @update:visible="showAddMethodDialogVisible = $event"
       :step="addMethodStep"
       :available-methods="availableMethodsForPath"
       :method-to-add="methodToAdd"
-      @update:method-to-add="methodToAdd = $event"
       :current-path-for-method="currentPathForMethod"
       :form-data="formData"
       :api="pathsApi"
+      @update:visible="showAddMethodDialogVisible = $event"
+      @update:method-to-add="methodToAdd = $event"
       @back="goToPrevAddMethodStep"
       @next="goToNextAddMethodStep"
       @cancel="cancelAddMethodDialog"
@@ -138,19 +138,19 @@
     />
     <EditPathDialog
       :visible="showEditPathDialog"
-      @update:visible="showEditPathDialog = $event"
       :edit-path-value="editPathValue"
-      @update:edit-path-value="editPathValue = $event"
       :edit-path-error="editPathError"
+      @update:visible="showEditPathDialog = $event"
+      @update:edit-path-value="editPathValue = $event"
       @path-keydown="handleEditPathKeydown"
       @confirm="confirmEditPath"
     />
     <EditSchemaDialog
       :visible="showEditSchemaDialog"
-      @update:visible="showEditSchemaDialog = $event"
       :step="editSchemaDialogStep"
       :is-new="wizardCreatedSchemaName !== null"
       :api="componentsApi"
+      @update:visible="showEditSchemaDialog = $event"
       @back="goToPrevEditSchemaStep"
       @next="goToNextEditSchemaStep"
       @cancel="cancelEditSchemaDialog"
@@ -158,11 +158,11 @@
     />
     <AddTagDialog
       :visible="showTagDialog"
-      @update:visible="showTagDialog = $event"
       :step="tagDialogStep"
       :tag="editingTag"
       :is-new="wizardCreatedTagIndex !== null"
       :is-name-invalid="isEditingTagNameInvalid"
+      @update:visible="showTagDialog = $event"
       @back="goToPrevTagStep"
       @next="goToNextTagStep"
       @cancel="cancelTagDialog"
@@ -170,10 +170,10 @@
     />
     <EditParameterDialog
       :visible="showParameterDialog"
-      @update:visible="showParameterDialog = $event"
       :step="parameterDialogStep"
       :is-new="wizardCreatedParameterIndex !== null"
       :api="pathsApi"
+      @update:visible="showParameterDialog = $event"
       @back="goToPrevParameterStep"
       @next="goToNextParameterStep"
       @cancel="cancelParameterDialog"
@@ -181,10 +181,10 @@
     />
     <EditPropertyDialog
       :visible="showPropertyDialog"
-      @update:visible="showPropertyDialog = $event"
       :step="propertyDialogStep"
       :is-new="wizardCreatedPropertyName !== null"
       :api="pathsApi"
+      @update:visible="showPropertyDialog = $event"
       @back="goToPrevPropertyStep"
       @next="goToNextPropertyStep"
       @cancel="cancelPropertyDialog"
@@ -192,10 +192,10 @@
     />
     <EditSchemaPropertyDialog
       :visible="showSchemaPropertyDialog"
-      @update:visible="showSchemaPropertyDialog = $event"
       :step="schemaPropertyDialogStep"
       :is-new="wizardCreatedSchemaPropertyName !== null"
       :api="componentsApi"
+      @update:visible="showSchemaPropertyDialog = $event"
       @back="goToPrevSchemaPropertyStep"
       @next="goToNextSchemaPropertyStep"
       @cancel="cancelSchemaPropertyDialog"

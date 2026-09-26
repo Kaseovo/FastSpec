@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     header="Edit Path"
     :style="{ width: '520px' }"
     modal
     :draggable="false"
+    @update:visible="$emit('update:visible', $event)"
   >
     <div class="dialog-content">
       <div class="form-field">
@@ -14,10 +14,10 @@
           <InputGroupAddon class="path-addon">/</InputGroupAddon>
           <InputText
             id="edit-path"
-            :modelValue="editPathValue"
-            @update:modelValue="$emit('update:editPathValue', $event)"
+            :model-value="editPathValue"
             placeholder="users/{id}"
             :class="{ 'p-invalid': editPathError }"
+            @update:model-value="$emit('update:editPathValue', $event)"
             @keydown="$emit('path-keydown', $event)"
           />
         </InputGroup>

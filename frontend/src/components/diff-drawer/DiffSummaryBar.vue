@@ -88,10 +88,10 @@
       <div class="search-wrap">
         <input
           :value="search"
-          @input="$emit('update:search', $event.target.value)"
           type="text"
           placeholder="Filter changes..."
           class="p-inputtext p-component"
+          @input="$emit('update:search', $event.target.value)"
         />
       </div>
     </div>

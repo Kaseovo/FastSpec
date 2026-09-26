@@ -12,12 +12,12 @@
     <div class="lint-topbar">
       <Select
         v-if="canAssignRuleset"
+        v-tooltip.top="'Which ruleset this spec is linted against'"
         :model-value="assignedRulesetId"
         :options="rulesetAssignOptions"
         option-label="label"
         option-value="value"
         class="ruleset-assign-select"
-        v-tooltip.top="'Which ruleset this spec is linted against'"
         size="small"
         @update:model-value="onAssignRuleset"
       />
@@ -75,19 +75,19 @@
         </div>
         <div class="score-actions">
           <Button
+            v-tooltip.top="'Custom rules'"
             icon="pi pi-sliders-h"
             severity="secondary"
             text
             aria-label="Configure lint ruleset"
-            v-tooltip.top="'Custom rules'"
             @click="showRulesetDialog = true"
           />
           <Button
             class="rerun-button"
             icon="pi pi-refresh"
             label="Rerun"
-            @click="$emit('run-lint')"
             :disabled="loading"
+            @click="$emit('run-lint')"
           />
         </div>
       </div>

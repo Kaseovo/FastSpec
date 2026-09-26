@@ -54,11 +54,11 @@
                                       class="tags-select-row__select"
                                     />
                                     <Button
+                                      v-tooltip.top="'Create a new tag'"
                                       icon="pi pi-plus"
                                       size="small"
                                       text
                                       rounded
-                                      v-tooltip.top="'Create a new tag'"
                                       @click="openAddTagDialog"
                                     />
                                   </div>
@@ -73,7 +73,7 @@
                                       formData.paths[selectedPath][selectedMethod]
                                         .deprecated
                                     "
-                                    inputId="deprecated"
+                                    input-id="deprecated"
                                     :binary="true"
                                   />
                                   <label for="deprecated">Deprecated</label>
@@ -83,25 +83,25 @@
                               <div class="form-field operation-security">
                                 <label>Security</label>
                                 <SelectButton
-                                  :modelValue="operationSecurityMode(currentMethodData)"
-                                  @update:modelValue="
-                                    (mode) => mode && setOperationSecurityMode(currentMethodData, mode)
-                                  "
+                                  :model-value="operationSecurityMode(currentMethodData)"
                                   :options="[
                                     { label: 'Inherit global', value: 'inherit' },
                                     { label: 'Public (no auth)', value: 'public' },
                                     { label: 'Custom', value: 'custom' },
                                   ]"
-                                  optionLabel="label"
-                                  optionValue="value"
+                                  option-label="label"
+                                  option-value="value"
+                                  @update:model-value="
+                                    (mode) => mode && setOperationSecurityMode(currentMethodData, mode)
+                                  "
                                 />
                                 <SecurityRequirementList
                                   v-if="operationSecurityMode(currentMethodData) === 'custom'"
                                   :model-value="currentMethodData.security"
-                                  @update:model-value="currentMethodData.security = $event"
                                   :schemes="availableSecuritySchemes"
                                   hint="Requirements for this operation only, replacing the global list above."
                                   empty-label="No requirements yet — add one below."
+                                  @update:model-value="currentMethodData.security = $event"
                                 />
                               </div>
                             </div>
@@ -143,12 +143,10 @@ export default {
       (props.formData.tags || []).map((t) => t.name).filter(Boolean),
     );
 
-    // See PathsTab.vue/ComponentsTab.vue for why this must be computed()
-    // rather than a plain snapshot: `formData` loads asynchronously after
-    // this component's first render, and a bare `props.formData` would
-    // freeze the whole step on the pre-load default data forever.
+    // The template reads `formData` straight from props, which stay reactive.
+    // Don't return it from setup(): a copy here would shadow the prop and
+    // freeze the editor on the data present at mount (before the spec loads).
     return {
-      formData: computed(() => props.formData),
       ...props.api,
       existingTagNames,
     };

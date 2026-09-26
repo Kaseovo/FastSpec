@@ -95,7 +95,7 @@
               No custom rules yet. Click <strong>Add Rule</strong> to get started.
             </div>
 
-            <Accordion v-else :multiple="true" v-model:value="openPanels" class="rules-accordion">
+            <Accordion v-else v-model:value="openPanels" :multiple="true" class="rules-accordion">
               <AccordionPanel
                 v-for="(rule, idx) in structuredRules"
                 :key="idx"
@@ -214,9 +214,9 @@
                         <label>Allowed values (comma-separated) <span class="required">*</span></label>
                         <InputText
                           :model-value="(rule.functionOptions.values || []).join(', ')"
-                          @update:model-value="(v) => rule.functionOptions.values = v.split(',').map(s => s.trim()).filter(Boolean)"
                           placeholder="e.g. get, post, put"
                           class="w-full"
+                          @update:model-value="(v) => rule.functionOptions.values = v.split(',').map(s => s.trim()).filter(Boolean)"
                         />
                       </div>
                     </template>
@@ -274,12 +274,12 @@
                     <!-- Per-rule preview against the currently open spec -->
                     <div class="rule-preview-row">
                       <Button
+                        v-tooltip.top="specContent ? '' : 'Open a spec in the editor to test against it'"
                         label="Test against current spec"
                         icon="pi pi-play"
                         severity="secondary"
                         size="small"
                         outlined
-                        v-tooltip.top="specContent ? '' : 'Open a spec in the editor to test against it'"
                         :loading="previewLoadingIdx === idx"
                         :disabled="!canPreview(rule)"
                         @click="onPreviewRule(idx)"

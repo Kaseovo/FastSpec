@@ -66,9 +66,10 @@ test-backend:
 test-frontend:
 	cd frontend && npm test
 
-## lint: ruff on the backend
+## lint: ruff (backend) and ESLint (frontend), as enforced in CI
 lint:
-	$(VENV)/bin/ruff check backend
+	cd backend && ../$(VENV)/bin/ruff check .
+	cd frontend && npx eslint . --max-warnings=0
 
 # ── Docker ───────────────────────────────────────────────────────────────────
 

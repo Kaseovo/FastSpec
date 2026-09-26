@@ -39,7 +39,7 @@
                   }}
                 </a>
                 <span v-else>{{ getFormattedValue(item.value).name }}</span>
-                <span class="license-paren" v-if="getFormattedValue(item.value).url"
+                <span v-if="getFormattedValue(item.value).url" class="license-paren"
                   >({{ getFormattedValue(item.value).url }})</span
                 >
               </span>

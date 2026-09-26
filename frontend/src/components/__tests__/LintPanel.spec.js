@@ -1,5 +1,4 @@
 import { mount, flushPromises } from "@vue/test-utils";
-import { nextTick } from "vue";
 import { vi } from "vitest";
 import LintPanel from "../LintPanel.vue";
 

@@ -25,7 +25,7 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to) => {
+router.beforeEach(() => {
   const authStore = useAuthStore();
   if (!authStore.isAuthenticated && authStore.authMode === "oidc") {
     const landingUrl = import.meta.env.VITE_LANDING_URL;

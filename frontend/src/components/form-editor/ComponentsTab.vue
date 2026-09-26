@@ -126,8 +126,8 @@
                           <label class="required">Component Name</label>
                           <InputText
                             :value="parameter.name"
-                            @input="renameReusableParameter(parameter.name, $event.target.value)"
                             placeholder="e.g. PageOffset"
+                            @input="renameReusableParameter(parameter.name, $event.target.value)"
                           />
                         </div>
                         <div class="form-field">
@@ -158,9 +158,9 @@
                       >
                         <label>Item Type</label>
                         <Select
-                          :modelValue="parameter.data.schema.items?.type || 'string'"
-                          @update:modelValue="parameter.data.schema.items = { type: $event }"
+                          :model-value="parameter.data.schema.items?.type || 'string'"
                           :options="['string', 'number', 'integer', 'boolean']"
+                          @update:model-value="parameter.data.schema.items = { type: $event }"
                         />
                       </div>
                       <div class="form-field">
@@ -170,7 +170,7 @@
                       <div class="form-field checkbox-field">
                         <Checkbox
                           v-model="parameter.data.required"
-                          :inputId="'reusable-param-required-' + parameter.name"
+                          :input-id="'reusable-param-required-' + parameter.name"
                           :binary="true"
                         />
                         <label :for="'reusable-param-required-' + parameter.name">Required</label>
@@ -234,8 +234,8 @@
                         <label class="required">Component Name</label>
                         <InputText
                           :value="response.name"
-                          @input="renameReusableResponse(response.name, $event.target.value)"
                           placeholder="e.g. NotFoundError"
+                          @input="renameReusableResponse(response.name, $event.target.value)"
                         />
                       </div>
                       <div class="form-field">
@@ -250,10 +250,10 @@
 
                       <div class="form-field checkbox-field">
                         <Checkbox
-                          :modelValue="!!getResponseContentType(response.data)"
-                          @update:modelValue="setResponseContentType(response.data, $event ? 'application/json' : '')"
-                          :inputId="'reusable-response-has-body-' + response.name"
+                          :model-value="!!getResponseContentType(response.data)"
+                          :input-id="'reusable-response-has-body-' + response.name"
                           :binary="true"
+                          @update:model-value="setResponseContentType(response.data, $event ? 'application/json' : '')"
                         />
                         <label :for="'reusable-response-has-body-' + response.name">Has a response body</label>
                       </div>
@@ -262,34 +262,34 @@
                         <div class="form-field">
                           <label>Content Type</label>
                           <InputText
-                            :modelValue="getResponseContentType(response.data)"
-                            @update:modelValue="setResponseContentType(response.data, $event)"
+                            :model-value="getResponseContentType(response.data)"
                             placeholder="application/json"
+                            @update:model-value="setResponseContentType(response.data, $event)"
                           />
                         </div>
                         <div class="form-field">
                           <label>Schema</label>
                           <Select
-                            :modelValue="getResponseSchemaType(response.data)"
-                            @update:modelValue="setResponseSchemaType(response.data, $event)"
+                            :model-value="getResponseSchemaType(response.data)"
                             :options="[
                               { label: 'Inline object', value: 'inline' },
                               { label: 'Reference to a schema', value: 'reference' },
                             ]"
-                            optionLabel="label"
-                            optionValue="value"
+                            option-label="label"
+                            option-value="value"
+                            @update:model-value="setResponseSchemaType(response.data, $event)"
                           />
                         </div>
 
                         <div v-if="getResponseSchemaType(response.data) === 'reference'" class="form-field">
                           <label>Schema Reference</label>
                           <Select
-                            :modelValue="getResponseSchemaRef(response.data)"
-                            @update:modelValue="setResponseSchemaRef(response.data, $event)"
+                            :model-value="getResponseSchemaRef(response.data)"
                             :options="availableSchemas"
-                            optionLabel="label"
-                            optionValue="value"
+                            option-label="label"
+                            option-value="value"
                             placeholder="Select a schema"
+                            @update:model-value="setResponseSchemaRef(response.data, $event)"
                           />
                         </div>
 
@@ -351,7 +351,7 @@
 </template>
 
 <script>
-import { ref, computed } from "vue";
+import { ref } from "vue";
 import "../../assets/form-editor-shared.css";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
@@ -413,15 +413,10 @@ export default {
       }
     };
 
-    // A plain `props.formData` snapshot only captures whatever the prop was
-    // AT MOUNT TIME — it never updates when the parent later swaps in the
-    // real spec (loaded asynchronously after this component's first
-    // render), permanently freezing the whole schema editor on blank
-    // default data (same bug fixed in PathsTab.vue). `computed()` re-reads
-    // the prop on every access instead, and gets auto-unwrapped by Vue
-    // since it's a top-level key in this returned object.
+    // The template reads `formData` straight from props, which stay reactive.
+    // Don't return it from setup(): a copy here would shadow the prop and
+    // freeze the editor on the data present at mount (before the spec loads).
     return {
-      formData: computed(() => props.formData),
       ...props.api,
       onReusableParameterTypeChange,
       reusableParamsCollapsed,

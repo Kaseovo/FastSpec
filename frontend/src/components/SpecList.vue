@@ -35,33 +35,33 @@
           </div>
           <div class="spec-actions">
             <Button
+              v-if="spec.id !== '__unsaved'"
+              v-tooltip.top="'Rename'"
               icon="pi pi-pencil"
               text
               rounded
               size="small"
-              @click.stop="startRename(spec)"
               aria-label="Rename spec"
-              v-tooltip.top="'Rename'"
-              v-if="spec.id !== '__unsaved'"
+              @click.stop="startRename(spec)"
             />
             <Button
+              v-if="spec.id !== '__unsaved'"
+              v-tooltip.top="'Version history'"
               icon="pi pi-history"
               text
               rounded
               size="small"
-              @click.stop="openHistory(spec)"
               aria-label="Open version history"
-              v-tooltip.top="'Version history'"
-              v-if="spec.id !== '__unsaved'"
+              @click.stop="openHistory(spec)"
             />
             <Button
+              v-tooltip.top="'Delete'"
               icon="pi pi-trash"
               severity="danger"
               text
               rounded
               size="small"
               @click.stop="confirmDelete(spec)"
-              v-tooltip.top="'Delete'"
             />
           </div>
         </div>
@@ -74,15 +74,15 @@
           <span class="spec-expand-label">Details</span>
           <i :class="expanded.has(spec.id) ? 'pi pi-angle-up' : 'pi pi-angle-down'"></i>
         </button>
-        <div class="version-row" v-if="spec.id !== '__unsaved'">
+        <div v-if="spec.id !== '__unsaved'" class="version-row">
           <span>Version</span>
           <span>
             <div class="version-select-row">
               <Select
                 v-model="spec.selectedVersion"
                 :options="spec.versionOptions"
-                optionLabel="label"
-                optionValue="value"
+                option-label="label"
+                option-value="value"
                 class="version-select"
                 @change="onSpecVersionChange(spec)()"
               />
@@ -120,10 +120,10 @@
 
     <Drawer
       :visible="historyOpen"
-      @update:visible="(v) => (historyOpen = v)"
       position="right"
       class="history-drawer"
       :style="{ width: '80rem' }"
+      @update:visible="(v) => (historyOpen = v)"
     >
       <template #header>
         <div class="drawer-header">
@@ -148,8 +148,8 @@
               <Select
                 v-model="baseVersion"
                 :options="versionOptions"
-                optionLabel="label"
-                optionValue="value"
+                option-label="label"
+                option-value="value"
                 aria-label="Base version"
                 placeholder="Select base"
               />
@@ -158,8 +158,8 @@
               <Select
                 v-model="compareVersion"
                 :options="compareOptions"
-                optionLabel="label"
-                optionValue="value"
+                option-label="label"
+                option-value="value"
                 aria-label="Compare version"
                 placeholder="Select compare"
               />
@@ -200,10 +200,10 @@
     <!-- Rename Dialog -->
     <Dialog
       :visible="renameDialogVisible"
-      @update:visible="renameDialogVisible = $event"
       modal
       header="Rename Specification"
       :style="{ width: '400px' }"
+      @update:visible="renameDialogVisible = $event"
     >
       <div class="form-group">
         <label for="rename-input" style="margin-bottom: 0.5rem; display: block">New name</label>
@@ -768,7 +768,6 @@ export default {
       compareOptions,
       // expose unsaved flag for template to render "Unsaved" badges
       hasUnsavedChanges,
-      selectedId,
       // expose draft-compare helper for history drawer when user selects a stored spec to compare with the current editor
       runCompareWithDraft,
     };

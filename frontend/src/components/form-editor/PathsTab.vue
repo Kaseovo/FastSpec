@@ -61,14 +61,14 @@
                   v-for="(pathItem, index) in pathsList"
                   v-show="visiblePathSet.has(pathItem.path)"
                   :key="index"
+                  v-tooltip.top="hasActivePathFilter ? 'Clear filters to reorder paths' : null"
                   :value="index.toString()"
                   :draggable="!hasActivePathFilter"
-                  v-tooltip.top="hasActivePathFilter ? 'Clear filters to reorder paths' : null"
+                  :class="{ 'dragging-path': draggedPath === pathItem.path }"
                   @dragstart="handlePathDragStart($event, pathItem.path, index)"
                   @dragover="handleDragOver($event)"
                   @drop="handlePathDrop($event, index)"
                   @dragend="handleDragEnd"
-                  :class="{ 'dragging-path': draggedPath === pathItem.path }"
                 >
                   <AccordionHeader @click="selectFirstMethod(pathItem)">
                     <div class="path-header">
@@ -79,6 +79,7 @@
                         <button
                           v-for="(method, methodIndex) in pathItem.methods"
                           :key="method"
+                          v-tooltip.top="'Drag to reorder'"
                           :class="[
                             'path-method-chip',
                             {
@@ -88,7 +89,6 @@
                             },
                           ]"
                           draggable="true"
-                          v-tooltip.top="'Drag to reorder'"
                           @dragstart="
                             handleMethodDragStart(
                               $event,
@@ -108,9 +108,9 @@
                             {{ method.toUpperCase() }}
                           </span>
                           <span
+                            v-tooltip.top="'Remove ' + method.toUpperCase()"
                             class="chip-delete-btn"
                             @click.stop="removeMethod(pathItem.path, method)"
-                            v-tooltip.top="'Remove ' + method.toUpperCase()"
                           >
                             <i class="pi pi-times"></i>
                           </span>
@@ -118,21 +118,21 @@
                       </div>
                       <span class="path-url" @click.stop="selectFirstMethod(pathItem)">{{ pathItem.path }}</span>
                       <Button
+                        v-tooltip.top="'Edit path'"
                         icon="pi pi-pencil"
                         size="small"
                         text
                         rounded
                         class="path-edit-btn"
-                        v-tooltip.top="'Edit path'"
                         @click.stop="editPath(pathItem.path)"
                       />
                       <Button
+                        v-tooltip.top="'Add method'"
                         icon="pi pi-plus"
                         size="small"
                         text
                         rounded
                         class="path-add-method-btn"
-                        v-tooltip.top="'Add method'"
                         @click.stop="showAddMethodDialog(pathItem.path)"
                       />
                       <Button
@@ -236,22 +236,11 @@ export default {
       ];
     });
 
+    // The template reads `formData` straight from props, which stay reactive.
+    // Don't return it from setup(): a copy here would shadow the prop and
+    // freeze the editor on the data present at mount (before the spec loads).
     return {
-      // A plain `props.formData` snapshot only captures whatever the prop
-      // was AT MOUNT TIME — it never updates when the parent later swaps
-      // in the real spec (loaded asynchronously after this component's
-      // first render), permanently freezing the whole method editor on
-      // blank default data. `computed()` re-reads the prop on every
-      // access instead, and — like `formData` itself — gets auto-unwrapped
-      // by Vue since it's a top-level key in this returned object.
-      formData: computed(() => props.formData),
       ...props.api,
-      // The flattened spread above is what the rest of this template (path
-      // list, accordion headers, etc.) uses. The four step components need
-      // the whole bundle back together, though — same `api` prop contract
-      // PathsTab itself receives from FormEditor.vue — so it's exposed
-      // here too under its own name for the OperationXStep tags below.
-      api: props.api,
       activeOperationStep,
       operationSteps,
     };

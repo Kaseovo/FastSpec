@@ -23,19 +23,19 @@
             class="security-requirement-row__scheme"
           >
             <Checkbox
-              :inputId="`sec-req-${index}-${scheme.name}`"
+              :input-id="`sec-req-${index}-${scheme.name}`"
               :binary="true"
-              :modelValue="scheme.name in requirement"
-              @update:modelValue="toggleScheme(index, scheme)"
+              :model-value="scheme.name in requirement"
+              @update:model-value="toggleScheme(index, scheme)"
             />
             <label :for="`sec-req-${index}-${scheme.name}`">{{ scheme.name }}</label>
             <MultiSelect
               v-if="scheme.name in requirement && scheme.scopes.length > 0"
-              :modelValue="requirement[scheme.name]"
-              @update:modelValue="setScopes(index, scheme.name, $event)"
+              :model-value="requirement[scheme.name]"
               :options="scheme.scopes"
               placeholder="Scopes"
               class="security-requirement-row__scopes"
+              @update:model-value="setScopes(index, scheme.name, $event)"
             />
           </div>
         </div>

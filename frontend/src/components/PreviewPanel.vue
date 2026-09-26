@@ -105,7 +105,6 @@ export default {
     const error = ref(null);
     const loading = ref(true);
     const containerKey = ref(0);
-    let swaggerUI = null;
     let updateTimeout = null;
 
     // Version compare state
@@ -317,7 +316,7 @@ export default {
           }
 
           // Create new Swagger UI instance in the fresh container
-          swaggerUI = window.SwaggerUIBundle({
+          window.SwaggerUIBundle({
             spec: props.spec,
             domNode: swaggerContainer.value,
             deepLinking: true,

@@ -2,10 +2,10 @@
   <div>
     <Dialog
       :visible="visible"
-      @update:visible="$emit('update:visible', $event)"
       modal
       header="Save Specification"
       :style="{ width: '600px' }"
+      @update:visible="$emit('update:visible', $event)"
     >
       <div class="dialog-content">
         <div class="form-group">
@@ -19,8 +19,8 @@
         </div>
 
         <div
-          class="form-group"
           v-if="specId !== null && specId !== '__unsaved'"
+          class="form-group"
         >
           <label for="version-select">Version</label>
           <select
@@ -44,7 +44,7 @@
           <div v-if="showNewVersionInput && errorMsg" class="inline-error">{{ errorMsg }}</div>
         </div>
 
-        <div class="form-group" v-else>
+        <div v-else class="form-group">
           <label for="new-version">Version</label>
           <InputText
             id="new-version"
@@ -61,9 +61,9 @@
         <Button
           label="Compare & Confirm"
           class="p-button-success"
-          @click="openFullCompare"
           :loading="comparing"
           :disabled="!!errorMsg"
+          @click="openFullCompare"
         />
       </template>
     </Dialog>
@@ -71,10 +71,10 @@
     <!-- Full comparison + confirmation dialog -->
     <Dialog
       :visible="showFullCompare"
-      @update:visible="(v) => (showFullCompare = v)"
       modal
       header="Overview — Confirm Save"
       :style="{ width: '90vw', height: '80vh' }"
+      @update:visible="(v) => (showFullCompare = v)"
     >
       <div style="height: calc(80vh - 120px); overflow: auto">
         <div
@@ -109,9 +109,9 @@
                 <button
                   class="p-button p-component p-button-text view-btn"
                   :class="{ active: showChangesView }"
-                  @click.prevent="togglePanel('changes')"
                   :aria-controls="'changes-panel'"
                   :aria-expanded="showChangesView"
+                  @click.prevent="togglePanel('changes')"
                 >
                   {{ showChangesView ? "Hide" : "View" }}
                 </button>
@@ -130,9 +130,9 @@
                 <button
                   class="p-button p-component p-button-text view-btn"
                   :class="{ active: showLintView }"
-                  @click.prevent="togglePanel('lint')"
                   :aria-controls="'lint-panel'"
                   :aria-expanded="showLintView"
+                  @click.prevent="togglePanel('lint')"
                 >
                   {{ showLintView ? "Hide" : "View" }}
                 </button>
@@ -207,9 +207,9 @@
         <Button
           label="Confirm & Save"
           severity="success"
-          @click="confirmSave"
           :loading="comparing || linting"
           :disabled="!!errorMsg"
+          @click="confirmSave"
         />
       </template>
     </Dialog>
@@ -221,8 +221,6 @@ import { ref, watch, computed, nextTick } from "vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
-import Tag from "primevue/tag";
-import SelectButton from "primevue/selectbutton";
 import {
   listSpecVersions,
   compareDraftWithVersion,
@@ -240,8 +238,6 @@ export default {
     InputText,
     DiffDrawer,
     LintPanel,
-    Tag,
-    SelectButton,
   },
   props: {
     visible: {
@@ -333,7 +329,7 @@ export default {
     // Reset version suggestion and related state when the selected spec changes
     watch(
       () => props.specId,
-      async (newId, oldId) => {
+      async (newId) => {
         // Clear previously loaded versions and reset inputs/state
         versions.value = [];
         selectedVersion.value = "__create_new";
@@ -733,11 +729,11 @@ export default {
             modified++;
           else if (item && typeof item === "object") {
             // best-effort heuristics
-            if (item.hasOwnProperty("added") || item.hasOwnProperty("new"))
+            if (Object.hasOwn(item, "added") || Object.hasOwn(item, "new"))
               added++;
             else if (
-              item.hasOwnProperty("removed") ||
-              item.hasOwnProperty("old")
+              Object.hasOwn(item, "removed") ||
+              Object.hasOwn(item, "old")
             )
               removed++;
             else modified++;

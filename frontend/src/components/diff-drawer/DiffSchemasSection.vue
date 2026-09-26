@@ -88,8 +88,8 @@
                   : 'pi pi-chevron-right'
               "
               class="p-button-text p-button-sm expand-btn"
-              @click="$emit('toggle-schema-expand', item.name)"
               aria-label="Toggle properties"
+              @click="$emit('toggle-schema-expand', item.name)"
             />
             <span class="properties-count"
               >{{

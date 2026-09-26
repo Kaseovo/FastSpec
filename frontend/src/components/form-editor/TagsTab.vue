@@ -21,22 +21,22 @@
         </span>
         <span
           v-if="usageCount(tag.name) > 0"
-          class="section-header__count"
           v-tooltip.top="
             'Referenced by ' + usageCount(tag.name) + ' operation' + (usageCount(tag.name) === 1 ? '' : 's')
           "
+          class="section-header__count"
           >{{ usageCount(tag.name) }} {{ usageCount(tag.name) === 1 ? "operation" : "operations" }}</span
         >
-        <span v-else class="tag-unused-badge" v-tooltip.top="'No operation currently uses this tag'">Unused</span>
+        <span v-else v-tooltip.top="'No operation currently uses this tag'" class="tag-unused-badge">Unused</span>
         <span class="tag-row__desc">{{ tag.description }}</span>
         <div class="tag-row__actions">
           <Button
+            v-tooltip.top="'Edit tag'"
             icon="pi pi-pencil"
             size="small"
             text
             rounded
             class="tag-row__edit-btn"
-            v-tooltip.top="'Edit tag'"
             @click.stop="$emit('edit-tag', index)"
           />
           <Button

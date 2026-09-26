@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     :header="isNew ? 'Add Property' : 'Edit Property'"
     :style="{ width: '640px' }"
     modal
     :draggable="false"
+    @update:visible="$emit('update:visible', $event)"
     @hide="$emit('cancel')"
   >
     <div class="wizard-steps">
@@ -31,9 +31,9 @@
               <label class="required">Property Name</label>
               <InputText
                 :value="editingSchemaPropertyName"
-                @input="renameSchemaPropertyInDialog($event.target.value)"
                 placeholder="propertyName"
                 :class="{ 'p-invalid': isEditingSchemaPropertyInvalid }"
+                @input="renameSchemaPropertyInDialog($event.target.value)"
               />
               <small v-if="isEditingSchemaPropertyInvalid" class="p-error">A property name is required.</small>
             </div>
@@ -55,8 +55,8 @@
               <Select
                 v-model="property.$ref"
                 :options="availableSchemas"
-                optionLabel="label"
-                optionValue="value"
+                option-label="label"
+                option-value="value"
                 :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
               />
               <Button
@@ -111,8 +111,8 @@
               <Select
                 v-model="property.items.$ref"
                 :options="availableSchemas"
-                optionLabel="label"
-                optionValue="value"
+                option-label="label"
+                option-value="value"
                 :placeholder="availableSchemas.length === 0 ? 'No schemas available' : 'Select schema'"
               />
               <Button
@@ -140,27 +140,27 @@
         <div class="form-row">
           <div class="form-field checkbox-field">
             <Checkbox
-              :modelValue="isEditingSchemaPropertyRequired"
-              inputId="schemaprop-required"
+              :model-value="isEditingSchemaPropertyRequired"
+              input-id="schemaprop-required"
               :binary="true"
-              @update:modelValue="toggleEditingSchemaPropertyRequired"
+              @update:model-value="toggleEditingSchemaPropertyRequired"
             />
             <label for="schemaprop-required">Required</label>
           </div>
           <div class="form-field checkbox-field">
             <template v-if="isOpenAPI31">
               <Checkbox
-                :modelValue="Array.isArray(property.type) && property.type.includes('null')"
-                inputId="schemaprop-nullable"
+                :model-value="Array.isArray(property.type) && property.type.includes('null')"
+                input-id="schemaprop-nullable"
                 :binary="true"
-                @update:modelValue="val => {
+                @update:model-value="val => {
                   const base = Array.isArray(property.type) ? property.type.filter(t => t !== 'null') : [property.type || 'string'];
                   property.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
                 }"
               />
             </template>
             <template v-else>
-              <Checkbox v-model="property.nullable" inputId="schemaprop-nullable" :binary="true" />
+              <Checkbox v-model="property.nullable" input-id="schemaprop-nullable" :binary="true" />
             </template>
             <label for="schemaprop-nullable">Nullable</label>
           </div>
@@ -221,11 +221,11 @@
             </template>
             <template v-else>
               <div class="form-field checkbox-field">
-                <Checkbox v-model="property.exclusiveMinimum" inputId="schemaprop-excl-min" :binary="true" />
+                <Checkbox v-model="property.exclusiveMinimum" input-id="schemaprop-excl-min" :binary="true" />
                 <label for="schemaprop-excl-min">Exclusive Minimum</label>
               </div>
               <div class="form-field checkbox-field">
-                <Checkbox v-model="property.exclusiveMaximum" inputId="schemaprop-excl-max" :binary="true" />
+                <Checkbox v-model="property.exclusiveMaximum" input-id="schemaprop-excl-max" :binary="true" />
                 <label for="schemaprop-excl-max">Exclusive Maximum</label>
               </div>
             </template>
@@ -243,7 +243,7 @@
             </div>
           </div>
           <div v-if="property.type === 'array'" class="form-field checkbox-field">
-            <Checkbox v-model="property.uniqueItems" inputId="schemaprop-unique" :binary="true" />
+            <Checkbox v-model="property.uniqueItems" input-id="schemaprop-unique" :binary="true" />
             <label for="schemaprop-unique">Unique Items</label>
           </div>
 
@@ -251,9 +251,9 @@
           <div class="form-field">
             <label>Enum Values</label>
             <AutoComplete
+              v-model="property.enum"
               multiple
               typeahead
-              v-model="property.enum"
               :suggestions="[]"
               placeholder="Add value and press Enter"
               @keydown.enter.prevent="addChipOnEnter($event, property, 'enum')"
@@ -269,11 +269,11 @@
         v-if="stepIndex < steps.length - 1"
         label="Next"
         icon="pi pi-arrow-right"
-        iconPos="right"
-        @click="$emit('next')"
+        icon-pos="right"
         :disabled="isEditingSchemaPropertyInvalid"
+        @click="$emit('next')"
       />
-      <Button v-else label="Done" icon="pi pi-check" @click="$emit('finish')" :disabled="isEditingSchemaPropertyInvalid" />
+      <Button v-else label="Done" icon="pi pi-check" :disabled="isEditingSchemaPropertyInvalid" @click="$emit('finish')" />
     </template>
   </Dialog>
 </template>

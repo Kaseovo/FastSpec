@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     header="Add Method to Path"
     :style="{ width: '640px' }"
     modal
     :draggable="false"
+    @update:visible="$emit('update:visible', $event)"
     @hide="$emit('cancel')"
   >
     <div class="wizard-steps">
@@ -32,10 +32,10 @@
         <div class="form-field">
           <label class="required">HTTP Method</label>
           <SelectButton
-            :modelValue="methodToAdd"
-            @update:modelValue="$emit('update:methodToAdd', $event)"
+            :model-value="methodToAdd"
             :options="availableMethods"
             class="method-select-button"
+            @update:model-value="$emit('update:methodToAdd', $event)"
           >
             <template #option="slotProps">
               <span :class="['method-chip', 'method-' + slotProps.option.toLowerCase()]">
@@ -61,9 +61,9 @@
         v-if="stepIndex < steps.length - 1"
         label="Next"
         icon="pi pi-arrow-right"
-        iconPos="right"
-        @click="$emit('next')"
+        icon-pos="right"
         :disabled="step === 'method' && !methodToAdd"
+        @click="$emit('next')"
       />
       <Button v-else label="Finish" icon="pi pi-check" @click="$emit('finish')" />
     </template>

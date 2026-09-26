@@ -4,7 +4,7 @@
       <div class="ev-bar__left">
         <img src="/logo.svg" alt="FastSpec" class="ev-bar__logo" />
 
-        <div class="ev-spec-wrap" ref="specWrapEl">
+        <div ref="specWrapEl" class="ev-spec-wrap">
           <button class="ev-bar__spec" @click="toggleSpecs">
             <i class="pi pi-folder"></i>
             <span>{{ currentSpecName }}</span>
@@ -27,7 +27,7 @@
             </div>
             <div class="ev-spec-popover__list">
               <ErrorBoundary v-if="isAuthenticated">
-                <SpecList @spec-selected="onSpecSelected" :selected-id="selectedSpecId" />
+                <SpecList :selected-id="selectedSpecId" @spec-selected="onSpecSelected" />
               </ErrorBoundary>
             </div>
           </div>
@@ -85,7 +85,7 @@
             <FormEditor
               :model-value="parsedSpec"
               :show-live-preview="showLivePreview"
-              @update:modelValue="updateFromForm"
+              @update:model-value="updateFromForm"
               @toggle-live-preview="toggleLivePreview"
             />
           </div>
@@ -104,7 +104,7 @@
               :show-validate="true"
               :lint-results="lintResults"
               :show-live-preview="showLivePreview"
-              @update:modelValue="updatePreview"
+              @update:model-value="updatePreview"
               @toggle-live-preview="toggleLivePreview"
             />
           </div>

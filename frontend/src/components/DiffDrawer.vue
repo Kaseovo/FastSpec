@@ -10,9 +10,9 @@
             label="Copy as Markdown"
             size="small"
             severity="secondary"
-            @click="copyAsMarkdown"
             :loading="copying"
             aria-label="Copy changes as markdown"
+            @click="copyAsMarkdown"
           />
         </div>
       </div>
@@ -25,9 +25,9 @@
           aria-label="Changes content"
         >
           <DiffSummaryBar
+            v-model:search="search"
             :type-counts="typeCounts"
             :filter="filter"
-            v-model:search="search"
             @set-filter="setFilter"
           />
 
@@ -75,9 +75,9 @@
     <Drawer
       v-else
       :visible="visible"
-      @update:visible="$emit('update:visible', $event)"
       position="right"
       :style="{ width: '60vw' }"
+      @update:visible="$emit('update:visible', $event)"
     >
       <template #header>
         <div class="drawer-header">
@@ -89,8 +89,8 @@
               label="Copy as Markdown"
               size="small"
               severity="secondary"
-              @click="copyAsMarkdown"
               :loading="copying"
+              @click="copyAsMarkdown"
             />
           </div>
         </div>
@@ -104,9 +104,9 @@
           aria-label="Changes content"
         >
           <DiffSummaryBar
+            v-model:search="search"
             :type-counts="typeCounts"
             :filter="filter"
-            v-model:search="search"
             @set-filter="setFilter"
           />
 
@@ -153,11 +153,11 @@
     <!-- Details dialog -->
     <DiffDetailDialog
       :visible="detailOpen"
-      @update:visible="setDetailOpen"
       :selected-item="selectedItem"
       :show-json="showJson"
-      @update:show-json="showJson = $event"
       :dereference-schema="dereferenceSchema"
+      @update:visible="setDetailOpen"
+      @update:show-json="showJson = $event"
       @copy-item-markdown="copyItemMarkdown"
     />
   </div>

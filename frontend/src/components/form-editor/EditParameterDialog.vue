@@ -1,11 +1,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
     :header="isNew ? 'Add Parameter' : 'Edit Parameter'"
     :style="{ width: '640px' }"
     modal
     :draggable="false"
+    @update:visible="$emit('update:visible', $event)"
     @hide="$emit('cancel')"
   >
     <div class="wizard-steps">
@@ -44,11 +44,11 @@
           />
           <Button
             v-if="!isParameterRef(parameter)"
+            v-tooltip.top="'Make this parameter available to any operation, instead of redefining it each time'"
             label="Save as reusable parameter"
             icon="pi pi-save"
             size="small"
             text
-            v-tooltip.top="'Make this parameter available to any operation, instead of redefining it each time'"
             @click="promoteEditingParameterToReusable"
           />
           <Button
@@ -68,17 +68,17 @@
               <Select
                 v-model="parameter.$ref"
                 :options="availableParameters"
-                optionLabel="label"
-                optionValue="value"
+                option-label="label"
+                option-value="value"
                 :placeholder="availableParameters.length ? 'Select a reusable parameter' : 'No reusable parameters yet'"
                 class="tags-select-row__select"
               />
               <Button
+                v-tooltip.top="'Define a new reusable parameter'"
                 icon="pi pi-plus"
                 size="small"
                 text
                 rounded
-                v-tooltip.top="'Define a new reusable parameter'"
                 @click="onCreateReusableParameter"
               />
             </div>
@@ -163,23 +163,23 @@
 
         <div class="form-row">
           <div class="form-field checkbox-field">
-            <Checkbox v-model="parameter.required" inputId="param-required" :binary="true" />
+            <Checkbox v-model="parameter.required" input-id="param-required" :binary="true" />
             <label for="param-required">Required</label>
           </div>
           <div class="form-field checkbox-field">
             <template v-if="isOpenAPI31">
               <Checkbox
-                :modelValue="Array.isArray(parameter.schema.type) && parameter.schema.type.includes('null')"
-                inputId="param-nullable"
+                :model-value="Array.isArray(parameter.schema.type) && parameter.schema.type.includes('null')"
+                input-id="param-nullable"
                 :binary="true"
-                @update:modelValue="val => {
+                @update:model-value="val => {
                   const base = Array.isArray(parameter.schema.type) ? parameter.schema.type.filter(t => t !== 'null') : [parameter.schema.type || 'string'];
                   parameter.schema.type = val ? [...base, 'null'] : (base.length === 1 ? base[0] : base);
                 }"
               />
             </template>
             <template v-else>
-              <Checkbox v-model="parameter.schema.nullable" inputId="param-nullable" :binary="true" />
+              <Checkbox v-model="parameter.schema.nullable" input-id="param-nullable" :binary="true" />
             </template>
             <label for="param-nullable">Nullable</label>
           </div>
@@ -247,20 +247,20 @@
             <template v-if="isOpenAPI31">
               <div class="form-field">
                 <label for="param-excl-min">Exclusive Minimum</label>
-                <InputNumber v-model="parameter.schema.exclusiveMinimum" inputId="param-excl-min" placeholder="Exclusive min value" />
+                <InputNumber v-model="parameter.schema.exclusiveMinimum" input-id="param-excl-min" placeholder="Exclusive min value" />
               </div>
               <div class="form-field">
                 <label for="param-excl-max">Exclusive Maximum</label>
-                <InputNumber v-model="parameter.schema.exclusiveMaximum" inputId="param-excl-max" placeholder="Exclusive max value" />
+                <InputNumber v-model="parameter.schema.exclusiveMaximum" input-id="param-excl-max" placeholder="Exclusive max value" />
               </div>
             </template>
             <template v-else>
               <div class="form-field checkbox-field">
-                <Checkbox v-model="parameter.schema.exclusiveMinimum" inputId="param-excl-min" :binary="true" />
+                <Checkbox v-model="parameter.schema.exclusiveMinimum" input-id="param-excl-min" :binary="true" />
                 <label for="param-excl-min">Exclusive Minimum</label>
               </div>
               <div class="form-field checkbox-field">
-                <Checkbox v-model="parameter.schema.exclusiveMaximum" inputId="param-excl-max" :binary="true" />
+                <Checkbox v-model="parameter.schema.exclusiveMaximum" input-id="param-excl-max" :binary="true" />
                 <label for="param-excl-max">Exclusive Maximum</label>
               </div>
             </template>
@@ -279,17 +279,17 @@
           </div>
 
           <div v-if="parameter.schema.type === 'array'" class="form-field checkbox-field">
-            <Checkbox v-model="parameter.schema.uniqueItems" inputId="param-unique" :binary="true" />
+            <Checkbox v-model="parameter.schema.uniqueItems" input-id="param-unique" :binary="true" />
             <label for="param-unique">Unique Items</label>
           </div>
 
           <!-- Enum values -->
-          <div class="form-field" v-if="parameter.schema.type !== 'object'">
+          <div v-if="parameter.schema.type !== 'object'" class="form-field">
             <label>Enum Values (optional)</label>
             <AutoComplete
+              v-model="parameter.schema.enum"
               multiple
               typeahead
-              v-model="parameter.schema.enum"
               :suggestions="[]"
               placeholder="Add enum value and press Enter"
               @keydown.enter.prevent="addChipOnEnter($event, parameter.schema, 'enum')"
@@ -303,11 +303,11 @@
         <div class="form-field">
           <label>Items Type(s)</label>
           <MultiSelect
-            :modelValue="parameter.schema._itemSchemas ? [...new Set(parameter.schema._itemSchemas.map(s => s.type))] : []"
+            :model-value="parameter.schema._itemSchemas ? [...new Set(parameter.schema._itemSchemas.map(s => s.type))] : []"
             :options="['string','number','integer','boolean','object']"
             placeholder="Select one or more types"
             display="chip"
-            @update:modelValue="onItemTypesChange(parameter.schema, $event)"
+            @update:model-value="onItemTypesChange(parameter.schema, $event)"
           />
         </div>
         <!-- Per-type schema sections -->
@@ -321,13 +321,13 @@
               <span :class="['type-badge', 'type-badge--' + itemSchema.type]">{{ itemSchema.type }}</span>
               <span v-if="itemSchema.type === 'object' && itemSchema.$ref" class="item-schema-ref-label">{{ itemSchema.$ref.split('/').pop() }}</span>
               <Button
+                v-tooltip.top="'Remove this type entry'"
                 icon="pi pi-trash"
                 severity="danger"
                 text
                 rounded
                 size="small"
                 class="item-schema-remove"
-                v-tooltip.top="'Remove this type entry'"
                 @click="parameter.schema._itemSchemas.splice(sIdx, 1)"
               />
             </div>
@@ -340,8 +340,8 @@
                     <Select
                       v-model="itemSchema.$ref"
                       :options="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value))"
-                      optionLabel="label"
-                      optionValue="value"
+                      option-label="label"
+                      option-value="value"
                       :placeholder="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0 ? 'No schemas available' : 'Select schema'"
                       :disabled="availableSchemas.filter(s => s.value === itemSchema.$ref || !parameter.schema._itemSchemas.some(other => other !== itemSchema && other.type === 'object' && other.$ref === s.value)).length === 0"
                     />
@@ -417,20 +417,20 @@
                   <template v-if="isOpenAPI31">
                     <div class="form-field">
                       <label :for="'item-excl-min-' + sIdx">Exclusive Minimum</label>
-                      <InputNumber v-model="itemSchema.exclusiveMinimum" :inputId="'item-excl-min-' + sIdx" placeholder="Exclusive min value" />
+                      <InputNumber v-model="itemSchema.exclusiveMinimum" :input-id="'item-excl-min-' + sIdx" placeholder="Exclusive min value" />
                     </div>
                     <div class="form-field">
                       <label :for="'item-excl-max-' + sIdx">Exclusive Maximum</label>
-                      <InputNumber v-model="itemSchema.exclusiveMaximum" :inputId="'item-excl-max-' + sIdx" placeholder="Exclusive max value" />
+                      <InputNumber v-model="itemSchema.exclusiveMaximum" :input-id="'item-excl-max-' + sIdx" placeholder="Exclusive max value" />
                     </div>
                   </template>
                   <template v-else>
                     <div class="form-field checkbox-field">
-                      <Checkbox v-model="itemSchema.exclusiveMinimum" :inputId="'item-excl-min-' + sIdx" :binary="true" />
+                      <Checkbox v-model="itemSchema.exclusiveMinimum" :input-id="'item-excl-min-' + sIdx" :binary="true" />
                       <label :for="'item-excl-min-' + sIdx">Exclusive Minimum</label>
                     </div>
                     <div class="form-field checkbox-field">
-                      <Checkbox v-model="itemSchema.exclusiveMaximum" :inputId="'item-excl-max-' + sIdx" :binary="true" />
+                      <Checkbox v-model="itemSchema.exclusiveMaximum" :input-id="'item-excl-max-' + sIdx" :binary="true" />
                       <label :for="'item-excl-max-' + sIdx">Exclusive Maximum</label>
                     </div>
                   </template>
@@ -452,11 +452,11 @@
         v-if="stepIndex < steps.length - 1"
         label="Next"
         icon="pi pi-arrow-right"
-        iconPos="right"
-        @click="$emit('next')"
+        icon-pos="right"
         :disabled="isEditingParameterInvalid"
+        @click="$emit('next')"
       />
-      <Button v-else label="Done" icon="pi pi-check" @click="$emit('finish')" :disabled="isEditingParameterInvalid" />
+      <Button v-else label="Done" icon="pi pi-check" :disabled="isEditingParameterInvalid" @click="$emit('finish')" />
     </template>
   </Dialog>
 </template>

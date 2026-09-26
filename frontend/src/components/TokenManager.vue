@@ -23,9 +23,9 @@
         <MultiSelect
           v-model="actionsSelected"
           :options="actionOptions"
-          optionLabel="label"
-          optionValue="value"
-          :optionDisabled="(opt) => allSelected && opt.value !== 'All'"
+          option-label="label"
+          option-value="value"
+          :option-disabled="(opt) => allSelected && opt.value !== 'All'"
           placeholder="Select actions"
           class="w-full"
         >
@@ -119,9 +119,9 @@
         <MultiSelect
           v-model="editActionsSelected"
           :options="actionOptions"
-          optionLabel="label"
-          optionValue="value"
-          :optionDisabled="(opt) => editAllSelected && opt.value !== 'All'"
+          option-label="label"
+          option-value="value"
+          :option-disabled="(opt) => editAllSelected && opt.value !== 'All'"
           placeholder="Select actions"
           class="w-full"
         >
@@ -169,7 +169,7 @@
             :value="tokens"
             :paginator="true"
             :rows="10"
-            responsiveLayout="scroll"
+            responsive-layout="scroll"
           >
             <Column field="name" header="Name" style="max-width: 320px">
               <template #body="slotProps">
@@ -212,18 +212,18 @@
                     label="Edit"
                     size="small"
                     severity="warn"
-                    @click="openEditDialog(slotProps.data)"
                     :loading="editLoading && editingId === slotProps.data.id"
                     :disabled="slotProps.data.revoked"
+                    @click="openEditDialog(slotProps.data)"
                   />
 
                   <Button
                     label="Revoke"
                     size="small"
                     severity="danger"
-                    @click="handleRevoke(slotProps.data)"
                     :loading="revoking[slotProps.data.id]"
                     :disabled="slotProps.data.revoked"
+                    @click="handleRevoke(slotProps.data)"
                   />
                 </div>
               </template>

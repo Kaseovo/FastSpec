@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import PrimeVue from "primevue/config";
 import ConfirmationService from "primevue/confirmationservice";
