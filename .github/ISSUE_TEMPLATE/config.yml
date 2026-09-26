@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Kaseovo/FastSpec/security/advisories/new
+    about: Please report security problems privately, not as a public issue.
+  - name: Self-hosting guide
+    url: https://github.com/Kaseovo/FastSpec/blob/main/docs/SELF_HOSTING.md
+    about: Installation, sign-in, Postgres, reverse proxies, MCP clients and configuration.

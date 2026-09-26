@@ -1,0 +1,17 @@
+# Direct runtime dependencies. requirements.txt pins the full tree — after
+# changing this file, regenerate it with `make deps`.
+alembic
+fastapi>=0.140,<1
+fastmcp>=3.4.7,<4
+httpx
+itsdangerous
+openapi-spec-validator
+passlib[bcrypt]
+psycopg[binary]>=3.1
+pydantic>=2,<3
+pydantic-settings>=2
+pyjwt[crypto]>=2.8
+python-multipart
+PyYAML>=6.0
+sqlalchemy>=2.0,<3
+uvicorn[standard]

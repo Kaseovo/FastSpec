@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev backend frontend test test-backend test-frontend lint \
+.PHONY: help setup deps dev backend frontend test test-backend test-frontend lint \
         docker-build docker-run transfer-local-data \
         floci-up floci-down floci-secrets floci-infra floci-migrate floci-logs
 
@@ -21,6 +21,14 @@ setup:
 	$(VENV)/bin/pip install -q -r backend/requirements-dev.txt
 	cd frontend && npm ci --no-audit --no-fund
 	@echo "✓ ready — run 'make dev'"
+
+## deps: Re-pin backend dependencies after editing backend/requirements*.in (needs uv)
+deps:
+	cd backend && for f in requirements requirements-lambda requirements-dev; do \
+	  uv pip compile $$f.in -o $$f.txt --universal --python-version 3.12 \
+	    --no-header --annotation-style line --quiet || exit 1; \
+	done
+	@echo "✓ backend/requirements*.txt updated — run 'make setup' to install"
 
 ## dev: Backend (auto-reload) + Vite dev server → http://localhost:5173/specs/
 dev:

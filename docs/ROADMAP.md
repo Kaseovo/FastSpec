@@ -49,7 +49,7 @@ Outside the repo (AWS/GitHub):
 - [x] Deleted the stale `SSH_HOST` / `SSH_KEY` / `SSH_PORT` / `SSH_USER` secrets and `REPO_PATH` variable (pre-AWS SSH deploy; unused)
 - [ ] Retire that SSH key on the server it was for
 
-The hosted stacks were shut down on 2026-09-23 to save costs until this work is ready; only the certificate stack and the hosted zones remain. Redeploy with the Deploy and Version workflow once `open-source-release` is merged.
+The hosted stacks were shut down on 2026-09-23 to save costs until this work is ready; only the certificate stack and the hosted zones remain. Redeploy with the Deploy to AWS workflow once `open-source-release` is merged.
 
 ### Phase 3 — Open-source project files
 - [ ] `LICENSE` (AGPL-3.0); README screenshots (README text rewritten in Phase 1)

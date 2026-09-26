@@ -1,0 +1,123 @@
+name: Release
+
+# Publishes a FastSpec release: version bump + tag (when run manually), the
+# multi-arch Docker image on GHCR, and a GitHub Release.
+#
+#   Actions → Release → Run workflow → patch / minor / major
+#   or push a tag yourself: git tag v1.2.3 && git push origin v1.2.3
+#
+# backend/version.py is the single source of the version number.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version part to bump
+        required: true
+        default: minor
+        type: choice
+        options: [patch, minor, major]
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/fastspec
+
+jobs:
+  tag:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bump version, commit and tag
+        id: bump
+        run: |
+          pip install -q bump2version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          bump2version ${{ inputs.bump }}
+          git push --follow-tags
+          echo "tag=$(git describe --tags --exact-match)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [tag]
+    # Runs after `tag` for manual releases, or on its own for pushed tags.
+    if: ${{ !cancelled() && (needs.tag.result == 'success' || needs.tag.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: ref
+        run: echo "tag=${{ needs.tag.outputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.tag }}
+
+      - name: Check the tag matches backend/version.py
+        run: |
+          version=$(sed -n "s/^__version__ = '\(.*\)'/\1/p" backend/version.py)
+          if [ "v$version" != "${{ steps.ref.outputs.tag }}" ]; then
+            echo "::error::Tag ${{ steps.ref.outputs.tag }} doesn't match backend/version.py ($version)"
+            exit 1
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.ref.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.ref.outputs.tag }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=FastSpec
+            org.opencontainers.image.description=Self-hostable OpenAPI editor with linting, versioning and an MCP server
+            org.opencontainers.image.licenses=AGPL-3.0-only
+
+      - name: Build and push (linux/amd64, linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ref.outputs.tag }}
+          name: FastSpec ${{ steps.ref.outputs.tag }}
+          generate_release_notes: true
+          body: |
+            ```bash
+            docker pull ${{ env.IMAGE }}:${{ steps.ref.outputs.tag }}
+            ```
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ steps.ref.outputs.tag }}/CHANGELOG.md) for details.

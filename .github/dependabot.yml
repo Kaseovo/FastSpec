@@ -1,0 +1,40 @@
+# Weekly dependency updates, with minor and patch bumps grouped into one pull
+# request per ecosystem to keep the noise down. Major versions get their own
+# pull requests.
+#
+# Backend: Dependabot updates the pinned backend/requirements*.txt; if a
+# change needs a new range in requirements*.in, edit that and run `make deps`.
+
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule: { interval: weekly }
+    groups:
+      backend:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly }
+    groups:
+      frontend:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /infra
+    schedule: { interval: weekly }
+    groups:
+      infra:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      actions:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: [/, /backend]
+    schedule: { interval: weekly }

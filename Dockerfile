@@ -9,8 +9,12 @@ ARG NODE_VERSION=22
 ARG PYTHON_VERSION=3.12
 ARG SPECTRAL_VERSION=6.16.3
 
+# The web app and Spectral's JavaScript are platform-independent, so they're
+# built on the build machine's own platform — a multi-arch build doesn't run
+# npm under emulation. Only the Node binary comes from the target platform.
+
 # ── Web app ──────────────────────────────────────────────────────────────────
-FROM node:${NODE_VERSION}-bookworm-slim AS frontend
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-bookworm-slim AS frontend
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -18,10 +22,13 @@ COPY frontend/ ./
 RUN npm run build
 
 # ── Spectral CLI (linting) ───────────────────────────────────────────────────
-FROM node:${NODE_VERSION}-bookworm-slim AS spectral
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-bookworm-slim AS spectral
 ARG SPECTRAL_VERSION
 RUN npm install --global --no-audit --no-fund "@stoplight/spectral-cli@${SPECTRAL_VERSION}" \
     && npm cache clean --force
+
+# Node runtime for the target platform (only its binary is used).
+FROM node:${NODE_VERSION}-bookworm-slim AS node
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM python:${PYTHON_VERSION}-slim-bookworm
@@ -36,7 +43,7 @@ ENV PYTHONUNBUFFERED=1 \
     SPECTRAL_PATH=/usr/local/bin/spectral
 
 # Node is only needed to run Spectral; take just the binary and the CLI.
-COPY --from=spectral /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=spectral /usr/local/lib/node_modules/@stoplight /usr/local/lib/node_modules/@stoplight
 RUN ln -s ../lib/node_modules/@stoplight/spectral-cli/dist/index.js /usr/local/bin/spectral \
     && spectral --version

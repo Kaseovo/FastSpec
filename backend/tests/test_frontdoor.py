@@ -79,7 +79,7 @@ def test_path_traversal_is_not_served(self_hosted):
 def test_api_is_under_api_prefix(self_hosted):
     assert self_hosted.get("/api/health").json() == {"status": "healthy"}
     # Unauthenticated, but routed to the API (not the SPA).
-    assert self_hosted.get("/api/specs/").status_code == 403
+    assert self_hosted.get("/api/specs/").status_code == 401
 
 
 @pytest.mark.parametrize("path", ["/auth/config", "/health", "/version", "/openapi.json"])
@@ -89,8 +89,8 @@ def test_other_backend_routes_stay_at_root(self_hosted, path):
 
 def test_without_static_dir_specs_is_the_api(lambda_style):
     """Lambda: CloudFront serves the SPA from S3; /specs stays the API."""
-    assert lambda_style.get("/specs/").status_code == 403
-    assert lambda_style.get("/api/specs/").status_code == 403
+    assert lambda_style.get("/specs/").status_code == 401
+    assert lambda_style.get("/api/specs/").status_code == 401
 
 
 def test_static_dir_without_index_is_rejected(tmp_path):

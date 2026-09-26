@@ -1,6 +1,8 @@
 {
   "name": "fastspec-infra",
   "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "private": true,
   "description": "FastSpec CDK infrastructure",
   "main": "bin/fastspec.js",
   "scripts": {
@@ -11,7 +13,6 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
   "dependencies": {
     "aws-cdk-lib": "2.257.0",
     "constructs": "^10.0.0",

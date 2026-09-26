@@ -1,0 +1,54 @@
+name: Bug report
+description: Something doesn't work as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: A minimal spec (or excerpt) that shows the problem helps a lot.
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: FastSpec version
+      description: Shown at `/version` on your instance, or the image tag.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: How do you run FastSpec?
+      options:
+        - docker run (SQLite)
+        - docker compose (Postgres)
+        - make dev (from source)
+        - AWS serverless deployment
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Sign-in mode
+      options:
+        - none (single user)
+        - oidc
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Server logs (`docker logs fastspec`), browser console errors, screenshots. Remove anything sensitive.
+      render: text

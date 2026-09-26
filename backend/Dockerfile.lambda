@@ -17,9 +17,10 @@ RUN dnf install -y nodejs20 && \
 # Point SPECTRAL_PATH at the globally installed binary (skips npx cold download)
 ENV SPECTRAL_PATH=/usr/local/bin/spectral
 
-# Install Python dependencies into the Lambda task root
-COPY backend/requirements.txt ${LAMBDA_TASK_ROOT}/
-RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+# Install Python dependencies into the Lambda task root (the pinned runtime
+# set plus boto3/mangum, which only the Lambda needs)
+COPY backend/requirements.txt backend/requirements-lambda.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements-lambda.txt
 
 # Copy all backend source files into the Lambda task root
 COPY backend/ ${LAMBDA_TASK_ROOT}/

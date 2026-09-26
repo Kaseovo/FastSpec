@@ -11,8 +11,10 @@ There are two ways to run FastSpec in production:
 ## AWS serverless deployment
 
 Infrastructure is AWS CDK (TypeScript) in `infra/`, deployed by the manually
-triggered **Deploy and Version** GitHub workflow
-(`.github/workflows/deploy-and-version.yml`).
+triggered **Deploy to AWS** GitHub workflow (`.github/workflows/deploy.yml`),
+run from `main` — the deploy role only trusts that branch. Releases
+(version tags, Docker images) are a separate workflow; see
+[RELEASING.md](RELEASING.md).
 
 | Stack | Contents |
 |---|---|
@@ -68,7 +70,7 @@ Sign-in uses Google through the generic OIDC flow (`AUTH_MODE=oidc`,
 
 ### Deploying
 
-Run the **Deploy and Version** workflow. It runs the test suites and
+Run the **Deploy to AWS** workflow on `main`. It runs the test suites and
 `cdk synth` first, then deploys the stacks in order (Data → Lambda → Cert →
 Frontend → Wake), runs database migrations by invoking the Lambda with
 `{"migrate": true}`, uploads the SPA and the wake page
