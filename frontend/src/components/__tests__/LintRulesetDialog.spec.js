@@ -69,6 +69,10 @@ beforeEach(() => {
   mockApi.getLintRuleset.mockResolvedValue(RULESET_A);
 });
 
+// PrimeVue's TabList schedules an ink-bar update on a timer; let it fire
+// while jsdom still exists instead of after the environment is torn down.
+afterAll(() => new Promise((resolve) => setTimeout(resolve, 100)));
+
 describe("LintRulesetDialog - error visibility", () => {
   test("a failed ruleset creation (409 duplicate name) shows the error while the create row is still open", async () => {
     const wrapper = mountDialog();
