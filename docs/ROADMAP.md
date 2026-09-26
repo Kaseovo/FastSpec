@@ -43,10 +43,11 @@ Existing bugs found and fixed along the way:
 Outside the repo (AWS/GitHub):
 - [x] Private `Kaseovo/fastspec-website` repo created and pushed (with history), with its `AWS_ROLE_ARN` secret and `AWS_REGION` variable
 - [x] FastSpec repo variables: `FASTSPEC_DOMAIN=fastspec.kaseovo.com`, `HOSTED_ZONE_ID=Z0000000000000EXAMPLE`, `AWS_REGION=ap-southeast-1`
-- [ ] Fix the `FastSpecGitHubDeploy` role's trust policy — it still trusts `repo:DishWatcher/FastSpec:*`, so every AWS workflow fails. The Kaseovo repos use GitHub's immutable subject format, so trust exactly:
+- [x] `FastSpecGitHubDeploy` role's trust policy fixed (it still trusted `repo:DishWatcher/FastSpec:*`, so every AWS workflow failed; verified with a green Auto-Stop run on 2026-09-26). The Kaseovo repos use GitHub's immutable subject format, so it trusts exactly:
   - `repo:Kaseovo@167826072/FastSpec@1092682725:ref:refs/heads/main`
   - `repo:Kaseovo@167826072/fastspec-website@1388738583:ref:refs/heads/main`
-- [ ] Delete the stale `SSH_HOST` / `SSH_KEY` / `SSH_PORT` / `SSH_USER` secrets and `REPO_PATH` variable (from the pre-AWS SSH deploy; no workflow uses them) and retire that key on its server
+- [x] Deleted the stale `SSH_HOST` / `SSH_KEY` / `SSH_PORT` / `SSH_USER` secrets and `REPO_PATH` variable (pre-AWS SSH deploy; unused)
+- [ ] Retire that SSH key on the server it was for
 
 The hosted stacks were shut down on 2026-09-23 to save costs until this work is ready; only the certificate stack and the hosted zones remain. Redeploy with the Deploy and Version workflow once `open-source-release` is merged.
 
@@ -68,7 +69,7 @@ The hosted stacks were shut down on 2026-09-23 to save costs until this work is 
 ### Phase 5 — Go public
 - [ ] History scrub (decision 5) on a fresh clone; push as the public repo
 - [ ] If the public repo is a *new* GitHub repository, its ID changes: update the `FastSpecGitHubDeploy` trust policy's `sub` (and copy the repository variables and secrets)
-- [ ] Before the next hosted deploy: add `https://fastspec.kaseovo.com/auth/oidc/callback` to the Google OAuth client's authorized redirect URIs (sign-in moved to the generic OIDC flow)
+- [x] Google OAuth client: `https://fastspec.kaseovo.com/auth/oidc/callback` added as an authorized redirect URI
 - [ ] Switch the hosted deployment to the public repo
 - [ ] Tag `v0.1.0`
 
