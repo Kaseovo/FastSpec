@@ -14,7 +14,7 @@ from sqlalchemy import (
     JSON,
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import false, func
 from base import Base
 import json
 import uuid
@@ -137,7 +137,7 @@ class AuthToken(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
-    revoked = Column(Boolean, nullable=False, server_default="false", default=False)
+    revoked = Column(Boolean, nullable=False, server_default=false(), default=False)
 
     user = relationship("User", back_populates="auth_tokens")
 
@@ -161,7 +161,7 @@ class APIKey(Base):
     actions = Column(Text, nullable=False, default="[]")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
-    revoked = Column(Boolean, nullable=False, server_default="false", default=False)
+    revoked = Column(Boolean, nullable=False, server_default=false(), default=False)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="api_keys")
@@ -205,7 +205,7 @@ class LintRuleset(Base):
     )
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
-    is_default = Column(Boolean, nullable=False, server_default="false", default=False)
+    is_default = Column(Boolean, nullable=False, server_default=false(), default=False)
     # Structured Rules: list of rule dicts built via the rule-form UI
     rules_json = Column(JSON, nullable=True)
     # Raw Ruleset Override: user-authored Spectral YAML (takes precedence over rules_json)

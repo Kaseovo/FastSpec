@@ -27,8 +27,8 @@ def upgrade() -> None:
     sa.Column('avatar_url', sa.String(length=512), nullable=True),
     sa.Column('provider', sa.String(length=50), nullable=False),
     sa.Column('provider_user_id', sa.String(length=255), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
     sa.Column('session_version', sa.Integer(), server_default='0', nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email', 'provider', name='uix_email_provider')
@@ -42,9 +42,9 @@ def upgrade() -> None:
     sa.Column('token_hash', sa.String(length=255), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('actions', sa.Text(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('revoked', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('revoked', sa.Boolean(), server_default=sa.false(), nullable=False),
     sa.Column('last_used_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -59,9 +59,9 @@ def upgrade() -> None:
     sa.Column('jti', sa.String(length=64), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('token', sa.Text(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('revoked', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('revoked', sa.Boolean(), server_default=sa.false(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -74,8 +74,8 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('version', sa.String(length=50), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -87,7 +87,7 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('rules_json', sa.JSON(), nullable=True),
     sa.Column('raw_yaml', sa.Text(), nullable=True),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -100,7 +100,7 @@ def upgrade() -> None:
     sa.Column('content', sa.JSON(), nullable=False),
     sa.Column('created_by', sa.Integer(), nullable=True),
     sa.Column('meta', sa.JSON(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
     sa.ForeignKeyConstraint(['spec_id'], ['openapi_specs.id'], ),
     sa.PrimaryKeyConstraint('id'),

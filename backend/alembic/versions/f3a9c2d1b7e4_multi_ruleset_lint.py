@@ -37,7 +37,7 @@ def upgrade() -> None:
             "is_default",
             sa.Boolean(),
             nullable=False,
-            server_default="false",
+            server_default=sa.false(),
         ),
         sa.Column("rules_json", sa.JSON(), nullable=True),
         sa.Column("raw_yaml", sa.Text(), nullable=True),
@@ -56,21 +56,26 @@ def upgrade() -> None:
         "ix_lint_rulesets_user_id", "lint_rulesets", ["user_id"], unique=False
     )
 
-    op.add_column(
-        "openapi_specs",
-        sa.Column(
-            "active_ruleset_id",
-            sa.String(length=36),
-            sa.ForeignKey("lint_rulesets.id"),
-            nullable=True,
-        ),
-    )
-    op.create_index(
-        "ix_openapi_specs_active_ruleset_id",
-        "openapi_specs",
-        ["active_ruleset_id"],
-        unique=False,
-    )
+    # Batch mode so SQLite (which can't ALTER constraints) gets a
+    # copy-and-move; Postgres still gets plain ALTER statements. The FK name
+    # is Postgres's own default, so fresh databases match ones that ran this
+    # migration before it was made SQLite-compatible.
+    with op.batch_alter_table("openapi_specs") as batch_op:
+        batch_op.add_column(
+            sa.Column(
+                "active_ruleset_id",
+                sa.String(length=36),
+                sa.ForeignKey(
+                    "lint_rulesets.id", name="openapi_specs_active_ruleset_id_fkey"
+                ),
+                nullable=True,
+            )
+        )
+        batch_op.create_index(
+            "ix_openapi_specs_active_ruleset_id",
+            ["active_ruleset_id"],
+            unique=False,
+        )
 
     op.drop_table("user_lint_rulesets")
 
@@ -94,8 +99,12 @@ def downgrade() -> None:
         ),
     )
 
-    op.drop_index("ix_openapi_specs_active_ruleset_id", table_name="openapi_specs")
-    op.drop_column("openapi_specs", "active_ruleset_id")
+    with op.batch_alter_table("openapi_specs") as batch_op:
+        batch_op.drop_index("ix_openapi_specs_active_ruleset_id")
+        batch_op.drop_constraint(
+            "openapi_specs_active_ruleset_id_fkey", type_="foreignkey"
+        )
+        batch_op.drop_column("active_ruleset_id")
 
     op.drop_index("ix_lint_rulesets_user_id", table_name="lint_rulesets")
     op.drop_index("ix_lint_rulesets_id", table_name="lint_rulesets")

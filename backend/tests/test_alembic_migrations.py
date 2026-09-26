@@ -1,11 +1,12 @@
 """
-Tests for Alembic migration round-trips.
+Alembic migration round-trips on every supported database
+(docs/adr/0007-sqlite-and-postgres.md).
 
-Requires a running Postgres instance reachable at DATABASE_URL (defaults to
-postgresql://fastspec:fastspec@localhost:5432/fastspec).
+SQLite always runs. Postgres runs when TEST_POSTGRES_URL points at a server
+the test may create/drop databases on (CI provides one), e.g.:
 
-Run with:
-    cd backend && python -m pytest tests/test_alembic_migrations.py -v
+    TEST_POSTGRES_URL=postgresql://fastspec:fastspec@localhost:5432/fastspec \\
+        python -m pytest tests/test_alembic_migrations.py -v
 """
 
 import os
@@ -14,95 +15,138 @@ import sys
 
 import pytest
 import sqlalchemy
+from sqlalchemy.engine import make_url
 
-# Use a dedicated test database to avoid clobbering the main one
-MIGRATION_TEST_DB_URL = os.environ.get(
-    "MIGRATION_TEST_DB_URL",
-    "postgresql://fastspec:fastspec@localhost:5432/fastspec_migration_test",
-)
-
-# Path to the backend directory (where alembic.ini lives)
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEST_POSTGRES_URL = os.environ.get("TEST_POSTGRES_URL")
+MIGRATION_DB_NAME = "fastspec_migration_test"
+
+APP_TABLES = {
+    "users",
+    "openapi_specs",
+    "spec_versions",
+    "auth_tokens",
+    "api_keys",
+    "lint_rulesets",
+}
 
 
-POSTGRES_ADMIN_URL = os.environ.get(
-    "POSTGRES_ADMIN_URL",
-    "postgresql://fastspec:fastspec@localhost:5432/fastspec",
+@pytest.fixture(
+    params=[
+        "sqlite",
+        pytest.param(
+            "postgresql",
+            marks=pytest.mark.skipif(not TEST_POSTGRES_URL, reason="TEST_POSTGRES_URL not set"),
+        ),
+    ]
 )
+def empty_db(request, tmp_path):
+    """Yield the URL of a fresh, empty database."""
+    if request.param == "sqlite":
+        yield f"sqlite:///{tmp_path / 'migrations.db'}"
+        return
+
+    admin = sqlalchemy.create_engine(TEST_POSTGRES_URL, isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(sqlalchemy.text(f'DROP DATABASE IF EXISTS "{MIGRATION_DB_NAME}"'))
+        conn.execute(sqlalchemy.text(f'CREATE DATABASE "{MIGRATION_DB_NAME}"'))
+    yield make_url(TEST_POSTGRES_URL).set(database=MIGRATION_DB_NAME).render_as_string(
+        hide_password=False
+    )
+    with admin.connect() as conn:
+        conn.execute(sqlalchemy.text(f'DROP DATABASE IF EXISTS "{MIGRATION_DB_NAME}"'))
+    admin.dispose()
 
 
-def _admin_engine():
-    """Connect to the default 'fastspec' DB to create/drop the test DB."""
-    return sqlalchemy.create_engine(POSTGRES_ADMIN_URL, isolation_level="AUTOCOMMIT")
-
-
-@pytest.fixture(scope="module")
-def migration_db():
-    """Create an empty Postgres DB, yield its URL, then drop it."""
-    db_name = "fastspec_migration_test"
-    engine = _admin_engine()
-    with engine.connect() as conn:
-        conn.execute(sqlalchemy.text(f'DROP DATABASE IF EXISTS "{db_name}"'))
-        conn.execute(sqlalchemy.text(f'CREATE DATABASE "{db_name}"'))
-    yield MIGRATION_TEST_DB_URL
-    with engine.connect() as conn:
-        conn.execute(sqlalchemy.text(f'DROP DATABASE IF EXISTS "{db_name}"'))
-    engine.dispose()
-
-
-def _run_alembic(args: list[str], db_url: str) -> subprocess.CompletedProcess:
-    """Run an alembic command against the given DB URL."""
+def _alembic(*args: str, db_url: str, app_role_password: str | None = None) -> None:
     env = {**os.environ, "DATABASE_URL": db_url}
+    # Without a password (self-hosted Postgres) the least-privilege role
+    # migration is a no-op; with one (hosted AWS) it creates the role.
+    env.pop("FASTSPEC_APP_DB_PASSWORD", None)
+    if app_role_password is not None:
+        env["FASTSPEC_APP_DB_PASSWORD"] = app_role_password
     result = subprocess.run(
-        [sys.executable, "-m", "alembic"] + args,
+        [sys.executable, "-m", "alembic", *args],
         cwd=BACKEND_DIR,
         env=env,
         capture_output=True,
         text=True,
     )
-    return result
-
-
-def test_upgrade_head_creates_tables(migration_db):
-    """alembic upgrade head should succeed and create all expected tables."""
-    result = _run_alembic(["upgrade", "head"], migration_db)
     assert result.returncode == 0, (
-        f"alembic upgrade head failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        f"alembic {' '.join(args)} failed:\n{result.stdout}\n{result.stderr}"
     )
 
-    engine = sqlalchemy.create_engine(migration_db)
-    inspector = sqlalchemy.inspect(engine)
-    tables = set(inspector.get_table_names())
+
+def _tables(db_url: str) -> set[str]:
+    engine = sqlalchemy.create_engine(db_url)
+    try:
+        return set(sqlalchemy.inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_downgrade_upgrade_round_trip(empty_db):
+    _alembic("upgrade", "head", db_url=empty_db)
+    assert APP_TABLES <= _tables(empty_db)
+
+    _alembic("downgrade", "base", db_url=empty_db)
+    assert _tables(empty_db) & APP_TABLES == set()
+
+    _alembic("upgrade", "head", db_url=empty_db)
+    assert APP_TABLES <= _tables(empty_db)
+
+
+def test_server_defaults_work_on_raw_inserts(empty_db):
+    """Regression: the initial migration used a literal now(), which SQLite
+    doesn't have, and 'false' boolean defaults stored as strings."""
+    _alembic("upgrade", "head", db_url=empty_db)
+    engine = sqlalchemy.create_engine(empty_db)
+    with engine.begin() as conn:
+        conn.execute(
+            sqlalchemy.text(
+                "INSERT INTO users (email, provider, provider_user_id) "
+                "VALUES ('a@example.com', 'local', 'local')"
+            )
+        )
+        user_id = conn.execute(sqlalchemy.text("SELECT id FROM users")).scalar()
+        conn.execute(
+            sqlalchemy.text(
+                "INSERT INTO lint_rulesets (id, user_id, name) VALUES ('r1', :uid, 'Default')"
+            ),
+            {"uid": user_id},
+        )
+        created_at, is_default = conn.execute(
+            sqlalchemy.text(
+                "SELECT u.created_at, r.is_default FROM users u "
+                "JOIN lint_rulesets r ON r.user_id = u.id"
+            )
+        ).one()
     engine.dispose()
-
-    expected = {
-        "users",
-        "openapi_specs",
-        "spec_versions",
-        "auth_tokens",
-        "api_keys",
-        "lint_rulesets",
-        "alembic_version",
-    }
-    assert expected.issubset(tables), (
-        f"Missing tables after upgrade head: {expected - tables}"
-    )
+    assert created_at is not None
+    assert not is_default
 
 
-def test_downgrade_minus_one(migration_db):
-    """alembic downgrade -1 should succeed and revert the initial migration."""
-    result = _run_alembic(["downgrade", "-1"], migration_db)
-    assert result.returncode == 0, (
-        f"alembic downgrade -1 failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    )
+def test_models_match_migrations(empty_db):
+    """`alembic check` fails if models.py drifted from the migrations."""
+    _alembic("upgrade", "head", db_url=empty_db)
+    _alembic("check", db_url=empty_db)
 
-    engine = sqlalchemy.create_engine(migration_db)
-    inspector = sqlalchemy.inspect(engine)
-    tables = set(inspector.get_table_names())
-    engine.dispose()
 
-    # After downgrading the only migration, no app tables should remain
-    app_tables = tables - {"alembic_version"}
-    assert app_tables == set(), (
-        f"Expected no app tables after downgrade, found: {app_tables}"
-    )
+def test_hosted_app_role_is_created_with_any_password(empty_db):
+    """Hosted deployments create the least-privilege `fastspec_app` role.
+    Role DDL can't take bind parameters, so the password must be quoted
+    correctly whatever it contains."""
+    if not empty_db.startswith("postgresql"):
+        pytest.skip("roles only exist on Postgres")
+    password = """it's:a %s $1 \\ "tricky" pw"""
+
+    _alembic("upgrade", "head", db_url=empty_db, app_role_password=password)
+    try:
+        url = make_url(empty_db).set(username="fastspec_app", password=password)
+        engine = sqlalchemy.create_engine(url)
+        with engine.connect() as conn:
+            conn.execute(sqlalchemy.text("SELECT count(*) FROM openapi_specs"))
+        engine.dispose()
+    finally:
+        # The migration's downgrade drops the (cluster-wide) role again.
+        _alembic("downgrade", "base", db_url=empty_db)
