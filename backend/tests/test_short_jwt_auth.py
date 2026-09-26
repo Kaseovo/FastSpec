@@ -1,3 +1,4 @@
+
 """
 Tests for short-JWT revocation propagation and MCP per-request auth caching.
 
@@ -13,6 +14,7 @@ Covers two fixes:
 """
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from auth.jwt import (
@@ -22,8 +24,8 @@ from auth.jwt import (
     verify_short_jwt,
 )
 from database import SessionLocal
-from models import User
 from fastmcp_server import authentication as auth_mod
+from models import User
 
 _user_counter = 0
 
@@ -81,8 +83,9 @@ def test_verify_short_jwt_rejects_token_after_key_is_revoked(db_session):
     db_session.add(api_key)
     db_session.commit()
 
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException) as exc:
         verify_short_jwt(short_jwt, db_session=db_session)
+    assert exc.value.status_code == 401
 
 
 def test_verify_short_jwt_without_db_session_skips_revocation_check(db_session):

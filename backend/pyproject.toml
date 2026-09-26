@@ -23,6 +23,18 @@ ignore = [
     "E501",  # line length handled by the formatter, not the linter
 ]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI / FastMCP dependency injection is declared with calls in defaults.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Header",
+    "fastapi.Security",
+    "fastapi.params.Depends",
+    "fastmcp.dependencies.Depends",
+]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B011"]
 

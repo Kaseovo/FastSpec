@@ -25,8 +25,9 @@ from sqlalchemy.pool import StaticPool
 
 import auth.oidc as oidc_module
 import routers.auth as auth_router
+from base import Base
 from config import settings
-from database import Base, get_db
+from database import get_db
 from main import app
 from models import User
 

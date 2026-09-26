@@ -1,11 +1,12 @@
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from database import Base
-from services.spec_service import SpecService
+from base import Base
+from models import OpenAPISpec, SpecVersion
 from schemas import OpenAPISpecCreate, OpenAPISpecUpdate
-from models import User, OpenAPISpec, SpecVersion
+from services.spec_service import SpecService
 
 # In-memory SQLite for tests
 engine = create_engine("sqlite:///:memory:")
@@ -68,8 +69,9 @@ def test_list_specs_returns_created(db_session):
 def test_get_spec_not_found_raises(db_session):
     user = DummyUser(1)
     svc = SpecService(db_session)
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException) as exc:
         svc.get_spec(user, "nope")
+    assert exc.value.status_code == 404
 
 
 def test_update_spec_name(db_session):
@@ -93,10 +95,11 @@ def test_update_spec_name_conflict(db_session):
     created2 = svc.create_spec(
         user, OpenAPISpecCreate(name="s2", spec_json=spec_json), "1.0.0"
     )
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException) as exc:
         svc.update_spec(
             user, created2.id, OpenAPISpecUpdate(version="1.0.0", name="s1")
         )
+    assert exc.value.status_code == 409
 
 
 def test_delete_spec_success(db_session):
@@ -117,8 +120,9 @@ def test_delete_spec_success(db_session):
 def test_delete_spec_not_found(db_session):
     user = DummyUser(1)
     svc = SpecService(db_session)
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException) as exc:
         svc.delete_spec(user, "nope")
+    assert exc.value.status_code == 404
 
 
 def test_user_isolation(db_session):
@@ -131,5 +135,6 @@ def test_user_isolation(db_session):
     )
     # user2 should not see user1's spec
     assert svc.list_specs(user2) == []
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException) as exc:
         svc.get_spec(user2, "some-id")
+    assert exc.value.status_code == 404

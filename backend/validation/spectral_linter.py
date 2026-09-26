@@ -6,7 +6,7 @@ into a structured response with a quality score.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -51,7 +51,7 @@ def _find_spectral() -> str:
     raise RuntimeError("Error with Spectral CLI invocation: SPECTRAL_PATH not set.")
 
 
-def _build_command(spec_path: str, ruleset_path: str) -> List[str]:
+def _build_command(spec_path: str, ruleset_path: str) -> list[str]:
     """Build the Spectral CLI command list.
 
     Args:
@@ -117,7 +117,7 @@ def validate_ruleset_yaml_is_safe(raw_yaml: str) -> None:
 
 
 def build_ruleset_yaml(
-    user_ruleset: Optional[Dict[str, Any]], extend_oas: bool = True
+    user_ruleset: dict[str, Any] | None, extend_oas: bool = True
 ) -> str:
     """
     Build a Spectral ruleset YAML string from a user's stored ruleset data.
@@ -140,13 +140,13 @@ def build_ruleset_yaml(
     Returns:
         A YAML string ready to be written to a ``.spectral.yaml`` temp file.
     """
-    base: Dict[str, Any] = {"extends": "spectral:oas"} if extend_oas else {}
+    base: dict[str, Any] = {"extends": "spectral:oas"} if extend_oas else {}
 
     if not user_ruleset:
         return yaml.dump(base, default_flow_style=False, sort_keys=False) or "{}\n"
 
-    raw_yaml: Optional[str] = user_ruleset.get("raw_yaml")
-    rules_json: Optional[List[Dict[str, Any]]] = user_ruleset.get("rules_json")
+    raw_yaml: str | None = user_ruleset.get("raw_yaml")
+    rules_json: list[dict[str, Any]] | None = user_ruleset.get("rules_json")
 
     # --- Raw YAML override takes precedence ---
     if raw_yaml:
@@ -175,18 +175,18 @@ def build_ruleset_yaml(
     if not rules_json:
         return yaml.dump(base, default_flow_style=False, sort_keys=False) or "{}\n"
 
-    ruleset: Dict[str, Any] = {**base, "rules": {}}
+    ruleset: dict[str, Any] = {**base, "rules": {}}
     for rule in rules_json:
         name: str = rule.get("name", "")
         if not name:
             continue
 
-        then_block: Dict[str, Any] = {"function": rule.get("then_function", "truthy")}
+        then_block: dict[str, Any] = {"function": rule.get("then_function", "truthy")}
         options = rule.get("then_function_options")
         if options:
             then_block["functionOptions"] = options
 
-        rule_def: Dict[str, Any] = {
+        rule_def: dict[str, Any] = {
             "given": rule.get("given", "$"),
             "then": then_block,
             "severity": rule.get("severity", "warn"),
@@ -200,14 +200,14 @@ def build_ruleset_yaml(
     return yaml.dump(ruleset, default_flow_style=False, sort_keys=False)
 
 
-def _parse_result(raw: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _parse_result(raw: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Convert the raw Spectral JSON output into the FastSpec lint response shape.
 
     Spectral JSON output is a list of result objects, each with:
         code, message, severity (int), path (list), range (start/end)
     """
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     summary = {"error": 0, "warn": 0, "info": 0, "hint": 0}
 
     for item in raw:

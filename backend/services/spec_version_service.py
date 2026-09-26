@@ -15,8 +15,8 @@ three different lookup variants that previously disagreed with each other
 update_version used yet another helper).
 """
 
-from typing import Any, Dict, Optional
 import uuid
+from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -95,8 +95,8 @@ class SpecVersionService:
         user: User,
         spec_id: str,
         version: str,
-        content: Dict[str, Any],
-        meta: Optional[Dict[str, Any]],
+        content: dict[str, Any],
+        meta: dict[str, Any] | None,
     ) -> SpecVersion:
         spec = self.owned_spec_or_404(user, spec_id)
         if not version or not isinstance(content, dict):
@@ -117,12 +117,12 @@ class SpecVersionService:
             self.db.add(spec)
             self.db.commit()
             self.db.refresh(new_version)
-        except IntegrityError:
+        except IntegrityError as exc:
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Version already exists for this spec",
-            )
+            ) from exc
         return new_version
 
     def update_version(
@@ -131,8 +131,8 @@ class SpecVersionService:
         spec_id: str,
         version_key: str,
         version: str,
-        content: Dict[str, Any],
-        meta: Optional[Dict[str, Any]],
+        content: dict[str, Any],
+        meta: dict[str, Any] | None,
     ) -> SpecVersion:
         self.owned_spec_or_404(user, spec_id)
         ver = self.version_or_404(spec_id, version_key)

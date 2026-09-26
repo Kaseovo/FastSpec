@@ -4,15 +4,13 @@ Pure unit tests for validation/diff_utils.py
 No database, no HTTP client, no external fixtures — all inputs are plain dicts.
 """
 
-import pytest
 
 from validation.diff_utils import (
-    compare_schema,
     compare_endpoint,
+    compare_schema,
     compare_specs,
     generate_markdown_report,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers / shared fixtures

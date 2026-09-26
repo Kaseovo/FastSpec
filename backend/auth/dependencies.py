@@ -2,14 +2,17 @@
 FastAPI dependencies for authentication
 """
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from database import get_db
-from models import User, AuthToken
-from .jwt import verify_token
-from datetime import datetime, timezone
 import logging
+from datetime import UTC, datetime
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
+
+from database import get_db
+from models import AuthToken, User
+
+from .jwt import verify_token
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +53,13 @@ async def get_current_user(
 
     token_rec = (
         db.query(AuthToken)
-        .filter(AuthToken.jti == jti, AuthToken.revoked == False)
+        .filter(AuthToken.jti == jti, AuthToken.revoked.is_(False))
         .first()
     )
 
     if not token_rec or token_rec.expires_at.replace(
-        tzinfo=timezone.utc
-    ) < datetime.now(timezone.utc):
+        tzinfo=UTC
+    ) < datetime.now(UTC):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token revoked or expired",

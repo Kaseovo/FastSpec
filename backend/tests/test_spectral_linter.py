@@ -6,7 +6,6 @@ the Spectral CLI binary.
 """
 
 import yaml
-import pytest
 
 from validation.spectral_linter import build_ruleset_yaml
 

@@ -2,9 +2,10 @@
 Pydantic schemas for FastSpec API
 """
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Dict, Any, List, Literal, Optional
 from datetime import datetime
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ValidationError(BaseModel):
@@ -18,8 +19,8 @@ class ValidationResponse(BaseModel):
     """Response for spec validation"""
 
     valid: bool
-    errors: List[ValidationError] = []
-    warnings: List[str] = []
+    errors: list[ValidationError] = []
+    warnings: list[str] = []
 
 
 # Authentication Schemas
@@ -27,8 +28,8 @@ class UserBase(BaseModel):
     """Base schema for user"""
 
     email: str
-    name: Optional[str] = None
-    avatar_url: Optional[str] = None
+    name: str | None = None
+    avatar_url: str | None = None
 
 
 class UserResponse(UserBase):
@@ -44,16 +45,16 @@ class UserResponse(UserBase):
 class ApiKeyActionsUpdateRequest(BaseModel):
     """Request schema for updating api_key actions and optional name by id"""
 
-    actions: List[str]
-    name: Optional[str] = None
+    actions: list[str]
+    name: str | None = None
 
 
 class ApiKeyActionsResponse(BaseModel):
     """Response schema after updating api_key actions"""
 
     message: str
-    actions: List[str]
-    name: Optional[str] = None
+    actions: list[str]
+    name: str | None = None
 
 
 # OpenAPI Spec Schemas
@@ -61,7 +62,7 @@ class OpenAPISpecBase(BaseModel):
     """Base schema for OpenAPI spec"""
 
     name: str = Field(..., min_length=1, max_length=255)
-    spec_json: Dict[str, Any]
+    spec_json: dict[str, Any]
 
     @field_validator("spec_json")
     @classmethod
@@ -74,7 +75,7 @@ class OpenAPISpecBase(BaseModel):
 class OpenAPISpecCreate(OpenAPISpecBase):
     """Schema for creating a new spec"""
 
-    version: Optional[str] = Field(
+    version: str | None = Field(
         None,
         min_length=1,
         max_length=50,
@@ -90,8 +91,8 @@ class OpenAPISpecUpdate(BaseModel):
     # version is required and must be provided by clients to ensure they are
     # updating against the latest published version
     version: str = Field(..., min_length=1, max_length=50)
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    spec_json: Optional[Dict[str, Any]] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    spec_json: dict[str, Any] | None = None
 
     @field_validator("spec_json")
     @classmethod
@@ -108,9 +109,9 @@ class OpenAPISpecResponse(BaseModel):
     name: str
     title: str
     version: str
-    spec_json: Dict[str, Any]
+    spec_json: dict[str, Any]
     user_id: int
-    active_ruleset_id: Optional[str] = None
+    active_ruleset_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -126,10 +127,10 @@ class SpecDiffResponse(BaseModel):
     (see validation.diff_utils.compare_specs for its keys).
     """
 
-    has_changes: Optional[bool] = None
-    message: Optional[str] = None
-    markdown: Optional[str] = None
-    diff: Optional[Dict[str, Any]] = None
+    has_changes: bool | None = None
+    message: str | None = None
+    markdown: str | None = None
+    diff: dict[str, Any] | None = None
 
 
 class SpecCompareResponse(BaseModel):
@@ -145,24 +146,24 @@ class SpecCompareResponse(BaseModel):
 
     base: "SpecVersionResponse"
     compare: Optional["SpecVersionResponse"] = None
-    diff: Optional[Dict[str, Any]] = None
-    markdown: Optional[str] = None
+    diff: dict[str, Any] | None = None
+    markdown: str | None = None
 
 
 # Spec Versioning Schemas
 class SpecVersionCreate(BaseModel):
     version: str
-    content: Dict[str, Any]
-    meta: Optional[Dict[str, Any]] = None
+    content: dict[str, Any]
+    meta: dict[str, Any] | None = None
 
 
 class SpecVersionResponse(BaseModel):
     id: str
     spec_id: str
     version: str
-    content: Dict[str, Any]
-    created_by: Optional[int] = None
-    meta: Optional[Dict[str, Any]] = None
+    content: dict[str, Any]
+    created_by: int | None = None
+    meta: dict[str, Any] | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -174,15 +175,15 @@ class SpecVersionResponse(BaseModel):
 class LintRange(BaseModel):
     """Source range (line/character) for a lint result"""
 
-    line: Optional[int] = None
-    character: Optional[int] = None
+    line: int | None = None
+    character: int | None = None
 
 
 class LintRangeSpan(BaseModel):
     """Start and optional end of a source range"""
 
-    start: Optional[LintRange] = None
-    end: Optional[LintRange] = None
+    start: LintRange | None = None
+    end: LintRange | None = None
 
 
 class LintResult(BaseModel):
@@ -191,8 +192,8 @@ class LintResult(BaseModel):
     code: str
     message: str
     severity: str  # 'error' | 'warn' | 'info' | 'hint'
-    path: List[Any] = []
-    range: Optional[LintRangeSpan] = None
+    path: list[Any] = []
+    range: LintRangeSpan | None = None
 
 
 class LintSummary(BaseModel):
@@ -209,13 +210,13 @@ class LintResponse(BaseModel):
 
     score: int = Field(..., ge=0, le=100, description="Quality score 0–100")
     summary: LintSummary
-    results: List[LintResult] = []
+    results: list[LintResult] = []
 
 
 class LintRequest(BaseModel):
     """Request body for ad-hoc POST /lint"""
 
-    spec_json: Dict[str, Any]
+    spec_json: dict[str, Any]
 
 
 # Lint Ruleset Management Schemas
@@ -242,11 +243,11 @@ class StructuredRule(BaseModel):
     given: str = Field(
         ..., min_length=1, description="JSONPath selector, e.g. $.paths[*][*]"
     )
-    message: Optional[str] = Field(None, description="Optional custom message template")
+    message: str | None = Field(None, description="Optional custom message template")
     then_function: SPECTRAL_FUNCTIONS = Field(
         ..., description="Built-in Spectral function name"
     )
-    then_function_options: Optional[Dict[str, Any]] = Field(
+    then_function_options: dict[str, Any] | None = Field(
         None,
         description="Options passed to then_function (e.g. {match: '^[a-z]+'} for pattern)",
     )
@@ -255,13 +256,13 @@ class StructuredRule(BaseModel):
 class LintRulesetUpsertRequest(BaseModel):
     """Request body for POST/PUT /lint/rulesets — create or update a named ruleset."""
 
-    name: Optional[str] = Field(
+    name: str | None = Field(
         None, min_length=1, max_length=255, description="Ruleset display name"
     )
-    rules: Optional[List[StructuredRule]] = Field(
+    rules: list[StructuredRule] | None = Field(
         None, description="Structured rules built via the form UI"
     )
-    raw_yaml: Optional[str] = Field(
+    raw_yaml: str | None = Field(
         None,
         description="Raw Spectral YAML override; takes precedence over rules when present",
     )
@@ -273,9 +274,9 @@ class LintRulesetResponse(BaseModel):
     id: str
     name: str
     is_default: bool
-    rules: Optional[List[StructuredRule]] = None
-    raw_yaml: Optional[str] = None
-    updated_at: Optional[datetime] = None
+    rules: list[StructuredRule] | None = None
+    raw_yaml: str | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -288,13 +289,13 @@ class LintRulesetSummary(BaseModel):
     is_default: bool
     rule_count: int
     has_raw_yaml: bool
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
 
 class SpecRulesetAssignRequest(BaseModel):
     """Request body for PUT /lint/spec/{spec_id}/ruleset."""
 
-    ruleset_id: Optional[str] = Field(
+    ruleset_id: str | None = Field(
         None,
         description="Ruleset to pin to this spec, or null to fall back to the user's default ruleset",
     )
@@ -303,5 +304,5 @@ class SpecRulesetAssignRequest(BaseModel):
 class LintPreviewRuleRequest(BaseModel):
     """Request body for POST /lint/preview-rule — test one draft rule without saving it."""
 
-    spec_json: Dict[str, Any]
+    spec_json: dict[str, Any]
     rule: StructuredRule

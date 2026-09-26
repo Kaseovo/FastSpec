@@ -2,22 +2,24 @@
 SQLAlchemy models for FastSpec
 """
 
+import json
+import uuid
+
 from sqlalchemy import (
+    JSON,
+    Boolean,
     Column,
+    DateTime,
+    ForeignKey,
     Integer,
     String,
     Text,
-    DateTime,
-    ForeignKey,
     UniqueConstraint,
-    Boolean,
-    JSON,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import false, func
+
 from base import Base
-import json
-import uuid
 
 
 class User(Base):

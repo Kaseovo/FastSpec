@@ -2,23 +2,23 @@
 JWT token utilities for authentication
 """
 
-import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-from config import JWT_SECRET_KEY, JWT_ALGORITHM, settings
-import jwt
-from jwt import PyJWTError as JWTError
-from fastapi import HTTPException, status
-import uuid
 import json
+import logging
 import secrets
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import jwt
+from fastapi import HTTPException, status
+from jwt import PyJWTError as JWTError
+from passlib.context import CryptContext
+
+from config import JWT_ALGORITHM, JWT_SECRET_KEY, settings
 from database import SessionLocal
-from models import User, AuthToken, APIKey
+from models import APIKey, AuthToken, User
 
 logger = logging.getLogger(__name__)
 
-# Hashing
-from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
@@ -31,8 +31,8 @@ def create_access_token(user_id: int, email: str, db_session=None) -> str:
     """
     Create a JWT access token for a user
     """
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    now = datetime.now(timezone.utc)
+    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    now = datetime.now(UTC)
     jti = uuid.uuid4().hex
     to_encode = {
         "sub": str(user_id),
@@ -96,7 +96,7 @@ def verify_token(token: str) -> dict:
         return result
 
     except JWTError:
-        raise credentials_exception
+        raise credentials_exception from None
 
 
 # --- API key generation and short JWT helpers ---
@@ -122,7 +122,7 @@ def create_api_key(
 
     Returns (raw_api_key_plaintext, api_key_record, expires_at)
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     raw = generate_api_key()
     hashed = hash_api_key(raw)
     expires_at = now + timedelta(days=API_KEY_TTL_DAYS)
@@ -152,7 +152,7 @@ def create_short_jwt(
     short JWTs a client reuses across multiple requests instead of exchanging
     fresh each time (see verify_short_jwt).
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     exp = now + timedelta(seconds=SHORT_JWT_TTL_SECONDS)
     payload = {
         "sub": str(user_id),
@@ -187,7 +187,7 @@ def verify_short_jwt(token: str, db_session=None) -> dict:
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
     except JWTError:
-        raise credentials_exception
+        raise credentials_exception from None
 
     if payload.get("token_type") != "short":
         raise credentials_exception
@@ -197,9 +197,9 @@ def verify_short_jwt(token: str, db_session=None) -> dict:
 
     api_key_id = payload.get("api_key_id")
     if api_key_id and db_session is not None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         key_rec = db_session.query(APIKey).filter(APIKey.id == api_key_id).first()
-        expires_at = key_rec.expires_at.replace(tzinfo=timezone.utc) if key_rec else None
+        expires_at = key_rec.expires_at.replace(tzinfo=UTC) if key_rec else None
         if not key_rec or key_rec.revoked or expires_at < now:
             raise credentials_exception
 
@@ -209,14 +209,14 @@ def verify_short_jwt(token: str, db_session=None) -> dict:
 # Helper: find API key by raw value
 
 
-def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
+def find_api_key_by_raw(db_session, raw: str) -> APIKey | None:
     """Find API key by raw plaintext value.
 
     Fast path: use key_prefix (first 12 chars) to find candidate and run a single
     hash verification. Fall back to scanning rows with NULL key_prefix for
     pre-migration keys.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     prefix = raw[:12]
 
     # Primary fast-path: lookup by prefix
@@ -224,7 +224,7 @@ def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
         db_session.query(APIKey)
         .filter(
             APIKey.key_prefix == prefix,
-            APIKey.revoked == False,
+            APIKey.revoked.is_(False),
             APIKey.expires_at >= now,
         )
         .first()
@@ -240,8 +240,8 @@ def find_api_key_by_raw(db_session, raw: str) -> Optional[APIKey]:
     candidates_null_prefix = (
         db_session.query(APIKey)
         .filter(
-            APIKey.key_prefix == None,
-            APIKey.revoked == False,
+            APIKey.key_prefix.is_(None),
+            APIKey.revoked.is_(False),
             APIKey.expires_at >= now,
         )
         .all()
@@ -269,9 +269,9 @@ def exchange_api_key_for_short_jwt(
     db = db_session or SessionLocal()
     try:
         token_rec = find_api_key_by_raw(db, api_key)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = (
-            token_rec.expires_at.replace(tzinfo=timezone.utc) if token_rec else None
+            token_rec.expires_at.replace(tzinfo=UTC) if token_rec else None
         )
         if not token_rec or token_rec.revoked or expires_at < now:
             raise HTTPException(status_code=401, detail="Invalid or revoked api_key")

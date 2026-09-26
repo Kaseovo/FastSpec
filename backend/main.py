@@ -5,19 +5,17 @@ Schema management is handled by Alembic migrations — run
 ``alembic upgrade head`` before starting the application.
 """
 
-from config import settings
-
 import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from config import settings
 from database import SessionLocal
-from routers import specs, auth
-from routers import lint
+from routers import auth, lint, specs
 from validation.spectral_client import SpectralError
-
 from version import __version__
 
 logger = logging.getLogger(__name__)

@@ -17,8 +17,9 @@ BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def migrate() -> None:
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     config = Config(os.path.join(BACKEND_DIR, "alembic.ini"))
     config.set_main_option("script_location", os.path.join(BACKEND_DIR, "alembic"))

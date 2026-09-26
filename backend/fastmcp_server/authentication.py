@@ -1,11 +1,16 @@
+import logging
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
-from fastmcp.tools import Tool
-from fastmcp.server.dependencies import get_http_request, get_context
-from database import SessionLocal
-from auth.jwt import exchange_api_key_for_short_jwt, verify_short_jwt
+from typing import Any
+
 from fastmcp.exceptions import ToolError
-from permissions import Action, user_has_action
+from fastmcp.server.dependencies import get_context, get_http_request
+from fastmcp.tools import Tool
+
+from auth.jwt import exchange_api_key_for_short_jwt, verify_short_jwt
+from database import SessionLocal
+from permissions import user_has_action
+
+logger = logging.getLogger(__name__)
 
 
 def check_tool(tool: Tool, user: dict) -> bool:
@@ -76,12 +81,12 @@ def get_short_jwt_from_request() -> str:
 @dataclass
 class TokenPayload:
     sub: str
-    actions: List[str]
+    actions: list[str]
     token_type: str
     exp: int
     iat: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "sub": self.sub,
             "actions": self.actions,
@@ -91,7 +96,7 @@ class TokenPayload:
         }
 
     # Provide dict-like access for backward compatibility with existing callers
-    def get(self, key: str, default: Optional[Any] = None) -> Any:
+    def get(self, key: str, default: Any | None = None) -> Any:
         if hasattr(self, key):
             return getattr(self, key)
         return default
@@ -111,7 +116,7 @@ def validate_short_jwt(short_jwt: str) -> TokenPayload:
         raise PermissionError("Invalid or expired token") from e
 
 
-def _cached_user_from_context() -> Optional[TokenPayload]:
+def _cached_user_from_context() -> TokenPayload | None:
     """Return the user AuthenticationMiddleware already resolved for this
     request (stored in context.extra['user']), if any.
 
@@ -140,8 +145,9 @@ def get_current_user() -> TokenPayload:
         short_jwt = get_short_jwt_from_request()
         payload = validate_short_jwt(short_jwt)
     except PermissionError as e:
-        raise ToolError(str(e))
+        raise ToolError(str(e)) from e
     except Exception as e:
-        raise ToolError(f"Authentication error: {e}")
+        logger.exception("MCP authentication failed")
+        raise ToolError("Authentication error") from e
 
     return payload

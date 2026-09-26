@@ -245,7 +245,7 @@ class LintRulesetRepository:
         self._db.delete(row)
         try:
             self._db.commit()
-        except IntegrityError:
+        except IntegrityError as exc:
             # A spec could have been pinned to this ruleset in the gap
             # between the specs_in_use check above and this commit -- the
             # active_ruleset_id FK is the last backstop for that race.
@@ -258,4 +258,4 @@ class LintRulesetRepository:
                     "Ruleset is assigned to one or more specs and can't be "
                     "deleted until they're reassigned."
                 ),
-            )
+            ) from exc

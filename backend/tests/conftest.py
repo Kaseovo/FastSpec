@@ -20,10 +20,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Now safe to import application modules
-from database import Base, engine as _default_engine
 import database as _db_module
 import models  # noqa: F401 – ensure all models are registered on Base
+
+# Now safe to import application modules
+from base import Base
 
 # ---------------------------------------------------------------------------
 # Override the engine with an in-memory SQLite DB for tests. StaticPool keeps

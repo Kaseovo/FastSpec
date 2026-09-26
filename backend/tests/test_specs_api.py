@@ -4,10 +4,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from main import app
-from database import Base, get_db
-from models import User
 from auth.dependencies import get_current_user
+from base import Base
+from database import get_db
+from main import app
+from models import User
 
 # In-memory SQLite for tests — StaticPool ensures all connections share the
 # same database so tables created in setup_db are visible to every session.

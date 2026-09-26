@@ -1,16 +1,20 @@
+import logging
 from types import SimpleNamespace
 
 from fastapi import HTTPException
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
-from fastmcp_server.middleware import LoggingMiddleware, AuthenticationMiddleware
-from fastmcp_server.authentication import get_current_user, TokenPayload
-from database import SessionLocal
-from services.spec_service import SpecService
-from permissions import Action
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from database import SessionLocal
+from fastmcp_server.authentication import TokenPayload, get_current_user
+from fastmcp_server.middleware import AuthenticationMiddleware, LoggingMiddleware
+from permissions import Action
+from services.spec_service import SpecService
+
+logger = logging.getLogger(__name__)
 
 mcp = FastMCP(name="My MCP Server")
 mcp.add_middleware(LoggingMiddleware())
@@ -60,7 +64,8 @@ def get_saved_specs_for_user(user: TokenPayload = Depends(get_current_user)) -> 
             for s in specs
         ]
     except Exception as e:
-        raise ToolError(f"Database error: {e}")
+        logger.exception("MCP get_saved_specs_for_user failed")
+        raise ToolError("Could not load specs") from e
     finally:
         db.close()
 
@@ -89,9 +94,10 @@ def get_spec_details(
             "content": spec.spec_json,
         }
     except HTTPException:
-        raise ToolError("Spec not found or access denied")
+        raise ToolError("Spec not found or access denied") from None
     except Exception as e:
-        raise ToolError(f"Database error: {e}")
+        logger.exception("MCP get_spec_details failed")
+        raise ToolError("Could not load the spec") from e
     finally:
         db.close()
 

@@ -20,7 +20,7 @@ Handler export: ``lambda_handler.handler``
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # ── Cold-start: fetch secrets from SSM and inject into environment ────────────
 try:
@@ -57,7 +57,7 @@ try:
     if _ssm_param:
         boto3.client("ssm").put_parameter(
             Name=_ssm_param,
-            Value=str(datetime.now(timezone.utc).timestamp()),
+            Value=str(datetime.now(UTC).timestamp()),
             Type="String",
             Overwrite=True,
         )

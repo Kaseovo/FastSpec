@@ -18,15 +18,14 @@ catches SpectralError and converts it to a 502. This keeps the service
 layer free of HTTP semantics.
 """
 
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from models import LintRuleset, OpenAPISpec
 from schemas import LintResponse, LintSummary, StructuredRule
+from services.lint_ruleset_repository import LintRulesetRepository
 from validation.spectral_client import SpectralClient
 from validation.spectral_linter import build_ruleset_yaml
-from services.lint_ruleset_repository import LintRulesetRepository
 
 
 class LintService:
@@ -35,7 +34,7 @@ class LintService:
         self._spectral_client = spectral_client
         self._ruleset_repo = LintRulesetRepository(db)
 
-    def _resolve_ruleset(self, user_id: int, spec_id: Optional[str]) -> LintRuleset | None:
+    def _resolve_ruleset(self, user_id: int, spec_id: str | None) -> LintRuleset | None:
         if spec_id is not None:
             spec = (
                 self._db.query(OpenAPISpec)
@@ -49,7 +48,7 @@ class LintService:
         return self._ruleset_repo.get_default(user_id)
 
     def lint(
-        self, spec_json: dict, user_id: int, spec_id: Optional[str] = None
+        self, spec_json: dict, user_id: int, spec_id: str | None = None
     ) -> LintResponse:
         """
         Lint *spec_json* for *user_id*, optionally scoped to *spec_id*.

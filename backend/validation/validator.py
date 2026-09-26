@@ -1,7 +1,8 @@
+import logging
+from typing import Any, NamedTuple
+
 from openapi_spec_validator import validate
 from openapi_spec_validator.validation.exceptions import OpenAPIValidationError
-from typing import Dict, Any, List, Tuple, NamedTuple
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +15,8 @@ class ValidationError(NamedTuple):
 
 
 def validate_openapi_spec(
-    spec_json: Dict[str, Any],
-) -> Tuple[bool, List[ValidationError], List[str]]:
+    spec_json: dict[str, Any],
+) -> tuple[bool, list[ValidationError], list[str]]:
     """
     Validate an OpenAPI specification.
 

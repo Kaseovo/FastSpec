@@ -11,10 +11,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from main import app
-from database import SessionLocal
-from models import User, OpenAPISpec
 from auth.dependencies import get_current_user
+from database import SessionLocal
+from main import app
+from models import OpenAPISpec, User
 from tests.fakes import FakeSpectralClient
 from validation.spectral_client import spectral_client_dependency
 
@@ -130,7 +130,6 @@ def test_adhoc_lint_unauthenticated():
 
 
 def test_adhoc_lint_spectral_failure(db_session):
-    from validation.spectral_client import SpectralError
 
     user = _make_user(db_session)
     app.dependency_overrides[get_current_user] = lambda: user

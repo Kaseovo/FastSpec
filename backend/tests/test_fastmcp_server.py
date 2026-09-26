@@ -4,8 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import fastmcp_server.server as mcp_server
-from fastmcp_server.authentication import TokenPayload
 from base import Base
+from fastmcp_server.authentication import TokenPayload
 from models import OpenAPISpec, SpecVersion
 
 # In-memory SQLite dedicated to this test module.

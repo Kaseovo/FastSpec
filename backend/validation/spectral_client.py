@@ -19,7 +19,6 @@ import logging
 import os
 import subprocess
 import tempfile
-from typing import Any, Dict, List, Optional
 from typing import Protocol, runtime_checkable
 
 import httpx
@@ -61,8 +60,8 @@ class SubprocessSpectralClient:
         self._timeout = timeout
 
     def lint(self, spec_json: dict, ruleset_yaml: str) -> dict:
-        tmp_spec_path: Optional[str] = None
-        tmp_ruleset_path: Optional[str] = None
+        tmp_spec_path: str | None = None
+        tmp_ruleset_path: str | None = None
         try:
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False, encoding="utf-8"
@@ -89,10 +88,10 @@ class SubprocessSpectralClient:
                     text=True,
                     timeout=self._timeout,
                 )
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as exc:
                 raise SpectralError(
                     f"Spectral CLI timed out after {self._timeout} seconds"
-                )
+                ) from exc
             except FileNotFoundError as exc:
                 raise SpectralError(
                     "Spectral CLI not found. Ensure SPECTRAL_PATH is set."
@@ -140,7 +139,7 @@ class HttpSpectralClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
         timeout: int = 60,
     ) -> None:
         self._base_url = base_url or settings.spectral_sidecar_url
@@ -153,10 +152,10 @@ class HttpSpectralClient:
         try:
             response = httpx.post(url, json=payload, timeout=self._timeout)
             response.raise_for_status()
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise SpectralError(
                 f"Spectral sidecar timed out after {self._timeout} seconds"
-            )
+            ) from exc
         except httpx.HTTPError as exc:
             raise SpectralError(f"Spectral sidecar HTTP error: {exc}") from exc
 
@@ -168,7 +167,7 @@ class HttpSpectralClient:
         return data
 
 
-def get_spectral_client(mode: Optional[str] = None) -> SpectralClient:
+def get_spectral_client(mode: str | None = None) -> SpectralClient:
     """
     Factory — return a SpectralClient for the requested (or configured) mode.
 

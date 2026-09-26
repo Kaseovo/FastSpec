@@ -1,11 +1,12 @@
-from typing import List, Optional
+import uuid
+from datetime import UTC, datetime
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+
 from models import OpenAPISpec, SpecVersion, User
-from schemas import OpenAPISpecCreate, OpenAPISpecUpdate, OpenAPISpecResponse
+from schemas import OpenAPISpecCreate, OpenAPISpecResponse, OpenAPISpecUpdate
 from validation.validator import validate_openapi_spec
-import uuid
-from datetime import datetime, timezone
 
 
 class SpecService:
@@ -15,7 +16,7 @@ class SpecService:
         self.db = db
 
     def _build_response(
-        self, spec: OpenAPISpec, current_version: Optional[SpecVersion] = None
+        self, spec: OpenAPISpec, current_version: SpecVersion | None = None
     ) -> OpenAPISpecResponse:
         """Build an OpenAPISpecResponse from an ORM object, deriving title and spec_json from the current version."""
         if current_version is None:
@@ -39,13 +40,13 @@ class SpecService:
             spec_json=content,
             user_id=spec.user_id,
             active_ruleset_id=spec.active_ruleset_id,
-            created_at=spec.created_at or datetime.now(timezone.utc),
-            updated_at=spec.updated_at or spec.created_at or datetime.now(timezone.utc),
+            created_at=spec.created_at or datetime.now(UTC),
+            updated_at=spec.updated_at or spec.created_at or datetime.now(UTC),
         )
 
     def list_specs(
-        self, user: User, skip: int = 0, limit: Optional[int] = None
-    ) -> List[OpenAPISpecResponse]:
+        self, user: User, skip: int = 0, limit: int | None = None
+    ) -> list[OpenAPISpecResponse]:
         # Single join instead of one SpecVersion query per spec (was N+1).
         query = (
             self.db.query(OpenAPISpec, SpecVersion)
@@ -77,7 +78,7 @@ class SpecService:
         return self._build_response(spec)
 
     def create_spec(
-        self, user: User, data: OpenAPISpecCreate, version: Optional[str] = None
+        self, user: User, data: OpenAPISpecCreate, version: str | None = None
     ) -> OpenAPISpecResponse:
         # Prefer the version carried in the create payload; the `version`
         # query param is accepted for backward compatibility only.

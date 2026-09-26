@@ -15,9 +15,8 @@ API keys (long-lived, for MCP clients) work the same in both modes.
 
 import logging
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache
-from typing import List, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -50,6 +49,7 @@ from schemas import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+_bearer = HTTPBearer()
 
 # Each of these endpoints triggers a real outbound call (token exchange with
 # the provider, or a pbkdf2 hash check) — see docs/CODE_REVIEW.md §6.
@@ -100,8 +100,8 @@ def _spa_error(message: str) -> RedirectResponse:
 
 
 class TokenCreateRequest(BaseModel):
-    actions: List[str]
-    name: Optional[str] = None
+    actions: list[str]
+    name: str | None = None
 
 
 class ApiKeyExchangeRequest(BaseModel):
@@ -172,9 +172,9 @@ def oidc_login():
 @router.get("/oidc/callback", dependencies=[Depends(_oidc_callback_rate_limit)])
 def oidc_callback(
     request: Request,
-    code: Optional[str] = None,
-    state: Optional[str] = None,
-    error: Optional[str] = None,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
     db: Session = Depends(get_db),
 ):
     """Provider redirect target: validate state, exchange the code, verify
@@ -255,14 +255,14 @@ def list_api_keys(
         .all()
     )
     result = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for t in tokens:
         exp = t.expires_at
         if not exp:
             continue
         # normalize naive datetimes returned by some DB drivers to UTC-aware
         if exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
+            exp = exp.replace(tzinfo=UTC)
         if exp < now:
             continue
         result.append(
@@ -359,7 +359,7 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 @router.post("/logout")
 def logout(
-    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

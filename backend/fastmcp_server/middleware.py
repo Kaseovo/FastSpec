@@ -1,7 +1,8 @@
 import logging
 
-from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.exceptions import ToolError
+from fastmcp.server.middleware import Middleware, MiddlewareContext
+
 from fastmcp_server.authentication import (
     check_tool,
     get_short_jwt_from_request,
@@ -21,7 +22,7 @@ class LoggingMiddleware(Middleware):
 
     async def on_message(self, context: MiddlewareContext, call_next):
         name = (
-            getattr(context.message, "name") if hasattr(context.message, "name") else ""
+            context.message.name if hasattr(context.message, "name") else ""
         )
 
         logger.info("-> %s %s", context.method, name)

@@ -5,7 +5,6 @@ The ACTION_ALL value grants access to all actions, including any added in the fu
 """
 
 from enum import StrEnum
-from typing import List
 
 
 class Action(StrEnum):
@@ -27,14 +26,14 @@ CONCRETE_ACTIONS: set[str] = {a.value for a in Action if a != Action.ALL}
 ALLOWED_ACTIONS: set[str] = {a.value for a in Action}
 
 
-def expand_actions(actions: List[str]) -> set[str]:
+def expand_actions(actions: list[str]) -> set[str]:
     """Expand an action list: if 'All' is present, return all concrete actions."""
     if Action.ALL in actions:
         return CONCRETE_ACTIONS
     return set(actions)
 
 
-def user_has_action(user_actions: List[str], required_actions: List[str]) -> bool:
+def user_has_action(user_actions: list[str], required_actions: list[str]) -> bool:
     """
     Check if user_actions satisfy the required_actions.
     If user has 'All', they have access to everything.
@@ -45,7 +44,7 @@ def user_has_action(user_actions: List[str], required_actions: List[str]) -> boo
     return any(action in user_actions for action in required_actions)
 
 
-def get_actions_metadata() -> List[dict]:
+def get_actions_metadata() -> list[dict]:
     """Return metadata about all available actions for the frontend."""
     descriptions = {
         Action.ALL: "Grants access to all actions, including any added in the future",

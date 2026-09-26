@@ -19,7 +19,7 @@ Usage::
     assert client.calls == [(spec_json, "extends: spectral:oas\\n")]
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from validation.spectral_client import SpectralError
 
@@ -35,15 +35,15 @@ class FakeSpectralClient:
     def __init__(
         self,
         score: int = 100,
-        summary: Optional[Dict[str, int]] = None,
-        results: Optional[List[Dict[str, Any]]] = None,
-        raise_error: Optional[str] = None,
+        summary: dict[str, int] | None = None,
+        results: list[dict[str, Any]] | None = None,
+        raise_error: str | None = None,
     ) -> None:
         self._score = score
         self._summary = summary or {"error": 0, "warn": 0, "info": 0, "hint": 0}
         self._results = results or []
         self._raise_error = raise_error
-        self.calls: List[tuple] = []
+        self.calls: list[tuple] = []
 
     def lint(self, spec_json: dict, ruleset_yaml: str) -> dict:
         self.calls.append((spec_json, ruleset_yaml))

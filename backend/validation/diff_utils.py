@@ -2,12 +2,12 @@
 Utility functions for comparing OpenAPI specifications
 """
 
-from typing import Dict, Any
+from typing import Any
 
 
 def compare_specs(
-    current_spec: Dict[str, Any], previous_spec: Dict[str, Any]
-) -> Dict[str, Any]:
+    current_spec: dict[str, Any], previous_spec: dict[str, Any]
+) -> dict[str, Any]:
     """
     Compare two OpenAPI specifications and generate a diff report.
 
@@ -170,8 +170,8 @@ def compare_specs(
 
 
 def compare_endpoint(
-    current: Dict[str, Any], previous: Dict[str, Any], path: str, method: str
-) -> Dict[str, Any]:
+    current: dict[str, Any], previous: dict[str, Any], path: str, method: str
+) -> dict[str, Any]:
     """
     Compare two endpoint definitions and return the differences.
     """
@@ -225,21 +225,21 @@ def compare_endpoint(
     return changes
 
 
-def get_request_schema(request_body: Dict[str, Any]) -> Dict[str, Any]:
+def get_request_schema(request_body: dict[str, Any]) -> dict[str, Any]:
     """Extract schema from request body"""
     content = request_body.get("content", {})
     json_content = content.get("application/json", {})
     return json_content.get("schema", {})
 
 
-def get_response_schema(response: Dict[str, Any]) -> Dict[str, Any]:
+def get_response_schema(response: dict[str, Any]) -> dict[str, Any]:
     """Extract schema from response"""
     content = response.get("content", {})
     json_content = content.get("application/json", {})
     return json_content.get("schema", {})
 
 
-def compare_schema(current: Dict[str, Any], previous: Dict[str, Any]) -> Dict[str, Any]:
+def compare_schema(current: dict[str, Any], previous: dict[str, Any]) -> dict[str, Any]:
     """
     Compare two schemas and return the differences.
     """
@@ -324,7 +324,7 @@ def compare_schema(current: Dict[str, Any], previous: Dict[str, Any]) -> Dict[st
     return changes
 
 
-def generate_markdown_report(diff: Dict[str, Any]) -> str:
+def generate_markdown_report(diff: dict[str, Any]) -> str:
     """
     Generate a markdown report from the diff.
 
@@ -404,7 +404,7 @@ def generate_markdown_report(diff: Dict[str, Any]) -> str:
     return report
 
 
-def format_schema_changes(changes: Dict[str, Any]) -> str:
+def format_schema_changes(changes: dict[str, Any]) -> str:
     """Format schema changes for markdown report"""
     output = ""
 

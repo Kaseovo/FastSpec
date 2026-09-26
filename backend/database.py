@@ -2,17 +2,17 @@
 Database configuration for FastSpec
 """
 
+import os
 import sys
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
-import os
 
-from base import Base
 from config import settings
 
 # Ensure models are imported so tables are created via Base.metadata.create_all
 # Importing here avoids circular imports elsewhere when creating tables on startup
-from models import User, OpenAPISpec, SpecVersion, AuthToken, APIKey
+from models import APIKey, AuthToken, OpenAPISpec, SpecVersion, User
 
 DATABASE_URL = settings.database_url
 DATA_DIR = settings.data_dir

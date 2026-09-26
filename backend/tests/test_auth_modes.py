@@ -17,8 +17,9 @@ from auth.users import (
     get_or_create_local_user,
     transfer_local_data,
 )
+from base import Base
 from config import JWT_SECRET_FILENAME, ConfigError, load_settings, settings
-from database import Base, get_db
+from database import get_db
 from main import app
 from models import APIKey, LintRuleset, OpenAPISpec, SpecVersion, User
 

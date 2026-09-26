@@ -2,29 +2,29 @@
 API routes for OpenAPI specifications
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
-
-from sqlalchemy.orm import Session
-from typing import List, Dict, Any, Optional
 import logging
+from typing import Any
 
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from auth.dependencies import get_current_user
 from database import get_db
 from models import User
 from schemas import (
     OpenAPISpecCreate,
-    OpenAPISpecUpdate,
     OpenAPISpecResponse,
-    ValidationResponse,
+    OpenAPISpecUpdate,
+    SpecCompareResponse,
+    SpecDiffResponse,
     SpecVersionCreate,
     SpecVersionResponse,
-    SpecDiffResponse,
-    SpecCompareResponse,
+    ValidationResponse,
 )
-from auth.dependencies import get_current_user
-from validation.validator import validate_openapi_spec
-from validation.diff_utils import compare_specs, generate_markdown_report
 from services.spec_service import SpecService
 from services.spec_version_service import SpecVersionService
+from validation.diff_utils import compare_specs, generate_markdown_report
+from validation.validator import validate_openapi_spec
 
 
 def get_version_service(db: Session = Depends(get_db)) -> SpecVersionService:
@@ -36,10 +36,10 @@ logger = logging.getLogger(__name__)
 
 
 # --- existing endpoints (unchanged) ---
-@router.get("/", response_model=List[OpenAPISpecResponse])
+@router.get("/", response_model=list[OpenAPISpecResponse])
 def list_specs(
     skip: int = Query(0, ge=0, description="Number of specs to skip"),
-    limit: Optional[int] = Query(
+    limit: int | None = Query(
         None, ge=1, le=200, description="Max number of specs to return"
     ),
     current_user: User = Depends(get_current_user),
@@ -66,7 +66,7 @@ def get_spec(
 )
 def create_spec(
     spec_data: OpenAPISpecCreate,
-    version: Optional[str] = Query(
+    version: str | None = Query(
         None,
         description="Deprecated: pass `version` in the request body instead.",
     ),
@@ -160,7 +160,7 @@ def get_spec_diff(
 
 
 # --- Versioning endpoints ---
-@router.get("/{spec_id}/versions", response_model=List[SpecVersionResponse])
+@router.get("/{spec_id}/versions", response_model=list[SpecVersionResponse])
 def list_versions(
     spec_id: str,
     current_user: User = Depends(get_current_user),
@@ -215,7 +215,7 @@ def delete_version(
 @router.post("/{spec_id}/compare", response_model=SpecCompareResponse)
 def compare_versions(
     spec_id: str,
-    body: Dict[str, Any],
+    body: dict[str, Any],
     current_user: User = Depends(get_current_user),
     svc: SpecVersionService = Depends(get_version_service),
 ):

@@ -17,7 +17,6 @@ from services.lint_service import LintService
 from tests.fakes import FakeSpectralClient
 from validation.spectral_client import SpectralError
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -153,7 +152,7 @@ def test_lint_uses_spec_pinned_ruleset_over_default(db_session):
 
 
 def test_preview_rule_runs_single_rule_without_oas_extends(db_session):
-    user = _make_user(db_session)
+    _make_user(db_session)
     rule = StructuredRule(
         name="preview-rule",
         severity="error",
