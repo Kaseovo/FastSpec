@@ -61,7 +61,7 @@ The hosted stacks were shut down on 2026-09-23 to save costs until this work is 
 - [x] Docs refreshed: `ARCHITECTURE.md` (now also covers backend/frontend), `API.md`, `CONTEXT.md`; stale `BACKEND.md`, `FRONTEND.md`, `PROJECT_OVERVIEW.md` and `copilot-instructions.md` removed; the July code review kept as `docs/history/`
 - [x] Code of Conduct (Contributor Covenant 2.1), reports to `conduct@kaseovo.com` (decision 8)
 - [ ] Create the `conduct@kaseovo.com` alias (Cloudflare Email Routing)
-- [ ] README screenshots (now that Phase 4 is done)
+- [x] README screenshots (form editor, YAML code view, preview — `docs/images/`)
 
 ### Phase 4 — v0.1 features ✅
 - [x] YAML editing (view/edit as YAML, stored as JSON); lint markers positioned by path

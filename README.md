@@ -18,6 +18,12 @@ over MCP.
 - **Runs anywhere**: one Docker image, SQLite or Postgres, no sign-in for
   single-user setups, any OpenID Connect provider for teams.
 
+![The form editor with the example Petstore spec](docs/images/form-editor.png)
+
+| Code editor (YAML or JSON) | Swagger UI preview |
+|---|---|
+| ![YAML code editor](docs/images/code-editor.png) | ![Swagger UI preview](docs/images/preview.png) |
+
 ## Quickstart
 
 ```bash

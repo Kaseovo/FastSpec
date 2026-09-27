@@ -3,7 +3,7 @@ info:
   title: Petstore
   version: 1.0.0
   description: >-
-    An example API to explore FastSpec with: browse it in the form editor,
+    An example API to explore FastSpec with. Browse it in the form editor,
     switch to the code view, preview it, lint it, then save it as your own.
   contact:
     name: Petstore team
