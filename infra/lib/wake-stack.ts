@@ -15,16 +15,16 @@ export interface WakeStackProps extends cdk.StackProps {
 }
 
 /**
- * WakeStack — Lambda Function URL that starts the environment on demand.
+ * WakeStack - Lambda Function URL that starts the environment on demand.
  *
  * Validates a shared secret before touching RDS.
- * The IAM role is scoped to start-only operations — no stop, no other access.
+ * The IAM role is scoped to start-only operations - no stop, no other access.
  *
  * Also provisions an auto-stop Lambda that runs on a 30-minute schedule and
  * stops RDS after 2 hours of inactivity (no wake requests).
  *
  * Both Lambdas get a basic CloudWatch alarm on `Errors` (this is a small
- * cost-optimization side-stack, not the core product — proportional
+ * cost-optimization side-stack, not the core product - proportional
  * observability, not a full dashboard) and the auto-stop Lambda's
  * EventBridge target has a DLQ so a failed invocation isn't silently lost
  * (a silent auto-stop failure means an unbounded RDS bill).
@@ -60,7 +60,7 @@ export class WakeStack extends cdk.Stack {
       ],
     }));
 
-    // Start RDS only — no stop. Scoped to this environment's RDS instance,
+    // Start RDS only - no stop. Scoped to this environment's RDS instance,
     // not '*' (rds:DescribeDBInstances has no resource-level permissions in
     // IAM, so it must stay '*'; StartDBInstance is scoped).
     fn.addToRolePolicy(new iam.PolicyStatement({
@@ -89,7 +89,7 @@ export class WakeStack extends cdk.Stack {
     });
 
     // ── Auto-stop Lambda (scheduled RDS stop after inactivity) ───────────────
-    // Code lives in infra/lambda/auto-stop/index.py — matches how the wake
+    // Code lives in infra/lambda/auto-stop/index.py - matches how the wake
     // Lambda is organized (a real, lintable, unit-testable file rather than
     // an inline JS string array of Python).
     const autoStopFn = new lambda.Function(this, 'AutoStopFn', {
@@ -124,7 +124,7 @@ export class WakeStack extends cdk.Stack {
 
     // Dead-letter queue for the EventBridge target: if the auto-stop Lambda
     // fails all its retries, the failed event lands here instead of
-    // vanishing silently — a failed auto-stop is otherwise an invisible
+    // vanishing silently - a failed auto-stop is otherwise an invisible
     // ongoing RDS bill.
     const autoStopDlq = new sqs.Queue(this, 'AutoStopDlq', {
       retentionPeriod: cdk.Duration.days(14),
@@ -139,7 +139,7 @@ export class WakeStack extends cdk.Stack {
       retryAttempts: 2,
     }));
 
-    // ── Alarms (proportional — errors only, no dashboards/tracing) ───────────
+    // ── Alarms (proportional - errors only, no dashboards/tracing) ───────────
     new cloudwatch.Alarm(this, 'WakeFnErrorsAlarm', {
       alarmDescription: 'Wake Lambda returned one or more errors in a 5-minute window.',
       metric: fn.metricErrors({ period: cdk.Duration.minutes(5) }),
@@ -151,7 +151,7 @@ export class WakeStack extends cdk.Stack {
 
     new cloudwatch.Alarm(this, 'AutoStopFnErrorsAlarm', {
       alarmDescription: 'Auto-stop Lambda returned one or more errors in a 30-minute window ' +
-        '(one scheduled run) — a failed auto-stop silently keeps RDS billing.',
+        '(one scheduled run) - a failed auto-stop silently keeps RDS billing.',
       metric: autoStopFn.metricErrors({ period: cdk.Duration.minutes(30) }),
       threshold: 1,
       evaluationPeriods: 1,

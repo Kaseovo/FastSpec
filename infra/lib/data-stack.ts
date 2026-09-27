@@ -24,16 +24,16 @@ function sizingFor(_config: EnvConfig): DataSizing {
 }
 
 /**
- * DataStack — stateful infrastructure: RDS (PostgreSQL).
+ * DataStack - stateful infrastructure: RDS (PostgreSQL).
  * Exports connection endpoints consumed by LambdaStack and WakeStack.
  *
  * RDS is publicly accessible (the Lambda runs outside a VPC, with
- * `natGateways: 0` to keep the VPC free — see ADR-0001). Lambda's outbound
+ * `natGateways: 0` to keep the VPC free - see ADR-0001). Lambda's outbound
  * traffic uses AWS's shared, non-allowlistable IP ranges, so restricting the
  * security group to specific CIDRs is not possible without moving the
  * Lambda into the VPC behind a NAT Gateway (a paid resource this
  * cost-optimized architecture deliberately avoids). This is a known,
- * documented tradeoff — see docs/adr/0002-rds-public-access-tradeoff.md for
+ * documented tradeoff - see docs/adr/0002-rds-public-access-tradeoff.md for
  * the full rationale and the mitigations applied here:
  *   - `rds.force_ssl=1` enforced via the parameter group below, so traffic
  *     is encrypted in transit even though the network path is public.
@@ -44,15 +44,15 @@ function sizingFor(_config: EnvConfig): DataSizing {
  *
  * `backend/database.py` now fails fast (mirroring the `JWT_SECRET_KEY`
  * pattern in backend/config.py) rather than falling back to a hardcoded
- * password — see docs/adr/0002-rds-public-access-tradeoff.md.
+ * password - see docs/adr/0002-rds-public-access-tradeoff.md.
  *
  * Non-superuser application DB role: `backend/database.py` now connects at
  * runtime as `fastspec_app`, a least-privilege role created/granted by
  * `backend/alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py` (CONNECT
- * + schema USAGE + CRUD only — no CREATEDB/CREATEROLE/superuser). Its
+ * + schema USAGE + CRUD only - no CREATEDB/CREATEROLE/superuser). Its
  * password lives in the `FastspecAppDbSecret` Secrets Manager secret below
  * (`AppDbSecretArn` output), generated the same way as the master password.
- * This has **not** been applied to the live RDS instance yet — a human must
+ * This has **not** been applied to the live RDS instance yet - a human must
  * run the migration and redeploy; see the ADR for the required order.
  */
 export class DataStack extends cdk.Stack {
@@ -71,7 +71,7 @@ export class DataStack extends cdk.Stack {
     const { config } = props;
     const sizing = sizingFor(config);
 
-    // Keep the original VPC definition unchanged — CDK cannot safely modify
+    // Keep the original VPC definition unchanged - CDK cannot safely modify
     // existing subnets in-place (CIDR conflicts). The VPC costs nothing
     // (natGateways: 0). RDS is moved to the PUBLIC subnets so Lambda (which
     // runs outside any VPC) can reach it over the internet.
@@ -99,7 +99,7 @@ export class DataStack extends cdk.Stack {
       }),
       // Explicit (rather than relying on the implicit CDK default) so the
       // intent is unambiguous: CloudFormation generates a random password
-      // into Secrets Manager at deploy time — there is no hardcoded
+      // into Secrets Manager at deploy time - there is no hardcoded
       // password anywhere in this stack.
       credentials: rds.Credentials.fromGeneratedSecret('postgres'),
       parameterGroup,
@@ -117,7 +117,7 @@ export class DataStack extends cdk.Stack {
         config.env === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.SNAPSHOT,
     });
 
-    // Lambda runs outside the VPC — allow inbound PostgreSQL from anywhere.
+    // Lambda runs outside the VPC - allow inbound PostgreSQL from anywhere.
     // See the class-level doc comment / ADR-0002 for why this can't be
     // scoped tighter without a bigger architectural change (Lambda-in-VPC +
     // NAT Gateway, or RDS Proxy + IAM DB auth). `rds.force_ssl=1` above
@@ -125,11 +125,11 @@ export class DataStack extends cdk.Stack {
     dbInstance.connections.allowFrom(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(5432),
-      'Allow PostgreSQL from public internet (Lambda is VPC-less) — see ADR-0002',
+      'Allow PostgreSQL from public internet (Lambda is VPC-less) - see ADR-0002',
     );
 
     // ── fastspec_app least-privilege role password ─────────────────────────────
-    // Not `rds.Credentials.fromGeneratedSecret` — that helper only applies to
+    // Not `rds.Credentials.fromGeneratedSecret` - that helper only applies to
     // master-user credentials created alongside the DB instance itself. The
     // `fastspec_app` role is created later by an Alembic migration
     // (backend/alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py), so a

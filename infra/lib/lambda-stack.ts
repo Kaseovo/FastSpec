@@ -15,7 +15,7 @@ export interface LambdaStackProps extends cdk.StackProps {
 }
 
 /**
- * LambdaStack — FastAPI backend as a Docker-image Lambda with a public Function URL.
+ * LambdaStack - FastAPI backend as a Docker-image Lambda with a public Function URL.
  *
  * Replaces the Fargate-based ComputeStack. The function runs outside a VPC and
  * reaches the now-publicly-accessible RDS instance over the internet.
@@ -25,7 +25,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  * signing key, OIDC client ID/secret) are SecureString parameters in SSM
  * Parameter Store under /{env}/fastspec/*.
  * Their *names* are passed as env vars; the Lambda fetches the values via
- * boto3 at cold start — no plaintext in CloudFormation or the Lambda console.
+ * boto3 at cold start - no plaintext in CloudFormation or the Lambda console.
  */
 export class LambdaStack extends cdk.Stack {
   /** Full Lambda Function URL (https://…). Consumed by FrontendStack. */
@@ -62,7 +62,7 @@ export class LambdaStack extends cdk.Stack {
         AUTH_MODE: 'oidc',
         OIDC_ISSUER: 'https://accounts.google.com',
         SSM_WAKE_PARAM: `${ssmPrefix}/wake-last-triggered`,
-        // Secret *names* only — values are fetched via boto3 at cold start.
+        // Secret *names* only - values are fetched via boto3 at cold start.
         SSM_JWT_SECRET_KEY:  `${ssmPrefix}/secret-key`,
         // Database passwords, read from Secrets Manager at cold start: the
         // master credentials for migrations only, the least-privilege
@@ -130,7 +130,7 @@ export class LambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'LambdaFunctionName', {
       value: fn.functionName,
       exportName: `${this.stackName}-LambdaFunctionName`,
-      description: 'Lambda function name — consumed by WakeStack',
+      description: 'Lambda function name - consumed by WakeStack',
     });
   }
 }

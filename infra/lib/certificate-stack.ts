@@ -8,7 +8,7 @@ export interface CertificateStackProps extends cdk.StackProps {
 }
 
 /**
- * CertificateStack — provisions ACM certificates in us-east-1 for CloudFront.
+ * CertificateStack - provisions ACM certificates in us-east-1 for CloudFront.
  *
  * CloudFront requires certificates to be in us-east-1 regardless of where the
  * distribution is deployed.  This stack is always deployed with
@@ -16,14 +16,14 @@ export interface CertificateStackProps extends cdk.StackProps {
  *
  * ## Two-certificate strategy (transitional)
  *
- * `ViewerCert` — original single-domain cert for `config.domain`.
- * `ViewerCertV2` — multi-domain cert (covers domain + app.domain SAN).
+ * `ViewerCert` - original single-domain cert for `config.domain`.
+ * `ViewerCertV2` - multi-domain cert (covers domain + app.domain SAN).
  *   Kept with RETAIN deletion policy so CloudFormation does not attempt to
  *   delete it while any CloudFront distribution may still reference it.
  *   Can be removed in a follow-up once confirmed no distribution uses it.
  */
 export class CertificateStack extends cdk.Stack {
-  /** ACM certificate — pass to FrontendStack via --context certificateArn=<value>. */
+  /** ACM certificate - pass to FrontendStack via --context certificateArn=<value>. */
   readonly certificate: acm.Certificate;
 
   constructor(scope: Construct, id: string, props: CertificateStackProps) {
@@ -41,7 +41,7 @@ export class CertificateStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'CertificateArn', {
       value: this.certificate.certificateArn,
       exportName: `${this.stackName}-CertificateArn`,
-      description: 'ACM certificate ARN — pass to FrontendStack via --context certificateArn=<value>',
+      description: 'ACM certificate ARN - pass to FrontendStack via --context certificateArn=<value>',
     });
 
     // ── V2 certificate (legacy multi-domain, kept with RETAIN) ────────────────
@@ -59,7 +59,7 @@ export class CertificateStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'CertificateArnV2', {
       value: certV2.certificateArn,
       exportName: `${this.stackName}-CertificateArnV2`,
-      description: 'Legacy multi-domain cert (RETAIN) — will be removed in a follow-up.',
+      description: 'Legacy multi-domain cert (RETAIN) - will be removed in a follow-up.',
     });
   }
 }
