@@ -111,7 +111,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.ref.outputs.tag }}
           name: FastSpec ${{ steps.ref.outputs.tag }}
