@@ -96,8 +96,10 @@ YAML is checked against an allowlist before it reaches Spectral. See
 
 ### MCP server
 
-`fastmcp_server/server.py` defines the tools; they reuse the same services
-as the HTTP API. Requests authenticate with an API key (or the short JWT it
+`fastmcp_server/server.py` defines the tools (read, create, delete, version,
+compare, validate, lint — listed in
+[SELF_HOSTING.md](SELF_HOSTING.md#connecting-ai-agents-mcp)); they reuse the
+same services as the HTTP API. Requests authenticate with an API key (or the short JWT it
 exchanges for), and each tool declares the actions it needs. The endpoint
 is stateless: every request gets its own short-lived handler, which works
 identically on uvicorn and Lambda.

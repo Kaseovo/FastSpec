@@ -124,7 +124,7 @@ fastspec.example.com {
 ## Connecting AI agents (MCP)
 
 FastSpec includes an [MCP](https://modelcontextprotocol.io) server so AI
-agents can read your specs. In the app, click the key icon (**API keys**),
+agents can read, write, version, lint and compare your specs. In the app, click the key icon (**API keys**),
 create a key, and copy the MCP URL shown there — `{PUBLIC_URL}/mcp`.
 
 Claude Code:
@@ -137,6 +137,22 @@ claude mcp add --transport http fastspec http://localhost:8080/mcp \
 Other clients: configure a *streamable HTTP* MCP server with that URL and an
 `Authorization: Bearer <API key>` header. API keys are needed in every
 mode, including single-user.
+
+The tools an agent sees depend on the actions granted to its API key:
+
+| Tool | What it does | Action |
+|---|---|---|
+| `get_saved_specs_for_user`, `get_spec_details` | List specs; read a spec's current document | `read:specs` |
+| `validate_spec` | Check that a document is valid OpenAPI 3 | `read:specs` |
+| `create_spec` | Create a spec from a document (object or YAML/JSON text) | `write:specs` |
+| `delete_spec` | Delete a spec and its versions | `delete:specs` |
+| `list_spec_versions`, `get_spec_version` | Browse versions | `read:versions` |
+| `compare_spec_versions` | Markdown diff between versions, or against an unsaved document | `read:versions` |
+| `save_spec_version` | Save a document as a new version (replacing one only with `overwrite: true`) | `write:versions` |
+| `lint_spec` | Lint a stored version or an unsaved document with the user's rulesets | `lint:specs` |
+
+Give an agent only what it needs — for example, `read:specs` and
+`lint:specs` for a reviewer.
 
 ## Backups and upgrades
 

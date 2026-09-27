@@ -1,17 +1,20 @@
 # FastSpec
 
 A self-hostable editor for OpenAPI specifications: write specs in a form
-editor or as code, preview them with Swagger UI, lint them with Spectral,
-keep versions and diff them — and let AI agents read them over MCP.
+editor or as YAML/JSON, preview them with Swagger UI, lint them with
+Spectral, keep versions and diff them — and let AI agents work with them
+over MCP.
 
-- **Form editor and code editor** (Monaco) for OpenAPI 3.0 and 3.1.
+- **Form editor and code editor** (Monaco, YAML or JSON) for OpenAPI 3.0
+  and 3.1. Import existing files, download as YAML or JSON, or start from
+  an example.
 - **Live preview** with Swagger UI.
 - **Linting** with [Spectral](https://github.com/stoplightio/spectral):
   the standard `spectral:oas` rules plus your own rulesets, per spec.
 - **Versions and diffs**: save versions, compare any two, copy the diff as
   Markdown.
-- **MCP server** so AI agents (Claude Code and other MCP clients) can read
-  your specs, authenticated by scoped API keys.
+- **MCP server** so AI agents (Claude Code and other MCP clients) can read,
+  write, version, lint and compare your specs, with scoped API keys.
 - **Runs anywhere**: one Docker image, SQLite or Postgres, no sign-in for
   single-user setups, any OpenID Connect provider for teams.
 

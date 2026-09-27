@@ -61,15 +61,19 @@ The hosted stacks were shut down on 2026-09-23 to save costs until this work is 
 - [x] Docs refreshed: `ARCHITECTURE.md` (now also covers backend/frontend), `API.md`, `CONTEXT.md`; stale `BACKEND.md`, `FRONTEND.md`, `PROJECT_OVERVIEW.md` and `copilot-instructions.md` removed; the July code review kept as `docs/history/`
 - [x] Code of Conduct (Contributor Covenant 2.1), reports to `conduct@kaseovo.com` (decision 8)
 - [ ] Create the `conduct@kaseovo.com` alias (Cloudflare Email Routing)
-- [ ] README screenshots — after Phase 4, so they show YAML editing and the example spec
+- [ ] README screenshots (now that Phase 4 is done)
 
-### Phase 4 — v0.1 features
-- [ ] YAML editing (view/edit as YAML, stored as JSON)
-- [ ] Import from file upload / paste (JSON or YAML)
-- [ ] Export / download as JSON or YAML
-- [ ] Bundle Swagger UI instead of loading it from jsDelivr
-- [ ] "Start from an example" spec
-- [ ] MCP write tools: create / update spec, lint, versions, diff
+### Phase 4 — v0.1 features ✅
+- [x] YAML editing (view/edit as YAML, stored as JSON); lint markers positioned by path
+- [x] Import from file upload / drag-and-drop / paste (JSON or YAML, OpenAPI 3.0/3.1)
+- [x] Download as JSON or YAML
+- [x] Swagger UI bundled instead of loaded from jsDelivr
+- [x] "Start from an example" Petstore spec (lints clean), offered on the first visit
+- [x] MCP tools: create / delete spec, list / get / save versions, compare, validate, lint
+
+Found and fixed along the way: version comparisons were inverted; jumping to
+a lint finding dropped the spec from the URL; switching specs kept the old
+lint score; a missing Spectral CLI caused a 500.
 
 ### Phase 5 — Go public
 - [ ] History scrub (decision 5) on a fresh clone; push as the public repo
