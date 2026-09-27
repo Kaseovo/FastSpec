@@ -29,6 +29,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
 
       # ── RDS ───────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,8 @@ jobs:
             --output text)
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
+      # start/stop-db-instance print the whole instance description
+      # (endpoint, ARNs, network IDs); the logs of a public repo are public.
       - name: Start RDS
         if: steps.resolve.outputs.action == 'start'
         run: |
@@ -49,7 +52,7 @@ jobs:
             --db-instance-identifier ${{ steps.rds.outputs.instance_id }} \
             --query "DBInstances[0].DBInstanceStatus" --output text)
           if [ "$STATUS" = "stopped" ]; then
-            aws rds start-db-instance --db-instance-identifier ${{ steps.rds.outputs.instance_id }}
+            aws rds start-db-instance --db-instance-identifier ${{ steps.rds.outputs.instance_id }} >/dev/null
             aws rds wait db-instance-available --db-instance-identifier ${{ steps.rds.outputs.instance_id }}
             echo "RDS started"
           else
@@ -63,7 +66,7 @@ jobs:
             --db-instance-identifier ${{ steps.rds.outputs.instance_id }} \
             --query "DBInstances[0].DBInstanceStatus" --output text)
           if [ "$STATUS" = "available" ]; then
-            aws rds stop-db-instance --db-instance-identifier ${{ steps.rds.outputs.instance_id }}
+            aws rds stop-db-instance --db-instance-identifier ${{ steps.rds.outputs.instance_id }} >/dev/null
             echo "RDS stopped"
           else
             echo "RDS already stopped (status: $STATUS)"
