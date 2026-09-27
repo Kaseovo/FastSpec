@@ -7,6 +7,8 @@ Notable changes to FastSpec. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-27
+
 The first open-source release.
 
 ### Added
@@ -64,6 +66,8 @@ The first open-source release.
 - Postgres connections would have broken on a fresh install (SQLAlchemy 2.1
   expects psycopg 3).
 - Migrations failed on SQLite, and some server defaults were invalid there.
+- Deploying the AWS setup from scratch needed generated database passwords
+  copied into SSM by hand; the Lambda now reads them from Secrets Manager.
 
 ### Removed
 
