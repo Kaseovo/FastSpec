@@ -14,6 +14,7 @@ as they land; move anything that slips into the backlog at the bottom.
 | 5 | Git history | Keep history; scrub AWS account ID, hosted-zone ID, certificate ARN and rewrite author email to the GitHub no-reply address with `git filter-repo` on a fresh clone, right before publishing. | Keeps the project's history and blame; removes the few identifying details while it's still cheap. |
 | 6 | v0.1 feature scope | YAML editing, import (file/paste), export (JSON/YAML), bundled Swagger UI, "start from example" spec, MCP write tools. | Passes the "I pasted my real spec and it worked" test and shows off the MCP angle. |
 | 7 | Hosting-specific pieces | The app, CDK infra and deploy workflow stay public, driven by GitHub repository variables (domain, hosted zone, region). The landing page (Webstudio export + Kaseovo legal pages) moves, with its history, to a private `fastspec-website` repo with its own deploy workflow. | Keeps the serverless setup as a working reference and app + infra changes in one PR; the only generated, Kaseovo-specific part leaves. |
+| 8 | Code of Conduct contact | Contributor Covenant 2.1, reports to a dedicated `conduct@kaseovo.com` alias. Security reports go through GitHub's private vulnerability reporting. | Keeps personal email private and can be handed to someone else later; GitHub has no private channel for conduct reports. |
 
 ## Phases
 
@@ -58,7 +59,8 @@ The hosted stacks were shut down on 2026-09-23 to save costs until this work is 
 - [x] Dependabot; backend dependencies pinned (`requirements*.in` → `make deps`); FastMCP beta → 3.4.7, FastAPI 0.141, Starlette 1.7
 - [x] ruff and ESLint clean (from ≈300 / ≈1,500 findings) and enforced in CI
 - [x] Docs refreshed: `ARCHITECTURE.md` (now also covers backend/frontend), `API.md`, `CONTEXT.md`; stale `BACKEND.md`, `FRONTEND.md`, `PROJECT_OVERVIEW.md` and `copilot-instructions.md` removed; the July code review kept as `docs/history/`
-- [ ] Code of Conduct — waiting on the contact decision
+- [x] Code of Conduct (Contributor Covenant 2.1), reports to `conduct@kaseovo.com` (decision 8)
+- [ ] Create the `conduct@kaseovo.com` alias (Cloudflare Email Routing)
 - [ ] README screenshots — after Phase 4, so they show YAML editing and the example spec
 
 ### Phase 4 — v0.1 features

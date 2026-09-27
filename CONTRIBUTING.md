@@ -8,6 +8,10 @@ Thanks for helping! Bug reports, fixes, docs and features are all welcome.
 - **Security problems**: don't open a public issue — see
   [SECURITY.md](SECURITY.md).
 
+Everyone taking part is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md). Report problems privately to
+[conduct@kaseovo.com](mailto:conduct@kaseovo.com).
+
 ## Development setup
 
 You need Python 3.12 and Node.js 22. Docker is only needed to build the
