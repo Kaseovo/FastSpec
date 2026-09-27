@@ -23,6 +23,7 @@ export function useApp() {
     specContentRef: editor.specContent,
     currentSpecRef: editor.currentSpec,
     initialSpecRef: editor.initialSpec,
+    syntaxErrorRef: editor.syntaxError,
     showAlert: alerts.showAlert,
   });
 

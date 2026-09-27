@@ -6,16 +6,30 @@ export function useSpecSave({
   specContentRef,
   currentSpecRef,
   initialSpecRef,
+  syntaxErrorRef,
   showAlert,
 } = {}) {
   const showSaveDialog = ref(false);
   const saving = ref(false);
+
+  // The code editor keeps the last valid content while its text has a syntax
+  // error; saving then would quietly drop the latest edits.
+  const blockedBySyntaxError = () => {
+    const error = syntaxErrorRef?.value;
+    if (!error) return false;
+    showAlert?.(
+      `Fix the ${error.format.toUpperCase()} syntax error on line ${error.line} before saving: ${error.message}`,
+      "error",
+    );
+    return true;
+  };
 
   const openSaveDialog = () => {
     if (!isAuthenticatedRef?.value) {
       showAlert?.("Please sign in to save your specifications", "warn");
       return false;
     }
+    if (blockedBySyntaxError()) return false;
     showSaveDialog.value = true;
     return true;
   };
@@ -25,6 +39,7 @@ export function useSpecSave({
       showAlert?.("Authentication required to save specifications", "error");
       return;
     }
+    if (blockedBySyntaxError()) return;
     saving.value = true;
     try {
       const spec_json = JSON.parse(specContentRef.value);

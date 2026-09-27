@@ -24,7 +24,7 @@ from typing import Protocol, runtime_checkable
 import httpx
 
 from config import settings
-from validation.spectral_linter import _build_command, _parse_result
+from validation.spectral_linter import SPECTRAL_NOT_FOUND, _build_command, _parse_result
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +78,9 @@ class SubprocessSpectralClient:
                 tmp_ruleset.write(ruleset_yaml)
                 tmp_ruleset_path = tmp_ruleset.name
 
-            cmd = _build_command(tmp_spec_path, tmp_ruleset_path)
-            logger.debug("Running Spectral subprocess: %s", " ".join(cmd))
-
             try:
+                cmd = _build_command(tmp_spec_path, tmp_ruleset_path)
+                logger.debug("Running Spectral subprocess: %s", " ".join(cmd))
                 proc = subprocess.run(
                     cmd,
                     capture_output=True,
@@ -93,9 +92,7 @@ class SubprocessSpectralClient:
                     f"Spectral CLI timed out after {self._timeout} seconds"
                 ) from exc
             except FileNotFoundError as exc:
-                raise SpectralError(
-                    "Spectral CLI not found. Ensure SPECTRAL_PATH is set."
-                ) from exc
+                raise SpectralError(SPECTRAL_NOT_FOUND) from exc
 
             if proc.returncode >= 2:
                 raise SpectralError(

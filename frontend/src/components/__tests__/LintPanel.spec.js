@@ -215,13 +215,12 @@ describe("LintPanel", () => {
     expect(first.find(".result-path").text()).toBe("paths › /users › get");
   });
 
-  test("shows 1-based line number in result item", () => {
+  test("doesn't show Spectral's line number (it only matches the JSON view)", () => {
     const wrapper = mount(LintPanel, {
       props: { results: LINT_RESULTS_WITH_ISSUES, loading: false, error: null },
       global: { components: stubComponents },
     });
-    // range.start.line = 12 → displayed as line 13
-    expect(wrapper.findAll(".lint-result-item")[0].find(".result-line").text()).toBe("line 13");
+    expect(wrapper.findAll(".lint-result-item")[0].find(".result-line").exists()).toBe(false);
   });
 
   test("emits go-to-line event with result when item is clicked", async () => {

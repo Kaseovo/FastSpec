@@ -194,7 +194,11 @@ export default {
 
     const editorPanelRef = ref(null);
     const handleGoToLine = (result) => {
-      router.push({ name: "editor", query: { view: "code" } }).catch(() => {});
+      // Stay on the current spec (and route); only switch to the code view.
+      const current = router.currentRoute.value;
+      router
+        .push({ name: current.name, params: current.params, query: { ...current.query, view: "code" } })
+        .catch(() => {});
       nextTick(() => {
         editorPanelRef.value?.goToLine(result);
       });

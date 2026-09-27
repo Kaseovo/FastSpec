@@ -134,12 +134,6 @@
               >
                 {{ result.path.join(" › ") }}
               </span>
-              <span
-                v-if="result.range && result.range.start"
-                class="result-line"
-              >
-                line {{ result.range.start.line + 1 }}
-              </span>
             </div>
           </div>
         </div>
@@ -535,9 +529,6 @@ export default {
 }
 .result-path {
   font-family: monospace;
-}
-.result-line {
-  font-style: italic;
 }
 .score-text {
   font-size: 1.1rem;

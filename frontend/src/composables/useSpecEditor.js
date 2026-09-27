@@ -25,6 +25,9 @@ export function useSpecEditor({
   const initialSpec = ref(JSON.parse(JSON.stringify(parsedSpec.value)));
   const unsavedSpec = ref(null);
   const hasUnsavedChanges = ref(false);
+  // Set by the code editor while its text doesn't parse:
+  // { format, message, line, column } or null.
+  const syntaxError = ref(null);
 
   const updatePreview = () => {
     try {
@@ -79,6 +82,7 @@ export function useSpecEditor({
       specContent.value = JSON.stringify(getDefaultSpec(), null, 2);
       initialSpec.value = JSON.parse(JSON.stringify(getDefaultSpec()));
     }
+    syntaxError.value = null;
     // Ensure parsedSpec and dependent UI update immediately after loading
     updatePreview();
     if (spec.id !== "__unsaved") unsavedSpec.value = null;
@@ -88,6 +92,7 @@ export function useSpecEditor({
   const newSpec = () => {
     console.debug("useSpecEditor.newSpec called");
     currentSpec.value = null;
+    syntaxError.value = null;
     const defaultSpec = getDefaultSpec();
     specContent.value = JSON.stringify(defaultSpec, null, 2);
     initialSpec.value = JSON.parse(JSON.stringify(defaultSpec));
@@ -196,6 +201,7 @@ export function useSpecEditor({
     };
 
     currentSpec.value = null;
+    syntaxError.value = null;
     specContent.value = JSON.stringify(templateSpec, null, 2);
     initialSpec.value = JSON.parse(JSON.stringify(templateSpec));
     unsavedSpec.value = {
@@ -216,6 +222,7 @@ export function useSpecEditor({
     initialSpec,
     unsavedSpec,
     hasUnsavedChanges,
+    syntaxError,
     updatePreview,
     updateFromForm,
     loadSpec,

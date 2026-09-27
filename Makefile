@@ -6,6 +6,9 @@
 PYTHON ?= python3.12
 VENV   := .venv
 DATA   := $(CURDIR)/.data
+# Same Spectral CLI version as the Docker image (Dockerfile SPECTRAL_VERSION).
+SPECTRAL_VERSION := 6.16.3
+SPECTRAL := $(CURDIR)/.tools/node_modules/.bin/spectral
 
 ## help: List available targets
 help:
@@ -20,6 +23,8 @@ setup:
 	$(VENV)/bin/pip install -q --upgrade pip
 	$(VENV)/bin/pip install -q -r backend/requirements-dev.txt
 	cd frontend && npm ci --no-audit --no-fund
+	npm install --prefix .tools --no-audit --no-fund --no-save \
+	  "@stoplight/spectral-cli@$(SPECTRAL_VERSION)"
 	@echo "✓ ready — run 'make dev'"
 
 ## deps: Re-pin backend dependencies after editing backend/requirements*.in (needs uv)
@@ -36,12 +41,11 @@ dev:
 
 ## backend: FastAPI with auto-reload on :8000 (SQLite in ./.data unless DATABASE_URL is set)
 backend:
-	cd backend && \
+	cd backend && export \
 	  FASTSPEC_DATA_DIR=$${FASTSPEC_DATA_DIR:-$(DATA)} \
 	  PUBLIC_URL=$${PUBLIC_URL:-http://localhost:5173} \
+	  SPECTRAL_PATH=$${SPECTRAL_PATH:-$$([ -x "$(SPECTRAL)" ] && echo "$(SPECTRAL)")} && \
 	  ../$(VENV)/bin/python cli.py migrate && \
-	  FASTSPEC_DATA_DIR=$${FASTSPEC_DATA_DIR:-$(DATA)} \
-	  PUBLIC_URL=$${PUBLIC_URL:-http://localhost:5173} \
 	  ../$(VENV)/bin/uvicorn app:application --reload --port 8000
 
 ## frontend: Vite dev server on :5173, proxying /api, /auth and /mcp to :8000

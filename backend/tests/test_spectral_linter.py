@@ -5,6 +5,7 @@ These tests exercise the pure YAML-generation logic without invoking
 the Spectral CLI binary.
 """
 
+import pytest
 import yaml
 
 from validation.spectral_linter import build_ruleset_yaml
@@ -269,3 +270,18 @@ def test_score_calculation_mixed():
     result = _parse_result(issues)
     assert result["score"] == 100 - 10 - 3 - 1
     assert result["summary"] == {"error": 1, "warn": 1, "info": 1, "hint": 1}
+
+
+def test_missing_spectral_is_a_clear_lint_error(monkeypatch):
+    """No SPECTRAL_PATH and nothing on PATH → SpectralError (HTTP 502) that
+    says how to fix it, not an unhandled RuntimeError (HTTP 500)."""
+    import shutil
+
+    from config import settings
+    from validation.spectral_client import SpectralError, SubprocessSpectralClient
+
+    monkeypatch.setattr(settings, "spectral_path", None)
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+
+    with pytest.raises(SpectralError, match="Spectral CLI not found"):
+        SubprocessSpectralClient().lint({"openapi": "3.0.3"}, "extends: [[spectral:oas, recommended]]\n")

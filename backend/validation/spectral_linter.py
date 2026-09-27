@@ -6,6 +6,7 @@ into a structured response with a quality score.
 """
 
 import logging
+import shutil
 from typing import Any
 
 import yaml
@@ -36,19 +37,30 @@ _SPECTRAL_BUILTIN_FUNCTIONS = {
 }
 
 
+SPECTRAL_NOT_FOUND = (
+    "Spectral CLI not found. Install it (npm install -g @stoplight/spectral-cli, "
+    "or `make setup` for development) or point SPECTRAL_PATH at it."
+)
+
+
 def _find_spectral() -> str:
     """
     Return the command to invoke Spectral CLI.
 
     Preference order:
-    1. SPECTRAL_PATH env var (allows pinning a pre-installed binary)
-    2. npx @stoplight/spectral-cli (always available if Node.js is present)
+    1. SPECTRAL_PATH (the Docker images set it; `make dev` points it at the
+       copy `make setup` installs)
+    2. `spectral` on PATH
+
+    Raises FileNotFoundError when neither is available.
     """
     logger.debug("SPECTRAL_PATH env: %s", settings.spectral_path)
     if settings.spectral_path:
         return settings.spectral_path
-
-    raise RuntimeError("Error with Spectral CLI invocation: SPECTRAL_PATH not set.")
+    found = shutil.which("spectral")
+    if found:
+        return found
+    raise FileNotFoundError(SPECTRAL_NOT_FOUND)
 
 
 def _build_command(spec_path: str, ruleset_path: str) -> list[str]:
