@@ -63,7 +63,8 @@ describe("useSpecEditor", () => {
     loadTemplate();
     expect(() => JSON.parse(specContent.value)).not.toThrow();
     const parsed = JSON.parse(specContent.value);
-    expect(parsed.openapi).toBe("3.0.0");
+    expect(parsed.openapi).toMatch(/^3\.0\./);
+    expect(parsed.info.title).toBe("Petstore");
   });
 
   // Cycle 3: loadTemplate sets currentSpec to null
@@ -89,8 +90,29 @@ describe("useSpecEditor", () => {
     const { loadTemplate, parsedSpec } = useSpecEditor();
     loadTemplate();
     expect(parsedSpec.value).not.toBeNull();
-    expect(parsedSpec.value.openapi).toBe("3.0.0");
+    expect(parsedSpec.value.openapi).toMatch(/^3\.0\./);
     expect(parsedSpec.value.paths).toBeDefined();
   });
 });
 
+
+describe("loadDraft", () => {
+  test("opens a spec as a named, unsaved draft", () => {
+    const { loadDraft, parsedSpec, unsavedSpec, currentSpec, hasUnsavedChanges } = useSpecEditor();
+    const spec = { openapi: "3.1.0", info: { title: "Orders", version: "2.0.0" }, paths: {} };
+
+    loadDraft(spec, "Orders");
+
+    expect(parsedSpec.value).toEqual(spec);
+    expect(unsavedSpec.value).toMatchObject({ id: "__unsaved", name: "Orders", version: "2.0.0" });
+    expect(currentSpec.value).toBeNull();
+    expect(hasUnsavedChanges.value).toBe(false);
+  });
+
+  test("clears a syntax error left by the code editor", () => {
+    const { loadDraft, syntaxError } = useSpecEditor();
+    syntaxError.value = { format: "yaml", message: "bad", line: 3, column: 1 };
+    loadDraft({ openapi: "3.0.3", info: { title: "X", version: "1" }, paths: {} });
+    expect(syntaxError.value).toBeNull();
+  });
+});

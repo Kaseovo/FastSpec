@@ -33,27 +33,13 @@
       @save="saveSpec"
     />
 
-    <!-- New Spec Dialog -->
-    <Dialog
+    <NewSpecDialog
       :visible="showNewDialog"
-      header="Create New Specification"
-      :modal="true"
-      :style="{ width: '500px' }"
       @update:visible="(val) => (showNewDialog = val)"
-    >
-      <div class="new-spec-options">
-        <div class="option-card" @click="createBlank">
-          <i class="pi pi-file"></i>
-          <h4>Blank Specification</h4>
-          <p>Start with a minimal OpenAPI 3.0 structure</p>
-        </div>
-        <div class="option-card" @click="createFromTemplate">
-          <i class="pi pi-clone"></i>
-          <h4>From Template</h4>
-          <p>Start with a pre-configured API template</p>
-        </div>
-      </div>
-    </Dialog>
+      @blank="createBlank"
+      @example="createExample"
+      @import="importSpec"
+    />
 
     <!-- Token Manager Dialog -->
     <Dialog
@@ -79,12 +65,14 @@ import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
 import SaveDialog from "./components/SaveDialog.vue";
 import TokenManager from "./components/TokenManager.vue";
+import NewSpecDialog from "./components/NewSpecDialog.vue";
 import { ref, provide, onMounted, computed } from "vue";
 import { useConfirm } from "primevue/useconfirm";
+import { useRoute } from "vue-router";
 import { useApp } from "./composables/useApp";
 import { useAuthStore } from "./stores/auth";
 import { useToast } from "primevue/usetoast";
-import { validateSpec } from "./api/specs";
+import { fetchSpecs, validateSpec } from "./api/specs";
 import { signIn } from "./auth/session";
 
 export default {
@@ -97,6 +85,7 @@ export default {
     Toast,
     SaveDialog,
     TokenManager,
+    NewSpecDialog,
   },
   setup() {
     const app = useApp();
@@ -139,68 +128,57 @@ export default {
       }
     });
 
-    // New Spec dialog + unsaved-changes guard, moved from Toolbar.vue —
-    // the only remaining consumer of that component was AppLayout itself.
+    // New spec dialog + unsaved-changes guard.
     const confirm = useConfirm();
     const confirmOpen = ref(false);
 
-    const createBlank = () => {
-      if (app.hasUnsavedChanges.value) {
-        if (!confirmOpen.value) {
-          confirmOpen.value = true;
-          confirm.require({
-            message: "You have unsaved changes. Discard them and create a new blank spec?",
-            header: "Discard unsaved changes?",
-            icon: "pi pi-exclamation-triangle",
-            acceptClass: "p-button-danger",
-            accept: () => {
-              app.discardUnsaved();
-              app.newSpec();
-              showNewDialog.value = false;
-              confirmOpen.value = false;
-            },
-            reject: () => {
-              confirmOpen.value = false;
-            },
-            onHide: () => {
-              confirmOpen.value = false;
-            },
-          });
-        }
+    const startFrom = (what, load) => {
+      const go = () => {
+        load();
+        showNewDialog.value = false;
+      };
+      if (!app.hasUnsavedChanges.value) {
+        go();
         return;
       }
-      app.newSpec();
-      showNewDialog.value = false;
+      if (confirmOpen.value) return;
+      confirmOpen.value = true;
+      confirm.require({
+        message: `You have unsaved changes. Discard them and ${what}?`,
+        header: "Discard unsaved changes?",
+        icon: "pi pi-exclamation-triangle",
+        acceptClass: "p-button-danger",
+        accept: () => {
+          app.discardUnsaved();
+          go();
+          confirmOpen.value = false;
+        },
+        reject: () => {
+          confirmOpen.value = false;
+        },
+        onHide: () => {
+          confirmOpen.value = false;
+        },
+      });
     };
 
-    const createFromTemplate = () => {
-      if (app.hasUnsavedChanges.value) {
-        if (!confirmOpen.value) {
-          confirmOpen.value = true;
-          confirm.require({
-            message: "You have unsaved changes. Discard them and create a new spec from template?",
-            header: "Discard unsaved changes?",
-            icon: "pi pi-exclamation-triangle",
-            acceptClass: "p-button-danger",
-            accept: () => {
-              app.discardUnsaved();
-              app.loadTemplate();
-              showNewDialog.value = false;
-              confirmOpen.value = false;
-            },
-            reject: () => {
-              confirmOpen.value = false;
-            },
-            onHide: () => {
-              confirmOpen.value = false;
-            },
-          });
-        }
-        return;
+    const createBlank = () => startFrom("create a blank spec", app.newSpec);
+    const createExample = () => startFrom("open the example spec", app.loadTemplate);
+    const importSpec = ({ spec, name }) =>
+      startFrom(`import "${name}"`, () => app.loadDraft(spec, name));
+
+    // First visit: with nothing saved yet, offer the example, an import or a
+    // blank spec straight away instead of an empty editor.
+    const route = useRoute();
+    onMounted(async () => {
+      if (!auth.isAuthenticated || route.params.id) return;
+      try {
+        const specs = await fetchSpecs();
+        if (specs.length === 0 && !app.hasUnsavedChanges.value) showNewDialog.value = true;
+      } catch {
+        // The spec list shows its own error.
       }
-      app.loadTemplate();
-      showNewDialog.value = false;
-    };
+    });
 
     provide("openNewSpecDialog", () => (showNewDialog.value = true));
 
@@ -220,7 +198,8 @@ export default {
       showTokenDialog,
       showNewDialog,
       createBlank,
-      createFromTemplate,
+      createExample,
+      importSpec,
     };
   },
 };
@@ -320,51 +299,6 @@ body {
   color: var(--fs-text-muted);
   font-size: 0.9rem;
   line-height: 1.5;
-}
-
-.new-spec-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 16px 0;
-}
-
-.option-card {
-  padding: 28px 24px;
-  border: 1.5px solid var(--fs-border, #e5e7eb);
-  border-radius: 14px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  background: var(--fs-surface, #fff);
-}
-
-.option-card:hover {
-  border-color: var(--fs-primary, #2563ff);
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(37, 99, 255, 0.15);
-  background: linear-gradient(135deg, #e2ecfe 0%, #f0f5ff 100%);
-}
-
-.option-card i {
-  font-size: 2.5rem;
-  color: var(--fs-primary, #2563ff);
-  margin-bottom: 12px;
-  display: block;
-}
-
-.option-card h4 {
-  margin: 0 0 8px 0;
-  color: #1e293b;
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.option-card p {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.875rem;
-  line-height: 1.4;
 }
 
 /* PrimeVue theme overrides to match landing page */

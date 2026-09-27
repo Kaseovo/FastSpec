@@ -1,0 +1,185 @@
+openapi: 3.0.3
+info:
+  title: Petstore
+  version: 1.0.0
+  description: >-
+    An example API to explore FastSpec with: browse it in the form editor,
+    switch to the code view, preview it, lint it, then save it as your own.
+  contact:
+    name: Petstore team
+    url: https://example.com/support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: https://petstore.example.com/v1
+    description: Production
+tags:
+  - name: pets
+    description: Everything about the pets in the store.
+paths:
+  /pets:
+    get:
+      tags:
+        - pets
+      summary: List pets
+      description: Returns the pets in the store, newest first.
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of pets to return.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Only return pets with this status.
+          required: false
+          schema:
+            $ref: '#/components/schemas/PetStatus'
+      responses:
+        '200':
+          description: The pets, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags:
+        - pets
+      summary: Add a pet
+      description: Adds a pet to the store.
+      operationId: createPet
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPet'
+      responses:
+        '201':
+          description: The pet that was added.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          $ref: '#/components/responses/Error'
+  /pets/{petId}:
+    get:
+      tags:
+        - pets
+      summary: Get a pet
+      description: Returns a single pet.
+      operationId: getPet
+      parameters:
+        - name: petId
+          in: path
+          description: The pet's ID.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The pet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - pets
+      summary: Remove a pet
+      description: Removes a pet from the store.
+      operationId: deletePet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: petId
+          in: path
+          description: The pet's ID.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The pet was removed.
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    NotFound:
+      description: There is no pet with this ID.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error:
+      description: The request couldn't be processed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    PetStatus:
+      type: string
+      description: Where the pet is in the adoption process.
+      enum:
+        - available
+        - pending
+        - adopted
+    NewPet:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Rex
+        tag:
+          type: string
+          example: dog
+        status:
+          $ref: '#/components/schemas/PetStatus'
+    Pet:
+      allOf:
+        - $ref: '#/components/schemas/NewPet'
+        - type: object
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              format: uuid
+              readOnly: true
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string

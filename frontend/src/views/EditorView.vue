@@ -73,6 +73,16 @@
         />
         <Button icon="pi pi-plus" text rounded title="New" @click="openNewSpecDialog?.()" />
         <Button icon="pi pi-save" text rounded title="Save" @click="openSaveDialogFn?.()" />
+        <Button
+          icon="pi pi-download"
+          text
+          rounded
+          title="Download"
+          aria-haspopup="true"
+          aria-controls="download-menu"
+          @click="toggleDownloadMenu"
+        />
+        <Menu id="download-menu" ref="downloadMenu" :model="downloadItems" :popup="true" />
         <Button icon="pi pi-key" text rounded title="API keys" @click="showTokenDialogFn?.()" />
         <UserProfile v-if="isAuthenticated" />
       </div>
@@ -135,6 +145,7 @@
 
 <script>
 import Button from "primevue/button";
+import Menu from "primevue/menu";
 import SpecList from "../components/SpecList.vue";
 import UserProfile from "../components/UserProfile.vue";
 import EditorPanel from "../components/EditorPanel.vue";
@@ -145,6 +156,7 @@ import ErrorBoundary from "../components/ErrorBoundary.vue";
 import { computed, ref, inject, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
+import { downloadSpec } from "../utils/specFiles";
 
 const MODES = [
   { value: "form", label: "Form", icon: "pi pi-list" },
@@ -157,6 +169,7 @@ export default {
   name: "EditorView",
   components: {
     Button,
+    Menu,
     SpecList,
     UserProfile,
     EditorPanel,
@@ -167,6 +180,14 @@ export default {
   },
   setup() {
     const specEditor = inject("specEditor");
+
+    // Download what's in the editor (saved or not) as a file.
+    const downloadMenu = ref(null);
+    const downloadItems = [
+      { label: "Download YAML", icon: "pi pi-file", command: () => downloadSpec(specEditor.parsedSpec.value, "yaml") },
+      { label: "Download JSON", icon: "pi pi-file", command: () => downloadSpec(specEditor.parsedSpec.value, "json") },
+    ];
+    const toggleDownloadMenu = (event) => downloadMenu.value?.toggle(event);
     const lint = inject("lint");
     const auth = useAuthStore();
     const isAuthenticated = computed(() => auth.isAuthenticated);
@@ -252,6 +273,9 @@ export default {
     const lintWarnCount = computed(() => lint.lintResults.value?.summary?.warn ?? 0);
 
     return {
+      downloadMenu,
+      downloadItems,
+      toggleDownloadMenu,
       isAuthenticated,
       modes: MODES,
       parsedSpec: specEditor.parsedSpec,

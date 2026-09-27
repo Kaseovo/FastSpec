@@ -6,6 +6,7 @@ import { useSpecSave } from "./useSpecSave";
 import { useSpecDiff } from "./useSpecDiff";
 import { useAlerts } from "./useAlerts";
 import { useLint } from "./useLint";
+import { exampleSpec } from "../utils/specFiles";
 
 export function useApp() {
   const auth = useAuthStore();
@@ -64,7 +65,20 @@ export function useApp() {
     }
   };
 
-  const loadTemplate = editor.loadTemplate;
+  // Open a spec as an unsaved draft (example or import) and refresh the
+  // spec switcher so it shows up there.
+  const resetLint = () => {
+    lintResults.value = null;
+    lintError.value = null;
+    lintLoading.value = false;
+  };
+
+  const loadDraft = (spec, name) => {
+    editor.loadDraft(spec, name);
+    resetLint();
+    specListKey.value++;
+  };
+  const loadTemplate = () => loadDraft(exampleSpec(), "Petstore");
 
   const togglePreview = (router) => {
     if (router) {
@@ -109,6 +123,7 @@ export function useApp() {
   const newSpec = () => {
     try {
       editor.newSpec();
+      resetLint();
       // update parsed preview immediately so UI reflects the new draft
       editor.updatePreview();
       // log unsavedSpec state so we can diagnose why SpecList doesn't see it
@@ -176,9 +191,7 @@ export function useApp() {
   const loadSpec = async (spec) => {
     // call the editor loader (may be sync or async) and then reset lint state
     await Promise.resolve(editor.loadSpec(spec));
-    lintResults.value = null;
-    lintError.value = null;
-    lintLoading.value = false;
+    resetLint();
   };
 
   const app = {
@@ -194,6 +207,7 @@ export function useApp() {
     updateFromForm: editor.updateFromForm,
     loadSpec: loadSpec,
     loadTemplate,
+    loadDraft,
     newSpec,
     hasUnsavedChanges: editor.hasUnsavedChanges,
     discardUnsaved,
