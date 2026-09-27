@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [vue()],
     base: "/specs/",
+    build: {
+      // Monaco and Swagger UI are large by nature; both are split into
+      // their own chunks and only loaded when their view is opened.
+      chunkSizeWarningLimit: 2000,
+    },
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),

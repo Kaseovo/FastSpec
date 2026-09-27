@@ -7,8 +7,18 @@ vi.mock("../../api/specs", () => ({
   listSpecVersions: vi.fn(),
   compareSpecVersions: vi.fn(),
 }));
+vi.mock("../../utils/swaggerUi", () => ({ loadSwaggerUI: vi.fn() }));
 
 import { listSpecVersions, compareSpecVersions } from "../../api/specs";
+import { loadSwaggerUI } from "../../utils/swaggerUi";
+
+// A stand-in for the (large) bundled Swagger UI.
+function fakeSwaggerUI() {
+  const SwaggerUIBundle = vi.fn();
+  SwaggerUIBundle.presets = { apis: {} };
+  SwaggerUIBundle.plugins = { DownloadUrl: {} };
+  return { SwaggerUIBundle, SwaggerUIStandalonePreset: {} };
+}
 
 // flush all pending promises and microtasks
 const flushAll = async (n = 4) => {
@@ -20,13 +30,11 @@ const flushAll = async (n = 4) => {
 
 describe("PreviewPanel - version compare", () => {
   beforeEach(() => {
-    // stub Swagger UI to avoid loading external scripts
-    global.SwaggerUIBundle = {};
+    loadSwaggerUI.mockResolvedValue(fakeSwaggerUI());
   });
 
   afterEach(() => {
     vi.resetAllMocks();
-    delete global.SwaggerUIBundle;
   });
 
   test("loads versions and runs initial compare, rendering diff via DiffDrawer", async () => {

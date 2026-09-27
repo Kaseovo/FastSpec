@@ -85,6 +85,7 @@ import Button from "primevue/button";
 import { listSpecVersions, compareSpecVersions } from "../api/specs";
 import DiffDrawer from "./DiffDrawer.vue";
 import { adaptBackendDiff } from "../utils/diffUtils";
+import { loadSwaggerUI } from "../utils/swaggerUi";
 
 export default {
   name: "PreviewPanel",
@@ -194,63 +195,6 @@ export default {
       }
     };
 
-    const SWAGGER_UI_VERSION = "5.21.0";
-
-    const loadSwaggerUI = async () => {
-      if (window.SwaggerUIBundle && window.__swaggerUIVersion === SWAGGER_UI_VERSION) {
-        return true;
-      }
-
-      return new Promise((resolve, reject) => {
-        const bundleScript = document.createElement("script");
-        bundleScript.src =
-          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.21.0/swagger-ui-bundle.js";
-        bundleScript.crossOrigin = "anonymous";
-
-        const presetScript = document.createElement("script");
-        presetScript.src =
-          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.21.0/swagger-ui-standalone-preset.js";
-        presetScript.crossOrigin = "anonymous";
-
-        const cssLink = document.createElement("link");
-        cssLink.rel = "stylesheet";
-        cssLink.href =
-          "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.21.0/swagger-ui.css";
-
-        let bundleLoaded = false;
-        let presetLoaded = false;
-
-        const checkBothLoaded = () => {
-          if (bundleLoaded && presetLoaded) {
-            window.__swaggerUIVersion = SWAGGER_UI_VERSION;
-            resolve(true);
-          }
-        };
-
-        bundleScript.onload = () => {
-          bundleLoaded = true;
-          checkBothLoaded();
-        };
-
-        bundleScript.onerror = () => {
-          reject(new Error("Failed to load Swagger UI Bundle"));
-        };
-
-        presetScript.onload = () => {
-          presetLoaded = true;
-          checkBothLoaded();
-        };
-
-        presetScript.onerror = () => {
-          reject(new Error("Failed to load Swagger UI Preset"));
-        };
-
-        document.head.appendChild(cssLink);
-        document.body.appendChild(bundleScript);
-        document.body.appendChild(presetScript);
-      });
-    };
-
     const updatePreview = async () => {
       // Clear any pending updates
       if (updateTimeout) {
@@ -297,7 +241,7 @@ export default {
         }
 
         try {
-          await loadSwaggerUI();
+          const { SwaggerUIBundle, SwaggerUIStandalonePreset } = await loadSwaggerUI();
 
           // Increment key to force new container creation
           containerKey.value++;
@@ -316,15 +260,12 @@ export default {
           }
 
           // Create new Swagger UI instance in the fresh container
-          window.SwaggerUIBundle({
+          SwaggerUIBundle({
             spec: props.spec,
             domNode: swaggerContainer.value,
             deepLinking: true,
-            presets: [
-              window.SwaggerUIBundle.presets.apis,
-              window.SwaggerUIStandalonePreset,
-            ],
-            plugins: [window.SwaggerUIBundle.plugins.DownloadUrl],
+            presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+            plugins: [SwaggerUIBundle.plugins.DownloadUrl],
             layout: "BaseLayout",
             defaultModelsExpandDepth: 1,
             defaultModelExpandDepth: 1,
