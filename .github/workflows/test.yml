@@ -9,6 +9,30 @@ permissions:
   contents: read
 
 jobs:
+  secrets:
+    # Blocks secrets in new commits — including generic ones GitHub push
+    # protection doesn't recognise. Scans only what this push/PR adds.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            RANGE="$PR_BASE..HEAD"
+          elif [ -n "$PUSH_BEFORE" ] && ! echo "$PUSH_BEFORE" | grep -q '^0*$'; then
+            RANGE="$PUSH_BEFORE..HEAD"
+          else
+            RANGE="HEAD~1..HEAD"
+          fi
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
+            git /repo --config /repo/.gitleaks.toml --log-opts="$RANGE" --redact --no-banner
+
   backend:
     runs-on: ubuntu-latest
     services:

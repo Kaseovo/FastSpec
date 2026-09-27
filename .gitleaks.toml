@@ -1,0 +1,8 @@
+# Secret scanning for new commits (CI "secrets" job). Extends gitleaks'
+# default rules.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "detect-secrets baseline: stores hashes of known placeholders, not secrets"
+paths = ['''^\.secrets\.baseline$''']
