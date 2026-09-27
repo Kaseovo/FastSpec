@@ -2,7 +2,7 @@
 # changing this file, regenerate it with `make deps`.
 alembic
 fastapi>=0.140,<1
-fastmcp>=3.4.7,<4
+fastmcp>=4.0.8,<5
 httpx
 itsdangerous
 openapi-spec-validator
