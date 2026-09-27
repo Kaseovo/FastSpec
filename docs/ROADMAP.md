@@ -43,7 +43,7 @@ Existing bugs found and fixed along the way:
 
 Outside the repo (AWS/GitHub):
 - [x] Private `Kaseovo/fastspec-website` repo created and pushed (with history), with its `AWS_ROLE_ARN` secret and `AWS_REGION` variable
-- [x] FastSpec repo variables: `FASTSPEC_DOMAIN=fastspec.kaseovo.com`, `HOSTED_ZONE_ID` (the fastspec.kaseovo.com zone), `AWS_REGION=ap-southeast-1`
+- [x] FastSpec repo variables: `FASTSPEC_DOMAIN=fastspec.kaseovo.com`, `AWS_REGION=ap-southeast-1`; secret `HOSTED_ZONE_ID` (the fastspec.kaseovo.com zone)
 - [x] `FastSpecGitHubDeploy` role's trust policy fixed (it still trusted `repo:DishWatcher/FastSpec:*`, so every AWS workflow failed; verified with a green Auto-Stop run on 2026-09-26). The Kaseovo repos use GitHub's immutable subject format, so it trusts exactly:
   - `repo:Kaseovo@167826072/FastSpec@1092682725:ref:refs/heads/main`
   - `repo:Kaseovo@167826072/fastspec-website@1388738583:ref:refs/heads/main`

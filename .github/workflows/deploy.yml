@@ -18,13 +18,18 @@ on:
 # Deployment-specific values come from GitHub repository variables
 # (Settings → Secrets and variables → Actions → Variables), never the code:
 #   FASTSPEC_DOMAIN   public domain, e.g. fastspec.example.com
-#   HOSTED_ZONE_ID    Route 53 hosted zone that holds it
 #   HOSTED_ZONE_NAME  optional — only when that zone is a parent (e.g. example.com)
 #   AWS_REGION        region for everything but the CloudFront certificate
-# Secrets: AWS_ROLE_ARN (OIDC deploy role), WAKE_SECRET. See docs/DEPLOYMENT.md.
+# Secrets: AWS_ROLE_ARN (OIDC deploy role), WAKE_SECRET, and HOSTED_ZONE_ID
+# (the Route 53 zone holding the domain). See docs/DEPLOYMENT.md.
+#
+# Logs of a public repository are public: identifiers of the deployment (the
+# zone and account IDs, the database endpoint, function URLs) are kept out of
+# them — secrets and the account ID are masked, and `cdk deploy` output, which
+# lists the stack outputs, is discarded (progress and errors go to stderr).
 env:
   FASTSPEC_DOMAIN: ${{ vars.FASTSPEC_DOMAIN }}
-  HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+  HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
   HOSTED_ZONE_NAME: ${{ vars.HOSTED_ZONE_NAME }}
 
 jobs:
@@ -92,6 +97,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
 
       # ── CDK diff + deploy ────────────────────────────────────────────────────
 
@@ -104,7 +110,7 @@ jobs:
         working-directory: infra
 
       - name: Deploy DataStack
-        run: npx cdk deploy FastSpec-Data-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        run: npx cdk deploy FastSpec-Data-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never >/dev/null
         working-directory: infra
 
       - name: cdk diff (LambdaStack, informational)
@@ -112,7 +118,7 @@ jobs:
         working-directory: infra
 
       - name: Deploy LambdaStack
-        run: npx cdk deploy FastSpec-Lambda-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        run: npx cdk deploy FastSpec-Lambda-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never >/dev/null
         working-directory: infra
 
       # ── Migration ─────────────────────────────────────────────────────────────
@@ -140,7 +146,7 @@ jobs:
       # ── FrontendStack + S3 sync ───────────────────────────────────────────────
 
       - name: Deploy CertStack
-        run: npx cdk deploy FastSpec-Cert-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        run: npx cdk deploy FastSpec-Cert-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never >/dev/null
         working-directory: infra
 
       - name: Read certificate ARN from CertStack output
@@ -158,11 +164,11 @@ jobs:
         working-directory: infra
 
       - name: Deploy FrontendStack
-        run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --context certificateArn=${{ steps.cert.outputs.arn }} --context deployId=${{ github.run_number }} --require-approval never
+        run: npx cdk deploy FastSpec-Frontend-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --context certificateArn=${{ steps.cert.outputs.arn }} --context deployId=${{ github.run_number }} --require-approval never >/dev/null
         working-directory: infra
 
       - name: Deploy WakeStack
-        run: npx cdk deploy FastSpec-Wake-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never
+        run: npx cdk deploy FastSpec-Wake-${{ github.event.inputs.env }} --context env=${{ github.event.inputs.env }} --require-approval never >/dev/null
         working-directory: infra
 
       - name: Get S3 bucket names, CloudFront distribution ID and Wake URL

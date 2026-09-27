@@ -33,13 +33,17 @@ sets them from GitHub **repository variables**:
 | Variable | Example | Purpose |
 |---|---|---|
 | `FASTSPEC_DOMAIN` | `fastspec.example.com` | Public domain (required for `env=prod`). |
-| `HOSTED_ZONE_ID` | `Z0123456789ABC` | Route 53 zone holding the domain. Without it, CDK looks the zone up, which needs AWS credentials at synth time. |
 | `HOSTED_ZONE_NAME` | `example.com` | Only when that zone is a parent of the domain. |
 | `AWS_REGION` | `eu-west-1` | Region for everything except the CloudFront certificate (always `us-east-1`). |
 
 Repository **secrets**: `AWS_ROLE_ARN` (the deploy role, assumed through
-GitHub OIDC) and `WAKE_SECRET`. The role's trust policy should only allow
-this repository's `main` branch:
+GitHub OIDC), `WAKE_SECRET`, and `HOSTED_ZONE_ID` (the Route 53 zone holding
+the domain; without it, CDK looks the zone up, which needs AWS credentials at
+synth time). The zone ID isn't sensitive as such, but Actions logs of a public
+repository are public and GitHub masks secrets in them, not variables — the
+workflow likewise masks the account ID and discards `cdk deploy` output, which
+lists the stack outputs (database endpoint, function URLs). The role's trust
+policy should only allow this repository's `main` branch:
 
 ```json
 "Condition": {
