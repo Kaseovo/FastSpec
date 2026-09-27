@@ -150,3 +150,12 @@ def test_hosted_app_role_is_created_with_any_password(empty_db):
     finally:
         # The migration's downgrade drops the (cluster-wide) role again.
         _alembic("downgrade", "base", db_url=empty_db)
+
+
+def test_urls_containing_percent_signs(tmp_path):
+    """URL-encoded passwords contain "%", which Alembic's config parser treats
+    as interpolation unless escaped."""
+    (tmp_path / "100% sure").mkdir()
+    # SQLAlchemy percent-decodes the path: "%25" → "%".
+    _alembic("upgrade", "head", db_url=f"sqlite:///{tmp_path}/100%25 sure/fastspec.db")
+    assert (tmp_path / "100% sure" / "fastspec.db").exists()

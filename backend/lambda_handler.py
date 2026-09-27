@@ -1,15 +1,19 @@
 """AWS Lambda entry point for the merged FastSpec + MCP ASGI application.
 
-Cold-start behaviour:
-  - Fetches SecureString secrets (JWT_SECRET_KEY, DB_PASSWORD, OIDC client
-    ID/secret) from SSM Parameter Store and injects them into os.environ so the
-    rest of the application reads them as normal env vars.  Parameter *names*
-    are passed in via SSM_JWT_SECRET_KEY, SSM_DB_PASSWORD, SSM_OIDC_CLIENT_ID… env vars —
-    no plaintext secrets ever appear in the Lambda console or CloudFormation.
-  - Writes the current UTC timestamp to the SSM parameter named by SSM_WAKE_PARAM
-    (used by the WakeStack RDS idle timer).
-  - Errors from SSM are silently swallowed — a missing env var or IAM permission
-    must never crash the handler.
+Cold-start behaviour (only when running inside Lambda):
+  - Loads secrets into os.environ, so the rest of the application reads them
+    as normal env vars; only their *names/ARNs* appear in the Lambda console
+    and CloudFormation:
+      * SSM SecureString parameters named by SSM_JWT_SECRET_KEY,
+        SSM_OIDC_CLIENT_ID and SSM_OIDC_CLIENT_SECRET;
+      * the database passwords DataStack generates into Secrets Manager,
+        named by DB_SECRET_ARN (master, migrations only) and
+        APP_DB_SECRET_ARN (least-privilege `fastspec_app`, the running app).
+    Secrets that can't be loaded are logged by name (never by value); the
+    handler still starts, and the app fails with a clear configuration error
+    if something it needs is missing.
+  - Writes the current UTC timestamp to the SSM parameter named by
+    SSM_WAKE_PARAM (used by the WakeStack RDS idle timer).
 
 Invocation modes:
   - {"migrate": true}  → runs database creation + Alembic upgrade head,
@@ -19,50 +23,95 @@ Invocation modes:
 Handler export: ``lambda_handler.handler``
 """
 
+import json
 import os
+import sys
+from collections.abc import MutableMapping
 from datetime import UTC, datetime
 
-# ── Cold-start: fetch secrets from SSM and inject into environment ────────────
-try:
-    import boto3
+# SSM SecureString parameters: env var to set → env var holding the name.
+SSM_SECRETS = {
+    "JWT_SECRET_KEY": "SSM_JWT_SECRET_KEY",
+    "OIDC_CLIENT_ID": "SSM_OIDC_CLIENT_ID",
+    "OIDC_CLIENT_SECRET": "SSM_OIDC_CLIENT_SECRET",
+}
+# Secrets Manager secrets: env var to set → env var holding the ARN.
+SECRETS_MANAGER_SECRETS = {
+    "DB_PASSWORD": "DB_SECRET_ARN",
+    "FASTSPEC_APP_DB_PASSWORD": "APP_DB_SECRET_ARN",
+}
 
-    _ssm = boto3.client("ssm")
 
-    _secret_params = {
-        "JWT_SECRET_KEY":         os.environ.get("SSM_JWT_SECRET_KEY"),
-        # Admin/master password — used only by migrate.py (CREATE DATABASE,
-        # `alembic upgrade head`), never by the running application.
-        "DB_PASSWORD":            os.environ.get("SSM_DB_PASSWORD"),
-        # Least-privilege fastspec_app role password — used by
-        # backend/database.py for the app's own runtime connection, and by
-        # the fastspec_app-role migration to create/rotate the role itself.
-        "FASTSPEC_APP_DB_PASSWORD": os.environ.get("SSM_FASTSPEC_APP_DB_PASSWORD"),
-        "OIDC_CLIENT_ID":         os.environ.get("SSM_OIDC_CLIENT_ID"),
-        "OIDC_CLIENT_SECRET":     os.environ.get("SSM_OIDC_CLIENT_SECRET"),
-    }
+def secret_password(secret_string: str) -> str:
+    """RDS-generated credentials are JSON with a "password" key; a plain
+    generated secret is the password itself."""
+    try:
+        data = json.loads(secret_string)
+    except ValueError:
+        return secret_string
+    if isinstance(data, dict) and "password" in data:
+        return str(data["password"])
+    return secret_string
 
-    _names = [v for v in _secret_params.values() if v]
-    if _names:
-        _resp = _ssm.get_parameters(Names=_names, WithDecryption=True)
-        _by_name = {p["Name"]: p["Value"] for p in _resp["Parameters"]}
-        for env_key, param_name in _secret_params.items():
-            if param_name and param_name in _by_name:
-                os.environ[env_key] = _by_name[param_name]
-except Exception:
-    pass  # Never crash the Lambda due to a secret-fetch error
 
-# ── Cold-start: write timestamp to SSM so WakeStack knows Lambda is alive ─────
-try:
-    _ssm_param = os.environ.get("SSM_WAKE_PARAM")
-    if _ssm_param:
-        boto3.client("ssm").put_parameter(
-            Name=_ssm_param,
-            Value=str(datetime.now(UTC).timestamp()),
-            Type="String",
-            Overwrite=True,
-        )
-except Exception:
-    pass
+def load_secrets(environ: MutableMapping[str, str], ssm, secretsmanager) -> list[str]:
+    """Copy secret values into `environ`; return the env vars that couldn't be set."""
+    missing: list[str] = []
+
+    wanted = {env: environ[src] for env, src in SSM_SECRETS.items() if environ.get(src)}
+    if wanted:
+        try:
+            response = ssm.get_parameters(Names=list(wanted.values()), WithDecryption=True)
+            found = {p["Name"]: p["Value"] for p in response["Parameters"]}
+        except Exception:
+            found = {}
+        for env, name in wanted.items():
+            if name in found:
+                environ[env] = found[name]
+            else:
+                missing.append(env)
+
+    for env, src in SECRETS_MANAGER_SECRETS.items():
+        arn = environ.get(src)
+        if not arn:
+            continue
+        try:
+            value = secretsmanager.get_secret_value(SecretId=arn)["SecretString"]
+            environ[env] = secret_password(value)
+        except Exception:
+            missing.append(env)
+
+    return missing
+
+
+def _cold_start() -> None:
+    try:
+        import boto3
+
+        missing = load_secrets(os.environ, boto3.client("ssm"), boto3.client("secretsmanager"))
+        if missing:
+            print(f"WARNING: could not load secrets: {', '.join(missing)}", file=sys.stderr)
+    except Exception as exc:
+        print(f"WARNING: loading secrets failed: {exc}", file=sys.stderr)
+
+    # Tell the WakeStack idle timer the backend is alive.
+    wake_param = os.environ.get("SSM_WAKE_PARAM")
+    if wake_param:
+        try:
+            import boto3
+
+            boto3.client("ssm").put_parameter(
+                Name=wake_param,
+                Value=str(datetime.now(UTC).timestamp()),
+                Type="String",
+                Overwrite=True,
+            )
+        except Exception as exc:
+            print(f"WARNING: could not update {wake_param}: {exc}", file=sys.stderr)
+
+
+if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    _cold_start()
 
 from mangum import Mangum  # noqa: E402 — must come after env injection
 

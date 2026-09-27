@@ -4,6 +4,7 @@ Database configuration for FastSpec
 
 import os
 import sys
+from urllib.parse import quote
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -47,7 +48,7 @@ if not DATABASE_URL:
         sys.exit(1)
     db_host, db_port = (db_endpoint.split(":") + ["5432"])[:2]
     DATABASE_URL = (
-        f"postgresql://fastspec_app:{db_password}@{db_host}:{db_port}/fastspec"
+        f"postgresql://fastspec_app:{quote(db_password, safe='')}@{db_host}:{db_port}/fastspec"
     )
 
 # Require SSL for RDS connections; ignored for local sqlite/postgres without SSL

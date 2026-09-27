@@ -38,6 +38,8 @@ function buildFrontendStack() {
   const lambdaStack = new LambdaStack(app, 'FastSpec-Lambda-prod', {
     config,
     dbEndpoint: 'db.example.com:5432',
+    dbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:master-AbCdEf',
+    appDbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf',
   });
 
   return new FrontendStack(app, 'FastSpec-Frontend-prod', {

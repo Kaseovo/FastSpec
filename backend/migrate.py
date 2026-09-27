@@ -20,6 +20,7 @@ Steps:
 import os
 import subprocess
 import sys
+from urllib.parse import quote
 
 import sqlalchemy
 
@@ -45,7 +46,8 @@ def build_admin_url(dbname: str = "postgres") -> str:
     parts = db_endpoint.split(":")
     db_host = parts[0]
     db_port = parts[1] if len(parts) > 1 else "5432"
-    return f"postgresql://postgres:{db_password}@{db_host}:{db_port}/{dbname}?sslmode=require"
+    # Generated passwords may contain URL-reserved characters.
+    return f"postgresql://postgres:{quote(db_password, safe='')}@{db_host}:{db_port}/{dbname}?sslmode=require"
 
 
 def ensure_database() -> None:

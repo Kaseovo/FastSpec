@@ -23,6 +23,8 @@ const dataStack = new DataStack(app, `FastSpec-Data-${env}`, { config, env: awsE
 const lambdaStack = new LambdaStack(app, `FastSpec-Lambda-${env}`, {
   config,
   dbEndpoint: dataStack.dbEndpoint,
+  dbSecretArn: dataStack.dbSecretArn,
+  appDbSecretArn: dataStack.appDbSecretArn,
   env: awsEnv,
 });
 

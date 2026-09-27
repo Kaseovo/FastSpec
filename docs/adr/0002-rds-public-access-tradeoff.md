@@ -92,15 +92,14 @@ now **implemented in code**, not yet applied to the live RDS instance:
   `FASTSPEC_APP_DB_PASSWORD`, alongside (not replacing) the existing admin
   `DB_PASSWORD` wiring.
 
-**Not yet applied to AWS.** A human still needs to, in this order: (1) run
-the `AppDbSecretArn` value into a new `${env}/fastspec/app-db-password` SSM
-SecureString parameter; (2) run the migration (Lambda `{"migrate": true}`
-invocation) with that same password available as
-`FASTSPEC_APP_DB_PASSWORD` so the `fastspec_app` role actually gets created
-on the live instance; (3) only then redeploy the Lambda with the
-`SSM_FASTSPEC_APP_DB_PASSWORD` env var wired in, so `database.py` starts
-authenticating as `fastspec_app`. Deploying step (3) before step (2) would
-break the app (role doesn't exist yet).
+**Update (2026-09-27): applied automatically.** The manual steps this
+section used to list (copy the generated passwords into SSM, migrate, then
+redeploy) are gone: the Lambda now reads both passwords straight from
+Secrets Manager (`DB_SECRET_ARN`, `APP_DB_SECRET_ARN`, read access to those
+two secrets only). The deploy workflow deploys `DataStack` and `LambdaStack`,
+then invokes the migration — which creates `fastspec_app` with the
+generated password — before CloudFront sends any traffic to the function,
+so the order is right on a fresh deployment and a no-op afterwards.
 
 ## Consequences
 

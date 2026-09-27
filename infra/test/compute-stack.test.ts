@@ -10,6 +10,8 @@ function buildStack(env: 'local' | 'prod') {
   return new LambdaStack(app, `FastSpec-Lambda-${env}`, {
     config,
     dbEndpoint: 'db.example.com:5432',
+    dbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:master-AbCdEf',
+    appDbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf',
   });
 }
 
@@ -43,6 +45,31 @@ describe('LambdaStack — local', () => {
         Variables: Match.objectLike({
           DB_ENDPOINT: 'db.example.com:5432',
         }),
+      },
+    });
+  });
+
+  test('database passwords come from Secrets Manager, not SSM', () => {
+    const [fn] = Object.values(template.findResources('AWS::Lambda::Function'));
+    const vars = (fn as any).Properties.Environment.Variables;
+    expect(vars.DB_SECRET_ARN).toMatch(/secret:master/);
+    expect(vars.APP_DB_SECRET_ARN).toMatch(/secret:app/);
+    expect(vars).not.toHaveProperty('SSM_DB_PASSWORD');
+    expect(vars).not.toHaveProperty('SSM_FASTSPEC_APP_DB_PASSWORD');
+  });
+
+  test('function can read exactly the two database secrets', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'secretsmanager:GetSecretValue',
+            Resource: [
+              'arn:aws:secretsmanager:us-east-1:123456789012:secret:master-AbCdEf',
+              'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf',
+            ],
+          }),
+        ]),
       },
     });
   });

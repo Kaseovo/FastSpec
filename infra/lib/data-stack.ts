@@ -62,6 +62,8 @@ export class DataStack extends cdk.Stack {
   public readonly rdsInstanceId: string;
   /** ARN of the generated-password secret for the `fastspec_app` role. */
   public readonly appDbSecretArn: string;
+  /** Secrets Manager ARN of the generated master (`postgres`) credentials. */
+  public readonly dbSecretArn: string;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
@@ -153,27 +155,26 @@ export class DataStack extends cdk.Stack {
       description: 'RDS PostgreSQL endpoint',
     });
 
+    if (!dbInstance.secret) {
+      throw new Error('DataStack: the RDS instance has no generated master secret');
+    }
+
+    // Both passwords are read by the backend Lambda straight from Secrets
+    // Manager (LambdaStack grants it read access to exactly these two), so a
+    // fresh deployment needs no manual copying of generated passwords.
     new cdk.CfnOutput(this, 'DbSecretArn', {
-      value: dbInstance.secret?.secretArn ?? 'unavailable',
-      description:
-        'Secrets Manager ARN holding the generated master password — seed the ' +
-        '${env}/fastspec/db-password SSM parameter from this value, not by hand.',
+      value: dbInstance.secret.secretArn,
+      description: 'Secrets Manager ARN of the generated master (postgres) credentials',
     });
 
     new cdk.CfnOutput(this, 'AppDbSecretArn', {
       value: appDbSecret.secretArn,
-      description:
-        "Secrets Manager ARN holding the generated 'fastspec_app' role password " +
-        '— seed the ${env}/fastspec/app-db-password SSM parameter from this ' +
-        'value (same manual pattern as DbSecretArn). Apply order matters: run ' +
-        'the fastspec_app-role Alembic migration (with FASTSPEC_APP_DB_PASSWORD ' +
-        'set to this value) BEFORE redeploying the Lambda with this password ' +
-        'wired in, or the app will try to authenticate as a role that does ' +
-        'not exist yet.',
+      description: "Secrets Manager ARN of the generated 'fastspec_app' role password",
     });
 
     this.dbEndpoint = `${dbEndpointAddress}:${dbEndpointPort}`;
     this.rdsInstanceId = dbInstance.instanceIdentifier;
     this.appDbSecretArn = appDbSecret.secretArn;
+    this.dbSecretArn = dbInstance.secret.secretArn;
   }
 }

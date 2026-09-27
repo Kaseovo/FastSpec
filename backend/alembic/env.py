@@ -34,7 +34,9 @@ config = context.config
 # no single DATABASE_URL env var is injected).
 database_url = os.environ.get("DATABASE_URL") or _assembled_db_url
 if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+    # set_main_option goes through configparser interpolation, where "%" is
+    # special — and URL-encoded passwords contain it.
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
