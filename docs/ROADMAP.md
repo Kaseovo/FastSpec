@@ -76,12 +76,13 @@ a lint finding dropped the spec from the URL; switching specs kept the old
 lint score; a missing Spectral CLI caused a 500.
 
 ### Phase 5 — Go public
-- [ ] History scrub (decision 5) on a fresh clone; push as the public repo
-- [ ] Enable private vulnerability reporting (Settings → Security), which SECURITY.md relies on
-- [ ] If the public repo is a *new* GitHub repository, its ID changes: update the `FastSpecGitHubDeploy` trust policy's `sub` (and copy the repository variables and secrets)
+- [x] History scrubbed on a fresh clone (decision 5) and published as a new public `Kaseovo/FastSpec` (2026-09-27). The original repository, with the unscrubbed history, old PRs and tags, is the private, archived `Kaseovo/FastSpec-archive` — a new repository because the old PRs pinned the old commits.
+- [x] Private vulnerability reporting enabled; description, homepage and topics set
+- [x] `v0.1.0` released (GitHub Release + multi-arch image on GHCR)
 - [x] Google OAuth client: `https://fastspec.kaseovo.com/auth/oidc/callback` added as an authorized redirect URI
-- [ ] Switch the hosted deployment to the public repo
-- [ ] Tag `v0.1.0`
+- [ ] Make the `ghcr.io/kaseovo/fastspec` package public (Packages → fastspec → Package settings; no API for this)
+- [ ] Deploy role trust policy: allow the new repository (`repo:Kaseovo@167826072/FastSpec@1390422681:ref:refs/heads/main`)
+- [ ] Redeploy the hosted version (Deploy to AWS on `main`), then the website (`fastspec-website`); the old database is gone, so it starts empty
 
 ## Backlog (after v0.1)
 
