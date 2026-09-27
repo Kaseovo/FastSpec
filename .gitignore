@@ -58,8 +58,9 @@ fastspec.db
 # Backups
 frontend-nextjs-backup/
 
-# Kilo
+# AI-assistant editor configs (Kilo, Roo) — they can hold personal tokens
 .kilo/
+.roo/
 
 # Local dev data (SQLite database, generated JWT secret) and tools (Spectral CLI)
 .data/
