@@ -239,7 +239,8 @@ def compare_versions(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="compare_content must be a JSON object",
             )
-        diff = compare_specs(base_ver.content, compare_content)
+        # compare_specs(current, previous): the base is the "before" side.
+        diff = compare_specs(compare_content, base_ver.content)
         compare_ver = None
     else:
         if not compare_key:
@@ -248,7 +249,7 @@ def compare_versions(
                 detail="Either 'compare' or 'compare_content' is required",
             )
         compare_ver = svc.get_version(current_user, spec_id, compare_key)
-        diff = compare_specs(base_ver.content, compare_ver.content)
+        diff = compare_specs(compare_ver.content, base_ver.content)
 
     # Always compute the markdown rendering alongside the structured diff so
     # callers that only need the human-readable report (e.g. a "copy as

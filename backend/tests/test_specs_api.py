@@ -228,3 +228,38 @@ def test_create_spec_duplicate_name_returns_409():
     }
     resp = client.post("/specs?version=1.0.0", json=payload)
     assert resp.status_code == 409
+
+
+def _versioned_spec():
+    """A spec at 1.0.0 (GET /pets) with a 1.1.0 that adds GET /owners."""
+    user = User(id=1, email="test@example.com", provider="test", provider_user_id="uid")
+    _auth_as(user)
+    base = {"openapi": "3.0.3", "info": {"title": "Pets", "version": "1.0.0"}, "paths": {"/pets": {"get": {"responses": {"200": {"description": "ok"}}}}}}
+    created = client.post("/specs/", json={"name": "pets", "version": "1.0.0", "spec_json": base}).json()
+    newer = {**base, "paths": {**base["paths"], "/owners": {"get": {"responses": {"200": {"description": "ok"}}}}}}
+    client.post(f"/specs/{created['id']}/versions", json={"version": "1.1.0", "content": newer})
+    return created["id"], newer
+
+
+def _paths(entries):
+    return [(e["method"], e["path"]) for e in entries]
+
+
+def test_compare_reports_changes_from_base_to_compare():
+    """Regression: the diff was inverted — additions showed up as removals."""
+    spec_id, _ = _versioned_spec()
+
+    diff = client.post(f"/specs/{spec_id}/compare", json={"base": "1.0.0", "compare": "1.1.0"}).json()["diff"]
+
+    assert _paths(diff["added"]) == [("get", "/owners")]
+    assert diff["removed"] == []
+
+
+def test_compare_draft_reports_what_the_draft_adds():
+    spec_id, newer = _versioned_spec()
+    draft = {**newer, "paths": {**newer["paths"], "/stores": {"get": {"responses": {"200": {"description": "ok"}}}}}}
+
+    diff = client.post(f"/specs/{spec_id}/compare", json={"base": "1.1.0", "compare_content": draft}).json()["diff"]
+
+    assert _paths(diff["added"]) == [("get", "/stores")]
+    assert diff["removed"] == []
