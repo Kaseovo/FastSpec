@@ -64,7 +64,9 @@
     <script>
       const WAKE_URL = '__WAKE_URL__';
       const SECRET   = '__WAKE_SECRET__';
-      const HEALTH   = '/api/health';
+      // Readiness, not liveness: /api/health answers even while the database
+      // sleeps. (The app itself also wakes the database: see /specs/.)
+      const HEALTH   = '/api/health/ready';
 
       // On load, check if backend is already up — redirect immediately if so
       window.addEventListener('DOMContentLoaded', async () => {

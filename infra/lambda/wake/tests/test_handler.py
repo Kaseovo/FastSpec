@@ -1,56 +1,41 @@
 """
 Unit tests for the wake Lambda handler.
-Covers the MCP service waking behaviour added in issue #105.
+
+Same structure as infra/lambda/auto-stop/tests/test_handler.py: the module is
+imported fresh per test (via importlib, from a file path) with boto3
+patched, so module-level state (the cached secret) never leaks between tests.
 """
+import importlib.util
 import json
 import os
+import pathlib
 import time
-import types
 import unittest
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+BASE_ENV = {
+    "ENV": "dev",
+    "RDS_INSTANCE_ID": "my-rds",
+}
 
-def _post_event(secret="test-secret"):
+
+def _event(method="POST", secret="test-secret"):
     return {
-        "requestContext": {"http": {"method": "POST"}},
+        "requestContext": {"http": {"method": method}},
         "body": json.dumps({"secret": secret}),
     }
 
 
-def _make_ssm_client(secret="test-secret", on_cooldown=False):
+def _make_ssm_client(secret="test-secret", last_triggered=None):
     ssm = MagicMock()
 
     def get_parameter(Name, **kwargs):
         if "wake-secret" in Name:
             return {"Parameter": {"Value": secret}}
-        if "wake-last-triggered" in Name:
-            if on_cooldown:
-                return {"Parameter": {"Value": str(time.time() - 10)}}
-            # Raise ParameterNotFound so cooldown returns False
-            exc_cls = type(
-                "ParameterNotFound",
-                (Exception,),
-                {},
-            )
-            ssm.exceptions = types.SimpleNamespace(ParameterNotFound=exc_cls)
-            raise exc_cls("not found")
+        return {"Parameter": {"Value": str(last_triggered or time.time())}}
 
     ssm.get_parameter.side_effect = get_parameter
-    ssm.put_parameter = MagicMock()
-
-    # Attach exceptions namespace used in is_on_cooldown
-    not_found_cls = type("ParameterNotFound", (Exception,), {})
-    ssm.exceptions = types.SimpleNamespace(ParameterNotFound=not_found_cls)
     return ssm
-
-
-def _make_ecs_client():
-    ecs = MagicMock()
-    ecs.update_service = MagicMock(return_value={})
-    return ecs
 
 
 def _make_rds_client(status="stopped"):
@@ -58,159 +43,85 @@ def _make_rds_client(status="stopped"):
     rds.describe_db_instances.return_value = {
         "DBInstances": [{"DBInstanceStatus": status}]
     }
-    rds.start_db_instance = MagicMock(return_value={})
     return rds
 
 
-# ---------------------------------------------------------------------------
-# Environment setup
-# ---------------------------------------------------------------------------
-
-BASE_ENV = {
-    "ENV": "dev",
-    "CLUSTER_NAME": "my-cluster",
-    "SERVICE_NAME": "backend-svc",
-    "MCP_SERVICE_NAME": "mcp-svc",
-    "RDS_INSTANCE_ID": "my-rds",
-}
-
-
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-class TestWakeHandlerMcpService(unittest.TestCase):
-    """Issue #105 — wake Lambda must start both backend and MCP services."""
-
-    def _run_handler(self, ssm, ecs, rds):
-        """Import handler fresh each test to avoid module-level caching issues."""
-        import importlib
-        import sys
-        # Remove cached module so env vars are re-read
-        sys.modules.pop("index", None)
-
+class TestWakeHandler(unittest.TestCase):
+    def _run_handler(self, ssm, rds, event=None):
         boto3_mock = MagicMock()
-        boto3_mock.client.side_effect = lambda svc: {
-            "ssm": ssm,
-            "ecs": ecs,
-            "rds": rds,
-        }[svc]
+        boto3_mock.client.side_effect = lambda svc: {"ssm": ssm, "rds": rds}[svc]
 
-        with patch.dict(os.environ, BASE_ENV, clear=True):
-            with patch("boto3.client", boto3_mock.client):
-                # Must re-import after patching boto3 at module level
-                sys.modules.pop("index", None)
-                import importlib.util, pathlib
-                spec = importlib.util.spec_from_file_location(
-                    "index",
-                    pathlib.Path(__file__).parent.parent / "index.py",
-                )
-                mod = importlib.util.module_from_spec(spec)
-                # Patch boto3 inside the module namespace
-                mod.boto3 = boto3_mock  # type: ignore[attr-defined]
-                spec.loader.exec_module(mod)  # type: ignore[union-attr]
-                return mod.handler(_post_event(), None)
+        # `import boto3` inside exec_module rebinds the module-level name to
+        # the real boto3 module, so also patch the real boto3.client.
+        with (
+            patch.dict(os.environ, BASE_ENV, clear=True),
+            patch("boto3.client", boto3_mock.client),
+        ):
+            spec = importlib.util.spec_from_file_location(
+                "wake_index",
+                pathlib.Path(__file__).parent.parent / "index.py",
+            )
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+            return mod.handler(event or _event(), None)
 
-    # ------------------------------------------------------------------
-    # Test 1 (RED → GREEN): both update_service calls are made
-    # ------------------------------------------------------------------
+    def test_starts_a_stopped_database(self):
+        ssm, rds = _make_ssm_client(), _make_rds_client("stopped")
 
-    def test_both_ecs_update_service_calls_made(self):
-        ssm = _make_ssm_client()
-        ecs = _make_ecs_client()
-        rds = _make_rds_client(status="available")
-
-        resp = self._run_handler(ssm, ecs, rds)
+        resp = self._run_handler(ssm, rds)
 
         self.assertEqual(resp["statusCode"], 200)
+        rds.start_db_instance.assert_called_once_with(DBInstanceIdentifier="my-rds")
 
-        update_calls = ecs.update_service.call_args_list
-        self.assertEqual(len(update_calls), 2, "Expected exactly 2 update_service calls")
+    def test_a_recent_wake_up_or_backend_activity_does_not_prevent_starting(self):
+        # The backend writes the same timestamp; it used to act as a cooldown
+        # that left a stopped database stopped for an hour.
+        ssm = _make_ssm_client(last_triggered=time.time() - 10)
+        rds = _make_rds_client("stopped")
 
-        clusters = {c.kwargs.get("cluster") or c.args[0] for c in update_calls}
-        services = {
-            c.kwargs.get("service") if "service" in c.kwargs else c.args[1]
-            for c in update_calls
-        }
+        self._run_handler(ssm, rds)
 
-        # Both calls target the same cluster
-        self.assertIn("my-cluster", clusters)
+        rds.start_db_instance.assert_called_once()
 
-        # One call per service
-        self.assertIn("backend-svc", services)
-        self.assertIn("mcp-svc", services)
+    def test_records_the_wake_up_for_the_auto_stop(self):
+        ssm, rds = _make_ssm_client(), _make_rds_client("stopped")
 
-        # Both with desiredCount=1
-        for c in update_calls:
-            desired = c.kwargs.get("desiredCount") if "desiredCount" in c.kwargs else c.args[2]
-            self.assertEqual(desired, 1)
+        self._run_handler(ssm, rds)
 
-    # ------------------------------------------------------------------
-    # Test 2 (RED → GREEN): MCP error does not prevent backend call
-    # ------------------------------------------------------------------
+        name = ssm.put_parameter.call_args.kwargs["Name"]
+        self.assertEqual(name, "/dev/fastspec/wake-last-triggered")
 
-    def test_mcp_ecs_error_does_not_prevent_backend_update(self):
-        ssm = _make_ssm_client()
-        rds = _make_rds_client(status="available")
-        ecs = _make_ecs_client()
+    def test_leaves_a_database_that_is_not_stopped_alone(self):
+        for status in ("available", "starting", "stopping"):
+            with self.subTest(status=status):
+                rds = _make_rds_client(status)
 
-        call_order = []
+                resp = self._run_handler(_make_ssm_client(), rds)
 
-        def update_service_side_effect(**kwargs):
-            svc = kwargs.get("service")
-            call_order.append(svc)
-            if svc == "mcp-svc":
-                raise Exception("MCP ECS error")
-            return {}
+                self.assertEqual(resp["statusCode"], 202)
+                self.assertEqual(json.loads(resp["body"]), {"status": status})
+                rds.start_db_instance.assert_not_called()
 
-        ecs.update_service.side_effect = update_service_side_effect
+    def test_wrong_secret_is_rejected_before_touching_rds(self):
+        rds = _make_rds_client("stopped")
 
-        resp = self._run_handler(ssm, ecs, rds)
+        resp = self._run_handler(_make_ssm_client(), rds, _event(secret="nope"))
 
-        self.assertEqual(resp["statusCode"], 200)
-        # backend call must have been attempted regardless of MCP error
-        self.assertIn("backend-svc", call_order)
-        self.assertIn("mcp-svc", call_order)
+        self.assertEqual(resp["statusCode"], 401)
+        rds.describe_db_instances.assert_not_called()
 
-    # ------------------------------------------------------------------
-    # Test 3: backend error does not prevent MCP call
-    # ------------------------------------------------------------------
+    def test_rds_failure_is_reported(self):
+        rds = _make_rds_client("stopped")
+        rds.start_db_instance.side_effect = Exception("InvalidDBInstanceState")
 
-    def test_backend_ecs_error_does_not_prevent_mcp_update(self):
-        ssm = _make_ssm_client()
-        rds = _make_rds_client(status="available")
-        ecs = _make_ecs_client()
+        resp = self._run_handler(_make_ssm_client(), rds)
 
-        call_order = []
+        self.assertEqual(resp["statusCode"], 502)
 
-        def update_service_side_effect(**kwargs):
-            svc = kwargs.get("service")
-            call_order.append(svc)
-            if svc == "backend-svc":
-                raise Exception("Backend ECS error")
-            return {}
-
-        ecs.update_service.side_effect = update_service_side_effect
-
-        resp = self._run_handler(ssm, ecs, rds)
-
-        self.assertEqual(resp["statusCode"], 200)
-        self.assertIn("backend-svc", call_order)
-        self.assertIn("mcp-svc", call_order)
-
-    # ------------------------------------------------------------------
-    # Test 4: cooldown returns early without making ECS calls
-    # ------------------------------------------------------------------
-
-    def test_cooldown_skips_ecs_calls(self):
-        ssm = _make_ssm_client(on_cooldown=True)
-        ecs = _make_ecs_client()
-        rds = _make_rds_client()
-
-        resp = self._run_handler(ssm, ecs, rds)
-
-        self.assertEqual(resp["statusCode"], 202)
-        ecs.update_service.assert_not_called()
+    def test_preflight_and_other_methods(self):
+        ssm, rds = _make_ssm_client(), _make_rds_client()
+        self.assertEqual(self._run_handler(ssm, rds, _event("OPTIONS"))["statusCode"], 200)
+        self.assertEqual(self._run_handler(ssm, rds, _event("GET"))["statusCode"], 405)
 
 
 if __name__ == "__main__":

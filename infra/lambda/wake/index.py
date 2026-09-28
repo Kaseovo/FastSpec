@@ -4,7 +4,6 @@ import time
 import boto3
 
 _wake_secret = None
-COOLDOWN_SECONDS = 60 * 60  # 60 minutes
 
 
 def get_wake_secret():
@@ -19,20 +18,9 @@ def get_wake_secret():
     return _wake_secret
 
 
-def is_on_cooldown():
-    """Returns True if the environment was woken up within the last 60 minutes."""
-    ssm = boto3.client('ssm')
-    param_name = f"/{os.environ['ENV']}/fastspec/wake-last-triggered"
-    try:
-        resp = ssm.get_parameter(Name=param_name)
-        last_triggered = float(resp['Parameter']['Value'])
-        return (time.time() - last_triggered) < COOLDOWN_SECONDS
-    except ssm.exceptions.ParameterNotFound:
-        return False
-
-
 def record_trigger():
-    """Stamp the current time so cooldown can be checked on subsequent calls."""
+    """Stamp the current time: the auto-stop Lambda leaves the database
+    running for two hours after the last wake-up or backend activity."""
     ssm = boto3.client('ssm')
     ssm.put_parameter(
         Name=f"/{os.environ['ENV']}/fastspec/wake-last-triggered",
@@ -73,15 +61,11 @@ def handler(event, context):
     if body.get('secret') != get_wake_secret():
         return cors_response(401, json.dumps({'error': 'Unauthorized'}))
 
-    # Cooldown check — environment stays alive for 60 min after wake, no need to re-trigger
-    if is_on_cooldown():
-        return cors_response(202, json.dumps({'status': 'already_waking'}))
-
     record_trigger()
 
+    # Always look at the instance itself: the timestamp above is also written
+    # by the backend, so it can be recent while the database is stopped.
     rds_id = os.environ['RDS_INSTANCE_ID']
-
-    # Start RDS if stopped
     rds = boto3.client('rds')
     try:
         resp = rds.describe_db_instances(DBInstanceIdentifier=rds_id)
@@ -89,9 +73,12 @@ def handler(event, context):
         if status == 'stopped':
             rds.start_db_instance(DBInstanceIdentifier=rds_id)
             print(f"RDS {rds_id} start requested")
-        else:
-            print(f"RDS {rds_id} already in state: {status}")
+            return cors_response(200, json.dumps({'status': 'starting'}))
     except Exception as e:
         print(f"RDS error: {e}")
+        return cors_response(502, json.dumps({'error': 'Could not start the database'}))
 
-    return cors_response(200, json.dumps({'status': 'starting'}))
+    # Starting, available — or still stopping, in which case the backend
+    # starts it once stopped, when the wake page's readiness polls reach it.
+    print(f"RDS {rds_id} already in state: {status}")
+    return cors_response(202, json.dumps({'status': status}))

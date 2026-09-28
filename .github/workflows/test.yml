@@ -63,6 +63,11 @@ jobs:
         env:
           TEST_POSTGRES_URL: postgresql://fastspec:fastspec@localhost:5432/fastspec
         run: python -m pytest tests --tb=short
+      - name: pytest (wake and auto-stop Lambdas)
+        # Separate runs: both suites are tests/test_handler.py.
+        run: |
+          python -m pytest infra/lambda/wake/tests --tb=short
+          python -m pytest infra/lambda/auto-stop/tests --tb=short
 
   frontend:
     runs-on: ubuntu-latest

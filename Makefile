@@ -62,9 +62,11 @@ transfer-local-data:
 ## test: Run backend and frontend test suites
 test: test-backend test-frontend
 
-## test-backend: pytest (set TEST_POSTGRES_URL to also run the Postgres migration tests)
+## test-backend: pytest (set TEST_POSTGRES_URL to also run the Postgres migration tests), plus the wake and auto-stop Lambdas
 test-backend:
 	cd backend && ../$(VENV)/bin/python -m pytest tests -q
+	cd infra/lambda/wake && ../../../$(VENV)/bin/python -m pytest tests -q
+	cd infra/lambda/auto-stop && ../../../$(VENV)/bin/python -m pytest tests -q
 
 ## test-frontend: vitest
 test-frontend:
