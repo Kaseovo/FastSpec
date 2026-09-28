@@ -24,8 +24,10 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+import database_wake
 from auth.dependencies import get_current_user
 from auth.jwt import (
     create_access_token,
@@ -210,10 +212,18 @@ def oidc_callback(
 
     try:
         user = upsert_oidc_user(db, settings.oidc_provider_key, claims, settings)
+        access_token = create_access_token(user.id, user.email, db_session=db)
     except SignInRejected as exc:
         return _spa_error(str(exc))
+    except OperationalError:
+        # A browser navigation: send it back to the app, which shows its own
+        # "waking up" screen, rather than leave it on a JSON error.
+        logger.warning("Database unavailable during sign-in", exc_info=True)
+        database_wake.request_start()
+        if database_wake.can_start():
+            return _spa_error("FastSpec was waking up. Please sign in again.")
+        return _spa_error("The database is unavailable, please try again later.")
 
-    access_token = create_access_token(user.id, user.email, db_session=db)
     return _spa_redirect(f"token={access_token}")
 
 

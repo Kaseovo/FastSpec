@@ -12,13 +12,13 @@ Cold-start behaviour (only when running inside Lambda):
     Secrets that can't be loaded are logged by name (never by value); the
     handler still starts, and the app fails with a clear configuration error
     if something it needs is missing.
-  - Writes the current UTC timestamp to the SSM parameter named by
-    SSM_WAKE_PARAM (used by the WakeStack RDS idle timer).
 
 Invocation modes:
   - {"migrate": true}  → runs database creation + Alembic upgrade head,
                          returns {"statusCode": 200} on success, raises on failure.
-  - anything else      → dispatches to the merged FastAPI + MCP ASGI app via Mangum.
+  - anything else      → dispatches to the merged FastAPI + MCP ASGI app via
+                         Mangum, first telling the WakeStack RDS idle timer the
+                         app is in use (database_wake.note_activity).
 
 Handler export: ``lambda_handler.handler``
 """
@@ -27,7 +27,6 @@ import json
 import os
 import sys
 from collections.abc import MutableMapping
-from datetime import UTC, datetime
 
 # SSM SecureString parameters: env var to set → env var holding the name.
 SSM_SECRETS = {
@@ -94,27 +93,13 @@ def _cold_start() -> None:
     except Exception as exc:
         print(f"WARNING: loading secrets failed: {exc}", file=sys.stderr)
 
-    # Tell the WakeStack idle timer the backend is alive.
-    wake_param = os.environ.get("SSM_WAKE_PARAM")
-    if wake_param:
-        try:
-            import boto3
-
-            boto3.client("ssm").put_parameter(
-                Name=wake_param,
-                Value=str(datetime.now(UTC).timestamp()),
-                Type="String",
-                Overwrite=True,
-            )
-        except Exception as exc:
-            print(f"WARNING: could not update {wake_param}: {exc}", file=sys.stderr)
-
 
 if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
     _cold_start()
 
 from mangum import Mangum  # noqa: E402 — must come after env injection
 
+import database_wake  # noqa: E402
 from app import application  # noqa: E402
 
 # ── Mangum ASGI adapter (used for normal HTTP invocations) ────────────────────
@@ -130,6 +115,7 @@ def handler(event, context):
     if event.get("migrate") is True:
         _run_migrations()
         return {"statusCode": 200}
+    database_wake.note_activity()
     return _mangum_handler(event, context)
 
 

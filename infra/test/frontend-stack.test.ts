@@ -40,6 +40,7 @@ function buildFrontendStack() {
     dbEndpoint: 'db.example.com:5432',
     dbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:master-AbCdEf',
     appDbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf',
+    rdsInstanceId: 'fastspec-db',
   });
 
   return new FrontendStack(app, 'FastSpec-Frontend-prod', {

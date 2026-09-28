@@ -24,6 +24,7 @@ function prodTemplates(): Template[] {
     dbEndpoint: data.dbEndpoint,
     dbSecretArn: data.dbSecretArn,
     appDbSecretArn: data.appDbSecretArn,
+    rdsInstanceId: data.rdsInstanceId,
   });
   const wake = new WakeStack(app, 'FastSpec-Wake-prod', { config, rdsInstanceId: data.rdsInstanceId });
   return [data, lambda, wake].map((stack) => Template.fromStack(stack));

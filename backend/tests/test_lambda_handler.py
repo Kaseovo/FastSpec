@@ -1,9 +1,11 @@
-"""Cold-start secret loading for the AWS Lambda (lambda_handler.py)."""
+"""The AWS Lambda entry point (lambda_handler.py): cold-start secret loading
+and invocation dispatch."""
 
 import json
 
 import pytest
 
+import lambda_handler
 from lambda_handler import load_secrets, secret_password
 
 
@@ -77,3 +79,16 @@ def test_nothing_configured_means_nothing_to_load():
 )
 def test_secret_password(secret, password):
     assert secret_password(secret) == password
+
+
+def test_http_requests_count_as_activity_for_the_idle_timer(monkeypatch):
+    noted = []
+    monkeypatch.setattr(lambda_handler.database_wake, "note_activity", lambda: noted.append(1))
+    monkeypatch.setattr(lambda_handler, "_mangum_handler", lambda event, context: {"statusCode": 200})
+    monkeypatch.setattr(lambda_handler, "_run_migrations", lambda: None)
+
+    lambda_handler.handler({"migrate": True}, None)
+    assert noted == []
+
+    assert lambda_handler.handler({"rawPath": "/health"}, None) == {"statusCode": 200}
+    assert noted == [1]

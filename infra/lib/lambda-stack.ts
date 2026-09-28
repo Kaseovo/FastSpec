@@ -12,6 +12,11 @@ export interface LambdaStackProps extends cdk.StackProps {
   dbSecretArn: string;
   /** Secrets Manager ARN of the least-privilege `fastspec_app` password. */
   appDbSecretArn: string;
+  /**
+   * RDS instance identifier from DataStack. WakeStack stops the instance when
+   * idle; the backend starts it when a request finds it stopped.
+   */
+  rdsInstanceId: string;
 }
 
 /**
@@ -61,7 +66,11 @@ export class LambdaStack extends cdk.Stack {
         // (docs/adr/0006-auth-modes.md).
         AUTH_MODE: 'oidc',
         OIDC_ISSUER: 'https://accounts.google.com',
+        // The database sleeps when idle (WakeStack): requests refresh its
+        // idle timer, and start it when they find it stopped
+        // (backend/database_wake.py).
         SSM_WAKE_PARAM: `${ssmPrefix}/wake-last-triggered`,
+        RDS_INSTANCE_ID: props.rdsInstanceId,
         // Secret *names* only - values are fetched via boto3 at cold start.
         SSM_JWT_SECRET_KEY:  `${ssmPrefix}/secret-key`,
         // Database passwords, read from Secrets Manager at cold start: the
@@ -97,6 +106,21 @@ export class LambdaStack extends cdk.Stack {
         resources: [
           `arn:aws:ssm:${this.region}:${this.account}:parameter${ssmPrefix}/wake-last-triggered`,
         ],
+      }),
+    );
+    // Start the database when a request finds it stopped. Start only, and
+    // only this instance (rds:DescribeDBInstances has no resource-level
+    // permissions, so it stays '*').
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['rds:DescribeDBInstances'],
+        resources: ['*'],
+      }),
+    );
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['rds:StartDBInstance'],
+        resources: [`arn:aws:rds:${this.region}:${this.account}:db:${props.rdsInstanceId}`],
       }),
     );
 

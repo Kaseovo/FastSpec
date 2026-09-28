@@ -11,8 +11,17 @@ import "primeicons/primeicons.css";
 
 import { useAuthStore } from "./stores/auth";
 import { bootstrapSession } from "./auth/session";
+import { waitForDatabase } from "./api/databaseWake";
+import WakingScreen from "./components/WakingScreen.vue";
 
 const bootApp = async () => {
+  // The hosted version's database sleeps when unused. Wake it before
+  // anything needs it; the waking-up screen shows only if it was asleep.
+  const wakingScreen = createApp(WakingScreen);
+  wakingScreen.mount("#app");
+  await waitForDatabase();
+  wakingScreen.unmount();
+
   const app = createApp(App);
   const pinia = createPinia();
   app.use(pinia);

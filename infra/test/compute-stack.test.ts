@@ -12,6 +12,7 @@ function buildStack(env: 'local' | 'prod') {
     dbEndpoint: 'db.example.com:5432',
     dbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:master-AbCdEf',
     appDbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf',
+    rdsInstanceId: 'fastspec-db',
   });
 }
 
@@ -82,6 +83,28 @@ describe('LambdaStack — local', () => {
         }),
       },
     });
+  });
+
+  test('function environment includes RDS_INSTANCE_ID', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: Match.objectLike({ RDS_INSTANCE_ID: 'fastspec-db' }),
+      },
+    });
+  });
+
+  test('function can start the database — only that instance, and never stop it', () => {
+    const statements = Object.values(template.findResources('AWS::IAM::Policy')).flatMap(
+      (policy: any) => policy.Properties.PolicyDocument.Statement,
+    );
+    const actions = (s: any): string[] => [s.Action].flat();
+    const start = statements.filter((s: any) => actions(s).includes('rds:StartDBInstance'));
+    expect(start).toHaveLength(1);
+    expect(JSON.stringify(start[0].Resource)).toMatch(/:db:fastspec-db"/);
+    const stops = statements.filter((s: any) =>
+      actions(s).some((a) => a === 'rds:StopDBInstance' || a === 'rds:*'),
+    );
+    expect(stops).toHaveLength(0);
   });
 
   test('outputs LambdaFunctionUrl', () => {

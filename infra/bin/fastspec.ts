@@ -25,6 +25,7 @@ const lambdaStack = new LambdaStack(app, `FastSpec-Lambda-${env}`, {
   dbEndpoint: dataStack.dbEndpoint,
   dbSecretArn: dataStack.dbSecretArn,
   appDbSecretArn: dataStack.appDbSecretArn,
+  rdsInstanceId: dataStack.rdsInstanceId,
   env: awsEnv,
 });
 

@@ -22,7 +22,7 @@ run from `main` — the deploy role only trusts that branch. Releases
 | `FastSpec-Lambda-<env>` | The backend (`backend/Dockerfile.lambda`: FastAPI + MCP via Mangum) behind a Lambda Function URL. |
 | `FastSpec-Cert-<env>` | ACM certificate (us-east-1, for CloudFront). |
 | `FastSpec-Frontend-<env>` | S3 buckets for the SPA and for your own website, one CloudFront distribution routing `/specs*` → SPA, `/api*`, `/auth*`, `/mcp*` → Lambda, everything else → website bucket; Route 53 alias. |
-| `FastSpec-Wake-<env>` | Starts RDS on demand from `/wake.html` and stops it after inactivity (EventBridge, every 30 minutes). |
+| `FastSpec-Wake-<env>` | Stops RDS after two hours without activity (checked every 30 minutes), and starts it from `/wake.html` — see [the sleeping database](#the-sleeping-database). |
 
 ### Settings
 
@@ -91,6 +91,18 @@ website bucket (`LandingBucketName` output), which this repository doesn't
 fill. The hosted version deploys its marketing site there from a separate
 repository. If you don't have one, upload an `index.html` that redirects to
 `/specs/`. Whatever syncs that bucket must leave `wake.html` in place.
+
+### The sleeping database
+
+To save costs, the database is stopped after two hours without activity.
+Nobody has to wake it by hand: when a request finds it stopped, the backend
+starts it (`backend/database_wake.py`) and answers `503` with
+`"code": "database_starting"`. The app then shows a "FastSpec is waking up"
+screen, polls `/api/health/ready`, and carries on by itself once the
+database is up — usually a minute or two later. Requests count as activity
+(the backend refreshes the idle timer at most every five minutes), so the
+database stays up while people use the app. `/wake.html` does the same from
+outside the app.
 
 ### Working on the infrastructure locally
 

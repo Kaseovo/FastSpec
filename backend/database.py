@@ -55,8 +55,12 @@ if not DATABASE_URL:
 _connect_args: dict = {}
 if "sqlite" in DATABASE_URL:
     _connect_args["check_same_thread"] = False
-elif "rds.amazonaws.com" in DATABASE_URL or os.environ.get("DB_ENDPOINT"):
-    _connect_args["sslmode"] = "require"
+else:
+    # Fail fast when the server is down (e.g. a stopped RDS instance) so the
+    # app can answer "waking up" instead of hanging until a timeout upstream.
+    _connect_args["connect_timeout"] = 5
+    if "rds.amazonaws.com" in DATABASE_URL or os.environ.get("DB_ENDPOINT"):
+        _connect_args["sslmode"] = "require"
 
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 
