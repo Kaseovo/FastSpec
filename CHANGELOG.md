@@ -26,6 +26,12 @@ Notable changes to FastSpec. The format follows
 - The database could be stopped while in use: only wake-ups and backend cold
   starts counted as activity, now every request does.
 
+### Removed
+
+- The manual "Prod Environment" start/stop workflow: the database now wakes
+  up and goes to sleep by itself, and the workflow had stopped working (the
+  deploy role may not look up RDS instances).
+
 ## [0.1.0] - 2026-09-27
 
 The first open-source release.
