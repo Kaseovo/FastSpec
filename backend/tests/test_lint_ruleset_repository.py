@@ -13,14 +13,29 @@ import threading
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
+from base import Base
 from database import SessionLocal
 from models import User
 from services.lint_ruleset_repository import LintRulesetRepository
 
 _user_counter = 0
+
+
+@pytest.fixture
+def threaded_sessions(tmp_path):
+    """Sessions with a connection each, on a database file. The shared
+    in-memory test database is a single connection (StaticPool), which two
+    threads can't use at once — sqlite3 may crash the test run."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'race.db'}", connect_args={"check_same_thread": False}
+    )
+    Base.metadata.create_all(engine)
+    yield sessionmaker(bind=engine, autoflush=False)
+    engine.dispose()
 
 
 @pytest.fixture
@@ -74,11 +89,11 @@ def test_second_ruleset_does_not_become_default():
         session.close()
 
 
-def test_concurrent_first_creates_for_a_new_user_yield_exactly_one_default():
+def test_concurrent_first_creates_for_a_new_user_yield_exactly_one_default(threaded_sessions):
     """Two threads racing to create a brand-new user's very first ruleset
     must not both win "is_default" -- see create()'s per-user lock."""
     user_id_holder = {}
-    session = SessionLocal()
+    session = threaded_sessions()
     try:
         user = _make_user(session)
         user_id_holder["id"] = user.id
@@ -90,7 +105,7 @@ def test_concurrent_first_creates_for_a_new_user_yield_exactly_one_default():
     errors = []
 
     def _create(name: str):
-        session = SessionLocal()
+        session = threaded_sessions()
         try:
             repo = LintRulesetRepository(session)
             start_barrier.wait(timeout=5)
@@ -109,7 +124,7 @@ def test_concurrent_first_creates_for_a_new_user_yield_exactly_one_default():
 
     assert not errors, f"unexpected errors from concurrent create(): {errors}"
 
-    verify_session = SessionLocal()
+    verify_session = threaded_sessions()
     try:
         repo = LintRulesetRepository(verify_session)
         rulesets = repo.list(user_id)
