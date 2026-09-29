@@ -89,8 +89,8 @@ lint score; a missing Spectral CLI caused a 500.
 An idle month cost about $17, mostly the stopped RDS instance's 100 GB disk. Target: cents ([ADR-0009](adr/0009-serverless-postgres.md)).
 - [x] Database moved to a serverless Postgres (Neon free plan, AWS Singapore); Data and Wake stacks, wake page and waking-up screen removed
 - [x] Unused `dev.fastspec.kaseovo.com` hosted zone deleted (`kaseovo.com` stays: Cloudflare delegates `dashboard`, `dashboard-api` and `instagram-api` to it)
-- [ ] Neon project created and `/prod/fastspec/database-url` stored in SSM
-- [ ] Deployed, data copied from RDS to Neon, sign-in and specs checked
+- [x] Neon project created (AWS Singapore, Postgres 18) and `/prod/fastspec/database-url` stored in SSM
+- [x] Deployed on Neon (2026-09-29); the RDS database was empty, so there was nothing to copy
 - [ ] Old `FastSpec-Wake-prod` and `FastSpec-Data-prod` stacks deleted, RDS instance included (deletion protection on; it's retained by the stack)
 - [ ] Leftovers removed: `/prod/fastspec/wake-secret` and `wake-last-triggered` SSM parameters, the `WAKE_SECRET` repository secret, `wake.html` in the landing bucket (and the website repo's sync exclusion for it)
 - [ ] Old Lambda images: lifecycle rule on the CDK assets ECR repository (15 GB, $1.50/month)
