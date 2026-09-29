@@ -6,7 +6,7 @@ There are two ways to run FastSpec in production:
   almost everyone wants: see [SELF_HOSTING.md](SELF_HOSTING.md).
 - **AWS serverless** — the setup behind the hosted version, described
   below. It costs next to nothing while nobody uses it, and needs an AWS
-  account, a Route 53 hosted zone and a serverless Postgres database.
+  account, a domain and a serverless Postgres database.
 
 ## AWS serverless deployment
 
@@ -20,7 +20,7 @@ run from `main` — the deploy role only trusts that branch. Releases
 |---|---|
 | `FastSpec-Lambda-<env>` | The backend (`backend/Dockerfile.lambda`: FastAPI + MCP via Mangum) behind a Lambda Function URL. |
 | `FastSpec-Cert-<env>` | ACM certificate (us-east-1, for CloudFront). |
-| `FastSpec-Frontend-<env>` | S3 buckets for the SPA and for your own website, one CloudFront distribution routing `/specs*` → SPA, `/api*`, `/auth*`, `/mcp*` → Lambda, everything else → website bucket; Route 53 alias. |
+| `FastSpec-Frontend-<env>` | S3 buckets for the SPA and for your own website, one CloudFront distribution routing `/specs*` → SPA, `/api*`, `/auth*`, `/mcp*` → Lambda, everything else → website bucket; Route 53 alias (unless the DNS is elsewhere, see below). |
 
 The database isn't in AWS: it's any Postgres reachable over TLS, given as a
 connection string. The hosted version uses [Neon](https://neon.com)'s free
@@ -38,10 +38,11 @@ sets them from GitHub **repository variables**:
 |---|---|---|
 | `FASTSPEC_DOMAIN` | `fastspec.example.com` | Public domain (required for `env=prod`). |
 | `HOSTED_ZONE_NAME` | `example.com` | Only when that zone is a parent of the domain. |
+| `FASTSPEC_EXTERNAL_DNS` | `true` | The domain's DNS is at another provider (Cloudflare, …): no Route 53 zone, see [DNS outside Route 53](#dns-outside-route-53). |
 | `AWS_REGION` | `eu-west-1` | Region for everything except the CloudFront certificate (always `us-east-1`). |
 
 Repository **secrets**: `AWS_ROLE_ARN` (the deploy role, assumed through
-GitHub OIDC) and `HOSTED_ZONE_ID` (the Route 53 zone holding the domain; without it, CDK looks the zone up, which needs AWS credentials at
+GitHub OIDC) and, unless `FASTSPEC_EXTERNAL_DNS`, `HOSTED_ZONE_ID` (the Route 53 zone holding the domain; without it, CDK looks the zone up, which needs AWS credentials at
 synth time). The zone ID isn't sensitive as such, but Actions logs of a public
 repository are public and GitHub masks secrets in them, not variables — the
 workflow likewise masks the account ID and discards `cdk deploy` output, which
@@ -87,6 +88,22 @@ Run the **Deploy to AWS** workflow on `main`. It runs the test suites and
 `cdk synth` first, then deploys the stacks in order (Lambda → Cert →
 Frontend), runs database migrations by invoking the Lambda with
 `{"migrate": true}`, uploads the SPA, and invalidates CloudFront.
+
+### DNS outside Route 53
+
+With `FASTSPEC_EXTERNAL_DNS=true`, nothing is written to Route 53 and you
+create two records at your DNS provider — as plain DNS (on Cloudflare: *DNS
+only*, not proxied), since CloudFront is already the CDN:
+
+| Type | Name | Value |
+|---|---|---|
+| CNAME | your domain | the `DistributionDomainName` output of `FastSpec-Frontend-<env>` |
+| CNAME | the certificate's validation name | its validation value |
+
+The validation record is listed by `aws acm describe-certificate --region
+us-east-1` (`DomainValidationOptions`) or in the ACM console. On a first
+deploy, the certificate stack waits until that record exists; ACM uses the
+same record for every certificate of the domain, and to renew them.
 
 ### Your website at `/`
 

@@ -21,18 +21,26 @@ export interface EnvConfig {
   hostedZoneId?: string;
   /** Name of that hosted zone, when it isn't `domain` itself (e.g. the apex). */
   hostedZoneName?: string;
+  /**
+   * The domain's DNS is managed outside Route 53 (e.g. Cloudflare): no hosted
+   * zone is used, and you create two CNAME records yourself — the domain →
+   * the CloudFront distribution, and the certificate's validation record.
+   */
+  externalDns: boolean;
 }
 
 /**
  * Deployment-specific values. Nothing about a particular deployment lives in
  * the code: pass them as CDK context (`--context domain=…`) or environment
- * variables (FASTSPEC_DOMAIN, HOSTED_ZONE_ID, HOSTED_ZONE_NAME) — the deploy
- * workflow sets the latter from GitHub repository variables.
+ * variables (FASTSPEC_DOMAIN, HOSTED_ZONE_ID, HOSTED_ZONE_NAME,
+ * FASTSPEC_EXTERNAL_DNS) — the deploy workflow sets the latter from GitHub
+ * repository variables and secrets.
  */
 export interface DeploymentSettings {
   domain?: string;
   hostedZoneId?: string;
   hostedZoneName?: string;
+  externalDns?: boolean;
 }
 
 /**
@@ -55,6 +63,7 @@ export function getConfig(env: Env, settings: DeploymentSettings = {}): EnvConfi
         deployFrontend: true,
         hostedZoneId: settings.hostedZoneId,
         hostedZoneName: settings.hostedZoneName,
+        externalDns: settings.externalDns ?? false,
       };
     }
     case 'local':
@@ -63,6 +72,7 @@ export function getConfig(env: Env, settings: DeploymentSettings = {}): EnvConfi
         domain: 'localhost',
         deployFrontend: false,
         awsEndpoint: 'http://localhost:4566',
+        externalDns: false,
       };
     default:
       throw new Error(`Unknown deployment environment: "${env}". Valid values: local, prod.`);
@@ -77,6 +87,9 @@ export function resolveDeploymentSettings(node: cdk.App): DeploymentSettings {
     domain: read('domain', 'FASTSPEC_DOMAIN'),
     hostedZoneId: read('hostedZoneId', 'HOSTED_ZONE_ID'),
     hostedZoneName: read('hostedZoneName', 'HOSTED_ZONE_NAME'),
+    externalDns: ['true', '1'].includes(
+      String(read('externalDns', 'FASTSPEC_EXTERNAL_DNS') ?? '').toLowerCase(),
+    ),
   };
 }
 

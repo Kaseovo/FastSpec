@@ -27,7 +27,8 @@ export interface FrontendStackProps extends cdk.StackProps {
 }
 
 /**
- * FrontendStack — S3 buckets, CloudFront distribution, and Route53 alias.
+ * FrontendStack — S3 buckets, CloudFront distribution, and Route53 alias
+ * (unless `externalDns`: then you point the domain at the distribution).
  *
  * Two private S3 buckets (SPA assets + landing-page assets) served through a
  * single CloudFront distribution that also proxies `/api*`, `/auth*`, and
@@ -190,16 +191,20 @@ function handler(event) {
     cfnDistribution.addPropertyOverride('DistributionConfig.Aliases', [config.domain]);
 
     // ── Route53 alias ─────────────────────────────────────────────────────────
+    // With external DNS, you point a CNAME for the domain at the
+    // DistributionDomainName output instead.
 
-    const hostedZone = props.hostedZone ?? hostedZoneFor(this, config);
+    if (!config.externalDns) {
+      const hostedZone = props.hostedZone ?? hostedZoneFor(this, config);
 
-    new route53.ARecord(this, 'AliasRecord', {
-      zone: hostedZone,
-      recordName: config.domain,
-      target: route53.RecordTarget.fromAlias(
-        new route53targets.CloudFrontTarget(distribution),
-      ),
-    });
+      new route53.ARecord(this, 'AliasRecord', {
+        zone: hostedZone,
+        recordName: config.domain,
+        target: route53.RecordTarget.fromAlias(
+          new route53targets.CloudFrontTarget(distribution),
+        ),
+      });
+    }
 
     // ── Outputs ───────────────────────────────────────────────────────────────
 

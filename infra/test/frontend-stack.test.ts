@@ -52,8 +52,8 @@ describe('CertificateStack — prod', () => {
     template = Template.fromStack(buildCertStack());
   });
 
-  test('provisions two ACM certificates (primary + legacy V2 with RETAIN)', () => {
-    template.resourceCountIs('AWS::CertificateManager::Certificate', 2);
+  test('provisions one ACM certificate', () => {
+    template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
   });
 
   test('ViewerCert covers the landing domain', () => {
@@ -62,19 +62,8 @@ describe('CertificateStack — prod', () => {
     });
   });
 
-  test('ViewerCertV2 (legacy) covers both domain and app subdomain', () => {
-    template.hasResourceProperties('AWS::CertificateManager::Certificate', {
-      DomainName: 'fastspec.example.com',
-      SubjectAlternativeNames: ['app.fastspec.example.com'],
-    });
-  });
-
   test('CertificateArn output is exported', () => {
     template.hasOutput('CertificateArn', {});
-  });
-
-  test('CertificateArnV2 output is exported', () => {
-    template.hasOutput('CertificateArnV2', {});
   });
 
   test('certificate stack region is us-east-1', () => {
@@ -263,6 +252,40 @@ describe('FrontendStack — Route53 alias record', () => {
     const aliasTarget = (values[0] as any).Properties.AliasTarget;
     expect(aliasTarget).toBeDefined();
     expect(JSON.stringify(aliasTarget.DNSName)).toContain('Fn::GetAtt');
+  });
+});
+
+// ── External DNS (e.g. Cloudflare) ───────────────────────────────────────────
+
+describe('external DNS', () => {
+  const config = getConfig('prod', { ...TEST_SETTINGS, externalDns: true });
+
+  test('the certificate is DNS-validated without a Route 53 zone', () => {
+    const app = new cdk.App();
+    const cert = new CertificateStack(app, 'FastSpec-Cert-prod', {
+      config,
+      env: { account: '123456789012', region: 'us-east-1' },
+    });
+    const template = Template.fromStack(cert);
+    template.hasResourceProperties('AWS::CertificateManager::Certificate', {
+      DomainName: 'fastspec.example.com',
+      ValidationMethod: 'DNS',
+    });
+    const [certificate] = Object.values(template.findResources('AWS::CertificateManager::Certificate'));
+    expect(JSON.stringify(certificate)).not.toContain('HostedZoneId');
+  });
+
+  test('no Route 53 record: the domain is pointed at CloudFront by hand', () => {
+    const app = new cdk.App();
+    const lambdaStack = new LambdaStack(app, 'FastSpec-Lambda-prod', { config });
+    const frontend = new FrontendStack(app, 'FastSpec-Frontend-prod', {
+      config,
+      certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/fake-cert-id',
+      lambdaFunctionUrl: lambdaStack.functionUrl,
+    });
+    const template = Template.fromStack(frontend);
+    template.resourceCountIs('AWS::Route53::RecordSet', 0);
+    template.hasOutput('DistributionDomainName', {});
   });
 });
 

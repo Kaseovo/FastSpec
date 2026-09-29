@@ -7,6 +7,12 @@ Notable changes to FastSpec. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- AWS deployment: the domain's DNS can stay at another provider
+  (`FASTSPEC_EXTERNAL_DNS=true`, e.g. Cloudflare) instead of a Route 53
+  hosted zone.
+
 ### Changed
 
 - **The AWS deployment's database is a serverless Postgres** (Neon for the

@@ -20,8 +20,9 @@ on:
 #   FASTSPEC_DOMAIN   public domain, e.g. fastspec.example.com
 #   HOSTED_ZONE_NAME  optional — only when that zone is a parent (e.g. example.com)
 #   AWS_REGION        region for everything but the CloudFront certificate
-# Secrets: AWS_ROLE_ARN (OIDC deploy role) and HOSTED_ZONE_ID (the Route 53
-# zone holding the domain). See docs/DEPLOYMENT.md.
+#   FASTSPEC_EXTERNAL_DNS  `true` when the domain's DNS isn't in Route 53
+# Secrets: AWS_ROLE_ARN (OIDC deploy role), and HOSTED_ZONE_ID (the Route 53
+# zone holding the domain) unless FASTSPEC_EXTERNAL_DNS. See docs/DEPLOYMENT.md.
 #
 # Logs of a public repository are public: identifiers of the deployment (the
 # zone and account IDs, the function URL) are kept out of
@@ -31,6 +32,7 @@ env:
   FASTSPEC_DOMAIN: ${{ vars.FASTSPEC_DOMAIN }}
   HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
   HOSTED_ZONE_NAME: ${{ vars.HOSTED_ZONE_NAME }}
+  FASTSPEC_EXTERNAL_DNS: ${{ vars.FASTSPEC_EXTERNAL_DNS }}
 
 jobs:
   # ── Validate (tests + cdk synth) — must pass before anything is deployed ───

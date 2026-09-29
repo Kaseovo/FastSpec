@@ -9,6 +9,11 @@ describe('getConfig', () => {
     expect(config.hostedZoneId).toBe('Z123');
     expect(config.deployFrontend).toBe(true);
     expect(config.awsEndpoint).toBeUndefined();
+    expect(config.externalDns).toBe(false);
+  });
+
+  test('prod can leave DNS to another provider', () => {
+    expect(getConfig('prod', { domain: 'specs.example.com', externalDns: true }).externalDns).toBe(true);
   });
 
   test('prod without a domain throws a descriptive error', () => {
@@ -48,7 +53,21 @@ describe('resolveDeploymentSettings', () => {
       domain: 'from-env.example.com',
       hostedZoneId: 'ZENV',
       hostedZoneName: undefined,
+      externalDns: false,
     });
+  });
+
+  test.each([
+    [{ FASTSPEC_EXTERNAL_DNS: 'true' }, {}, true],
+    [{ FASTSPEC_EXTERNAL_DNS: '1' }, {}, true],
+    [{ FASTSPEC_EXTERNAL_DNS: 'false' }, {}, false],
+    [{}, { externalDns: 'true' }, true],
+    [{}, {}, false],
+  ])('external DNS from env %j / context %j → %s', (env, context, expected) => {
+    delete process.env.FASTSPEC_EXTERNAL_DNS;
+    Object.assign(process.env, env);
+    const app = new cdk.App({ context });
+    expect(resolveDeploymentSettings(app).externalDns).toBe(expected);
   });
 });
 
