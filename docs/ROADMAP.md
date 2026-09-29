@@ -91,8 +91,8 @@ An idle month cost about $17, mostly the stopped RDS instance's 100 GB disk. Tar
 - [x] Unused `dev.fastspec.kaseovo.com` hosted zone deleted (`kaseovo.com` stays: Cloudflare delegates `dashboard`, `dashboard-api` and `instagram-api` to it)
 - [x] Neon project created (AWS Singapore, Postgres 18) and `/prod/fastspec/database-url` stored in SSM
 - [x] Deployed on Neon (2026-09-29); the RDS database was empty, so there was nothing to copy
-- [ ] Old `FastSpec-Wake-prod` and `FastSpec-Data-prod` stacks deleted, RDS instance included (deletion protection on; it's retained by the stack)
-- [ ] Leftovers removed: `/prod/fastspec/wake-secret` and `wake-last-triggered` SSM parameters, the `WAKE_SECRET` repository secret, `wake.html` in the landing bucket (and the website repo's sync exclusion for it)
+- [x] Old `FastSpec-Wake-prod` and `FastSpec-Data-prod` stacks deleted, the (empty) RDS instance included (2026-09-29)
+- [x] Leftovers removed: `/prod/fastspec/wake-secret` and `wake-last-triggered` SSM parameters, the `WAKE_SECRET` repository secret, `wake.html` in the landing bucket (and the website repo's sync exclusion for it)
 - [ ] Old Lambda images: lifecycle rule on the CDK assets ECR repository (15 GB, $1.50/month)
 - [ ] `fastspec.kaseovo.com` served from Cloudflare DNS instead of its own Route 53 zone ($0.50/month); needs the CDK stacks to support a domain without a hosted zone
 - [ ] `robots.txt` on the landing site excluding `/specs` and `/api`
