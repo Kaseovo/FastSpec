@@ -105,6 +105,14 @@ us-east-1` (`DomainValidationOptions`) or in the ACM console. On a first
 deploy, the certificate stack waits until that record exists; ACM uses the
 same record for every certificate of the domain, and to renew them.
 
+Switching an existing deployment from Route 53 to external DNS replaces the
+certificate. CloudFormation then retries deleting the old one, which
+CloudFront still uses, until the deploy's one-hour AWS session expires and
+the workflow fails at *Deploy CertStack*. The new certificate is in place by
+then: deploy the frontend stack once more (the workflow, or `cdk deploy
+FastSpec-Frontend-<env> --exclusively` with `--context certificateArn=` the
+new `CertificateArn` output) and the old certificate is released and deleted.
+
 ### Your website at `/`
 
 Everything outside `/specs`, `/api`, `/auth` and `/mcp` is served from the
