@@ -5,8 +5,8 @@ FastSpec command line for self-hosted instances.
     python cli.py migrate                         # apply database migrations
     python cli.py transfer-local-data --to EMAIL  # none → oidc hand-over
 
-(The hosted AWS deployment migrates through lambda_handler.py instead,
-which needs the separate admin database role — see migrate.py.)
+(The hosted AWS deployment migrates by invoking its Lambda with
+{"migrate": true} — see lambda_handler.py.)
 """
 
 import argparse

@@ -7,14 +7,16 @@ import { TEST_SETTINGS } from './settings';
 function buildStack(env: 'local' | 'prod') {
   const app = new cdk.App();
   const config = getConfig(env, TEST_SETTINGS);
-  return new LambdaStack(app, `FastSpec-Lambda-${env}`, {
-    config,
-    dbEndpoint: 'db.example.com:5432',
-    dbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:master-AbCdEf',
-    appDbSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf',
-    rdsInstanceId: 'fastspec-db',
-  });
+  return new LambdaStack(app, `FastSpec-Lambda-${env}`, { config });
 }
+
+function policyStatements(template: Template): any[] {
+  return Object.values(template.findResources('AWS::IAM::Policy')).flatMap(
+    (policy: any) => policy.Properties.PolicyDocument.Statement,
+  );
+}
+
+const actionsOf = (statement: any): string[] => [statement.Action].flat();
 
 describe('LambdaStack — local', () => {
   let template: Template;
@@ -40,71 +42,28 @@ describe('LambdaStack — local', () => {
     });
   });
 
-  test('function environment includes DB_ENDPOINT', () => {
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      Environment: {
-        Variables: Match.objectLike({
-          DB_ENDPOINT: 'db.example.com:5432',
-        }),
-      },
-    });
-  });
-
-  test('database passwords come from Secrets Manager, not SSM', () => {
+  test('secrets, the database URL included, are SSM parameter names', () => {
     const [fn] = Object.values(template.findResources('AWS::Lambda::Function'));
     const vars = (fn as any).Properties.Environment.Variables;
-    expect(vars.DB_SECRET_ARN).toMatch(/secret:master/);
-    expect(vars.APP_DB_SECRET_ARN).toMatch(/secret:app/);
-    expect(vars).not.toHaveProperty('SSM_DB_PASSWORD');
-    expect(vars).not.toHaveProperty('SSM_FASTSPEC_APP_DB_PASSWORD');
-  });
-
-  test('function can read exactly the two database secrets', () => {
-    template.hasResourceProperties('AWS::IAM::Policy', {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: 'secretsmanager:GetSecretValue',
-            Resource: [
-              'arn:aws:secretsmanager:us-east-1:123456789012:secret:master-AbCdEf',
-              'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf',
-            ],
-          }),
-        ]),
-      },
+    expect(vars).toMatchObject({
+      SSM_DATABASE_URL: '/local/fastspec/database-url',
+      SSM_JWT_SECRET_KEY: '/local/fastspec/secret-key',
+      SSM_OIDC_CLIENT_ID: '/local/fastspec/google-client-id',
+      SSM_OIDC_CLIENT_SECRET: '/local/fastspec/google-client-secret',
     });
+    expect(vars).not.toHaveProperty('DATABASE_URL');
   });
 
-  test('function environment includes SSM_WAKE_PARAM', () => {
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      Environment: {
-        Variables: Match.objectLike({
-          SSM_WAKE_PARAM: Match.stringLikeRegexp('wake-last-triggered'),
-        }),
-      },
-    });
-  });
+  test("function reads this environment's parameters, and no other secrets", () => {
+    const statements = policyStatements(template);
+    const read = statements.filter((s) => actionsOf(s).includes('ssm:GetParameters'));
+    expect(read).toHaveLength(1);
+    expect(JSON.stringify(read[0].Resource)).toContain(':parameter/local/fastspec/*');
 
-  test('function environment includes RDS_INSTANCE_ID', () => {
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      Environment: {
-        Variables: Match.objectLike({ RDS_INSTANCE_ID: 'fastspec-db' }),
-      },
-    });
-  });
-
-  test('function can start the database — only that instance, and never stop it', () => {
-    const statements = Object.values(template.findResources('AWS::IAM::Policy')).flatMap(
-      (policy: any) => policy.Properties.PolicyDocument.Statement,
-    );
-    const actions = (s: any): string[] => [s.Action].flat();
-    const start = statements.filter((s: any) => actions(s).includes('rds:StartDBInstance'));
-    expect(start).toHaveLength(1);
-    expect(JSON.stringify(start[0].Resource)).toMatch(/:db:fastspec-db"/);
-    const stops = statements.filter((s: any) =>
-      actions(s).some((a) => a === 'rds:StopDBInstance' || a === 'rds:*'),
-    );
-    expect(stops).toHaveLength(0);
+    const others = statements
+      .flatMap(actionsOf)
+      .filter((a) => /^(secretsmanager|rds):/.test(a) || a === 'ssm:PutParameter');
+    expect(others).toEqual([]);
   });
 
   test('outputs LambdaFunctionUrl', () => {

@@ -7,30 +7,28 @@ Notable changes to FastSpec. The format follows
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- **A sleeping database wakes up by itself** (AWS deployment): the app shows
-  a "FastSpec is waking up" screen and carries on once the database is up,
-  instead of failing — including when it falls asleep while the app is open.
-- Database errors answer `503` (with `"code": "database_unavailable"`, or
-  `"database_starting"` while it wakes up) instead of `500`, and Postgres
-  connections time out after 5 seconds instead of hanging.
+- **The AWS deployment's database is a serverless Postgres** (Neon for the
+  hosted version) instead of RDS, given as a connection string in SSM
+  (`/<env>/fastspec/database-url`). It costs nothing while idle and resumes
+  on the first connection in under a second, so nothing needs waking up —
+  an idle month costs cents instead of about $17 (ADR-0009).
+- Database errors answer `503` (`"code": "database_unavailable"`) instead of
+  `500`, and Postgres connections time out after 10 seconds instead of
+  hanging.
 
 ### Fixed
 
-- Signing in while the database was asleep ended on an "Internal Server
-  Error" page; it now returns to the app with a message.
-- The wake page redirected to the app without waking the database: it
-  checked liveness (`/api/health`) rather than readiness.
-- Waking the database did nothing for an hour after any backend cold start.
-- The database could be stopped while in use: only wake-ups and backend cold
-  starts counted as activity, now every request does.
+- Signing in while the database was unreachable ended on an "Internal
+  Server Error" page; it now returns to the app with a message.
 
 ### Removed
 
-- The manual "Prod Environment" start/stop workflow: the database now wakes
-  up and goes to sleep by itself, and the workflow had stopped working (the
-  deploy role may not look up RDS instances).
+- AWS deployment: the RDS database stack, the wake page and its wake and
+  auto-stop Lambdas, and the manual "Prod Environment" start/stop workflow
+  (which had stopped working: the deploy role may not look up RDS
+  instances).
 
 ## [0.1.0] - 2026-09-27
 

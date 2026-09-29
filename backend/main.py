@@ -12,9 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
-from starlette.concurrency import run_in_threadpool
 
-import database_wake
 from config import settings
 from database import SessionLocal
 from routers import auth, lint, specs
@@ -51,24 +49,21 @@ async def spectral_error_handler(request: Request, exc: SpectralError):
 
 
 def database_unavailable() -> JSONResponse:
-    """503 for a database the app can't reach. Where the database sleeps when
-    idle (the AWS deployment — database_wake.py), start it: the SPA shows
-    "waking up" for code=database_starting and polls /health/ready."""
-    database_wake.request_start()
-    if database_wake.can_start():
-        code, detail = "database_starting", "FastSpec is waking up, try again in a minute or two."
-    else:
-        code, detail = "database_unavailable", "The database is unavailable."
+    """503 for a database the app can't reach, rather than a 500."""
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={"status": "not_ready", "code": code, "detail": detail},
+        content={
+            "status": "not_ready",
+            "code": "database_unavailable",
+            "detail": "The database is unavailable, please try again shortly.",
+        },
     )
 
 
 @app.exception_handler(OperationalError)
 async def database_error_handler(request: Request, exc: OperationalError):
     logger.warning("Database unavailable: %s", exc)
-    return await run_in_threadpool(database_unavailable)
+    return database_unavailable()
 
 
 @app.get("/version")
@@ -94,16 +89,15 @@ app.include_router(lint.router, prefix="/lint", tags=["lint"])
 @app.get("/health")
 async def health_check():
     """Liveness check: process is up. Does not touch the DB, so it cannot
-    detect a stopped/waking RDS instance — see /health/ready for that."""
+    detect an unreachable database — see /health/ready for that."""
     return {"status": "healthy"}
 
 
 @app.get("/health/ready")
 def readiness_check():
-    """Readiness check: confirms the database is actually reachable, so a
-    stopped/waking RDS instance (see the Wake/AutoStop stack) surfaces as a
-    503 here — and gets started — instead of the caller discovering it via a
-    failed request."""
+    """Readiness check: confirms the database is actually reachable, so an
+    unreachable database surfaces as a 503 here instead of the caller
+    discovering it via a failed request."""
     db = SessionLocal()
     try:
         db.execute(text("SELECT 1"))

@@ -29,9 +29,8 @@ from database import DATABASE_URL as _assembled_db_url  # noqa: E402
 # access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url: prefer DATABASE_URL env var, then the value assembled
-# in database.py from DB_ENDPOINT + DB_PASSWORD (used in ECS deployments where
-# no single DATABASE_URL env var is injected).
+# Override sqlalchemy.url: prefer the DATABASE_URL env var, then the URL
+# database.py resolved (the SQLite file in FASTSPEC_DATA_DIR).
 database_url = os.environ.get("DATABASE_URL") or _assembled_db_url
 if database_url:
     # set_main_option goes through configparser interpolation, where "%" is

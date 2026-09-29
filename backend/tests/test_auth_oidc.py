@@ -371,21 +371,17 @@ def test_token_endpoint_failure_redirects_with_error(provider):
     assert "error" in fragment
 
 
-def test_sleeping_database_redirects_with_error_and_wakes_it(provider, monkeypatch):
+def test_unreachable_database_redirects_with_error(provider, monkeypatch):
     """Not a JSON 500: the browser is mid-navigation, back to the app it goes."""
-    starts = []
 
     def unreachable(*args, **kwargs):
         raise OperationalError("SELECT 1", {}, Exception("connection refused"))
 
     monkeypatch.setattr(auth_router, "upsert_oidc_user", unreachable)
-    monkeypatch.setattr(auth_router.database_wake, "request_start", lambda: starts.append(1))
-    monkeypatch.setattr(auth_router.database_wake, "can_start", lambda: True)
 
     fragment = _sign_in(provider)
 
-    assert "waking up" in fragment["error"]
-    assert starts == [1]
+    assert "database is unavailable" in fragment["error"]
 
 
 # ── Callback: state / cookie handling ─────────────────────────────────────────

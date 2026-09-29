@@ -4,7 +4,6 @@ Database configuration for FastSpec
 
 import os
 import sys
-from urllib.parse import quote
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -25,42 +24,19 @@ if not DATABASE_URL and DATA_DIR:
     DATABASE_URL = f"sqlite:///{os.path.join(os.path.abspath(DATA_DIR), 'fastspec.db')}"
 
 if not DATABASE_URL:
-    # Assemble from separate CDK-injected vars (Lambda deployment).
-    #
-    # Runtime connects as the least-privilege `fastspec_app` role (see
-    # backend/alembic/versions/b6f1d8c4a9e2_add_fastspec_app_role.py and
-    # docs/adr/0002-rds-public-access-tradeoff.md), never as the RDS master
-    # `postgres` role. `postgres`/admin credentials are only used by
-    # backend/migrate.py to create the database and run migrations
-    # (including the migration that creates this very role) — never by the
-    # running application.
-    db_endpoint = os.environ.get("DB_ENDPOINT", "postgres:5432")
-    db_password = os.environ.get("FASTSPEC_APP_DB_PASSWORD")
-    if not db_password:
-        # Fail fast rather than silently connecting with a well-known
-        # default password (mirrors the JWT_SECRET_KEY check in config.py) —
-        # see docs/history/2026-07-code-review.md §6 Critical #1.
-        print(
-            "FATAL: DATABASE_URL or FASTSPEC_APP_DB_PASSWORD environment "
-            "variable is required",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    db_host, db_port = (db_endpoint.split(":") + ["5432"])[:2]
-    DATABASE_URL = (
-        f"postgresql://fastspec_app:{quote(db_password, safe='')}@{db_host}:{db_port}/fastspec"
-    )
+    # The hosted version loads DATABASE_URL from SSM at cold start
+    # (lambda_handler.py); anything else must set it or FASTSPEC_DATA_DIR.
+    print("FATAL: DATABASE_URL or FASTSPEC_DATA_DIR must be set", file=sys.stderr)
+    sys.exit(1)
 
-# Require SSL for RDS connections; ignored for local sqlite/postgres without SSL
 _connect_args: dict = {}
 if "sqlite" in DATABASE_URL:
     _connect_args["check_same_thread"] = False
 else:
-    # Fail fast when the server is down (e.g. a stopped RDS instance) so the
-    # app can answer "waking up" instead of hanging until a timeout upstream.
-    _connect_args["connect_timeout"] = 5
-    if "rds.amazonaws.com" in DATABASE_URL or os.environ.get("DB_ENDPOINT"):
-        _connect_args["sslmode"] = "require"
+    # Fail fast when the server is unreachable instead of hanging until a
+    # timeout upstream; long enough for a serverless database (Neon) to
+    # resume. TLS is the connection string's business (?sslmode=require).
+    _connect_args["connect_timeout"] = 10
 
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 

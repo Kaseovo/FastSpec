@@ -132,8 +132,9 @@ tests pin their behaviour.
 
 ## Infrastructure (`infra/`)
 
-AWS CDK (TypeScript) for the serverless deployment: RDS, the backend Lambda,
-CloudFront + S3, ACM, and the wake/auto-stop stack. Deployment-specific
+AWS CDK (TypeScript) for the serverless deployment: the backend Lambda,
+CloudFront + S3 and ACM. The database is a serverless Postgres outside AWS
+(Neon for the hosted version, ADR-0009). Deployment-specific
 values come from context or environment variables. See
 [DEPLOYMENT.md](DEPLOYMENT.md).
 

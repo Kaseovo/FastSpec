@@ -54,7 +54,6 @@
 
     <ConfirmDialog />
     <Toast />
-    <WakingScreen overlay />
   </div>
 </template>
 
@@ -67,7 +66,6 @@ import Toast from "primevue/toast";
 import SaveDialog from "./components/SaveDialog.vue";
 import TokenManager from "./components/TokenManager.vue";
 import NewSpecDialog from "./components/NewSpecDialog.vue";
-import WakingScreen from "./components/WakingScreen.vue";
 import { ref, provide, onMounted, computed } from "vue";
 import { useConfirm } from "primevue/useconfirm";
 import { useRoute } from "vue-router";
@@ -88,7 +86,6 @@ export default {
     SaveDialog,
     TokenManager,
     NewSpecDialog,
-    WakingScreen,
   },
   setup() {
     const app = useApp();

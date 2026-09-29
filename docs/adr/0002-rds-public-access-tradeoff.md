@@ -1,6 +1,6 @@
 # ADR-0002: Public RDS ingress is an accepted tradeoff, not an oversight
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0009](0009-serverless-postgres.md) — the hosted version no longer uses RDS
 **Date:** 2026-07-12
 
 ## Context

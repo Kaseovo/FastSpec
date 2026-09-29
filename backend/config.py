@@ -67,8 +67,8 @@ class Settings(BaseSettings):
     cors_origins: str | None = Field(None, alias="CORS_ORIGINS")
 
     # --- Storage ---
-    # Postgres (or any SQLAlchemy URL). When unset: SQLite in data_dir, or
-    # the Lambda deployment's DB_ENDPOINT-based URL (see database.py).
+    # Postgres (or any SQLAlchemy URL). When unset: SQLite in data_dir. The
+    # AWS deployment loads it from SSM at cold start (lambda_handler.py).
     database_url: str | None = Field(None, alias="DATABASE_URL")
     # Directory for the SQLite database and the generated JWT secret.
     data_dir: str | None = Field(None, alias="FASTSPEC_DATA_DIR")

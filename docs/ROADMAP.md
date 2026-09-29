@@ -80,9 +80,22 @@ lint score; a missing Spectral CLI caused a 500.
 - [x] Private vulnerability reporting enabled; description, homepage and topics set
 - [x] `v0.1.0` released (GitHub Release + multi-arch image on GHCR)
 - [x] Google OAuth client: `https://fastspec.kaseovo.com/auth/oidc/callback` added as an authorized redirect URI
-- [ ] Make the `ghcr.io/kaseovo/fastspec` package public (Packages → fastspec → Package settings; no API for this)
-- [ ] Deploy role trust policy: allow the new repository (`repo:Kaseovo@167826072/FastSpec@1390422681:ref:refs/heads/main`)
-- [ ] Redeploy the hosted version (Deploy to AWS on `main`), then the website (`fastspec-website`); the old database is gone, so it starts empty
+- [x] `ghcr.io/kaseovo/fastspec` package made public
+- [x] Deploy role trust policy allows the new repository (`repo:Kaseovo@167826072/FastSpec@1390422681:ref:refs/heads/main`)
+- [x] Hosted version and website redeployed (2026-09-28); the old database was gone, so it started empty
+- [x] Secret-leak review: only a fine-grained GitHub token in old history (`.roo/mcp.json`), already revoked; deploy logs no longer print account/zone IDs or endpoints; gitleaks runs in CI
+
+### Phase 6 — Near-zero hosting cost
+An idle month cost about $17, mostly the stopped RDS instance's 100 GB disk. Target: cents ([ADR-0009](adr/0009-serverless-postgres.md)).
+- [x] Database moved to a serverless Postgres (Neon free plan, AWS Singapore); Data and Wake stacks, wake page and waking-up screen removed
+- [x] Unused `dev.fastspec.kaseovo.com` hosted zone deleted (`kaseovo.com` stays: Cloudflare delegates `dashboard`, `dashboard-api` and `instagram-api` to it)
+- [ ] Neon project created and `/prod/fastspec/database-url` stored in SSM
+- [ ] Deployed, data copied from RDS to Neon, sign-in and specs checked
+- [ ] Old `FastSpec-Wake-prod` and `FastSpec-Data-prod` stacks deleted, RDS instance included (deletion protection on; it's retained by the stack)
+- [ ] Leftovers removed: `/prod/fastspec/wake-secret` and `wake-last-triggered` SSM parameters, the `WAKE_SECRET` repository secret, `wake.html` in the landing bucket (and the website repo's sync exclusion for it)
+- [ ] Old Lambda images: lifecycle rule on the CDK assets ECR repository (15 GB, $1.50/month)
+- [ ] `fastspec.kaseovo.com` served from Cloudflare DNS instead of its own Route 53 zone ($0.50/month); needs the CDK stacks to support a domain without a hosted zone
+- [ ] `robots.txt` on the landing site excluding `/specs` and `/api`
 
 ## Backlog (after v0.1)
 

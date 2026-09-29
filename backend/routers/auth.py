@@ -27,7 +27,6 @@ from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-import database_wake
 from auth.dependencies import get_current_user
 from auth.jwt import (
     create_access_token,
@@ -216,13 +215,10 @@ def oidc_callback(
     except SignInRejected as exc:
         return _spa_error(str(exc))
     except OperationalError:
-        # A browser navigation: send it back to the app, which shows its own
-        # "waking up" screen, rather than leave it on a JSON error.
+        # A browser navigation: send it back to the app with a message rather
+        # than leave it on a JSON error.
         logger.warning("Database unavailable during sign-in", exc_info=True)
-        database_wake.request_start()
-        if database_wake.can_start():
-            return _spa_error("FastSpec was waking up. Please sign in again.")
-        return _spa_error("The database is unavailable, please try again later.")
+        return _spa_error("The database is unavailable, please try again shortly.")
 
     return _spa_redirect(f"token={access_token}")
 

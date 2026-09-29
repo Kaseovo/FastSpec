@@ -2,11 +2,9 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { resolveEnv, getConfig, resolveDeploymentSettings } from '../lib/config';
-import { DataStack } from '../lib/data-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CertificateStack } from '../lib/certificate-stack';
 import { FrontendStack } from '../lib/frontend-stack';
-import { WakeStack } from '../lib/wake-stack';
 
 const app = new cdk.App();
 const env = resolveEnv(app);
@@ -18,14 +16,10 @@ const awsEnv = {
   region: process.env.CDK_DEFAULT_REGION,
 };
 
-const dataStack = new DataStack(app, `FastSpec-Data-${env}`, { config, env: awsEnv });
-
+// No database stack: the database is a serverless Postgres outside AWS,
+// reached through the DATABASE_URL in SSM (docs/adr/0009-serverless-postgres.md).
 const lambdaStack = new LambdaStack(app, `FastSpec-Lambda-${env}`, {
   config,
-  dbEndpoint: dataStack.dbEndpoint,
-  dbSecretArn: dataStack.dbSecretArn,
-  appDbSecretArn: dataStack.appDbSecretArn,
-  rdsInstanceId: dataStack.rdsInstanceId,
   env: awsEnv,
 });
 
@@ -40,7 +34,7 @@ if (config.deployFrontend) {
 
   // certificateArn is read from CDK context, populated by the CI after deploying
   // CertStack: cdk deploy ... --context certificateArn=<arn>
-  // A placeholder is used at synth time when deploying other stacks (e.g. DataStack)
+  // A placeholder is used at synth time when deploying other stacks (e.g. LambdaStack)
   // so the app synthesises cleanly. CloudFormation will reject an invalid ARN at
   // deploy time if FrontendStack is actually targeted without the real value.
   const certificateArn: string =
@@ -51,12 +45,6 @@ if (config.deployFrontend) {
     certificateArn,
     lambdaFunctionUrl: lambdaStack.functionUrl,
     // hostedZone omitted — FrontendStack resolves it from the config
-    env: awsEnv,
-  });
-
-  new WakeStack(app, `FastSpec-Wake-${env}`, {
-    config,
-    rdsInstanceId: dataStack.rdsInstanceId,
     env: awsEnv,
   });
 }
