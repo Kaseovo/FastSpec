@@ -94,7 +94,7 @@ An idle month cost about $17, mostly the stopped RDS instance's 100 GB disk. Tar
 - [x] Old `FastSpec-Wake-prod` and `FastSpec-Data-prod` stacks deleted, the (empty) RDS instance included (2026-09-29)
 - [x] Leftovers removed: `/prod/fastspec/wake-secret` and `wake-last-triggered` SSM parameters, the `WAKE_SECRET` repository secret, `wake.html` in the landing bucket (and the website repo's sync exclusion for it)
 - [x] `fastspec.kaseovo.com` served from Cloudflare DNS (`FASTSPEC_EXTERNAL_DNS=true`; records: `fastspec` CNAME → CloudFront, and the ACM validation CNAME, both DNS only); new certificate valid to 2027-04; legacy `app.fastspec` certificate, dangling `dev.fastspec` NS records and the `HOSTED_ZONE_ID` secret removed
-- [ ] Delete the `fastspec.kaseovo.com` Route 53 zone ($0.50/month) once resolvers have dropped the old delegation (after 2026-10-01)
+- [x] `fastspec.kaseovo.com` Route 53 zone deleted (2026-09-30); an idle month now costs about $0.06 (the live Lambda image)
 - [x] Old Lambda images deleted from the shared CDK assets repository (76 images, 14.6 GB; FastSpec's and DishSide's live images kept — no count-based lifecycle rule, the repository is shared)
 - [ ] `robots.txt` on the landing site excluding `/specs` and `/api`
 
