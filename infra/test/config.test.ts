@@ -35,6 +35,12 @@ describe('getConfig', () => {
 
 describe('resolveDeploymentSettings', () => {
   const saved = { ...process.env };
+  beforeEach(() => {
+    // The deploy workflow sets these for every step, tests included.
+    for (const name of ['FASTSPEC_DOMAIN', 'HOSTED_ZONE_ID', 'HOSTED_ZONE_NAME', 'FASTSPEC_EXTERNAL_DNS']) {
+      delete process.env[name];
+    }
+  });
   afterEach(() => {
     process.env = { ...saved };
   });
@@ -64,7 +70,6 @@ describe('resolveDeploymentSettings', () => {
     [{}, { externalDns: 'true' }, true],
     [{}, {}, false],
   ])('external DNS from env %j / context %j → %s', (env, context, expected) => {
-    delete process.env.FASTSPEC_EXTERNAL_DNS;
     Object.assign(process.env, env);
     const app = new cdk.App({ context });
     expect(resolveDeploymentSettings(app).externalDns).toBe(expected);
