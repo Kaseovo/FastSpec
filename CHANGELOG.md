@@ -7,6 +7,17 @@ Notable changes to FastSpec. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-30
+
+Mostly about the AWS deployment, which now costs next to nothing while idle.
+
+**Upgrading.** Self-hosted: pull the new image, nothing else changes. AWS
+deployment (breaking): the database is no longer part of the CDK app. Before
+deploying, store a Postgres connection string in the
+`/<env>/fastspec/database-url` SSM parameter (docs/DEPLOYMENT.md); the old
+`FastSpec-Data-<env>` and `FastSpec-Wake-<env>` stacks are left in place for
+you to move the data out of and delete.
+
 ### Added
 
 - AWS deployment: the domain's DNS can stay at another provider

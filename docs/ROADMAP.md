@@ -97,7 +97,7 @@ An idle month cost about $17, mostly the stopped RDS instance's 100 GB disk. Tar
 - [x] `fastspec.kaseovo.com` Route 53 zone deleted (2026-09-30); an idle month now costs about $0.06 (the live Lambda image)
 - [x] Old Lambda images deleted from the shared CDK assets repository (76 images, 14.6 GB; FastSpec's and DishSide's live images kept — no count-based lifecycle rule, the repository is shared)
 - [x] Neon compute fixed at 0.25 CU; daily usage check (`neon-usage.yml`: storage above 80%, or database unreachable — Neon's free-plan API doesn't report compute); app banner when an allowance runs out
-- [ ] `robots.txt` on the landing site excluding `/specs` and `/api`
+- [x] `robots.txt` on the landing site excluding `/specs`, `/api`, `/auth` and `/mcp`
 
 ## Backlog (after v0.1)
 
