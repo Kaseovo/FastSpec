@@ -93,6 +93,30 @@ def test_without_static_dir_specs_is_the_api(lambda_style):
     assert lambda_style.get("/api/specs/").status_code == 401
 
 
+@pytest.mark.parametrize("setup", ["self_hosted", "lambda_style"])
+@pytest.mark.parametrize("path", ["/api/specs", "/api/specs/"])
+def test_collection_routes_ignore_the_trailing_slash(request, setup, path):
+    """Lambda Function URLs strip the trailing slash before the app sees the
+    request, so /api/specs and /api/specs/ must both reach the route — never
+    a redirect, which would point at the function's own host and loop."""
+    client = request.getfixturevalue(setup)
+    token = client.post("/api/auth/local/session").json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    spec = {"openapi": "3.0.0", "info": {"title": "Pets", "version": "1.0.0"}, "paths": {}}
+
+    created = client.post(
+        f"{path}?version=1.0.0",
+        json={"name": f"slash-{setup}-{path}", "spec_json": spec},
+        headers=headers,
+        follow_redirects=False,
+    )
+    listed = client.get(path, headers=headers, follow_redirects=False)
+
+    assert created.status_code == 201, created.text
+    assert listed.status_code == 200
+    assert f"slash-{setup}-{path}" in [s["name"] for s in listed.json()]
+
+
 def test_static_dir_without_index_is_rejected(tmp_path):
     with pytest.raises(RuntimeError, match="no index.html"):
         FrontDoor(app, mcp_asgi_app, static_dir=str(tmp_path))

@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import { Template, Match } from 'aws-cdk-lib/assertions';
+import { Template } from 'aws-cdk-lib/assertions';
 import { LambdaStack } from '../lib/lambda-stack';
 import { getConfig } from '../lib/config';
 import { TEST_SETTINGS } from './settings';
@@ -98,11 +98,8 @@ describe('LambdaStack — prod', () => {
     template.resourceCountIs('AWS::Lambda::Function', 1);
   });
 
-  test('function URL CORS allows the prod domain', () => {
-    template.hasResourceProperties('AWS::Lambda::Url', {
-      Cors: Match.objectLike({
-        AllowOrigins: Match.arrayWith(['https://fastspec.example.com']),
-      }),
-    });
+  test('function URL leaves CORS to the app (two Allow-Origin headers break browsers)', () => {
+    const [url] = Object.values(template.findResources('AWS::Lambda::Url'));
+    expect((url as any).Properties.Cors).toBeUndefined();
   });
 });

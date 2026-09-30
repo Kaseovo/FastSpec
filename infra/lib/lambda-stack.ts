@@ -75,14 +75,12 @@ export class LambdaStack extends cdk.Stack {
       }),
     );
 
-    // ── Function URL (unauthenticated, CORS locked to the app domain) ─────────
+    // ── Function URL (unauthenticated) ────────────────────────────────────────
+    // Only CloudFront calls it, from the app's own origin. No CORS settings
+    // here: the app answers CORS itself (CORS_ORIGINS), and a second
+    // Access-Control-Allow-Origin header makes browsers reject the response.
     const fnUrl = fn.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
-      cors: {
-        allowedOrigins: [`https://${config.domain}`],
-        allowedMethods: [lambda.HttpMethod.ALL],
-        allowedHeaders: ['*'],
-      },
     });
 
     this.functionUrl = fnUrl.url;

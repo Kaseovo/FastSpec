@@ -28,12 +28,35 @@ if settings.auth_mode == "none":
         "trusted network, or set AUTH_MODE=oidc."
     )
 
+class IgnoreTrailingSlash:
+    """Route /specs/ like /specs.
+
+    Lambda Function URLs strip the trailing slash before the app sees the
+    request, so on the hosted version routes can't rely on one — and
+    FastAPI's "add the slash" redirect would point at the function's own
+    host (CloudFront forwards that as Host) and loop. Routes are therefore
+    declared without a trailing slash, and one on the request is dropped.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and len(scope["path"]) > 1 and scope["path"].endswith("/"):
+            scope = dict(scope, path=scope["path"].rstrip("/") or "/")
+            if scope.get("raw_path"):
+                scope["raw_path"] = scope["raw_path"].rstrip(b"/") or b"/"
+        await self.app(scope, receive, send)
+
+
 app = FastAPI(
     title="FastSpec API",
     description="OpenAPI Specification Editor and Validator with OAuth2 Authentication",
     version=__version__,
     root_path=settings.root_path,
+    redirect_slashes=False,
 )
+app.add_middleware(IgnoreTrailingSlash)
 
 
 @app.exception_handler(SpectralError)

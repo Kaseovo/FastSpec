@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 # --- existing endpoints (unchanged) ---
-@router.get("/", response_model=list[OpenAPISpecResponse])
+@router.get("", response_model=list[OpenAPISpecResponse])
 def list_specs(
     skip: int = Query(0, ge=0, description="Number of specs to skip"),
     limit: int | None = Query(
@@ -62,7 +62,7 @@ def get_spec(
 
 
 @router.post(
-    "/", response_model=OpenAPISpecResponse, status_code=status.HTTP_201_CREATED
+    "", response_model=OpenAPISpecResponse, status_code=status.HTTP_201_CREATED
 )
 def create_spec(
     spec_data: OpenAPISpecCreate,
