@@ -38,7 +38,7 @@ from auth.jwt import (
 from auth.oidc import OIDCClient, OIDCError, new_code_verifier
 from auth.users import SignInRejected, get_or_create_local_user, upsert_oidc_user
 from config import JWT_SECRET_KEY, settings
-from database import get_db
+from database import describe_database_error, get_db
 from models import APIKey, AuthToken, User
 from permissions import ALLOWED_ACTIONS, get_actions_metadata
 from rate_limit import rate_limit
@@ -214,11 +214,11 @@ def oidc_callback(
         access_token = create_access_token(user.id, user.email, db_session=db)
     except SignInRejected as exc:
         return _spa_error(str(exc))
-    except OperationalError:
+    except OperationalError as exc:
         # A browser navigation: send it back to the app with a message rather
         # than leave it on a JSON error.
         logger.warning("Database unavailable during sign-in", exc_info=True)
-        return _spa_error("The database is unavailable, please try again shortly.")
+        return _spa_error(describe_database_error(exc)[1])
 
     return _spa_redirect(f"token={access_token}")
 

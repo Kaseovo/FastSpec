@@ -12,6 +12,12 @@ Notable changes to FastSpec. The format follows
 - AWS deployment: the domain's DNS can stay at another provider
   (`FASTSPEC_EXTERNAL_DNS=true`, e.g. Cloudflare) instead of a Route 53
   hosted zone.
+- When the database's plan runs out (compute allowance used up, or storage
+  full), the app says so in a banner instead of failing with generic
+  errors; the API answers `503 database_quota_exceeded` or
+  `507 database_storage_full`.
+- A weekly **Database usage** workflow warns (by failing) when the hosted
+  version's Neon free plan is above 80% of an allowance.
 
 ### Changed
 

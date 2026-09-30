@@ -371,17 +371,24 @@ def test_token_endpoint_failure_redirects_with_error(provider):
     assert "error" in fragment
 
 
-def test_unreachable_database_redirects_with_error(provider, monkeypatch):
+@pytest.mark.parametrize(
+    "cause, message",
+    [
+        ("connection refused", "database is unavailable"),
+        ("Your account or project has exceeded the compute time quota.", "free database allowance"),
+    ],
+)
+def test_unreachable_database_redirects_with_error(provider, monkeypatch, cause, message):
     """Not a JSON 500: the browser is mid-navigation, back to the app it goes."""
 
     def unreachable(*args, **kwargs):
-        raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+        raise OperationalError("SELECT 1", {}, Exception(cause))
 
     monkeypatch.setattr(auth_router, "upsert_oidc_user", unreachable)
 
     fragment = _sign_in(provider)
 
-    assert "database is unavailable" in fragment["error"]
+    assert message in fragment["error"]
 
 
 # ── Callback: state / cookie handling ─────────────────────────────────────────

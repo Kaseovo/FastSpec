@@ -46,3 +46,45 @@ def test_database_errors_in_any_endpoint_become_a_503(monkeypatch):
 
     assert resp.status_code == 503
     assert resp.json()["code"] == "database_unavailable"
+
+
+class DiskFull(Exception):
+    """Like psycopg.errors.DiskFull, which carries its SQLSTATE."""
+
+    sqlstate = "53100"
+
+
+@pytest.mark.parametrize(
+    "orig, code, status",
+    [
+        # The messages Neon's free plan answers with once a limit is reached.
+        (
+            Exception("Your account or project has exceeded the compute time quota. Upgrade your plan to increase limits."),
+            "database_quota_exceeded",
+            503,
+        ),
+        (
+            Exception("Your project has exceeded the data transfer quota. Upgrade your plan to increase limits."),
+            "database_quota_exceeded",
+            503,
+        ),
+        (
+            DiskFull("could not extend file because project size limit (512 MB) has been exceeded"),
+            "database_storage_full",
+            507,
+        ),
+        (Exception("connection refused"), "database_unavailable", 503),
+    ],
+    ids=["compute-quota", "transfer-quota", "storage-full", "other"],
+)
+def test_free_plan_limits_are_named(monkeypatch, orig, code, status):
+    def failing(*args, **kwargs):
+        raise OperationalError("INSERT", {}, orig)
+
+    monkeypatch.setattr(auth_router, "get_or_create_local_user", failing)
+
+    resp = client.post("/auth/local/session")
+
+    assert resp.status_code == status
+    assert resp.json()["code"] == code
+    assert resp.json()["detail"]

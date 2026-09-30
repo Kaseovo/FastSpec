@@ -113,6 +113,27 @@ then: deploy the frontend stack once more (the workflow, or `cdk deploy
 FastSpec-Frontend-<env> --exclusively` with `--context certificateArn=` the
 new `CertificateArn` output) and the old certificate is released and deleted.
 
+### Database allowance
+
+The hosted version runs on Neon's free plan: 100 compute-hours and 5 GB of
+data transfer a month, 0.5 GB of storage. Neon sends no warning on that plan,
+so the **Database usage** workflow (`.github/workflows/neon-usage.yml`)
+checks weekly and fails above 80% — GitHub then emails you. It needs two
+repository secrets: `NEON_PROJECT_ID`, and `NEON_API_KEY`, a key limited to
+that project (`neon api-keys create --name … --project-id …`).
+
+The compute is fixed at 0.25 CU (plenty for FastSpec), so load can't burn
+the hours faster. If an allowance runs out anyway, the app says so in a
+banner instead of failing with generic errors:
+
+- **compute or transfer used up** — the database is suspended until the
+  next month (API: 503, `"code": "database_quota_exceeded"`);
+- **storage full** — reading works, saving doesn't (507,
+  `"database_storage_full"`) until space is freed, e.g. old spec versions.
+
+Otherwise, wait for the monthly reset or move the Neon project to a paid
+plan in Neon's console; no change to FastSpec is needed.
+
 ### Your website at `/`
 
 Everything outside `/specs`, `/api`, `/auth` and `/mcp` is served from the

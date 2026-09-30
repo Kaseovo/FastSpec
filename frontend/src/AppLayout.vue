@@ -1,5 +1,14 @@
 <template>
   <div id="app">
+    <Message
+      v-if="databaseNotice.message"
+      severity="warn"
+      :closable="false"
+      class="database-notice"
+    >
+      {{ databaseNotice.message }}
+    </Message>
+
     <div v-if="!auth.isAuthenticated" class="main-content">
       <div v-if="auth.serverUnreachable" class="signed-out-card">
         <i class="pi pi-exclamation-triangle signed-out-icon"></i>
@@ -74,6 +83,7 @@ import { useAuthStore } from "./stores/auth";
 import { useToast } from "primevue/usetoast";
 import { fetchSpecs, validateSpec } from "./api/specs";
 import { signIn } from "./auth/session";
+import { databaseNotice } from "./api/databaseNotice";
 
 export default {
   name: "AppLayout",
@@ -191,6 +201,7 @@ export default {
     return {
       ...app,
       auth,
+      databaseNotice,
       signIn,
       signInLabel,
       signInIcon,
@@ -268,6 +279,12 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.database-notice {
+  max-width: 2000px;
+  width: 100%;
+  margin: 0 auto 12px;
 }
 
 .signed-out-card {

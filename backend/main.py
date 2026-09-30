@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
 from config import settings
-from database import SessionLocal
+from database import SessionLocal, describe_database_error
 from routers import auth, lint, specs
 from validation.spectral_client import SpectralError
 from version import __version__
@@ -48,22 +48,25 @@ async def spectral_error_handler(request: Request, exc: SpectralError):
     )
 
 
-def database_unavailable() -> JSONResponse:
-    """503 for a database the app can't reach, rather than a 500."""
+def database_unavailable(exc: BaseException | None = None) -> JSONResponse:
+    """503 for a database the app can't reach (or 507 when it's full),
+    rather than a 500, with a code the SPA turns into an app-wide notice."""
+    code, detail = describe_database_error(exc)
+    status_code = (
+        status.HTTP_507_INSUFFICIENT_STORAGE
+        if code == "database_storage_full"
+        else status.HTTP_503_SERVICE_UNAVAILABLE
+    )
     return JSONResponse(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={
-            "status": "not_ready",
-            "code": "database_unavailable",
-            "detail": "The database is unavailable, please try again shortly.",
-        },
+        status_code=status_code,
+        content={"status": "not_ready", "code": code, "detail": detail},
     )
 
 
 @app.exception_handler(OperationalError)
 async def database_error_handler(request: Request, exc: OperationalError):
     logger.warning("Database unavailable: %s", exc)
-    return database_unavailable()
+    return database_unavailable(exc)
 
 
 @app.get("/version")
@@ -102,7 +105,7 @@ def readiness_check():
     try:
         db.execute(text("SELECT 1"))
         return {"status": "ready"}
-    except Exception:
-        return database_unavailable()
+    except Exception as exc:
+        return database_unavailable(exc)
     finally:
         db.close()

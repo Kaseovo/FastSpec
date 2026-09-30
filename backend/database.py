@@ -59,6 +59,32 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 _ = (User, OpenAPISpec, SpecVersion, AuthToken, APIKey)
 
 
+def describe_database_error(exc: BaseException | None) -> tuple[str, str]:
+    """(code, message for people) for an error reaching or writing to the database.
+
+    The hosted version's free Neon plan (docs/adr/0009-serverless-postgres.md)
+    suspends the database for the rest of the month once its compute or
+    data-transfer allowance is used up, and refuses writes once storage is
+    full — worth saying plainly rather than "try again shortly".
+    """
+    orig = getattr(exc, "orig", None) or exc
+    text = str(orig or "").lower()
+    if "exceeded the compute time quota" in text or "exceeded the data transfer quota" in text:
+        return (
+            "database_quota_exceeded",
+            "FastSpec has used up this month's free database allowance. "
+            "It will be back at the start of next month.",
+        )
+    # 53100 disk_full — Neon: "could not extend file because project size limit … has been exceeded"
+    if getattr(orig, "sqlstate", None) == "53100" or "project size limit" in text:
+        return (
+            "database_storage_full",
+            "FastSpec's database is full: you can still open your specs, "
+            "but changes can't be saved for now.",
+        )
+    return "database_unavailable", "The database is unavailable, please try again shortly."
+
+
 def get_db():
     """Dependency to get database session"""
     db = SessionLocal()
