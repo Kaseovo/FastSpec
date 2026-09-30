@@ -117,10 +117,17 @@ new `CertificateArn` output) and the old certificate is released and deleted.
 
 The hosted version runs on Neon's free plan: 100 compute-hours and 5 GB of
 data transfer a month, 0.5 GB of storage. Neon sends no warning on that plan,
-so the **Database usage** workflow (`.github/workflows/neon-usage.yml`)
-checks weekly and fails above 80% — GitHub then emails you. It needs two
+and its API only reports storage there, so the daily **Database usage**
+workflow (`.github/workflows/neon-usage.yml`) fails — and GitHub emails you —
+when storage passes 80%, or when the app can no longer reach its database
+(compute or transfer used up: caught the day it happens). It needs two
 repository secrets: `NEON_PROJECT_ID`, and `NEON_API_KEY`, a key limited to
-that project (`neon api-keys create --name … --project-id …`).
+that project (`neon api-keys create --name … --project-id …`). Compute usage
+itself is only shown in Neon's console.
+
+Anything that keeps querying the database keeps it awake — 100 compute-hours
+at 0.25 CU is about 13 hours a day. Point uptime monitors at `/api/health`
+(no database), not `/api/health/ready`.
 
 The compute is fixed at 0.25 CU (plenty for FastSpec), so load can't burn
 the hours faster. If an allowance runs out anyway, the app says so in a

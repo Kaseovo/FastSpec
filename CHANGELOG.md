@@ -16,8 +16,9 @@ Notable changes to FastSpec. The format follows
   full), the app says so in a banner instead of failing with generic
   errors; the API answers `503 database_quota_exceeded` or
   `507 database_storage_full`.
-- A weekly **Database usage** workflow warns (by failing) when the hosted
-  version's Neon free plan is above 80% of an allowance.
+- A daily **Database usage** workflow warns (by failing) when the hosted
+  version's Neon storage passes 80% of the free plan's limit, or when the
+  app can no longer reach its database.
 
 ### Changed
 

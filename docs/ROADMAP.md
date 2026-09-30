@@ -96,7 +96,7 @@ An idle month cost about $17, mostly the stopped RDS instance's 100 GB disk. Tar
 - [x] `fastspec.kaseovo.com` served from Cloudflare DNS (`FASTSPEC_EXTERNAL_DNS=true`; records: `fastspec` CNAME → CloudFront, and the ACM validation CNAME, both DNS only); new certificate valid to 2027-04; legacy `app.fastspec` certificate, dangling `dev.fastspec` NS records and the `HOSTED_ZONE_ID` secret removed
 - [x] `fastspec.kaseovo.com` Route 53 zone deleted (2026-09-30); an idle month now costs about $0.06 (the live Lambda image)
 - [x] Old Lambda images deleted from the shared CDK assets repository (76 images, 14.6 GB; FastSpec's and DishSide's live images kept — no count-based lifecycle rule, the repository is shared)
-- [x] Neon compute fixed at 0.25 CU; weekly usage check (`neon-usage.yml`, fails above 80%); app banner when an allowance runs out
+- [x] Neon compute fixed at 0.25 CU; daily usage check (`neon-usage.yml`: storage above 80%, or database unreachable — Neon's free-plan API doesn't report compute); app banner when an allowance runs out
 - [ ] `robots.txt` on the landing site excluding `/specs` and `/api`
 
 ## Backlog (after v0.1)

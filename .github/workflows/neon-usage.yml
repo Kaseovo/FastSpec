@@ -1,17 +1,23 @@
 name: Database usage
 
 # The hosted version's database is on Neon's free plan (docs/adr/0009-*.md),
-# which sends no warning before an allowance runs out: then the database is
+# which sends no warning before an allowance runs out: the database is then
 # suspended until the next month, or refuses writes once storage is full.
-# This checks usage weekly and fails above 80% — GitHub emails whoever last
-# changed this schedule when a scheduled run fails.
+# Every day this:
+#   - warns when storage passes 80% of its limit (from Neon's API);
+#   - checks that the app can reach its database. Neon's API doesn't report
+#     compute or transfer usage on the free plan, so running out of those is
+#     caught here, the day it happens (FastSpec answers
+#     "database_quota_exceeded"). The check wakes the database for about five
+#     minutes, some 0.6 of the month's 100 compute-hours.
+# A failed scheduled run makes GitHub email whoever last changed the schedule.
 #
 # Secrets: NEON_API_KEY (an API key limited to the FastSpec project) and
-# NEON_PROJECT_ID. See docs/DEPLOYMENT.md.
+# NEON_PROJECT_ID; variable: FASTSPEC_DOMAIN. See docs/DEPLOYMENT.md.
 
 on:
   schedule:
-    - cron: "17 6 * * 1" # Mondays, 06:17 UTC
+    - cron: "17 6 * * *" # daily, 06:17 UTC
   workflow_dispatch: {}
 
 permissions:
@@ -21,7 +27,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Compare usage with the free plan's allowances
+      - name: Storage against the free plan's limit
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
@@ -29,29 +35,39 @@ jobs:
           python3 - <<'EOF'
           import json, os, sys, urllib.request
 
-          # Neon free plan (neon.com/pricing): compute and data transfer per
-          # month, storage in total. field → (limit, unit, unit size)
-          LIMITS = {
-              "compute_time_seconds": (100 * 3600, "CU-hours", 3600),
-              "synthetic_storage_size": (512 * 1024**2, "MB storage", 1024**2),
-              "data_transfer_bytes": (5 * 1024**3, "GB transfer", 1024**3),
-          }
-          WARN_AT = 0.8
-
           request = urllib.request.Request(
               f"https://console.neon.tech/api/v2/projects/{os.environ['NEON_PROJECT_ID']}",
               headers={"Authorization": f"Bearer {os.environ['NEON_API_KEY']}", "Accept": "application/json"},
           )
           project = json.load(urllib.request.urlopen(request, timeout=30))["project"]
-
-          over = []
-          for field, (limit, unit, size) in LIMITS.items():
-              used = project.get(field) or 0
-              print(f"{used / size:8.1f} of {limit / size:.0f} {unit} ({used / limit:.0%})")
-              if used >= WARN_AT * limit:
-                  over.append(unit)
-          print(f"period: {project['consumption_period_start']} to {project['consumption_period_end']}")
-          if over:
-              print(f"::error::Neon free plan above {WARN_AT:.0%}: {', '.join(over)}. See docs/DEPLOYMENT.md, 'Database allowance'.")
+          used = project["synthetic_storage_size"]
+          limit = project["branch_logical_size_limit_bytes"]
+          print(f"storage: {used / 2**20:.1f} of {limit / 2**20:.0f} MB ({used / limit:.0%})")
+          if used >= 0.8 * limit:
+              print("::error::Database storage above 80% of the free plan's limit. See docs/DEPLOYMENT.md, 'Database allowance'.")
               sys.exit(1)
+          EOF
+
+      - name: The app can reach its database
+        if: ${{ !cancelled() }}
+        env:
+          URL: https://${{ vars.FASTSPEC_DOMAIN }}/api/health/ready
+        run: |
+          python3 - <<'EOF'
+          import json, os, sys, urllib.error, urllib.request
+
+          try:
+              with urllib.request.urlopen(os.environ["URL"], timeout=60) as response:
+                  body = json.load(response)
+          except urllib.error.HTTPError as error:
+              body = json.load(error) if error.headers.get_content_type() == "application/json" else {}
+              body.setdefault("detail", f"HTTP {error.code}")
+          print(f"readiness: {body}")
+          if body.get("status") == "ready":
+              sys.exit(0)
+          if body.get("code") == "database_quota_exceeded":
+              print("::error::Neon's free-plan allowance is used up: the database is suspended until next month. See docs/DEPLOYMENT.md, 'Database allowance'.")
+          else:
+              print(f"::error::The app can't reach its database: {body.get('detail')}")
+          sys.exit(1)
           EOF
