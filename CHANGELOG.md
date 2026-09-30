@@ -35,6 +35,14 @@ Notable changes to FastSpec. The format follows
 
 - Signing in while the database was unreachable ended on an "Internal
   Server Error" page; it now returns to the app with a message.
+- AWS deployment: listing and creating specs failed with CORS errors. Lambda
+  Function URLs strip trailing slashes, and the API's "add the slash"
+  redirect pointed at the function's own URL; the API now ignores trailing
+  slashes and never redirects for them.
+- AWS deployment: linting failed with "Spectral CLI not found" —
+  `SPECTRAL_PATH` pointed at the wrong directory in the Lambda image. The
+  image build now fails if the CLI isn't there, and CI lints through both
+  images.
 
 ### Removed
 

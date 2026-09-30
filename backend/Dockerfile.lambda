@@ -8,14 +8,21 @@
 
 FROM public.ecr.aws/lambda/python:3.12
 
-# Install Node.js 20 LTS (Amazon Linux 2023 native package) and Spectral CLI
-RUN dnf install -y nodejs20 && \
-    npm install -g @stoplight/spectral-cli && \
-    dnf clean all && \
-    rm -rf /root/.npm
+# Same Spectral CLI version as the self-hosted image (Dockerfile).
+ARG SPECTRAL_VERSION=6.16.3
 
-# Point SPECTRAL_PATH at the globally installed binary (skips npx cold download)
-ENV SPECTRAL_PATH=/usr/local/bin/spectral
+# AL2023's nodejs20 keeps global npm packages under /usr/lib/nodejs20 and
+# links their commands into /usr/bin — not /usr/local/bin.
+ENV SPECTRAL_PATH=/usr/bin/spectral
+
+# Install Node.js 20 LTS (Amazon Linux 2023 native package) and Spectral CLI.
+# The last line fails the build if the CLI isn't where SPECTRAL_PATH says:
+# a wrong path only shows up as "Spectral CLI not found" when someone lints.
+RUN dnf install -y nodejs20 && \
+    npm install -g --no-audit --no-fund "@stoplight/spectral-cli@${SPECTRAL_VERSION}" && \
+    dnf clean all && \
+    rm -rf /root/.npm && \
+    "$SPECTRAL_PATH" --version
 
 # Install Python dependencies into the Lambda task root (the pinned runtime
 # set plus boto3/mangum, which only the Lambda needs)

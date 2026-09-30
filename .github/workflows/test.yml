@@ -120,7 +120,33 @@ jobs:
           done
           curl -sf http://localhost:8080/health/ready
           curl -sf http://localhost:8080/specs/ | grep -q '<div id="app">'
-          curl -sf -X POST http://localhost:8080/auth/local/session | grep -q access_token
+          TOKEN=$(curl -sf -X POST http://localhost:8080/auth/local/session |
+            python3 -c "import json, sys; print(json.load(sys.stdin)['access_token'])")
+          # Linting runs the Spectral CLI: the one thing here that needs Node.
+          curl -sf -X POST http://localhost:8080/api/lint \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            -d '{"spec_json": {"openapi": "3.0.3", "info": {"title": "Pets", "version": "1.0.0"}, "paths": {}}}' |
+            grep -q '"score"'
       - name: Container logs
         if: failure()
         run: docker logs fastspec
+
+      # The image the AWS deployment runs (Lambda). Its file system is
+      # read-only apart from /tmp, like on Lambda.
+      - name: Build Lambda image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile.lambda
+          load: true
+          tags: fastspec-lambda:ci
+          cache-from: type=gha,scope=lambda
+          cache-to: type=gha,mode=max,scope=lambda
+      - name: Smoke test the Lambda image (migrate, session, specs, lint)
+        run: |
+          docker run -d --name fastspec-lambda -p 9000:8080 --read-only --tmpfs /tmp \
+            -e AUTH_MODE=none -e FASTSPEC_DATA_DIR=/tmp/data fastspec-lambda:ci
+          python3 scripts/smoke-lambda-image.py
+      - name: Lambda container logs
+        if: failure()
+        run: docker logs fastspec-lambda
