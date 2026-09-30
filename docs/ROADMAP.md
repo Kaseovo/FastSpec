@@ -60,7 +60,7 @@ The hosted stacks were shut down on 2026-09-23 to save costs until this work is 
 - [x] ruff and ESLint clean (from ≈300 / ≈1,500 findings) and enforced in CI
 - [x] Docs refreshed: `ARCHITECTURE.md` (now also covers backend/frontend), `API.md`, `CONTEXT.md`; stale `BACKEND.md`, `FRONTEND.md`, `PROJECT_OVERVIEW.md` and `copilot-instructions.md` removed; the July code review kept as `docs/history/`
 - [x] Code of Conduct (Contributor Covenant 2.1), reports to `conduct@kaseovo.com` (decision 8)
-- [ ] Create the `conduct@kaseovo.com` alias (Cloudflare Email Routing)
+- [x] `conduct@kaseovo.com` alias created (Cloudflare Email Routing)
 - [x] README screenshots (form editor, YAML code view, preview — `docs/images/`)
 
 ### Phase 4 — v0.1 features ✅
