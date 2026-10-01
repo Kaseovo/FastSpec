@@ -45,17 +45,18 @@
 
 <script>
 import { ref, onMounted, onBeforeUnmount, watch, inject } from "vue";
-// `monaco-editor`'s default entry (editor.main.js) eagerly pulls in every
-// basic-language contribution (abap, sql, php, ruby, ~60 more) plus the
-// css/html/typescript language services. edcore.main.js has the full editing
-// UX (find, folding, hover, etc.) minus all language contributions, so we add
-// back only what's used: JSON (with its validation worker) and YAML
-// highlighting.
-import * as monaco from "monaco-editor/esm/vs/editor/edcore.main.js";
-import "monaco-editor/esm/vs/language/json/monaco.contribution";
-import "monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution";
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+// `monaco-editor`'s default entry loads every language (abap, sql, php, ruby,
+// ~60 more) plus the css/html/typescript language services. Its supported
+// entry points (Monaco ≥ 0.56) let us take the editor with all its editing
+// features (find, folding, hover, …) and only the languages used: JSON (with
+// its validation worker) and YAML highlighting. The explicit `.js` matters:
+// Vite doesn't resolve some of these paths without it.
+import * as monaco from "monaco-editor/editor.js";
+import "monaco-editor/features/register.all.js";
+import "monaco-editor/languages/features/json/register.js";
+import "monaco-editor/languages/definitions/yaml/register.js";
+import editorWorker from "monaco-editor/editor/editor.worker.js?worker";
+import jsonWorker from "monaco-editor/languages/features/json/json.worker.js?worker";
 import Button from "primevue/button";
 import Message from "primevue/message";
 import SelectButton from "primevue/selectbutton";
