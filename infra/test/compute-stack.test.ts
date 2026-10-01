@@ -66,6 +66,20 @@ describe('LambdaStack — local', () => {
     expect(others).toEqual([]);
   });
 
+  test('function may publish to the sign-up topic, which has no subscription', () => {
+    template.resourceCountIs('AWS::SNS::Topic', 1);
+    template.resourceCountIs('AWS::SNS::Subscription', 0);
+
+    const [fn] = Object.values(template.findResources('AWS::Lambda::Function'));
+    const [topicId] = Object.keys(template.findResources('AWS::SNS::Topic'));
+    expect((fn as any).Properties.Environment.Variables.SIGNUP_TOPIC_ARN).toEqual({ Ref: topicId });
+
+    const publish = policyStatements(template).filter((s) => actionsOf(s).includes('sns:Publish'));
+    expect(publish).toHaveLength(1);
+    expect(publish[0].Resource).toEqual({ Ref: topicId });
+    template.hasOutput('SignupTopicArn', {});
+  });
+
   test('outputs LambdaFunctionUrl', () => {
     template.hasOutput('LambdaFunctionUrl', {});
   });

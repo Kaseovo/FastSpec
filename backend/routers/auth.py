@@ -40,6 +40,7 @@ from auth.users import SignInRejected, get_or_create_local_user, upsert_oidc_use
 from config import JWT_SECRET_KEY, settings
 from database import describe_database_error, get_db
 from models import APIKey, AuthToken, User
+from notifications import notify_new_user
 from permissions import ALLOWED_ACTIONS, get_actions_metadata
 from rate_limit import rate_limit
 from schemas import (
@@ -210,7 +211,7 @@ def oidc_callback(
         return _spa_error("Could not complete sign-in, please try again")
 
     try:
-        user = upsert_oidc_user(db, settings.oidc_provider_key, claims, settings)
+        user, created = upsert_oidc_user(db, settings.oidc_provider_key, claims, settings)
         access_token = create_access_token(user.id, user.email, db_session=db)
     except SignInRejected as exc:
         return _spa_error(str(exc))
@@ -220,6 +221,8 @@ def oidc_callback(
         logger.warning("Database unavailable during sign-in", exc_info=True)
         return _spa_error(describe_database_error(exc)[1])
 
+    if created:
+        notify_new_user(user, settings)
     return _spa_redirect(f"token={access_token}")
 
 

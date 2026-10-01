@@ -25,6 +25,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import auth.oidc as oidc_module
+import notifications
 import routers.auth as auth_router
 from base import Base
 from config import settings
@@ -457,6 +458,58 @@ def test_allowlist(provider, monkeypatch, setting, value, email, verified, allow
     assert ("token" in fragment) is allowed
     if not allowed:
         assert "not allowed" in fragment["error"]
+
+
+# ── New-user notification ─────────────────────────────────────────────────────
+
+TOPIC_ARN = "arn:aws:sns:eu-west-1:123456789012:signups"
+
+
+class FakeSNS:
+    def __init__(self, fail: bool = False):
+        self.fail = fail
+        self.published: list[dict] = []
+
+    def publish(self, **kwargs):
+        if self.fail:
+            raise RuntimeError("SNS is down")
+        self.published.append(kwargs)
+
+
+@pytest.fixture
+def sns(monkeypatch):
+    fake = FakeSNS()
+    monkeypatch.setattr(notifications, "_sns_client", lambda: fake)
+    monkeypatch.setattr(settings, "signup_topic_arn", TOPIC_ARN)
+    return fake
+
+
+def test_first_sign_in_notifies_once(provider, sns):
+    _sign_in(provider)
+    client.cookies.clear()
+    _sign_in(provider)
+
+    [message] = sns.published
+    assert message["TopicArn"] == TOPIC_ARN
+    assert "alice@example.com" in message["Message"]
+    assert "Alice" in message["Message"]
+
+
+def test_rejected_sign_in_does_not_notify(provider, sns):
+    provider.claims = {"email_verified": False}
+    _sign_in(provider)
+    assert sns.published == []
+
+
+def test_no_topic_means_no_notification(provider, sns, monkeypatch):
+    monkeypatch.setattr(settings, "signup_topic_arn", None)
+    _sign_in(provider)
+    assert sns.published == []
+
+
+def test_failed_notification_does_not_block_sign_in(provider, sns):
+    sns.fail = True
+    assert "token" in _sign_in(provider)
 
 
 # ── Mode gating ───────────────────────────────────────────────────────────────

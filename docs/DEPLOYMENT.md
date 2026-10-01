@@ -89,6 +89,20 @@ Run the **Deploy to AWS** workflow on `main`. It runs the test suites and
 Frontend), runs database migrations by invoking the Lambda with
 `{"migrate": true}`, uploads the SPA, and invalidates CloudFront.
 
+### New-user notifications
+
+The Lambda stack creates an SNS topic, and the backend publishes to it
+whenever someone signs in for the first time: their email, name and when.
+The stack has no subscription, so your address stays out of the public
+template and the workflow's `cdk diff` output. Subscribe once, then click
+the confirmation link AWS emails you:
+
+```bash
+TOPIC=$(aws cloudformation describe-stacks --stack-name FastSpec-Lambda-prod \
+  --query "Stacks[0].Outputs[?OutputKey=='SignupTopicArn'].OutputValue" --output text)
+aws sns subscribe --topic-arn "$TOPIC" --protocol email --notification-endpoint you@example.com
+```
+
 ### DNS outside Route 53
 
 With `FASTSPEC_EXTERNAL_DNS=true`, nothing is written to Route 53 and you
