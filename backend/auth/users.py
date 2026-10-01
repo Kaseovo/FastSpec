@@ -56,7 +56,10 @@ def email_allowed(email: str, email_verified: object, settings: Settings) -> boo
     return email in emails or email.rsplit("@", 1)[-1] in domains
 
 
-def upsert_oidc_user(db: Session, provider: str, claims: dict, settings: Settings) -> User:
+def upsert_oidc_user(
+    db: Session, provider: str, claims: dict, settings: Settings
+) -> tuple[User, bool]:
+    """The signed-in user, and whether this sign-in created their account."""
     subject = claims.get("sub")
     email = claims.get("email")
     if not subject or not email:
@@ -75,6 +78,7 @@ def upsert_oidc_user(db: Session, provider: str, claims: dict, settings: Setting
         db.query(User).filter(User.provider == provider, User.email == email).first()
     )
 
+    created = user is None
     if user is None:
         if email_owner is not None:
             raise SignInRejected(
@@ -91,7 +95,7 @@ def upsert_oidc_user(db: Session, provider: str, claims: dict, settings: Setting
     user.avatar_url = claims.get("picture") or user.avatar_url
     db.commit()
     db.refresh(user)
-    return user
+    return user, created
 
 
 @dataclass

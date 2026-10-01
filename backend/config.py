@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     spectral_sidecar_url: str = Field("http://localhost:3001", alias="SPECTRAL_SIDECAR_URL")
     spectral_path: str | None = Field(None, alias="SPECTRAL_PATH")
 
+    # --- Notifications ---
+    # SNS topic told about every first sign-in (notifications.py). Set by the
+    # AWS deployment; unset means no notifications.
+    signup_topic_arn: str | None = Field(None, alias="SIGNUP_TOPIC_ARN")
+
     # --- ASGI ---
     root_path: str = Field("", alias="ROOT_PATH")
 

@@ -7,6 +7,12 @@ Notable changes to FastSpec. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- AWS deployment: an email when someone signs in for the first time, through
+  an SNS topic the Lambda stack now creates. Subscribe an address to it
+  (docs/DEPLOYMENT.md).
+
 ## [0.2.0] - 2026-09-30
 
 Mostly about the AWS deployment, which now costs next to nothing while idle.

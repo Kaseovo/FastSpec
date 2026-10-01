@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as sns from 'aws-cdk-lib/aws-sns';
 import { Construct } from 'constructs';
 import { EnvConfig } from './config';
 
@@ -37,6 +38,14 @@ export class LambdaStack extends cdk.Stack {
     const env = config.env;
     const ssmPrefix = `/${env}/fastspec`;
 
+    // ── New-user notifications ────────────────────────────────────────────────
+    // The backend publishes here on every first sign-in (backend/notifications.py).
+    // No subscription in the stack: the address would land in the public
+    // template and `cdk diff` logs. Subscribe one yourself (docs/DEPLOYMENT.md).
+    const signupTopic = new sns.Topic(this, 'SignupTopic', {
+      displayName: 'FastSpec sign-ups',
+    });
+
     // ── Lambda Docker Function ─────────────────────────────────────────────────
     const fn = new lambda.DockerImageFunction(this, 'BackendFn', {
       code: lambda.DockerImageCode.fromImageAsset('..', {
@@ -62,8 +71,10 @@ export class LambdaStack extends cdk.Stack {
         // the Google OAuth client's ID and secret.
         SSM_OIDC_CLIENT_ID: `${ssmPrefix}/google-client-id`,
         SSM_OIDC_CLIENT_SECRET: `${ssmPrefix}/google-client-secret`,
+        SIGNUP_TOPIC_ARN: signupTopic.topicArn,
       },
     });
+    signupTopic.grantPublish(fn);
 
     // ── IAM: read this environment's secrets, nothing else ────────────────────
     fn.addToRolePolicy(
@@ -104,6 +115,11 @@ export class LambdaStack extends cdk.Stack {
       value: fn.functionName,
       exportName: `${this.stackName}-LambdaFunctionName`,
       description: 'Lambda function name - invoked by the deploy workflow to migrate',
+    });
+
+    new cdk.CfnOutput(this, 'SignupTopicArn', {
+      value: signupTopic.topicArn,
+      description: 'SNS topic told about every first sign-in - subscribe an email to it',
     });
   }
 }
