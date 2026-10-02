@@ -80,6 +80,13 @@ describe('LambdaStack — local', () => {
     template.hasOutput('SignupTopicArn', {});
   });
 
+  test('logs are kept for a month, in the log group the function writes to', () => {
+    template.hasResourceProperties('AWS::Logs::LogGroup', { RetentionInDays: 30 });
+    const [fn] = Object.values(template.findResources('AWS::Lambda::Function'));
+    const [logGroupId] = Object.keys(template.findResources('AWS::Logs::LogGroup'));
+    expect((fn as any).Properties.LoggingConfig.LogGroup).toEqual({ Ref: logGroupId });
+  });
+
   test('outputs LambdaFunctionUrl', () => {
     template.hasOutput('LambdaFunctionUrl', {});
   });

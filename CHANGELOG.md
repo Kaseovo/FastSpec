@@ -7,11 +7,22 @@ Notable changes to FastSpec. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-02
+
 ### Added
 
 - AWS deployment: an email when someone signs in for the first time, through
   an SNS topic the Lambda stack now creates. Subscribe an address to it
   (docs/DEPLOYMENT.md).
+
+### Changed
+
+- The code editor uses Monaco 0.56, through its supported entry points (still
+  only the JSON and YAML languages). Also: Vue 3.5.43, axios 1.20, PrimeVue
+  4.5.5; AWS CDK 2.270 for the AWS deployment.
+- AWS deployment: the backend's logs are kept for 30 days instead of forever
+  (sign-in logs can contain email addresses). On an existing deployment, the
+  function's old `/aws/lambda/…` log group is left behind; delete it.
 
 ## [0.2.0] - 2026-09-30
 

@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import { Construct } from 'constructs';
 import { EnvConfig } from './config';
@@ -47,10 +48,17 @@ export class LambdaStack extends cdk.Stack {
     });
 
     // ── Lambda Docker Function ─────────────────────────────────────────────────
+    // Kept a month, not forever: sign-in logs can contain email addresses.
+    const logGroup = new logs.LogGroup(this, 'BackendLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     const fn = new lambda.DockerImageFunction(this, 'BackendFn', {
       code: lambda.DockerImageCode.fromImageAsset('..', {
         file: 'backend/Dockerfile.lambda',
       }),
+      logGroup,
       memorySize: 512,
       timeout: cdk.Duration.minutes(2),
       environment: {

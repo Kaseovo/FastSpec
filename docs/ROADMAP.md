@@ -3,6 +3,27 @@
 Living plan for making FastSpec public and easy to self-host. Tick items off
 as they land; move anything that slips into the backlog at the bottom.
 
+## Status: paused (2026-10-02)
+
+Phases 1–6 are done and v0.3.0 is released; nothing is in progress. While
+paused, without anyone doing anything:
+
+- The hosted version keeps running at about $0.03 a month (one Lambda image;
+  the rest is within free tiers, and the Neon database sleeps). Its
+  certificate renews itself through the Cloudflare validation record.
+- **Database usage** (daily) emails a warning if the database becomes
+  unreachable or its storage passes 80%. GitHub turns scheduled workflows off
+  after 60 days without activity in a public repository and emails first;
+  re-enable it in the Actions tab.
+- Dependabot opens a pull request per ecosystem once a month; CI tests them.
+  Nothing merges by itself.
+- The hosted database keeps only 6 hours of history (Neon free plan): export
+  anything worth keeping (the app's Download, or `pg_dump`).
+
+To resume: merge or close the Dependabot pull requests, run **Deploy to AWS**,
+then pick from the backlog below. Open items from the phases: retiring the old
+SSH key (Phase 2).
+
 ## Decisions (2026-09-26)
 
 | # | Topic | Decision | Why |
