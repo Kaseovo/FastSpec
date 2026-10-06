@@ -7,6 +7,8 @@ Notable changes to FastSpec. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-07
+
 ### Fixed
 
 - Comparing versions failed ("Internal Server Error" in the app, an error
@@ -15,6 +17,10 @@ Notable changes to FastSpec. The format follows
 - The form editor gave every operation you opened an empty `requestBody`,
   which isn't valid OpenAPI and showed up as a lint error. Endpoints added
   with the Add Path wizard all started with that error.
+
+### Changed
+
+- The code editor uses Monaco 0.57. Also: PyJWT 2.15.1, boto3 1.43.104.
 
 ## [0.3.0] - 2026-10-02
 
