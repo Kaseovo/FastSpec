@@ -7,6 +7,15 @@ Notable changes to FastSpec. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Comparing versions failed ("Internal Server Error" in the app, an error
+  from the MCP `compare_spec_versions` tool) when a path declared shared
+  parameters, a summary or servers next to its operations.
+- The form editor gave every operation you opened an empty `requestBody`,
+  which isn't valid OpenAPI and showed up as a lint error. Endpoints added
+  with the Add Path wizard all started with that error.
+
 ## [0.3.0] - 2026-10-02
 
 ### Added

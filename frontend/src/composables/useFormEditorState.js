@@ -116,6 +116,16 @@ export function useFormEditorState(props, emit) {
         if (cleaned.security && cleaned.security.length === 0) {
           delete cleaned.security;
         }
+        // Operations opened in the form get an empty request body to bind to;
+        // without content it isn't valid OpenAPI, so it never leaves the form.
+        for (const item of Object.values(cleaned.paths || {})) {
+          for (const op of Object.values(item || {})) {
+            const body = op?.requestBody;
+            if (body && !body.$ref && !Object.keys(body.content || {}).length) {
+              delete op.requestBody;
+            }
+          }
+        }
         emit("update:modelValue", cleanRefsForOutput(cleaned));
       } catch (e) {
         emit("update:modelValue", newVal);
