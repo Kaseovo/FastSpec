@@ -5,6 +5,8 @@ editor or as YAML/JSON, preview them with Swagger UI, lint them with
 Spectral, keep versions and diff them — and let AI agents work with them
 over MCP.
 
+![Claude Code fixes a spec's lint warnings over MCP and saves version 1.1.0; FastSpec's lint score goes from 58 to 100](docs/images/demo.gif)
+
 - **Form editor and code editor** (Monaco, YAML or JSON) for OpenAPI 3.0
   and 3.1. Import existing files, download as YAML or JSON, or start from
   an example.
@@ -18,7 +20,7 @@ over MCP.
 - **Runs anywhere**: one Docker image, SQLite or Postgres, no sign-in for
   single-user setups, any OpenID Connect provider for teams.
 
-![The form editor with the example Petstore spec](docs/images/form-editor.png)
+![Adding GET /authors with the form editor's wizard, seeing it in the YAML editor and the live preview, then saving version 1.2.0 after reviewing the diff and lint score](docs/images/editor.gif)
 
 | Code editor (YAML or JSON) | Swagger UI preview |
 |---|---|
