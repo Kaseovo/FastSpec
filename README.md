@@ -20,7 +20,7 @@ over MCP.
 - **Runs anywhere**: one Docker image, SQLite or Postgres, no sign-in for
   single-user setups, any OpenID Connect provider for teams.
 
-![The form editor with the example Petstore spec](docs/images/form-editor.png)
+![Adding GET /authors with the form editor's wizard, seeing it in the YAML editor and the live preview, then saving version 1.2.0 after reviewing the diff and lint score](docs/images/editor.gif)
 
 | Code editor (YAML or JSON) | Swagger UI preview |
 |---|---|
