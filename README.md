@@ -5,6 +5,8 @@ editor or as YAML/JSON, preview them with Swagger UI, lint them with
 Spectral, keep versions and diff them — and let AI agents work with them
 over MCP.
 
+![Claude Code fixes a spec's lint warnings over MCP and saves version 1.1.0; FastSpec's lint score goes from 58 to 100](docs/images/demo.gif)
+
 - **Form editor and code editor** (Monaco, YAML or JSON) for OpenAPI 3.0
   and 3.1. Import existing files, download as YAML or JSON, or start from
   an example.
