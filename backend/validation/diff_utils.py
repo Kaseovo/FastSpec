@@ -4,6 +4,10 @@ Utility functions for comparing OpenAPI specifications
 
 from typing import Any
 
+# The operation keys of a path item; its other keys (parameters, summary,
+# servers…) are shared settings, not endpoints.
+HTTP_METHODS = ("get", "put", "post", "delete", "options", "head", "patch", "trace")
+
 
 def compare_specs(
     current_spec: dict[str, Any], previous_spec: dict[str, Any]
@@ -103,11 +107,11 @@ def compare_specs(
 
     # Build endpoint lists
     for path, methods in current_paths.items():
-        for method in methods.keys():
+        for method in methods.keys() & HTTP_METHODS:
             current_endpoints.add((path, method))
 
     for path, methods in previous_paths.items():
-        for method in methods.keys():
+        for method in methods.keys() & HTTP_METHODS:
             previous_endpoints.add((path, method))
 
     # Find added endpoints
