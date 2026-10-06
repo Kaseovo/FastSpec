@@ -1251,6 +1251,22 @@ describe("FormEditor - Paths tab", () => {
       expect(last.paths["/users"].get.parameters).toEqual([]);
     });
 
+    test("emitted payload drops the placeholder request body of an operation that has none", async () => {
+      const wrapper = mountFE();
+      wrapper.vm.newPath = "users";
+      wrapper.vm.newMethod = "get";
+      wrapper.vm.addPath();
+      // Opening the operation in the form gives it an empty request body to bind to.
+      expect(wrapper.vm.currentMethodData.requestBody).toBeDefined();
+      wrapper.vm.formData.info.title = "Renamed";
+      await nextTick();
+
+      const emitted = wrapper.emitted("update:modelValue");
+      const last = emitted[emitted.length - 1][0];
+      // Without content it isn't valid OpenAPI, so it must not leave the form.
+      expect(last.paths["/users"].get).not.toHaveProperty("requestBody");
+    });
+
     test("emitted payload strips _itemSchemas back to a plain items object for array request bodies", async () => {
       const wrapper = mountFE();
       wrapper.vm.newPath = "users";

@@ -215,6 +215,25 @@ class TestCompareSpecs:
         assert len(result["modified"]) == 1
         assert result["modified"][0]["summary_changed"] is True
 
+    def test_compare_specs_ignores_path_level_fields(self):
+        # A path item can hold shared parameters, a summary, servers… next to
+        # its operations; only the operations are endpoints.
+        item = {
+            "summary": "One user",
+            "parameters": [{"name": "id", "in": "path", "required": True}],
+            "get": {"summary": "Get a user"},
+        }
+        previous = _minimal_spec(paths={"/users/{id}": item})
+        current = _minimal_spec(
+            paths={"/users/{id}": {**item, "delete": {"summary": "Delete a user"}}}
+        )
+        result = compare_specs(current, previous)
+        assert result["added"] == [
+            {"path": "/users/{id}", "method": "delete", "summary": "Delete a user"}
+        ]
+        assert result["removed"] == []
+        assert result["modified"] == []
+
     def test_compare_specs_info_added(self):
         previous = _minimal_spec()
         current = _minimal_spec(extra_info={"description": "A new description"})
